@@ -9,10 +9,10 @@ from __future__ import annotations
 import copy
 import json
 import time
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
+from .graph import UNWANTED
 from .media import read_video
 
 
@@ -61,8 +61,10 @@ def bind_fluid_graph(graph: dict, *, prompt: str, seed: int) -> BoundGraph:
     savers = _nodes_of(g, "SaveVideo")
     if len(savers) != 1:
         raise GraphBindError(f"expected exactly one SaveVideo node, found {len(savers)}")
-    if _nodes_of(g, "GemmaAPITextEncode"):
-        warnings.warn("graph contains GemmaAPITextEncode; ensure the local encoder branch is selected", UserWarning, stacklevel=2)
+    unwanted = sorted({v["class_type"] for v in g.values() if isinstance(v, dict) and v.get("class_type") in UNWANTED})
+    if unwanted:
+        raise GraphBindError(f"graph depends on {unwanted} (partner API / prompt enhancer); "
+                             "derive it with `cuesync graph` so it runs on open weights only")
     return BoundGraph(graph=g, load_video_id=loaders[0], output_id=savers[0])
 
 

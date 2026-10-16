@@ -1,4 +1,4 @@
-"""cuesync command line: analyze, guide, render, compare, experiment."""
+"""cuesync command line: analyze, guide, graph, render, compare, experiment."""
 
 from __future__ import annotations
 
@@ -15,6 +15,13 @@ def _point(s: str) -> tuple[float, float]:
     if not (0 <= x <= 1 and 0 <= y <= 1):
         raise argparse.ArgumentTypeError("point must be X,Y in [0,1]")
     return x, y
+
+
+def _size(s: str) -> tuple[int, int]:
+    w, h = (int(v) for v in s.lower().split("x"))
+    if w % 64 or h % 64:
+        raise argparse.ArgumentTypeError("width and height must be multiples of 64 (e.g. 576x1024, 512x960)")
+    return w, h
 
 
 def _ints(s: str) -> list[int]:
@@ -50,10 +57,20 @@ def cmd_guide(args) -> int:
     from .guide import paint_guide, write_guide
 
     cue = CueSheet.from_json(json.loads(Path(args.cue).read_text()))
-    plan = paint_guide(cue, load_effect(args.effect), args.point, length=args.length)
+    plan = paint_guide(cue, load_effect(args.effect), args.point, size=args.size, length=args.length)
     write_guide(plan, args.output)
     Path(args.output).with_suffix(".json").write_text(json.dumps(plan.to_json(), indent=1))
     print(f"guide {args.output}: {plan.frames.shape[0]} frames, anchor plate frame {plan.anchor_frame}, keyframes {plan.keyframes}")
+    return 0
+
+
+def cmd_graph(args) -> int:
+    from .graph import element_graph
+
+    g = element_graph(json.loads(Path(args.sample).read_text(encoding="utf-8")), video_name=args.video_name)
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.output).write_text(json.dumps(g, indent=1) + "\n", encoding="utf-8")
+    print(f"element graph {args.output}: {len(g)} nodes")
     return 0
 
 
@@ -127,8 +144,15 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--effect", required=True)
     g.add_argument("--point", type=_point, required=True, help="emission point X,Y in [0,1]")
     g.add_argument("--length", type=int, default=121)
+    g.add_argument("--size", type=_size, default=(576, 1024), help="guide WxH, multiples of 64 (default 576x1024)")
     g.add_argument("-o", "--output", required=True)
     g.set_defaults(func=cmd_guide)
+
+    gr = sub.add_parser("graph", help="ainvfx-fluid sample graph (API format) -> element graph with a Load Video input")
+    gr.add_argument("sample", help="the sample workflow exported in API format")
+    gr.add_argument("--video-name", default="guide.mp4", help="placeholder file for the Load Video node")
+    gr.add_argument("-o", "--output", required=True)
+    gr.set_defaults(func=cmd_graph)
 
     r = sub.add_parser("render", help="guide video -> element via Comfy SDK (COMFY_BASE_URL)")
     r.add_argument("--guide", required=True)

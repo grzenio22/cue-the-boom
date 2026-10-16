@@ -13,12 +13,18 @@ G = json.loads((Path(__file__).parent / "fixtures" / "fluid_element.api.json").r
 
 
 def test_binds_by_class_type():
-    with pytest.warns(UserWarning):
-        b = bind_fluid_graph(G, prompt="ainvfxfluid, fire", seed=7)
+    b = bind_fluid_graph(G, prompt="ainvfxfluid, fire", seed=7)
     assert b.load_video_id == "12" and b.output_id == "90"
     assert b.graph["105:104"]["inputs"]["value"] == "ainvfxfluid, fire"
     assert b.graph["105:7"]["inputs"]["value"] == "blurry, low quality" and b.graph["33:2"]["inputs"]["noise_seed"] == 7
     assert G["33:2"]["inputs"]["noise_seed"] == 42                    # input not mutated
+
+
+@pytest.mark.parametrize("node", ["GemmaAPITextEncode", "TextGenerateLTX2Prompt"])
+def test_partner_api_or_enhancer_nodes_are_refused(node):
+    g = copy.deepcopy(G); g["50"] = {"class_type": node, "inputs": {}}
+    with pytest.raises(GraphBindError, match="open weights"):
+        bind_fluid_graph(g, prompt="ainvfxfluid, x", seed=1)
 
 
 def test_two_loadvideo_raises():

@@ -78,49 +78,46 @@ Other commands:
 | `extend <hours>` | Moves the hard deadline. `extend 0` terminates the pod within a minute, which also tests the watchdog. |
 | `down --all` | Also terminates stray `cue-the-boom*` pods. |
 
-## 4. Graph export (one time)
+## 4. The element graph
 
-1. Open http://127.0.0.1:8188. Workflow → Open → `ainvfx-fluid_painted_smoke_plume.json`. Click **Queue** unmodified; it must render the sample smoke plume to `output/ainvfx-fluid/`.
-2. **Check frame 0** of that render. If the flat painted disc shows as the first frame, open the **Preprocess** subgraph, set `LTXVImgToVideoInplace` to **bypass = true**, and re-run.
-3. At the **top level** of the graph:
-   - Delete **Create Video** and **Empty Audio**.
-   - Add a **Load Video** node and connect it to the **Source Video** node's video input.
-   - Leave Painter → Batch Images → Input Parameters in place: Batch Images also feeds Input Parameters, and it's unused while I2V is bypassed.
+`workflows/fluid_element.api.json` is already in the repo; see `workflows/README.md` for where it comes from. To regenerate it:
 
-   Frame rate and length are read from the loaded video, so there are no fps widgets to change.
-4. Open **Input Parameters**. Make sure the **local Gemma** encoder branch is the one in use, not `GemmaAPITextEncode`, and leave the e2b prompt enhancer **off**.
-5. In Load Video, pick **`03_control.mp4`** (the portrait fire sample, already in `input/`). Set the prompt to `ainvfxfluid, bright orange fire`. Click **Queue** and confirm a fire element renders.
-6. Workflow → **Export (API)**. Save it as `workflows/fluid_element.api.json` in this repo.
+1. Any ComfyUI v0.41.0 with ComfyUI-LTXVideo installed will do, including a CPU-only one on your laptop: `python main.py --cpu --port 8288`. Load `ainvfx-fluid_painted_smoke_plume.json` (from the AInVFX/ainvfx-fluid repo), then export it with ComfyUI's own converter. In the browser console, run `JSON.stringify((await app.graphToPrompt()).output)` and save the result as `ainvfx-fluid_sample.api.json`.
+2. Run:
+
+```bash
+cuesync graph ainvfx-fluid_sample.api.json -o workflows/fluid_element.api.json
+```
+
+This swaps the in-graph painter for a Load Video node and removes the hosted Gemma API and prompt-enhancer branches, so the graph runs on open weights only.
 
 ## 5. SDK smoke test (laptop PowerShell, once `cuesync` is installed)
 
-Create the folders and fetch the sample guide (the setup script already gave it a silent audio track):
+Install `cuesync` into a virtual environment (`--seed` gives the venv its own pip):
 
 ```powershell
-New-Item -ItemType Directory -Force samples, workflows, runs | Out-Null
+cd cuesync; if (-not (Test-Path .venv)) { uv venv --seed --python 3.12 .venv }; .\.venv\Scripts\python -m pip install -e ".[comfy,dev]"; cd ..
 ```
+
+Fetch the model author's portrait fire control video. The setup script already gave it a silent audio track:
 
 ```powershell
-python infra/pod/podctl.py pull /workspace/ComfyUI/input/03_control.mp4 samples/
+python infra/pod/podctl.py pull /workspace/ComfyUI/input/03_control.mp4 runs/inputs/
 ```
 
-Install `cuesync` into a virtual environment:
-
-```powershell
-cd cuesync; if (-not (Test-Path .venv)) { uv venv --python 3.12 .venv }; .\.venv\Scripts\python -m pip install -e ".[comfy,dev]"; cd ..
-```
-
-Point the SDK at the tunnelled proxy, then render the sample guide:
+With `podctl.py tunnel` running, point the SDK at the tunnelled proxy:
 
 ```powershell
 $env:COMFY_BASE_URL = "http://127.0.0.1:8189"
 ```
 
+Then render the sample guide:
+
 ```powershell
-cuesync\.venv\Scripts\cuesync render --guide samples/03_control.mp4 --prompt "ainvfxfluid, bright orange fire" --seed 42 --workflow workflows/fluid_element.api.json -o runs/smoke.mp4
+cuesync\.venv\Scripts\cuesync render --guide runs/inputs/03_control.mp4 --prompt "ainvfxfluid, bright orange fire" --seed 42 --workflow workflows/fluid_element.api.json -o runs/smoke.mp4
 ```
 
-Expected: `runs/smoke.mp4` comes back with the same frame count and frame rate as the guide (the sample may be 25 fps; our own guides are 24).
+Expected: `runs/smoke.mp4` has the same frame count and frame rate as the guide. The sample is 25 fps; CueSync's own guides are 24.
 
 ## 6. Costs and hygiene
 

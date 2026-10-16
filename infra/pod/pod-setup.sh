@@ -260,7 +260,7 @@ cat <<'NEXT'
 READY.
 1. On your LAPTOP:  python infra/pod/podctl.py tunnel
    (or: ssh -N -L 8188:127.0.0.1:8188 -L 8189:127.0.0.1:8189 root@<POD_IP> -p <PORT>)
-2. Browse http://127.0.0.1:8188 and follow infra/pod/README.md, section "Graph export".
+2. ComfyUI is at http://127.0.0.1:8188; the element graph is workflows/fluid_element.api.json (see infra/pod/README.md).
 3. Smoke test from the laptop with COMFY_BASE_URL=http://127.0.0.1:8189 (see the README).
-Stop the pod in the Runpod console when idle; the /workspace volume keeps models and outputs.
+When done:  python infra/pod/podctl.py down   (the /workspace volume keeps models and outputs; the watchdog terminates an idle pod anyway).
 NEXT
