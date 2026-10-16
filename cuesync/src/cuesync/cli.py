@@ -1,4 +1,4 @@
-"""cuesync command line: analyze, guide, graph, render, compare, experiment."""
+"""cuesync command line: analyze, guide, graph, render, compare, experiment, serve."""
 
 from __future__ import annotations
 
@@ -57,10 +57,12 @@ def cmd_guide(args) -> int:
     from .guide import paint_guide, write_guide
 
     cue = CueSheet.from_json(json.loads(Path(args.cue).read_text()))
-    plan = paint_guide(cue, load_effect(args.effect), args.point, size=args.size, length=args.length)
+    plan = paint_guide(cue, load_effect(args.effect), args.point, size=args.size, length=args.length,
+                       tail=args.tail, canvas=args.canvas)
     write_guide(plan, args.output)
     Path(args.output).with_suffix(".json").write_text(json.dumps(plan.to_json(), indent=1))
-    print(f"guide {args.output}: {plan.frames.shape[0]} frames, anchor plate frame {plan.anchor_frame}, keyframes {plan.keyframes}")
+    print(f"guide {args.output}: {plan.frames.shape[0]} frames, anchor plate frame {plan.anchor_frame}, "
+          f"voice ends at element frame {plan.voice_end}, keyframes {plan.keyframes}")
     return 0
 
 
@@ -112,6 +114,15 @@ def cmd_compare(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    from .server import serve
+
+    origins = [o.strip() for o in args.allow_origin.split(",")] if args.allow_origin else None
+    serve(workflow=Path(args.workflow), jobs_dir=Path(args.jobs), host=args.host, port=args.port,
+          allow_origins=origins, timeout=args.timeout)
+    return 0
+
+
 def cmd_experiment(args) -> int:
     from .experiment import run
 
@@ -119,11 +130,15 @@ def cmd_experiment(args) -> int:
         raise SystemExit("use --offsets or --timings, not both")
     m = run(plates=args.plates, noises=args.noises, offsets=_floats(args.offsets) if args.offsets else None,
             timings=args.timings, effect=args.effect, point=args.point, seeds=_ints(args.seeds), length=args.length,
-            elements_dir=args.elements_dir, workflow=args.workflow, out=args.out,
+            tail=args.tail, canvas=args.canvas, allow_stale=args.allow_stale, elements_dir=args.elements_dir,
+            workflow=args.workflow, out=args.out,
             labels=[s.strip() for s in args.labels.split(",")] if args.labels else None)
     for r in m["runs"]:
+        lat = r["stop_latency_frames"]
+        stops = "n/a" if lat is None else (f"{lat} f after the voice" if r["stopped_within_plate"] else f">= {lat} f (still on at plate end)")
         print(f"{r['plate']:>16} n{r['noise_index']} seed {r['seed']}: onset err {r['measured_onset_error_frames']} f, "
-              f"peak err {r['peak_error_frames']} f, speed {r['speed']}, render {r['render_s']}s")
+              f"hit err {r['hit_error_frames']} f, stops {stops}, length {r['element_length']}, render {r['render_s']}s"
+              + ("  [STALE element]" if r["stale_element"] else ""))
     print(f"metrics -> {Path(args.out) / 'metrics.json'}")
     return 0
 
@@ -144,7 +159,9 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--cue", required=True)
     g.add_argument("--effect", required=True)
     g.add_argument("--point", type=_point, required=True, help="emission point X,Y in [0,1]")
-    g.add_argument("--length", type=int, default=121)
+    g.add_argument("--length", type=int, default=None, help="element frames, 8k+1 (default: fit the performance)")
+    g.add_argument("--tail", choices=["wisp", "fade"], default="wisp", help="how the effect is painted to end")
+    g.add_argument("--canvas", action="store_true", help="paint keyframes on a dark canvas")
     g.add_argument("--size", type=_size, default=(576, 1024), help="guide WxH, multiples of 64 (default 576x1024)")
     g.add_argument("-o", "--output", required=True)
     g.set_defaults(func=cmd_guide)
@@ -178,6 +195,15 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("-o", "--output", required=True)
     c.set_defaults(func=cmd_compare)
 
+    sv = sub.add_parser("serve", help="HTTP API for the web app (renders through COMFY_BASE_URL)")
+    sv.add_argument("--workflow", default="workflows/fluid_element.api.json")
+    sv.add_argument("--jobs", default="runs/jobs", help="where job inputs and results are kept")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8765)
+    sv.add_argument("--allow-origin", help="comma list of browser origins allowed to call the API directly")
+    sv.add_argument("--timeout", type=float, default=600.0, help="seconds to wait for one render")
+    sv.set_defaults(func=cmd_serve)
+
     e = sub.add_parser("experiment", help="performances x seeds -> composites on every plate + metrics + compares")
     e.add_argument("--plates", nargs="+", required=True)
     e.add_argument("--noises", nargs="+", required=True)
@@ -186,7 +212,10 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--effect", required=True)
     e.add_argument("--point", type=_point, required=True)
     e.add_argument("--seeds", default="1,2,3")
-    e.add_argument("--length", type=int, default=121)
+    e.add_argument("--length", type=int, default=None, help="element frames, 8k+1 (default: fit each performance)")
+    e.add_argument("--tail", choices=["wisp", "fade"], default="wisp")
+    e.add_argument("--canvas", action="store_true")
+    e.add_argument("--allow-stale", action="store_true", help="composite elements rendered from older guides (A/B only)")
     e.add_argument("--elements-dir", help="reuse element_n{i}_seed{s}.mp4 instead of rendering")
     e.add_argument("--workflow", help="exported API graph (needed unless --elements-dir)")
     e.add_argument("--labels", help="comma list of noise labels for compares")

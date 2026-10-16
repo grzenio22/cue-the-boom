@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ShotPanel from "@/components/ShotPanel";
 import TapPoint from "@/components/TapPoint";
 import { detectOnsetPCM } from "@/lib/audio/onset";
 import { type PcmRecorder, startPcmRecorder } from "@/lib/audio/pcmRecorder";
@@ -9,6 +10,7 @@ import { encodeWav } from "@/lib/audio/wav";
 import { applyAndVerify, AUDIO_CONSTRAINTS, videoConstraints } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
 import { type ClockSample, fitMediaClock, sampleClock } from "@/lib/sync/mediaClock";
+import { suggestEffect } from "@/lib/shot";
 import { buildTimingJson, estimateOffsetS, type TimingJson } from "@/lib/sync/timing";
 
 type Step = "choose" | "tap" | "armed" | "performing" | "result";
@@ -22,6 +24,9 @@ interface Result {
   faceExt: string;
   timingUrl: string | null;
   warnings: string[];
+  voice: Blob;
+  face: Blob | null;
+  suggested: string;
 }
 
 const MIN_PLATE_S = 1;
@@ -45,6 +50,7 @@ export default function DubPage() {
   const [armError, setArmError] = useState<string | null>(null);
   const [chips, setChips] = useState<string[]>([]);
   const [result, setResult] = useState<Result | null>(null);
+  const [plateFile, setPlateFile] = useState<File | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const faceRef = useRef<HTMLVideoElement>(null);
@@ -79,6 +85,7 @@ export default function DubPage() {
         return;
       }
       setPlateUrl(url);
+      setPlateFile(file);
       setPoint(null);
       setStep("tap");
     } catch {
@@ -166,10 +173,14 @@ export default function DubPage() {
       warnings.push("Not enough plate frames were timed, so timing.json couldn't be built. Try again.");
     }
 
-    const micUrl = URL.createObjectURL(new Blob([encodeWav(pcm.pcm, pcm.sampleRate) as BlobPart], { type: "audio/wav" }));
-    const faceUrl = faceBlob && mimeRef.current ? URL.createObjectURL(faceBlob) : null;
+    const voice = new Blob([encodeWav(pcm.pcm, pcm.sampleRate) as BlobPart], { type: "audio/wav" });
+    const micUrl = URL.createObjectURL(voice);
+    const face = faceBlob && mimeRef.current && faceBlob.size > 0 ? faceBlob : null;
+    const faceUrl = face ? URL.createObjectURL(face) : null;
     const timingUrl = timing ? URL.createObjectURL(new Blob([JSON.stringify(timing, null, 2)], { type: "application/json" })) : null;
-    setResult({ onsetS, faceOffsetS, timing, micUrl, faceUrl, faceExt: mimeRef.current?.includes("mp4") ? "mp4" : "webm", timingUrl, warnings });
+    const suggested = suggestEffect(pcm.pcm, pcm.sampleRate, onsetS);
+    setResult({ onsetS, faceOffsetS, timing, micUrl, faceUrl, faceExt: mimeRef.current?.includes("mp4") ? "mp4" : "webm",
+      timingUrl, warnings, voice, face, suggested });
     setStep("result");
     finishing.current = false;
   }, [point]);
@@ -276,12 +287,22 @@ export default function DubPage() {
           </div>
           {result.warnings.map((w) => <p key={w} className="chip warn">{w}</p>)}
           <div className="row">
-            <a className="btn" href={result.micUrl} download="mic.wav">mic.wav</a>
-            {result.faceUrl && <a className="btn" href={result.faceUrl} download={`face.${result.faceExt}`}>face.{result.faceExt}</a>}
-            {result.timingUrl && <a className="btn" href={result.timingUrl} download="timing.json">timing.json</a>}
             <button className="secondary" onClick={redo}>Redo noise</button>
+            <details>
+              <summary className="muted">Raw recordings</summary>
+              <div className="row">
+                <a className="btn secondary" href={result.micUrl} download="mic.wav">mic.wav</a>
+                {result.faceUrl && <a className="btn secondary" href={result.faceUrl} download={`face.${result.faceExt}`}>face.{result.faceExt}</a>}
+                {result.timingUrl && <a className="btn secondary" href={result.timingUrl} download="timing.json">timing.json</a>}
+              </div>
+            </details>
           </div>
         </section>
+      )}
+
+      {step === "result" && result && result.onsetS !== null && plateFile && point && (
+        <ShotPanel key={result.micUrl} input={{ plate: plateFile, voice: result.voice, face: result.face, faceExt: result.faceExt,
+          timing: result.timing, point, suggested: result.suggested }} />
       )}
     </main>
   );
