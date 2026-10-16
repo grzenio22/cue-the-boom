@@ -19,7 +19,7 @@ class ElementTiming:
     visible_onset: int
     peak: int
     curve: np.ndarray
-    hit: int | None = None  # steepest rise before the peak: when the effect reads as "happening"
+    hit: int | None = None  # first frame at half the peak: when the effect reads as "happening"
     extra: dict = field(default_factory=dict)
 
     @property
@@ -48,8 +48,9 @@ def measure_element(frames: np.ndarray, black_level: float = 0.06, kind: str = "
     """Effect energy per frame (3-frame median): mean luma of pixels above ``black_level``, fire-weighted
     when ``kind == "fire"``.
 
-    peak = argmax; visible_onset = first frame reaching 10% of the max *before* the peak; hit = the
-    steepest rise between the onset and the peak.
+    peak = argmax; visible_onset = first frame reaching 10% of the max *before* the peak; hit = the first
+    frame at half the peak: when the effect reads as "happening" (the first visible pixel is too early,
+    the peak too late).
     """
     curve = np.empty(frames.shape[0], dtype=np.float64)
     for i, f in enumerate(frames):  # per frame keeps memory bounded for 121 x 1024 x 576 elements
@@ -65,8 +66,7 @@ def measure_element(frames: np.ndarray, black_level: float = 0.06, kind: str = "
         raise ValueError("element is black: nothing visible to measure")
     peak = int(np.argmax(curve))
     onset = int(np.argmax(curve[: peak + 1] >= 0.1 * top))
-    rise = np.diff(curve[onset: peak + 1]) if peak > onset else np.zeros(0)
-    hit = onset + 1 + int(np.argmax(rise)) if rise.size and rise.max() > 0 else onset
+    hit = onset + int(np.argmax(curve[onset: peak + 1] >= 0.5 * top))
     return ElementTiming(visible_onset=onset, peak=peak, curve=curve, hit=hit)
 
 

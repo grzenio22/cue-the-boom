@@ -19,6 +19,8 @@ goes on wherever the element contributes. Pixels nothing touches are copied from
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -148,9 +150,11 @@ def _warmth(e: np.ndarray, params: CompositeParams) -> tuple[np.ndarray, np.ndar
     return warm, warm * _smoothstep(params.fire_bright_lo, params.fire_bright_hi, e.max(-1))
 
 
-def fire_weight_map(e: np.ndarray, params: CompositeParams, full_width: int, fire_effect: bool = True) -> np.ndarray:
+def fire_weight_map(e: np.ndarray, params: CompositeParams, full_width: int, fire_effect: bool = True,
+                    base: np.ndarray | None = None) -> np.ndarray:
     """Per-pixel fire weight: warm saturated bright pixels, plus white-hot cores grown from them."""
-    _, base = _warmth(e, params)
+    if base is None:
+        _, base = _warmth(e, params)
     if not fire_effect:
         return base
     near = _smoothstep(0.01, 0.1, _blur(base, params.core_reach_frac * full_width))
@@ -284,21 +288,22 @@ def composite_frame(
         black_floor = params.black_floor if params.black_floor is not None else estimate_black_level(elem8[None])
     elem8 = _apply_black_floor(elem8, black_floor)
     gf, gs = float(np.clip(g_fire, 0, 1)), float(np.clip(g_smoke, 0, 1))
-    nz = elem8.max(axis=-1) > 2  # ignore single-level speckle when sizing the crop
+    k = 4  # find the element's extent on a 1/4 grid: cheap, and the margin covers the rounding
+    nz = elem8[::k, ::k].max(axis=-1) > 2  # ignore single-level speckle when sizing the crop
     if holdout_row is not None:
-        nz[min(h, holdout_row + int(0.02 * h)):] = False
+        nz[min(nz.shape[0], (holdout_row + int(0.02 * h)) // k + 1):] = False
     rows, cols = nz.any(axis=1), nz.any(axis=0)
     if not rows.any() or (gf <= 0 and gs <= 0):
         return plate8.copy()
 
-    margin = int(3 * max(params.bloom_sigma_frac, params.interior_blur_frac) * w) + 4
-    y0, y1 = max(0, int(np.argmax(rows)) - margin), min(h, h - int(np.argmax(rows[::-1])) + margin)
-    x0, x1 = max(0, int(np.argmax(cols)) - margin), min(w, w - int(np.argmax(cols[::-1])) + margin)
+    margin = int(3 * max(params.bloom_sigma_frac, params.interior_blur_frac) * w) + 4 + k
+    y0, y1 = max(0, int(np.argmax(rows)) * k - margin), min(h, (len(rows) - int(np.argmax(rows[::-1]))) * k + margin)
+    x0, x1 = max(0, int(np.argmax(cols)) * k - margin), min(w, (len(cols) - int(np.argmax(cols[::-1]))) * k + margin)
     p = plate8[y0:y1, x0:x1].astype(np.float32) / 255.0
     e = elem8[y0:y1, x0:x1].astype(np.float32) / 255.0
 
-    warm, _ = _warmth(e, params)
-    fire_w = fire_weight_map(e, params, w, fire_effect)
+    warm, base_fire = _warmth(e, params)
+    fire_w = fire_weight_map(e, params, w, fire_effect, base=base_fire)
     smoke_w = 1.0 - fire_w
     flame = np.maximum(fire_w, warm) if fire_effect else fire_w  # everything that goes out with the fire
     g_smoke_px = flame * gf + (1.0 - flame) * gs
@@ -347,28 +352,42 @@ def composite_frame(
                 cx, cy = 0.5 * (cx + emission[0]), 0.5 * (cy + emission[1])
             radius = params.light_radius * max(np.sqrt(ys.size / np.pi), 0.02 * w)
             key = 0.5 if plate_key is None else plate_key
-            gy, gx = np.mgrid[0:h:8, 0:w:8].astype(np.float32)
+            g = 8
+            gy, gx = np.mgrid[0:h:g, 0:w:g].astype(np.float32)
             d = np.sqrt(((gx - cx) ** 2 + (gy - cy) ** 2) / radius ** 2)
             small = params.light_gain * (1.0 - 0.7 * key) * energy / (1.0 + d * d)
-            small *= _smoothstep(params.light_reach, 0.5 * params.light_reach, d)  # finite: far pixels untouched
-            if small.max() > 0:
-                light = np.asarray(Image.fromarray(small.astype(np.float32), "F").resize((w, h), Image.Resampling.BILINEAR),
-                                   dtype=np.float32)
+            small = (small * _smoothstep(params.light_reach, 0.5 * params.light_reach, d)).astype(np.float32)
+            on = small > 1e-4  # finite pool: only its bounding box is touched
+            if on.any():
+                r_, c_ = np.nonzero(on.any(1))[0], np.nonzero(on.any(0))[0]
+                gy0, gy1, gx0, gx1 = max(0, r_[0] - 1), min(small.shape[0], r_[-1] + 2), max(0, c_[0] - 1), min(small.shape[1], c_[-1] + 2)
+                ly0, ly1, lx0, lx1 = gy0 * g, min(h, gy1 * g), gx0 * g, min(w, gx1 * g)
+                patch = Image.fromarray(np.ascontiguousarray(small[gy0:gy1, gx0:gx1]), "F")
+                light = (ly0, ly1, lx0, lx1, np.asarray(patch.resize((lx1 - lx0, ly1 - ly0), Image.Resampling.BILINEAR), dtype=np.float32))
     bloom = params.bloom_gain * _blur(np.clip(fire_l - params.bloom_threshold, 0, None), params.bloom_sigma_frac * w)
 
-    out = plate8.astype(np.float32) / 255.0
-    lit = light > 1e-4 if light is not None else np.zeros((h, w), bool)
-    if lit.any():
-        out[lit] *= 1.0 + light[lit][:, None] * np.asarray(params.light_tint, np.float32)
-    region = out[y0:y1, x0:x1] * (1.0 - alpha) + emit
+    # Work only inside the region anything touches: the element's crop plus the light pool.
+    ry0, ry1, rx0, rx1 = y0, y1, x0, x1
+    if light is not None:
+        ry0, ry1, rx0, rx1 = min(ry0, light[0]), max(ry1, light[1]), min(rx0, light[2]), max(rx1, light[3])
+    base = plate8[ry0:ry1, rx0:rx1].astype(np.float32) / 255.0
+    out = base.copy()
+    lit = np.zeros(out.shape[:2], bool)
+    if light is not None:
+        ly0, ly1, lx0, lx1, L = light
+        sl = (slice(ly0 - ry0, ly1 - ry0), slice(lx0 - rx0, lx1 - rx0))
+        lit[sl] = L > 1e-4
+        out[sl] *= 1.0 + L[..., None] * np.asarray(params.light_tint, np.float32)
+    cy_ = slice(y0 - ry0, y1 - ry0)
+    cx_ = slice(x0 - rx0, x1 - rx0)
+    region = out[cy_, cx_] * (1.0 - alpha) + emit
     region = 1.0 - (1.0 - region) * (1.0 - bloom[..., None] * np.asarray(params.light_tint, np.float32))
     if params.grain and grain_sigma > 0:
         rng = np.random.default_rng(seed)
         noise = rng.normal(0.0, grain_sigma / 255.0, region.shape[:2] + (1,)).astype(np.float32)
         region += noise * np.clip(alpha + (emit.max(-1, keepdims=True) > 0.02), 0, 1)
-    out[y0:y1, x0:x1] = region
+    out[cy_, cx_] = region
     if params.shoulder < 1.0:  # roll off what was ADDED, keeping hue: compress the max channel, scale all three
-        base = plate8.astype(np.float32) / 255.0
         limit = np.maximum(base.max(-1), params.shoulder)
         mx = out.max(-1)
         over = mx > limit
@@ -376,11 +395,13 @@ def composite_frame(
             room = np.maximum(1.0 - limit[over], 1e-4)
             new = limit[over] + room * (1.0 - np.exp(-(mx[over] - limit[over]) / room))
             out[over] *= (new / mx[over])[:, None]
-    out8 = np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8)
-    same = np.abs(out8.astype(np.int16) - plate8.astype(np.int16)).max(-1) <= 0
+    region8 = np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    plate_r = plate8[ry0:ry1, rx0:rx1]
     untouched = ~lit
-    untouched[y0:y1, x0:x1] &= (alpha[..., 0] <= 0) & (emit.max(-1) <= 0) & (bloom <= 0)
-    out8[untouched | same] = plate8[untouched | same]  # bit-exact where nothing contributes
+    untouched[cy_, cx_] &= (alpha[..., 0] <= 0) & (emit.max(-1) <= 0) & (bloom <= 0)
+    region8[untouched] = plate_r[untouched]  # bit-exact where nothing contributes
+    out8 = plate8.copy()
+    out8[ry0:ry1, rx0:rx1] = region8
     return out8
 
 
@@ -424,21 +445,22 @@ def composite(
     gs_all = gates[1] if gates is not None else np.ones(n)
     window = min(params.end_fade_frames, elen // 4)
 
-    last_idx, last_src = None, None
-    for f in range(n):
+    def one(f: int) -> None:
         idx = element_index_for(alignment, timing, f, elen)
         if idx is None:
-            continue
-        if idx != last_idx:
-            src = element[idx]
-            if src.shape[:2] != (h, w):
-                src = np.asarray(Image.fromarray(src).resize((w, h), Image.Resampling.LANCZOS))
-            last_idx, last_src = idx, src
+            return
+        src = element[idx]
+        if src.shape[:2] != (h, w):
+            src = np.asarray(Image.fromarray(src).resize((w, h), Image.Resampling.LANCZOS))
         fade = min(1.0, (elen - 1 - idx) / window) if window > 0 else 1.0
         g_fire = float(gf_all[f]) * fade if f < len(gf_all) else 0.0
         g_smoke = float(gs_all[f]) * fade if f < len(gs_all) else 0.0
-        out[f] = composite_frame(plate[f], last_src, params, g_fire=g_fire, g_smoke=g_smoke, holdout_row=holdout_row,
+        out[f] = composite_frame(plate[f], src, params, g_fire=g_fire, g_smoke=g_smoke, holdout_row=holdout_row,
                                  emission=emission, fire_energy_ref=fire_ref or None, plate_key=plate_key,
                                  grain_sigma=grain, black_floor=floor, fire_effect=fire_effect, dense_smoke=dense_smoke,
                                  smoke_ref=smoke_ref, env_rgb=env_rgb, seed=f)
+
+    # Frames are independent and numpy releases the GIL in the heavy loops, so threads share the work.
+    with ThreadPoolExecutor(max_workers=max(1, min(8, (os.cpu_count() or 2) - 1))) as pool:
+        list(pool.map(one, range(n)))
     return out

@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw
 from . import __version__
 from .align import element_index_for, plan_alignment
 from .audio import analyze
-from .compare import RIBBON_H, _decorate, _font
+from .compare import PLAYHEAD, RIBBON_BG, RIBBON_FILL, RIBBON_FUTURE, RIBBON_H, _font
 from .composite import composite, first_shown_frame, voice_gates
 from .conform import conform
 from .effects import load_effect
@@ -128,26 +128,52 @@ def _face_track(face: Path, n_frames: int, plate_offset_s: float, face_offset_s:
     return out
 
 
+def _ribbons(env: np.ndarray, n: int, w: int) -> tuple[np.ndarray, np.ndarray]:
+    """The voice ribbon drawn twice, once as 'already performed' and once as 'still to come'."""
+    played = Image.new("RGB", (w, RIBBON_H), RIBBON_BG)
+    future = Image.new("RGB", (w, RIBBON_H), RIBBON_BG)
+    dp, df = ImageDraw.Draw(played), ImageDraw.Draw(future)
+    last = max(n - 1, 1)
+    for i in range(n):
+        v = float(env[i]) if i < env.size else 0.0
+        x0, x1 = int(i / last * (w - 1)), int((i + 1) / last * (w - 1))
+        bar = int(v * (RIBBON_H - 8))
+        if bar > 0:
+            box = [x0, RIBBON_H - 4 - bar, max(x0, x1 - 1), RIBBON_H - 4]
+            dp.rectangle(box, fill=RIBBON_FILL)
+            df.rectangle(box, fill=RIBBON_FUTURE)
+    return np.asarray(played), np.asarray(future)
+
+
 def _finalise(frames: np.ndarray, env: np.ndarray, label: str, faces) -> np.ndarray:
-    """Face inset (bottom left, above the ribbon), effect label and the live voice ribbon."""
+    """Face inset (bottom left), effect label and the live voice ribbon with its playhead."""
     n, h, w = frames.shape[:3]
     out = np.empty((n, h + RIBBON_H, w, 3), dtype=np.uint8)
     pad = w // 30
+    played, future = _ribbons(env, n, w)
+    font = _font(max(18, w // 14))
+    stamp = Image.new("RGBA", (w, max(18, w // 14) * 2 + 16), (0, 0, 0, 0))
+    ImageDraw.Draw(stamp).text((w // 2, max(18, w // 14) // 2 + 8), label, font=font, fill=(255, 255, 255, 255), anchor="mt",
+                               stroke_width=max(2, w // 168), stroke_fill=(0, 0, 0, 255))
+    mask_cache: dict[int, Image.Image] = {}
     for t in range(n):
-        f = frames[t].copy()
+        img = Image.fromarray(frames[t])
         if faces is not None and faces[t] is not None:
             s = faces[t].shape[0]
+            if s not in mask_cache:
+                m = Image.new("L", (s, s), 0)
+                ImageDraw.Draw(m).rounded_rectangle([0, 0, s - 1, s - 1], radius=s // 6, fill=255)
+                mask_cache[s] = m
             y0, x0 = h - s - pad, pad
-            img = Image.fromarray(f)
-            mask = Image.new("L", (s, s), 0)
-            ImageDraw.Draw(mask).rounded_rectangle([0, 0, s - 1, s - 1], radius=s // 6, fill=255)
-            img.paste(Image.fromarray(faces[t]), (x0, y0), mask)
+            img.paste(Image.fromarray(faces[t]), (x0, y0), mask_cache[s])
             ImageDraw.Draw(img).rounded_rectangle([x0, y0, x0 + s - 1, y0 + s - 1], radius=s // 6,
                                                   outline=(255, 255, 255), width=max(2, w // 270))
-            f = np.asarray(img)
-        canvas = np.zeros((h + RIBBON_H, w, 3), np.uint8)
-        canvas[:h] = f
-        out[t] = _decorate(canvas, label, env, t, n)
+        img.paste(stamp, (0, 0), stamp)
+        out[t, :h] = np.asarray(img)
+        px = int(t / max(n - 1, 1) * (w - 1))
+        out[t, h:, :px + 1] = played[:, :px + 1]
+        out[t, h:, px + 1:] = future[:, px + 1:]
+        out[t, h:, max(0, px - 1):px + 1] = PLAYHEAD
     return out
 
 
@@ -168,13 +194,22 @@ def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: 
             cache[k] = np.asarray(Image.fromarray(src[i]).resize((hw, hh), Image.Resampling.BILINEAR))
         return cache[k]
 
+    keyed = [i for i in range(guide.shape[0]) if guide[i].any()]  # the guide only exists at its keyframes
+
+    def latest_key(i: int | None) -> int | None:
+        if i is None:
+            return None
+        prior = [k for k in keyed if k <= i]
+        return prior[-1] if prior else None
+
+    half = lambda f: np.asarray(Image.fromarray(f).reduce(2)) if f.shape[1] // 2 == hw else np.asarray(Image.fromarray(f).resize((hw, hh)))
     for t in range(n):
         idx = element_index_for(align, timing, t, element.shape[0])
-        g_idx = None if idx is None or idx >= guide.shape[0] else idx
-        tiles = [(np.asarray(Image.fromarray(plate[t]).resize((hw, hh))), "1 plate (untouched)"),
+        g_idx = latest_key(None if idx is None else min(idx, guide.shape[0] - 1))
+        tiles = [(half(plate[t]), "1 plate (untouched)"),
                  (small(guide, g_idx, "g"), "2 voice-painted guide"),
                  (small(element, idx, "e"), "3 LTX-2.5 element"),
-                 (np.asarray(Image.fromarray(comp[t]).resize((hw, hh))), "4 composite")]
+                 (half(comp[t]), "4 composite")]
         for k, (tile, text) in enumerate(tiles):
             y0, x0 = (k // 2) * hh, (k % 2) * hw
             img = Image.fromarray(tile.copy())

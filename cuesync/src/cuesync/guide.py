@@ -68,8 +68,11 @@ class GuidePlan:
         }
 
 
-def keyframe_indices(length: int, stride: int) -> list[int]:
-    """Valid ainvfx-fluid keyframes: 0, 1+stride*j (j>=1, up to length-8), and the last frame."""
+POP = {"burst": 0.65, "puff": 0.5}  # share of the peak size already reached at frame 1: bursts pop, they don't swell
+
+
+def keyframe_indices(length: int, stride: int, with_one: bool = False) -> list[int]:
+    """Valid ainvfx-fluid keyframes: 0, (1,) 1+stride*j (j>=1, up to length-8), and the last frame."""
     if length < 9 or length % 8 != 1:
         raise ValueError(f"element length must be 8k+1 (>= 9), got {length}")
     if stride <= 0 or stride % 8:
@@ -79,7 +82,7 @@ def keyframe_indices(length: int, stride: int) -> list[int]:
     while 1 + stride * j <= length - 8:
         mids.append(1 + stride * j)
         j += 1
-    return [0] + mids + [length - 1]
+    return [0] + ([1] if with_one else []) + mids + [length - 1]
 
 
 def anchor_frame_of(cue: CueSheet, effect: EffectSpec) -> int:
@@ -174,13 +177,16 @@ def _burst_shapes(effect: EffectSpec, e: int, perf: _Performance, length: int, w
     r0 = max(effect.r_min * w, MIN_RADIUS_PX)
     rpk = max((effect.r_min + (effect.r_max - effect.r_min) * perf.peak_early) * w, r0)
     rise_y = y0 - effect.rise * h * (e / (length - 1))
-    p1 = keys[1] if len(keys) > 2 else keys[-1]
-    p2 = keys[2] if len(keys) > 3 else p1
+    later = [k for k in keys if k > 1]
+    p1 = later[0] if len(later) > 1 else keys[-1]
+    p2 = later[1] if len(later) > 2 else p1
     # A sustained "KA-BOOOOM" holds the fireball while the voice lasts (bounded); a clipped "pf." doesn't.
     hold = p2 + BURST_MAX_HOLD if perf.end is None else min(max(p2, perf.end), p2 + BURST_MAX_HOLD)
     shapes: list[dict] = []
     if e == 0:
         r = r0
+    elif e == 1 and 1 in keys:
+        r = r0 + (rpk - r0) * POP["burst"]  # the explosion has mostly happened one frame in
     elif e <= p1:
         r = r0 + (rpk - r0) * (e / p1)
     else:
@@ -201,10 +207,13 @@ def _puff_shapes(effect: EffectSpec, e: int, perf: _Performance, length: int, w:
     r0 = max(effect.r_min * w, MIN_RADIUS_PX)
     rpk = max((effect.r_min + (effect.r_max - effect.r_min) * perf.peak_early) * w, r0)
     rise_y = y0 - effect.rise * h * (e / (length - 1))
-    p1 = keys[1] if len(keys) > 2 else keys[-1]
+    later = [k for k in keys if k > 1]
+    p1 = later[0] if len(later) > 1 else keys[-1]
     growth = 0.3 + 0.9 * min(perf.active_frames / 48.0, 1.0)  # a longer "pfffff" makes a bigger puff
     if e == 0:
         r = r0
+    elif e == 1 and 1 in keys:
+        r = r0 + (rpk - r0) * POP["puff"]
     elif e <= p1:
         r = r0 + (rpk - r0) * (e / p1)
     else:
@@ -316,7 +325,7 @@ def paint_guide(
         raise ValueError(f"tail must be 'wisp' or 'fade', got {tail!r}")
     anchor = anchor_frame_of(cue, effect)
     length = performance_length(cue, effect, anchor) if length is None else length
-    keys = keyframe_indices(length, effect.keyframe_stride)
+    keys = keyframe_indices(length, effect.keyframe_stride, with_one=effect.behaviour in POP)
     perf = _performance(cue, anchor, length)
     x0, y0 = float(point[0]) * w, float(point[1]) * h
 
