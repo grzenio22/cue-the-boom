@@ -1,0 +1,13 @@
+{
+  "id": "fireball",
+  "anchor": "hero",
+  "behaviour": "burst",
+  "fluid": "fire",
+  "secondary": "smoke",
+  "prompt": "ainvfxfluid, a fiery explosion burst that rolls into thick smoke, warm light",
+  "r_min": 0.04,
+  "r_max": 0.42,
+  "rise": 0.35,
+  "keyframe_stride": 8,
+  "composite": "screen"
+}

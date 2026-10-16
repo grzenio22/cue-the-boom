@@ -1,0 +1,8 @@
+{
+  "12": {"class_type": "LoadVideo", "inputs": {"file": "x.mp4"}},
+  "105:104": {"class_type": "PrimitiveStringMultiline", "inputs": {"value": "ainvfxfluid, smoke plume"}},
+  "105:7": {"class_type": "PrimitiveStringMultiline", "inputs": {"value": "blurry, low quality"}},
+  "33:2": {"class_type": "RandomNoise", "inputs": {"noise_seed": 42}},
+  "90": {"class_type": "SaveVideo", "inputs": {"filename_prefix": "ainvfx-fluid/x", "format": "mp4", "codec": "h264"}},
+  "50": {"class_type": "GemmaAPITextEncode", "inputs": {}}
+}

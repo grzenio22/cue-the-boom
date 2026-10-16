@@ -1,0 +1,13 @@
+{
+  "id": "flame_plume",
+  "anchor": "first",
+  "behaviour": "plume",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire",
+  "r_min": 0.03,
+  "r_max": 0.30,
+  "rise": 0.55,
+  "keyframe_stride": 8,
+  "composite": "screen"
+}

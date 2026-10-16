@@ -1,0 +1,178 @@
+"""cuesync command line: analyze, guide, render, compare, experiment."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+
+def _point(s: str) -> tuple[float, float]:
+    x, y = (float(v) for v in s.split(","))
+    if not (0 <= x <= 1 and 0 <= y <= 1):
+        raise argparse.ArgumentTypeError("point must be X,Y in [0,1]")
+    return x, y
+
+
+def _ints(s: str) -> list[int]:
+    return [int(v) for v in s.split(",") if v.strip()]
+
+
+def _floats(s: str) -> list[float]:
+    return [float(v) for v in s.split(",") if v.strip()]
+
+
+def _offset(args) -> float:
+    if getattr(args, "timing", None):
+        from .experiment import offset_from_timing
+
+        return offset_from_timing(json.loads(Path(args.timing).read_text()))
+    return float(args.offset or 0.0)
+
+
+def cmd_analyze(args) -> int:
+    from .audio import analyze
+    from .media import read_audio
+
+    cue = analyze(read_audio(args.noise), 48000, offset_s=_offset(args))
+    Path(args.output).write_text(json.dumps(cue.to_json(), indent=1))
+    print(f"hero onset {cue.hero_onset_s:.3f}s (frame {cue.frame_of(cue.hero_onset_s)}), "
+          f"{len(cue.onsets_s)} onsets, peak frame {cue.peak_frame}, max level {cue.envelope.max():.2f} -> {args.output}")
+    return 0
+
+
+def cmd_guide(args) -> int:
+    from .audio import CueSheet
+    from .effects import load_effect
+    from .guide import paint_guide, write_guide
+
+    cue = CueSheet.from_json(json.loads(Path(args.cue).read_text()))
+    plan = paint_guide(cue, load_effect(args.effect), args.point, length=args.length)
+    write_guide(plan, args.output)
+    Path(args.output).with_suffix(".json").write_text(json.dumps(plan.to_json(), indent=1))
+    print(f"guide {args.output}: {plan.frames.shape[0]} frames, anchor plate frame {plan.anchor_frame}, keyframes {plan.keyframes}")
+    return 0
+
+
+def cmd_render(args) -> int:
+    from .runner import render_element
+
+    res = render_element(args.guide, prompt=args.prompt, seed=args.seed, workflow_path=args.workflow, out_path=args.output)
+    print(f"rendered {res.path} in {res.seconds:.1f}s")
+    return 0
+
+
+def cmd_compare(args) -> int:
+    from .audio import CueSheet
+    from .compare import side_by_side
+    from .media import read_video, write_video
+
+    cue_a = CueSheet.from_json(json.loads(Path(args.cue_a).read_text()))
+    cue_b = CueSheet.from_json(json.loads(Path(args.cue_b).read_text()))
+
+    def anchor(explicit, guide_json, cue):  # explicit > the guide's own anchor rule > hero onset
+        if explicit is not None:
+            return explicit
+        if guide_json:
+            return int(json.loads(Path(guide_json).read_text())["anchor_frame"])
+        return cue.frame_of(cue.hero_onset_s)
+
+    anchor_a = anchor(args.anchor_a, args.guide_a, cue_a)
+    anchor_b = anchor(args.anchor_b, args.guide_b, cue_b)
+    labels = [s.strip() for s in args.labels.split(",")] if args.labels else [Path(args.a).stem, Path(args.b).stem]
+    size = None
+    if args.half:
+        probe = read_video(args.a).frames
+        size = (probe.shape[2] // 2, probe.shape[1] // 2)
+    frames = side_by_side(read_video(args.a, size=size).frames, read_video(args.b, size=size).frames,
+                          anchor_a, anchor_b, np.asarray(cue_a.envelope), np.asarray(cue_b.envelope), labels[:2])
+    write_video(args.output, frames, fps=24)
+    print(f"compare -> {args.output} ({frames.shape[0]} frames)")
+    return 0
+
+
+def cmd_experiment(args) -> int:
+    from .experiment import run
+
+    if args.timings and args.offsets:
+        raise SystemExit("use --offsets or --timings, not both")
+    m = run(plates=args.plates, noises=args.noises, offsets=_floats(args.offsets) if args.offsets else None,
+            timings=args.timings, effect=args.effect, point=args.point, seeds=_ints(args.seeds), length=args.length,
+            elements_dir=args.elements_dir, workflow=args.workflow, out=args.out,
+            labels=[s.strip() for s in args.labels.split(",")] if args.labels else None)
+    for r in m["runs"]:
+        print(f"{r['plate']:>16} n{r['noise_index']} seed {r['seed']}: onset err {r['measured_onset_error_frames']} f, "
+              f"peak err {r['peak_error_frames']} f, speed {r['speed']}, render {r['render_s']}s")
+    print(f"metrics -> {Path(args.out) / 'metrics.json'}")
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="cuesync", description="Voice-shaped VFX: cue sheets, fluid guides, renders, composites.")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    a = sub.add_parser("analyze", help="noise recording -> cue sheet JSON")
+    a.add_argument("noise")
+    g_off = a.add_mutually_exclusive_group()
+    g_off.add_argument("--offset", type=float, help="plate time (s) of the recording's first sample")
+    g_off.add_argument("--timing", help="Dub Mode timing.json (offset = noise_offset_s - input_latency_s)")
+    a.add_argument("-o", "--output", required=True)
+    a.set_defaults(func=cmd_analyze)
+
+    g = sub.add_parser("guide", help="cue sheet -> ainvfx-fluid guide video")
+    g.add_argument("--cue", required=True)
+    g.add_argument("--effect", required=True)
+    g.add_argument("--point", type=_point, required=True, help="emission point X,Y in [0,1]")
+    g.add_argument("--length", type=int, default=121)
+    g.add_argument("-o", "--output", required=True)
+    g.set_defaults(func=cmd_guide)
+
+    r = sub.add_parser("render", help="guide video -> element via Comfy SDK (COMFY_BASE_URL)")
+    r.add_argument("--guide", required=True)
+    r.add_argument("--prompt", required=True)
+    r.add_argument("--seed", type=int, default=42)
+    r.add_argument("--workflow", required=True, help="exported API graph (workflows/fluid_element.api.json)")
+    r.add_argument("-o", "--output", required=True)
+    r.set_defaults(func=cmd_render)
+
+    c = sub.add_parser("compare", help="two composites side by side, synced on the hit, with envelope ribbons")
+    c.add_argument("--a", required=True)
+    c.add_argument("--cue-a", required=True)
+    c.add_argument("--b", required=True)
+    c.add_argument("--cue-b", required=True)
+    c.add_argument("--anchor-a", type=int)
+    c.add_argument("--anchor-b", type=int)
+    c.add_argument("--guide-a", help="guide.json written by 'cuesync guide' (uses its anchor_frame)")
+    c.add_argument("--guide-b", help="guide.json written by 'cuesync guide' (uses its anchor_frame)")
+    c.add_argument("--labels", help='e.g. "pf.,fwoooOOOM"')
+    c.add_argument("--half", action="store_true", help="half-resolution sides")
+    c.add_argument("-o", "--output", required=True)
+    c.set_defaults(func=cmd_compare)
+
+    e = sub.add_parser("experiment", help="performances x seeds -> composites on every plate + metrics + compares")
+    e.add_argument("--plates", nargs="+", required=True)
+    e.add_argument("--noises", nargs="+", required=True)
+    e.add_argument("--offsets", help="comma list, one per noise")
+    e.add_argument("--timings", nargs="+", help="Dub Mode timing.json per noise")
+    e.add_argument("--effect", required=True)
+    e.add_argument("--point", type=_point, required=True)
+    e.add_argument("--seeds", default="1,2,3")
+    e.add_argument("--length", type=int, default=121)
+    e.add_argument("--elements-dir", help="reuse element_n{i}_seed{s}.mp4 instead of rendering")
+    e.add_argument("--workflow", help="exported API graph (needed unless --elements-dir)")
+    e.add_argument("--labels", help="comma list of noise labels for compares")
+    e.add_argument("--out", required=True)
+    e.set_defaults(func=cmd_experiment)
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    return int(args.func(args) or 0)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
