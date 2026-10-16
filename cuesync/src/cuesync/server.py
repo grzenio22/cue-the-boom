@@ -30,7 +30,8 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json",
                 "compare.mp4")
-SAMPLES = Path(__file__).resolve().parents[3] / "samples"
+SAMPLES = next((d for d in (Path.cwd() / "samples", Path(__file__).resolve().parents[3] / "samples")
+                if (d / "samples.json").exists()), Path.cwd() / "samples")
 MAX_UPLOAD_MB = 300
 
 

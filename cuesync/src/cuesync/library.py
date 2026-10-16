@@ -33,7 +33,17 @@ PLAN = {
     "flame_plume": ("short", "medium", "long"),
     "steam_jet": ("short", "medium", "long"),
 }
-DEFAULT_DIR = Path(__file__).resolve().parents[3] / "samples" / "library"
+def _default_dir() -> Path:
+    """$CUESYNC_LIBRARY, else samples/library under the working directory, else next to a source checkout."""
+    import os
+    for d in (os.environ.get("CUESYNC_LIBRARY"), Path.cwd() / "samples" / "library",
+              Path(__file__).resolve().parents[3] / "samples" / "library"):
+        if d and (Path(d) / "manifest.json").exists():
+            return Path(d)
+    return Path.cwd() / "samples" / "library"
+
+
+DEFAULT_DIR = _default_dir()
 
 
 def reference_performance(name: str, seed: int = 0) -> np.ndarray:
