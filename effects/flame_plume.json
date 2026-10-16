@@ -10,5 +10,6 @@
   "rise": 0.55,
   "keyframe_stride": 8,
   "composite": "screen",
-  "release_smoke": 10
+  "release_smoke": 10,
+  "release_fire": 9
 }

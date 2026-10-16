@@ -167,7 +167,7 @@ def test_holdout_cuts_below_the_emission_point():
     cut = composite(plate, el, plan_alignment(0, t), t, emission=(36, 80), holdout_below=0.02)
     uncut = composite(plate, el, plan_alignment(0, t), t)
     below = (slice(None), slice(100, 120), slice(20, 52))
-    assert uncut[below].mean() > cut[below].mean() + 50           # the nozzle is gone...
+    assert uncut[below][..., 0].mean() > cut[below][..., 0].mean() + 50  # the nozzle is gone...
     assert cut[below].mean() < plate[below].mean() + 30            # ...leaving only the fire's light on the table
     assert cut[3, 50, 36, 0] > plate[3, 50, 36, 0] + 50           # the fire above the cut is untouched
 

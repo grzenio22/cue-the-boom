@@ -1,20 +1,26 @@
 """Composite an over-black fluid element onto untouched footage.
 
-An element rendered over black is a premultiplied image without an alpha channel, so the alpha is built
-per material:
-- Fire (warm, saturated, bright pixels, plus white-hot cores grown from them) partly occludes the plate in
-  proportion to its own peak channel and adds its light: out = plate*(1-a) + E. Pure screen can never
-  darken a bright plate, so fire over daylight went pale; a partly opaque body keeps it orange.
-- Smoke and steam: a luminous fluid's alpha is its luma relative to its densest luma, so thin edges stay
-  thin. Dense smoke is also self-shadowed, so its interior (by a soft, render-following measure) is made
-  opaque even where it renders dark; otherwise the core would be the most see-through part. Smoke leans
-  toward the room's colour, and the room's light lifts its self-shadowed parts (a render on black has none).
-Fire also lights the plate (a soft multiplicative pool with a finite reach) and blooms.
+An element rendered over black is a premultiplied image without an alpha channel: one RGB value can't say
+how much is density and how much is light, so each material gets its own model. Blending happens in linear
+light; the material split and the shoulder work on display values.
+- Fire (warm, saturated, bright pixels, plus white-hot cores grown from them) is emission with an opaque
+  core: out = plate*(1-a) + E, where a may reach ~1 in the core (the element's own orange structure shows,
+  nothing washes out) but never exceeds what keeps the pixel at least as bright as the plate behind it, so
+  fire never darkens what it passes in front of (no dark fringes on bright plates).
+- Smoke and steam get a density alpha (luma relative to the densest smoke, plus an opaque interior measured
+  from the cloud's soft coverage) and are relit: their colour is the plate's local ambient light times the
+  material's albedo, modulated by the render's own shading, plus some of the render's light. White smoke
+  stays white and billowy on a bright wall, dims to the room in a dark one, and soot (low albedo) reads as
+  dense dark smoke anywhere.
+Fire also lights the plate (a soft multiplicative pool with a finite reach, stronger on the object it comes
+from) and blooms.
 
 Voice gates scale what belongs to the flame (any warm pixel, however dim) with the fire gate and the rest
-with the smoke gate, so a flame goes out as a whole instead of leaving a ghost. A holdout cuts everything
-below the emission point, which also hides any nozzle or ground the model invents. Plate-matched grain
-goes on wherever the element contributes. Pixels nothing touches are copied from the plate exactly.
+with the smoke gate, so a flame goes out as a whole instead of leaving a ghost. Fire dims like fire (red
+lasts longest, blue goes first) and a sustained flame lifts off its base as it goes out. The object the
+effect comes from, when its matte is known, stays in front of everything below the emission point;
+without a matte a soft horizontal holdout stands in. Plate-matched grain goes on wherever the element
+contributes. Pixels nothing touches are copied from the plate exactly.
 """
 
 from __future__ import annotations
@@ -43,19 +49,27 @@ class CompositeParams:
     core_lo: float = 0.7  # white-hot pixels next to warm fire are fire too
     core_hi: float = 0.9
     core_reach_frac: float = 0.06  # how far (fraction of width) a white-hot core may extend from warm fire
-    # fire: occlusion in proportion to the flame's own peak channel, emission everywhere
-    fire_occlusion: float = 0.6
-    fire_alpha_lo: float = 0.3
-    fire_alpha_hi: float = 0.8
+    # fire: emission with an opaque core, never darker than the plate behind it
+    fire_occlusion: float = 0.97
+    fire_alpha_lo: float = 0.15
+    fire_alpha_hi: float = 0.55
     fire_gain: float = 1.0
-    # smoke and steam
-    smoke_opacity: float = 0.92
+    fire_lift_frac: float = 0.5  # a sustained flame going out lifts off its base this far (fraction of height)
+    fire_darken: float = 0.2  # how much darker than the plate a flame's body may get (0: pure light, never darker)
+    # smoke and steam: density alpha, relit by the room
+    smoke_opacity: float = 0.97  # dense cores: in linear light even 8 % transmission shows a bright plate
+    smoke_alpha_gamma: float = 0.8  # thin smoke is a little denser than its luma says
     smoke_mask_level: float = 0.06  # luma where a pixel starts to belong to the cloud
     interior_blur_frac: float = 0.04
-    interior_lo: float = 0.5
-    interior_hi: float = 0.95
-    smoke_tint: float = 0.35  # how far smoke colour leans toward the room's (luminance kept)
-    smoke_ambient: float = 0.35  # the room's light on dense smoke's self-shadowed parts
+    interior_lo: float = 0.45
+    interior_hi: float = 0.9
+    ambient_blur_frac: float = 0.15  # the room light reaching the smoke: the plate blurred this wide
+    shading_lo: float = 0.35  # the render's shading is kept as a factor in [lo, hi] around 1
+    shading_hi: float = 1.6
+    shading_gamma: float = 0.7  # < 1 softens it: dense white smoke stays white, just shaded
+    smoke_desat: float = 0.6  # the model lights smoke like a sky (blue-grey); smoke itself is near neutral
+    holdout_soft_frac: float = 0.1  # without an object matte, the cut below the emission point fades over this
+    object_light_boost: float = 1.0  # the object the fire comes from catches extra light
     # light on the plate, and bloom
     light_gain: float = 0.6
     light_radius: float = 1.5  # x the fire's radius
@@ -76,6 +90,46 @@ class CompositeParams:
 def _smoothstep(lo: float, hi: float, x: np.ndarray) -> np.ndarray:
     t = np.clip((x - lo) / (hi - lo), 0.0, 1.0)
     return t * t * (3.0 - 2.0 * t)
+
+
+def _lin(x: np.ndarray) -> np.ndarray:
+    return np.power(np.clip(x, 0.0, None), 2.2, dtype=np.float32)
+
+
+def _gam(x: np.ndarray) -> np.ndarray:
+    return np.power(np.clip(x, 0.0, None), 1.0 / 2.2, dtype=np.float32)
+
+
+def _blackbody(e: np.ndarray, k: np.ndarray) -> np.ndarray:
+    """Fire dimmed by k in [0, 1] the way fire dims: red lasts, green follows, blue goes first."""
+    k = np.clip(k, 0.0, 1.0)[..., None]
+    return e * np.concatenate([k, k ** 1.7, k ** 3], axis=-1)
+
+
+def ambient_map(plate_frame: np.ndarray, params: CompositeParams) -> np.ndarray:
+    """The room light around every pixel (linear RGB, plate size): the plate blurred wide, from its first
+    frame (plates are locked off, and one map keeps the smoke from flickering with the footage)."""
+    h, w = plate_frame.shape[:2]
+    s = 8
+    small = _lin(np.asarray(Image.fromarray(plate_frame).resize((max(1, w // s), max(1, h // s)), Image.Resampling.BOX),
+                            dtype=np.float32) / 255.0)
+    blurred = np.stack([_blur(small[..., c], params.ambient_blur_frac * w / s) for c in range(3)], -1)
+    return np.stack([np.asarray(Image.fromarray(np.ascontiguousarray(blurred[..., c]), "F").resize((w, h), Image.Resampling.BILINEAR),
+                                dtype=np.float32) for c in range(3)], -1)
+
+
+def smoke_shading_ref(element: np.ndarray, params: CompositeParams, floor: int, fire_effect: bool, ref: float) -> float:
+    """Median un-premultiplied linear luma of the element's smoke (one value per shot, so shading never pumps)."""
+    sample = element[:: max(1, element.shape[0] // 16), ::4, ::4]
+    vals = []
+    for f in sample:
+        e = _black_floor_f(f, floor)
+        y = e @ _LUMA
+        a = np.clip(y / ref, 0.0, 1.0) ** params.smoke_alpha_gamma
+        m = (a > 0.3) & (fire_weight_map(e, params, f.shape[1], fire_effect) < 0.1)
+        if m.any():
+            vals.append((_lin(e[m]) / np.maximum(a[m], 0.05)[:, None]) @ _LUMA)
+    return float(np.median(np.concatenate(vals))) if vals else 0.25
 
 
 def _hue_sat(e: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -141,6 +195,16 @@ def _apply_black_floor(elem8: np.ndarray, floor: int) -> np.ndarray:
     e = elem8.astype(np.int16) - floor
     np.clip(e, 0, 255 - floor, out=e)
     return ((e.astype(np.float32) * (255.0 / (255 - floor))) + 0.5).astype(np.uint8)
+
+
+def _black_floor_f(elem8: np.ndarray, floor: int) -> np.ndarray:
+    """The element in [0, 1] with its black level removed, kept in float (no second 8-bit rounding)."""
+    e = elem8.astype(np.float32)
+    if floor > 0:
+        e = np.clip((e - floor) * (1.0 / (255 - floor)), 0.0, 1.0)
+    else:
+        e *= 1.0 / 255.0
+    return e
 
 
 def _warmth(e: np.ndarray, params: CompositeParams) -> tuple[np.ndarray, np.ndarray]:
@@ -275,21 +339,28 @@ def composite_frame(
     smoke_ref: float | None = None,
     env_rgb: np.ndarray | None = None,
     seed: int = 0,
+    ambient: np.ndarray | None = None,
+    shading_ref: float | None = None,
+    smoke_albedo: float = 0.85,
+    occluder: np.ndarray | None = None,
+    lift: bool = False,
 ) -> np.ndarray:
     """Composite one element frame (already at plate size) onto one plate frame.
 
-    ``holdout_row``: rows below it get nothing (with a soft edge). ``fire_energy_ref`` normalises the light
-    the fire casts (the element's brightest fire frame). ``env_rgb``: the room's colour (one per shot).
+    ``holdout_row``: without an ``occluder``, rows below it get nothing (with a soft edge). ``occluder``: the
+    object's matte (plate size, 0..1); it stays in front of the effect below the emission point.
+    ``fire_energy_ref`` normalises the light the fire casts (the element's brightest fire frame).
+    ``ambient``: the room light (ambient_map); ``env_rgb`` (a flat colour) stands in when it is missing.
+    ``lift``: a sustained flame going out (g_fire < 1) lifts off its base instead of dimming in place.
     Only the element's bounding box plus a margin is processed for the element itself; the light pool may
     reach further.
     """
     h, w = plate8.shape[:2]
     if black_floor is None:
         black_floor = params.black_floor if params.black_floor is not None else estimate_black_level(elem8[None])
-    elem8 = _apply_black_floor(elem8, black_floor)
     gf, gs = float(np.clip(g_fire, 0, 1)), float(np.clip(g_smoke, 0, 1))
     k = 4  # find the element's extent on a 1/4 grid: cheap, and the margin covers the rounding
-    nz = elem8[::k, ::k].max(axis=-1) > 2  # ignore single-level speckle when sizing the crop
+    nz = elem8[::k, ::k].max(axis=-1).astype(np.int16) > black_floor + 2  # ignore speckle when sizing the crop
     if holdout_row is not None:
         nz[min(nz.shape[0], (holdout_row + int(0.02 * h)) // k + 1):] = False
     rows, cols = nz.any(axis=1), nz.any(axis=0)
@@ -300,47 +371,83 @@ def composite_frame(
     y0, y1 = max(0, int(np.argmax(rows)) * k - margin), min(h, (len(rows) - int(np.argmax(rows[::-1]))) * k + margin)
     x0, x1 = max(0, int(np.argmax(cols)) * k - margin), min(w, (len(cols) - int(np.argmax(cols[::-1]))) * k + margin)
     p = plate8[y0:y1, x0:x1].astype(np.float32) / 255.0
-    e = elem8[y0:y1, x0:x1].astype(np.float32) / 255.0
+    e = _black_floor_f(elem8[y0:y1, x0:x1], black_floor)
+    p_lin, e_lin = _lin(p), _lin(e)
 
     warm, base_fire = _warmth(e, params)
     fire_w = fire_weight_map(e, params, w, fire_effect, base=base_fire)
     smoke_w = 1.0 - fire_w
     flame = np.maximum(fire_w, warm) if fire_effect else fire_w  # everything that goes out with the fire
-    g_smoke_px = flame * gf + (1.0 - flame) * gs
     y = e @ _LUMA
-    if holdout_row is not None:
-        yy = np.arange(y0, y1, dtype=np.float32)[:, None]
-        hold = _smoothstep(holdout_row + 0.04 * h, holdout_row - 0.01 * h, yy)  # 1 above, 0 below the cut
-    else:
-        hold = np.ones((y1 - y0, 1), np.float32)
+    yy = np.arange(y0, y1, dtype=np.float32)[:, None]
 
+    # What stays visible: the object in front below the emission point, else a soft horizontal holdout.
+    if occluder is not None and emission is not None:
+        occ = np.clip(occluder[y0:y1, x0:x1].astype(np.float32), 0.0, 1.0)
+        hold = 1.0 - occ * _smoothstep(emission[1] - 0.02 * h, emission[1] + 0.03 * h, yy)
+        if holdout_row is not None:  # here: the surface the object stands on; nothing reaches below it
+            hold = hold * _smoothstep(holdout_row + 0.03 * h, holdout_row - 0.005 * h, yy)
+    elif holdout_row is not None:
+        hold = np.broadcast_to(_smoothstep(holdout_row + params.holdout_soft_frac * h, holdout_row - 0.01 * h, yy),
+                               y.shape)
+    else:
+        hold = np.ones_like(y)
+
+    # The fire's gain per pixel: a sustained flame going out loses its base first and rises away.
+    kf = np.full_like(y, gf)
+    if lift and gf < 1.0 and emission is not None:
+        cut = emission[1] - (1.0 - gf) * params.fire_lift_frac * h
+        kf = _smoothstep(cut + 0.04 * h, cut - 0.02 * h, yy) * (0.3 + 0.7 * gf)
+    kf = kf * hold
+    g_smoke_px = flame * kf + (1.0 - flame) * gs * hold
+
+    # fire: an opaque core that never darkens the plate
     peak = e.max(-1)
     a_fire = params.fire_occlusion * _smoothstep(params.fire_alpha_lo, params.fire_alpha_hi, peak)
-    ref = smoke_ref if smoke_ref else max(float(y.max()), 0.3)
-    a_lum = np.clip(y / ref, 0.0, 1.0)
-    interior = np.zeros_like(y)
-    if dense_smoke:
-        # Deep inside a cloud AND darker than the cloud's own rim = self-shadowed, so dense, however dark it
-        # renders. A centre-lit cloud is brighter inside than at its rim and keeps its luminous alpha.
-        cloud = (y > params.smoke_mask_level).astype(np.float32)
-        depth = _blur(cloud, params.interior_blur_frac * w)
-        rim = (depth > 0.25) & (depth < 0.6) & (cloud > 0)
-        rim_luma = float(np.median(y[rim])) if rim.any() else ref
-        shadowed = _smoothstep(0.0, 0.15, rim_luma - y)
-        interior = _smoothstep(params.interior_lo, params.interior_hi, depth) * shadowed
-    a_body = np.maximum(a_lum, params.smoke_opacity * interior)
-    af, asm = fire_w * a_fire * gf * hold, smoke_w * a_body * g_smoke_px * hold
-    alpha = np.maximum(af, asm)[..., None]
-    env = p.reshape(-1, 3).mean(0) if env_rgb is None else np.asarray(env_rgb, np.float32)
-    tint = (1.0 - params.smoke_tint) + params.smoke_tint * env / max(float(env @ _LUMA), 1e-3)
-    emit = e * (fire_w * gf * params.fire_gain * hold)[..., None] + e * tint * (smoke_w * g_smoke_px * hold)[..., None]
-    if dense_smoke:  # the room lights the dense, self-shadowed parts only, so thin rims are never lifted
-        shadow = np.clip(1.0 - y / ref, 0.0, 1.0)
-        dense = params.smoke_opacity * interior * shadow * smoke_w * g_smoke_px * hold
-        emit = emit + (params.smoke_ambient * env)[None, None, :] * dense[..., None]
+    a_fire = np.minimum(a_fire, e_lin.max(-1) / np.maximum(p_lin.max(-1), 1e-3) + params.fire_darken)
+    af = fire_w * a_fire * kf
+    emit = _blackbody(e_lin, kf) * (fire_w * params.fire_gain)[..., None]
 
-    # light: a warm pool around the fire, stronger on dark plates; plus bloom off the hottest fire
-    fire_l = y * fire_w * gf * hold
+    # smoke and steam: density alpha, relit by the room
+    ref = smoke_ref if smoke_ref else max(float(y.max()), 0.3)
+    a_lum = np.clip(y / ref, 0.0, 1.0) ** params.smoke_alpha_gamma
+    a_body = a_lum
+    if dense_smoke:
+        # Deep inside a cloud = dense, however dark it renders (self-shadowed). Depth is a blur of the cloud's
+        # soft coverage, so it never follows the render's luma contours (a luma test there drew bands).
+        cover = _smoothstep(0.5 * params.smoke_mask_level, 2.0 * params.smoke_mask_level, y)
+        depth = _blur(cover, params.interior_blur_frac * w)
+        a_body = np.maximum(a_lum, params.smoke_opacity * _smoothstep(params.interior_lo, params.interior_hi, depth) * cover)
+    asm = smoke_w * a_body * g_smoke_px
+    if dense_smoke:  # a fireball's flame burns inside its own soot: the cloud's body is dense behind the fire too
+        body = params.smoke_opacity * _smoothstep(params.interior_lo, params.interior_hi, depth) * cover
+        soot = np.clip(body - a_fire, 0.0, 1.0) * fire_w * kf
+        af = af + soot
+    if ambient is not None:
+        amb = ambient[y0:y1, x0:x1]
+    else:
+        env = p.reshape(-1, 3).mean(0) if env_rgb is None else np.asarray(env_rgb, np.float32)
+        amb = np.broadcast_to(_lin(env), e.shape)
+    c = e_lin / np.maximum(a_body, 0.05)[..., None]  # the render's light per unit of smoke
+    cy_l = c @ _LUMA
+    shade = np.clip(cy_l / max(shading_ref or 0.25, 1e-3), params.shading_lo, params.shading_hi) ** params.shading_gamma
+    c = c + params.smoke_desat * (cy_l[..., None] - c) * smoke_w[..., None]  # fire light keeps its colour
+    key = 0.5 - 0.25 * float(_smoothstep(0.2, 0.6, np.asarray(0.5 if plate_key is None else plate_key)))
+    # Thin smoke passes on what is behind it (forward scattering) plus some of the render's light, so wisps
+    # never darken a bright wall. Dense smoke shows its own albedo: the room's light, shaped by the render's
+    # shading, plus some of the render's own light (fire-lit smoke stays fire-lit).
+    # (luminous fluids, steam, are translucent throughout: no dense regime)
+    dens = _smoothstep(0.25, 0.85, a_body)[..., None] if dense_smoke else np.zeros_like(a_body)[..., None]
+    thin_col = amb + key * c
+    dense_col = (1.0 - key) * smoke_albedo * amb * shade[..., None] + key * c
+    smoke_col = thin_col + dens * (dense_col - thin_col)
+    emit = emit + smoke_col * asm[..., None]
+    if dense_smoke:
+        emit = emit + (smoke_albedo * (1.0 - key)) * amb * soot[..., None]
+    alpha = np.minimum(af + asm, 1.0)[..., None]  # fire_w + smoke_w = 1: complementary fractions add
+
+    # light: a warm pool around the fire, stronger on dark plates and on the object; bloom off the hottest fire
+    fire_l = y * fire_w * kf
     light = None
     if params.light_gain > 0 and fire_l.sum() > 0 and fire_energy_ref:
         energy = min(float(fire_l.mean()) * (y1 - y0) * (x1 - x0) / (h * w) / fire_energy_ref, 1.0)
@@ -351,11 +458,11 @@ def composite_frame(
             if emission is not None:  # the light comes from where the fire starts as much as from its middle
                 cx, cy = 0.5 * (cx + emission[0]), 0.5 * (cy + emission[1])
             radius = params.light_radius * max(np.sqrt(ys.size / np.pi), 0.02 * w)
-            key = 0.5 if plate_key is None else plate_key
+            key_l = 0.5 if plate_key is None else plate_key
             g = 8
             gy, gx = np.mgrid[0:h:g, 0:w:g].astype(np.float32)
             d = np.sqrt(((gx - cx) ** 2 + (gy - cy) ** 2) / radius ** 2)
-            small = params.light_gain * (1.0 - 0.7 * key) * energy / (1.0 + d * d)
+            small = params.light_gain * (1.0 - 0.7 * key_l) * energy / (1.0 + d * d)
             small = (small * _smoothstep(params.light_reach, 0.5 * params.light_reach, d)).astype(np.float32)
             on = small > 1e-4  # finite pool: only its bounding box is touched
             if on.any():
@@ -363,7 +470,10 @@ def composite_frame(
                 gy0, gy1, gx0, gx1 = max(0, r_[0] - 1), min(small.shape[0], r_[-1] + 2), max(0, c_[0] - 1), min(small.shape[1], c_[-1] + 2)
                 ly0, ly1, lx0, lx1 = gy0 * g, min(h, gy1 * g), gx0 * g, min(w, gx1 * g)
                 patch = Image.fromarray(np.ascontiguousarray(small[gy0:gy1, gx0:gx1]), "F")
-                light = (ly0, ly1, lx0, lx1, np.asarray(patch.resize((lx1 - lx0, ly1 - ly0), Image.Resampling.BILINEAR), dtype=np.float32))
+                L = np.asarray(patch.resize((lx1 - lx0, ly1 - ly0), Image.Resampling.BILINEAR), dtype=np.float32)
+                if occluder is not None and params.object_light_boost > 0:
+                    L = L * (1.0 + params.object_light_boost * occluder[ly0:ly1, lx0:lx1].astype(np.float32))
+                light = (ly0, ly1, lx0, lx1, L)
     bloom = params.bloom_gain * _blur(np.clip(fire_l - params.bloom_threshold, 0, None), params.bloom_sigma_frac * w)
 
     # Work only inside the region anything touches: the element's crop plus the light pool.
@@ -371,21 +481,23 @@ def composite_frame(
     if light is not None:
         ry0, ry1, rx0, rx1 = min(ry0, light[0]), max(ry1, light[1]), min(rx0, light[2]), max(rx1, light[3])
     base = plate8[ry0:ry1, rx0:rx1].astype(np.float32) / 255.0
-    out = base.copy()
+    out = _lin(base)
     lit = np.zeros(out.shape[:2], bool)
     if light is not None:
         ly0, ly1, lx0, lx1, L = light
         sl = (slice(ly0 - ry0, ly1 - ry0), slice(lx0 - rx0, lx1 - rx0))
         lit[sl] = L > 1e-4
-        out[sl] *= 1.0 + L[..., None] * np.asarray(params.light_tint, np.float32)
+        out[sl] *= 1.0 + 2.2 * L[..., None] * np.asarray(params.light_tint, np.float32)  # 2.2: the gamma-space gain
     cy_ = slice(y0 - ry0, y1 - ry0)
     cx_ = slice(x0 - rx0, x1 - rx0)
-    region = out[cy_, cx_] * (1.0 - alpha) + emit
+    out[cy_, cx_] = out[cy_, cx_] * (1.0 - alpha) + emit
+    out = _gam(out)
+    region = out[cy_, cx_]
     region = 1.0 - (1.0 - region) * (1.0 - bloom[..., None] * np.asarray(params.light_tint, np.float32))
     if params.grain and grain_sigma > 0:
         rng = np.random.default_rng(seed)
         noise = rng.normal(0.0, grain_sigma / 255.0, region.shape[:2] + (1,)).astype(np.float32)
-        region += noise * np.clip(alpha + (emit.max(-1, keepdims=True) > 0.02), 0, 1)
+        region += noise * np.clip(alpha + (emit.max(-1, keepdims=True) > 0.002), 0, 1)
     out[cy_, cx_] = region
     if params.shoulder < 1.0:  # roll off what was ADDED, keeping hue: compress the max channel, scale all three
         limit = np.maximum(base.max(-1), params.shoulder)
@@ -395,7 +507,9 @@ def composite_frame(
             room = np.maximum(1.0 - limit[over], 1e-4)
             new = limit[over] + room * (1.0 - np.exp(-(mx[over] - limit[over]) / room))
             out[over] *= (new / mx[over])[:, None]
-    region8 = np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    rng_d = np.random.default_rng(seed + 7919)  # one-level triangular dither: smooth ramps stay smooth in 8 bits
+    dither = (rng_d.random(out.shape[:2], np.float32) - rng_d.random(out.shape[:2], np.float32))[..., None]
+    region8 = np.clip(out * 255.0 + 0.5 + dither, 0, 255).astype(np.uint8)
     plate_r = plate8[ry0:ry1, rx0:rx1]
     untouched = ~lit
     untouched[cy_, cx_] &= (alpha[..., 0] <= 0) & (emit.max(-1) <= 0) & (bloom <= 0)
@@ -406,6 +520,22 @@ def composite_frame(
 
 
 # ------------------------------------------------------------------ whole shot
+
+def object_base_row(occluder: np.ndarray, emission: tuple[float, float]) -> int | None:
+    """The row where the object meets what it stands on: the bottom of its matte under the emission point."""
+    h, w = occluder.shape
+    cx = int(min(max(emission[0], 0), w - 1))
+    band = occluder[:, max(0, cx - w // 20): cx + w // 20 + 1].max(axis=1) > 0.5
+    rows = np.nonzero(band[int(min(max(emission[1], 0), h - 1)):])[0]
+    return None if rows.size == 0 else int(emission[1]) + int(rows[-1])
+
+
+def effect_options(effect) -> dict:
+    """The composite() options an effect implies (an EffectSpec from cuesync.effects)."""
+    return {"holdout_below": effect.holdout_below, "fire_effect": effect.fluid == "fire",
+            "dense_smoke": effect.fluid == "smoke" or effect.secondary == "smoke",
+            "smoke_albedo": effect.smoke_albedo, "lift": effect.fluid == "fire" and effect.voice_gate == "both"}
+
 
 def composite(
     plate: np.ndarray,
@@ -419,12 +549,17 @@ def composite(
     holdout_below: float | None = None,
     fire_effect: bool = True,
     dense_smoke: bool = True,
+    smoke_albedo: float = 0.85,
+    occluder: np.ndarray | None = None,
+    lift: bool = False,
 ) -> np.ndarray:
     """Composite ``element`` onto every plate frame it covers; returns frames with the plate's shape.
 
     ``gates``: per plate frame (fire, smoke) gains from voice_gates (default: always 1).
-    ``emission``: emission point in plate pixels; with ``holdout_below`` (fraction of the plate height) the
-    element is cut below it.
+    ``emission``: emission point in plate pixels. ``occluder``: the object's matte at plate size (it stays
+    in front below the emission point); without one, ``holdout_below`` (fraction of the plate height) cuts the
+    element that far below the emission point. ``smoke_albedo``: 0.3 soot .. 0.95 steam. ``lift``: sustained
+    fire lifts off its base as the fire gate closes.
     """
     n, h, w, _ = plate.shape
     out = plate.copy()
@@ -437,9 +572,13 @@ def composite(
     plate_key = float((plate[0, ::8, ::8].astype(np.float32) / 255.0 @ _LUMA).mean())
     smoke_ref = smoke_reference_luma(element, params, floor, fire_effect)
     env_rgb = environment_colour(plate[0], element, floor, params)
+    amb = ambient_map(plate[0], params)
+    shading_ref = smoke_shading_ref(element, params, floor, fire_effect, smoke_ref)
     grain = plate_grain_sigma(plate) if params.grain else 0.0
     holdout_row = None
-    if emission is not None and holdout_below is not None:
+    if emission is not None and occluder is not None:
+        holdout_row = object_base_row(occluder, emission)
+    elif emission is not None and holdout_below is not None:
         holdout_row = int(round(emission[1] + holdout_below * h))
     gf_all = gates[0] if gates is not None else np.ones(n)
     gs_all = gates[1] if gates is not None else np.ones(n)
@@ -458,7 +597,8 @@ def composite(
         out[f] = composite_frame(plate[f], src, params, g_fire=g_fire, g_smoke=g_smoke, holdout_row=holdout_row,
                                  emission=emission, fire_energy_ref=fire_ref or None, plate_key=plate_key,
                                  grain_sigma=grain, black_floor=floor, fire_effect=fire_effect, dense_smoke=dense_smoke,
-                                 smoke_ref=smoke_ref, env_rgb=env_rgb, seed=f)
+                                 smoke_ref=smoke_ref, env_rgb=env_rgb, seed=f, ambient=amb, shading_ref=shading_ref,
+                                 smoke_albedo=smoke_albedo, occluder=occluder, lift=lift)
 
     # Frames are independent and numpy releases the GIL in the heavy loops, so threads share the work.
     with ThreadPoolExecutor(max_workers=max(1, min(8, (os.cpu_count() or 2) - 1))) as pool:

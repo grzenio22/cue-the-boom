@@ -20,7 +20,7 @@ except ImportError:  # running from a checkout of the repo: <repo>/comfyui-cuesy
 
 from cuesync.align import plan_alignment
 from cuesync.audio import CueSheet, analyze
-from cuesync.composite import composite, first_shown_frame, voice_gates
+from cuesync.composite import composite, effect_options, first_shown_frame, voice_gates
 from cuesync.conform import conform
 from cuesync.effects import _candidate_dirs, load_effect
 from cuesync.guide import paint_guide
@@ -155,8 +155,7 @@ class CueSyncComposite:
         gates = voice_gates(len(plate_f), cue_s.intervals(), int(plan["anchor_frame"]), eff.voice_gate,
                             eff.release_fire, eff.release_smoke, open_from=first_shown_frame(align, timing))
         emission = (float(plan["x"]) * size[0], float(plan["y"]) * size[1])
-        comp = composite(plate_f, elem, align, timing, gates=gates, emission=emission, holdout_below=eff.holdout_below,
-                         fire_effect=eff.fluid == "fire", dense_smoke=eff.fluid == "smoke" or eff.secondary == "smoke")
+        comp = composite(plate_f, elem, align, timing, gates=gates, emission=emission, **effect_options(eff))
         return (_video(comp, voice),)
 
 

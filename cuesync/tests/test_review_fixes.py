@@ -114,8 +114,10 @@ def test_luminous_steam_over_bright_plate_has_no_dark_ring():
     el = (ball[..., None] * np.array([235, 235, 235]))[None].repeat(3, 0).astype(np.uint8)
     plate = np.full((3, 128, 128, 3), 245, np.uint8)
     t = ElementTiming(0, 1, np.zeros(1))
-    out = composite(plate, el, plan_alignment(0, t), t, dense_smoke=False)[1, 64, 64:120, 0].astype(int)
-    assert (np.diff(out) >= -1).all()                                               # monotonic from core to plate
+    out = composite(plate, el, plan_alignment(0, t), t, dense_smoke=False)[1, 64, 64:120, 0].astype(float)
+    assert out.min() >= 245 - 2                                                     # never darker than the plate
+    smooth = np.convolve(out, np.ones(5) / 5, mode="valid")                         # (the dither is +-1 level)
+    assert (np.diff(smooth) <= 0.6).all()                                           # fading from core to plate
 
 
 def test_dark_warm_smoke_darkens_a_bright_plate():

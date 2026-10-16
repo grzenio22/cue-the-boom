@@ -14,10 +14,11 @@ from .align import plan_alignment
 from .audio import analyze
 from .compare import side_by_side
 from .align import element_index_for
-from .composite import composite, first_shown_frame, voice_gates
+from .composite import composite, effect_options, first_shown_frame, voice_gates
 from .conform import conform
 from .effects import load_effect
 from .guide import paint_guide, write_guide
+from .matte import grabcut_matte
 from .media import read_audio, read_video, write_video
 from .score import measure_composite_end, measure_composite_onset, measure_element
 
@@ -150,8 +151,7 @@ def run(
                                     eff.release_fire, eff.release_smoke, open_from=first_shown_frame(alignment, timing))
                 emission = (point[0] * pf.shape[2], point[1] * pf.shape[1])
                 comp = composite(pf, element, alignment, timing, gates=gates, emission=emission,
-                                 holdout_below=eff.holdout_below, fire_effect=eff.fluid == "fire",
-                                 dense_smoke=eff.fluid == "smoke" or eff.secondary == "smoke")
+                                 occluder=grabcut_matte(pf[0], point), **effect_options(eff))
                 if audio is None or audio.size != int(round(len(pf) / FPS * SR)):
                     audio = place_audio(samples, off, len(pf))
                 comp_path = out / f"comp_{stem}_n{i}_seed{seed}.mp4"

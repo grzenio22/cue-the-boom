@@ -19,11 +19,11 @@ _GATES = {"both", "attack"}
 
 # Per-behaviour defaults for the optional fields, so older effect files keep working.
 _DEFAULTS = {
-    #          align    lead  voice_gate  holdout_below  tail_frames
-    "burst": ("hit", 1, "attack", 0.08, 56),
-    "puff": ("hit", 0, "attack", 0.06, 40),
-    "plume": ("guide", 0, "both", 0.02, 24),
-    "jet": ("guide", 0, "both", 0.02, 16),
+    #          align    lead  voice_gate  holdout_below  tail_frames  smoke_albedo
+    "burst": ("hit", 1, "attack", 0.08, 56, 0.3),  # a fireball's smoke is soot
+    "puff": ("hit", 0, "attack", 0.06, 40, 0.85),
+    "plume": ("guide", 0, "both", 0.02, 24, 0.4),
+    "jet": ("guide", 0, "both", 0.02, 16, 0.95),  # steam
 }
 
 
@@ -50,6 +50,7 @@ class EffectSpec:
     release_smoke: int = 24  # frames for smoke/steam to disperse after the voice stops
     holdout_below: float | None = 0.02  # cut the element this far (fraction of height) below the emission point
     tail_frames: int = 24  # frames rendered after the voice ends (element length is per performance)
+    smoke_albedo: float = 0.85  # how much room light the smoke reflects: 0.3 soot .. 0.95 steam
 
     def to_json(self) -> dict:
         return asdict(self)
@@ -80,7 +81,7 @@ def _validate(d: dict, source: str) -> EffectSpec:
             raise ValueError(f"{source}: {key} must be one of {sorted(allowed)}, got {d[key]!r}")
     if d["secondary"] not in (None, "smoke"):
         raise ValueError(f"{source}: secondary must be null or 'smoke'")
-    align, lead, gate, holdout, tail = _DEFAULTS[d["behaviour"]]
+    align, lead, gate, holdout, tail, albedo = _DEFAULTS[d["behaviour"]]
     align, gate = d.get("align", align), d.get("voice_gate", gate)
     if align not in _ALIGNS:
         raise ValueError(f"{source}: align must be one of {sorted(_ALIGNS)}, got {align!r}")
@@ -91,13 +92,17 @@ def _validate(d: dict, source: str) -> EffectSpec:
         if not isinstance(v, int) or v < 0:
             raise ValueError(f"{source}: {k} must be a non-negative integer, got {v!r}")
     holdout = d.get("holdout_below", holdout)
+    albedo = d.get("smoke_albedo", albedo)
+    if not isinstance(albedo, (int, float)) or not 0.0 < float(albedo) <= 1.0:
+        raise ValueError(f"{source}: smoke_albedo must be in (0, 1], got {albedo!r}")
     if holdout is not None and not 0.0 <= float(holdout) < 1.0:
         raise ValueError(f"{source}: holdout_below must be null or in [0, 1), got {holdout!r}")
     return EffectSpec(
         id=str(d["id"]), anchor=d["anchor"], behaviour=d["behaviour"], fluid=d["fluid"],
         secondary=d["secondary"], prompt=str(d["prompt"]), r_min=float(d["r_min"]), r_max=float(d["r_max"]),
         rise=float(d["rise"]), keyframe_stride=int(stride), composite=d["composite"],
-        align=align, voice_gate=gate, holdout_below=None if holdout is None else float(holdout), **ints,
+        align=align, voice_gate=gate, holdout_below=None if holdout is None else float(holdout),
+        smoke_albedo=float(albedo), **ints,
     )
 
 
