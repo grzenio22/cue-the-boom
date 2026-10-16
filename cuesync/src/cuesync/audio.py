@@ -283,8 +283,14 @@ def _performance_intervals(frame_rms: np.ndarray, env: np.ndarray, noise_floor: 
     main = next((iv for iv in runs if iv[1] > hero_frame - 2), None)
     if main is None:
         return runs[-1:] if runs else []
-    kept = [main]
-    for a, b in runs[runs.index(main) + 1:]:
+    # A soft lead-in ("fff" before "WOOOM") belongs to the gesture: extend its start back through frames
+    # still clearly above the room, but never before the onset (a breath before it stays out).
+    later = runs[runs.index(main) + 1:]
+    start, floor_level = main[0], ACTIVE_OVER_FLOOR * noise_floor
+    while start - 1 >= max(0, hero_frame - 2) and frame_rms[start - 1] >= floor_level:
+        start -= 1
+    kept = [(start, main[1])]
+    for a, b in later:
         loud = frame_rms[a:b].max() >= gesture_peak * 10 ** (-PHRASE_RANGE_DB / 20)
         near = a - kept[-1][1] <= PHRASE_MAX_GAP_FRAMES
         struck = any(a - 1 <= f < b for f in onset_frames)

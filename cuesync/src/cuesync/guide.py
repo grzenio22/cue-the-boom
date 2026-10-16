@@ -53,11 +53,13 @@ class GuidePlan:
     voice_end: int | None = None  # element index where the performance ends (None: it outlasts the element)
     tail: str = "wisp"
     canvas: bool = False
+    point: tuple[float, float] = (0.5, 0.7)  # emission point, normalised to the guide
 
     def to_json(self) -> dict:
         return {
             "effect": self.effect_id,
             "size": list(self.size),
+            "point": [round(float(self.point[0]), 4), round(float(self.point[1]), 4)],
             "length": int(self.frames.shape[0]),
             "anchor_frame": self.anchor_frame,
             "voice_end": self.voice_end,
@@ -338,7 +340,7 @@ def paint_guide(
         if shapes or canvas:
             frames[e] = _draw(shapes, w, h, background)
     return GuidePlan(frames=frames, anchor_frame=anchor, keyframes=keys, blobs=blobs, effect_id=effect.id,
-                     size=(w, h), voice_end=perf.end, tail=tail, canvas=canvas)
+                     size=(w, h), voice_end=perf.end, tail=tail, canvas=canvas, point=(float(point[0]), float(point[1])))
 
 
 def write_guide(plan: GuidePlan, path: str | Path, fps: int = 24) -> None:

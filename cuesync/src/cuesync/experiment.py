@@ -170,7 +170,7 @@ def run(
                     "offset": alignment.offset, "speed": round(alignment.speed, 4),
                     # composite vs anchor: did alignment + matte put the visible effect on the cue frame?
                     "measured_onset_error_frames": None if onset is None else onset - plan.anchor_frame,
-                    "hit_error_frames": None if hit_plate is None else hit_plate - plan.anchor_frame,
+                    "hit_error_frames": None if hit_plate is None else hit_plate - (plan.anchor_frame - eff.lead_frames),
                     "stale_element": stale,
                     # "it stops when I do": frames from the end of the voice to the last visibly changed frame
                     # (a lower bound when the effect is still on at the end of the plate)
