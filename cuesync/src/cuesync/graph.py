@@ -79,6 +79,42 @@ def _take_local_branches(graph: dict) -> None:
             changed = True
 
 
+def shot_graph(element: dict, *, plate_name: str = "plate.mp4", voice_name: str = "voice.wav",
+               effect: str = "flame_plume", point: tuple[float, float] = (0.5, 0.7)) -> dict:
+    """The whole shot as ONE ComfyUI workflow (needs the CueSync node pack):
+    voice -> CueSync Analyze Voice -> CueSync Paint Guide -> the element graph -> CueSync Composite <- plate.
+
+    Built from the element graph: its Load Video input becomes the painted guide, its prompt comes from the
+    effect, and the composite sits between the decoded element and Save Video.
+    """
+    g = copy.deepcopy(element)
+    loads = _nodes(g, "LoadVideo")
+    savers = _nodes(g, "SaveVideo")
+    if len(loads) != 1 or len(savers) != 1:
+        raise GraphConvertError("expected the element graph: one Load Video and one Save Video")
+    prompts = [k for k in _nodes(g, "PrimitiveStringMultiline") if "ainvfxfluid" in str(g[k]["inputs"].get("value", ""))]
+    if len(prompts) != 1:
+        raise GraphConvertError("expected one prompt node containing 'ainvfxfluid'")
+    base = int(_new_id(g))
+    voice, cue, guide, plate, shot = (str(base + i) for i in range(5))
+    g[voice] = {"class_type": "LoadAudio", "inputs": {"audio": voice_name}, "_meta": {"title": "Your performance"}}
+    g[plate] = {"class_type": "LoadVideo", "inputs": {"file": plate_name}, "_meta": {"title": "Your plate"}}
+    g[cue] = {"class_type": "CueSyncAnalyzeVoice", "inputs": {"audio": [voice, 0], "offset_s": 0.0}}
+    g[guide] = {"class_type": "CueSyncPaintGuide",
+                "inputs": {"cue": [cue, 0], "effect": effect, "x": point[0], "y": point[1], "width": 576, "height": 1024,
+                           "tail": "wisp", "canvas": False}}
+    _rewire(g, [loads[0], 0], [guide, 0])
+    _rewire(g, [prompts[0], 0], [guide, 1])
+    rendered = g[savers[0]]["inputs"]["video"]
+    g[shot] = {"class_type": "CueSyncComposite",
+               "inputs": {"plate": [plate, 0], "element": rendered, "cue": [cue, 0], "plan": [guide, 2],
+                          "max_seconds": 10.0, "voice": [voice, 0]}}
+    g[savers[0]]["inputs"]["video"] = [shot, 0]
+    g[savers[0]]["inputs"]["filename_prefix"] = "cue-the-boom/shot"
+    del g[loads[0]], g[prompts[0]]
+    return g
+
+
 def element_graph(sample: dict, *, video_name: str = "guide.mp4") -> dict:
     """Return the sample graph with its in-graph control video replaced by a LoadVideo node."""
     g = copy.deepcopy(sample)

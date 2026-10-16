@@ -67,9 +67,11 @@ def cmd_guide(args) -> int:
 
 
 def cmd_graph(args) -> int:
-    from .graph import element_graph
+    from .graph import element_graph, shot_graph
 
     g = element_graph(json.loads(Path(args.sample).read_text(encoding="utf-8")), video_name=args.video_name)
+    if args.shot:
+        g = shot_graph(g)
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(g, indent=1) + "\n", encoding="utf-8")
     print(f"element graph {args.output}: {len(g)} nodes")
@@ -169,6 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
     gr = sub.add_parser("graph", help="ainvfx-fluid sample graph (API format) -> element graph with a Load Video input")
     gr.add_argument("sample", help="the sample workflow exported in API format")
     gr.add_argument("--video-name", default="guide.mp4", help="placeholder file for the Load Video node")
+    gr.add_argument("--shot", action="store_true", help="the whole shot as one workflow (needs the CueSync node pack)")
     gr.add_argument("-o", "--output", required=True)
     gr.set_defaults(func=cmd_graph)
 
