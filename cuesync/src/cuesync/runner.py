@@ -86,8 +86,12 @@ def render_element(
     seed: int,
     workflow_path: str | Path,
     out_path: str | Path,
+    timeout: float = 600.0,
 ) -> RenderResult:
-    """Render one fluid element from ``guide_path`` and download it to ``out_path``."""
+    """Render one fluid element from ``guide_path`` and download it to ``out_path``.
+
+    ``timeout`` bounds the wait for the job (seconds): a server that lost its upstream must not hang a batch.
+    """
     try:
         from comfy_sdk import Comfy, InvalidWorkflow, JobFailed
     except ImportError as exc:  # optional dependency
@@ -100,7 +104,10 @@ def render_element(
     wf = client.workflows.from_json(bound.graph)
     wf.set_input(bound.load_video_id, "file", client.assets.from_file(str(guide_path)))
     try:
-        job = client.run(wf)
+        job = client.run(wf, timeout=timeout)
+    except TimeoutError as exc:
+        raise RuntimeError(f"render of {guide_path} did not finish within {timeout:.0f} s; "
+                           "is ComfyUI behind the proxy still running?") from exc
     except JobFailed as exc:  # surface the node that broke, not just "job failed"
         err = exc.error
         detail = f" [{err.code}] node {err.node_id}: {err.message}" if err else ""

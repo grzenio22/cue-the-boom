@@ -226,7 +226,9 @@ log "Starting services (loopback only)"
 if pgrep -f "main.py --listen 127.0.0.1 --port 8188" >/dev/null; then
   echo "ComfyUI already running"
 else
-  (cd "$COMFY_DIR" && setsid nohup "$PY" main.py --listen 127.0.0.1 --port 8188 < /dev/null > "$LOG_DIR/comfyui.log" 2>&1 &)
+  # --highvram keeps every model resident on the GPU; without it, DynamicVRAM re-streams the weights
+  # from host RAM and renders slow from ~22 s to 45-90 s within a session.
+  (cd "$COMFY_DIR" && setsid nohup "$PY" main.py --listen 127.0.0.1 --port 8188 --highvram < /dev/null > "$LOG_DIR/comfyui.log" 2>&1 &)
   echo "ComfyUI starting -> $LOG_DIR/comfyui.log"
 fi
 if pgrep -f "comfy-api-proxy" >/dev/null; then

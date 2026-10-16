@@ -41,6 +41,31 @@ def test_contract_mismatch_raises(tmp_path):
     check_render_contract(tmp_path/"g.mp4", tmp_path/"g.mp4")         # identical: no error
 
 
+def test_render_timeout_is_reported_not_hung(monkeypatch, tmp_path):
+    import types
+
+    seen = {}
+
+    class FakeComfy:
+        def __init__(self):
+            self.workflows = types.SimpleNamespace(from_json=lambda g: types.SimpleNamespace(set_input=lambda *a: None))
+            self.assets = types.SimpleNamespace(from_file=lambda p: p)
+
+        def run(self, wf, timeout=None):
+            seen["timeout"] = timeout
+            raise TimeoutError("job still running")
+
+    class Err(Exception):
+        pass
+
+    monkeypatch.setitem(sys.modules, "comfy_sdk", types.SimpleNamespace(Comfy=FakeComfy, InvalidWorkflow=Err, JobFailed=Err))
+    wf = tmp_path / "w.json"
+    wf.write_text(json.dumps(G))
+    with pytest.raises(RuntimeError, match="did not finish within 5 s"):
+        render_element(tmp_path / "g.mp4", prompt="ainvfxfluid, x", seed=1, workflow_path=wf, out_path=tmp_path / "o.mp4", timeout=5)
+    assert seen["timeout"] == 5
+
+
 def test_missing_sdk_gives_actionable_error(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "comfy_sdk", None)
     with pytest.raises(ImportError, match=r"cuesync\[comfy\]"):

@@ -4,9 +4,9 @@
   "behaviour": "plume",
   "fluid": "fire",
   "secondary": null,
-  "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire",
+  "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire, isolated on a pure black background",
   "r_min": 0.03,
-  "r_max": 0.30,
+  "r_max": 0.3,
   "rise": 0.55,
   "keyframe_stride": 8,
   "composite": "screen"

@@ -77,7 +77,8 @@ def cmd_graph(args) -> int:
 def cmd_render(args) -> int:
     from .runner import render_element
 
-    res = render_element(args.guide, prompt=args.prompt, seed=args.seed, workflow_path=args.workflow, out_path=args.output)
+    res = render_element(args.guide, prompt=args.prompt, seed=args.seed, workflow_path=args.workflow,
+                         out_path=args.output, timeout=args.timeout)
     print(f"rendered {res.path} in {res.seconds:.1f}s")
     return 0
 
@@ -159,6 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--prompt", required=True)
     r.add_argument("--seed", type=int, default=42)
     r.add_argument("--workflow", required=True, help="exported API graph (workflows/fluid_element.api.json)")
+    r.add_argument("--timeout", type=float, default=600.0, help="seconds to wait for the job")
     r.add_argument("-o", "--output", required=True)
     r.set_defaults(func=cmd_render)
 
