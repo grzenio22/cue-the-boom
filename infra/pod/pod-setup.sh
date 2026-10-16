@@ -30,6 +30,7 @@ declare -A REV=(
   [Comfy-Org/gemma-4]=63d0f7c476756b88910170c1df75e2384ea1af31
   [Lightricks/LTX-2.5-22b-IC-LoRA-Alpha-Gen]=6184df14b1b560bf9b6447d3ee126bd7e4a88513
 )
+SAM_REV=ee5bba1d82bb8749febdf90f45e84b687142ba03   # facebook/sam2.1-hiera-small (keep in sync with comfyui-cuesync/nodes.py)
 # The image's interpreter that has torch (Runpod images differ: `python` vs `python3`).
 BASE_PY="${PYTHON:-}"
 if [ -z "$BASE_PY" ]; then
@@ -202,6 +203,16 @@ if [ "$WITH_ALPHAGEN" = 1 ]; then
     echo ALPHAGEN_DONE
   " > "$LOG_DIR/alphagen-download.log" 2>&1 &
 fi
+
+log "SAM 2.1 small for CueSync Object Matte (public, Apache-2.0) + CueSync's own dependencies"
+"${PIP[@]}" "transformers>=4.56" "opencv-python-headless>=4.10" "fastapi>=0.115" "uvicorn>=0.30" "python-multipart>=0.0.9"
+"$PY" - "$SAM_REV" <<'SAM'
+import sys
+from huggingface_hub import snapshot_download
+path = snapshot_download("facebook/sam2.1-hiera-small", revision=sys.argv[1],
+                         allow_patterns=["*.json", "model.safetensors"])
+print("sam2.1-hiera-small @", sys.argv[1][:7], "->", path)
+SAM
 
 # ------------------------------------------------------------------ services
 unset HF_TOKEN   # the services never need it

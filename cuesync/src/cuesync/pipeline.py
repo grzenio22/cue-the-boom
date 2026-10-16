@@ -58,6 +58,13 @@ class ComfyRenderer:
         return render_element(guide_path, prompt=prompt, seed=seed, workflow_path=self.workflow,
                               out_path=out_path, timeout=self.timeout).seconds
 
+    def matte(self, frame: np.ndarray, point: tuple[float, float]) -> np.ndarray | None:
+        """SAM 2.1 on the server (CueSync node pack); GrabCut locally if the server can't."""
+        from .runner import object_matte
+
+        m = object_matte(frame, point)
+        return m if m is not None else grabcut_matte(frame, point)
+
 
 @dataclass
 class ShotSpec:
@@ -283,7 +290,8 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     gates = voice_gates(n, cue.intervals(), plan.anchor_frame, eff.voice_gate, eff.release_fire, eff.release_smoke,
                         open_from=first_shown_frame(align, timing))
     emission = (point[0] * plate.shape[2], point[1] * plate.shape[1])
-    occluder = spec.matte(plate[0], point) if spec.matte is not None else grabcut_matte(plate[0], point)
+    matte_fn = spec.matte or getattr(renderer, "matte", None) or grabcut_matte
+    occluder = matte_fn(plate[0], point)
     comp = composite(plate, element, align, timing, gates=gates, emission=emission, occluder=occluder,
                      **effect_options(eff))
     audio = place_audio(samples, spec.offset_s, n)
@@ -312,6 +320,8 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     del breakdown
 
     onset = measure_composite_onset(plate, comp)
+    hit_plate = next((f for f in range(n) if gates[0][f] + gates[1][f] > 0
+                      and element_index_for(align, timing, f, element.shape[0]) == timing.hit_frame), None)
     stop = measure_composite_end(plate, comp)
     voice_end = cue.voice_end_frame
     receipt = {
@@ -325,11 +335,15 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
         "guide": {k: v for k, v in plan.to_json().items() if k != "blobs"},
         "render": {"renderer": renderer.name, "seconds": round(render_s, 2), "prompt": eff.prompt,
                    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA"},
-        "matte": {"source": "custom" if spec.matte is not None else "grabcut", "found": occluder is not None,
+        "matte": {"source": "custom" if spec.matte is not None else ("server" if hasattr(renderer, "matte") else "grabcut"),
+                  "found": occluder is not None,
                   "coverage": None if occluder is None else round(float(occluder.mean()), 4)},
         "alignment": {"mode": eff.align, "offset": align.offset, "first_element_frame": align.first,
                       "visible_onset": timing.visible_onset, "hit": timing.hit_frame, "peak": timing.peak},
         "measured": {"onset_error_frames": None if onset is None else onset - plan.anchor_frame,
+                     # where the hit is seen: the first plate frame showing the element's hit with a gate open
+                     "hit_error_frames": None if hit_plate is None else hit_plate - plan.anchor_frame,
+                     "stops_with_voice": eff.voice_gate == "both",
                      "stopped_within_plate": stop is not None and stop < n,
                      "stop_latency_frames": None if stop is None or voice_end is None else stop - voice_end},
         "seconds_total": round(time.perf_counter() - t0, 1),

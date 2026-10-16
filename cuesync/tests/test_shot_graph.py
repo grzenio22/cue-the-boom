@@ -52,8 +52,11 @@ def test_the_shot_graph_wires_voice_guide_element_and_composite():
     assert g[plate]["_meta"]["title"] == "Your plate"
     assert g[guide]["inputs"]["effect"] == "steam_jet"
     assert (g[guide]["inputs"]["x"], g[guide]["inputs"]["y"]) == (0.4, 0.6)
-    (comp,) = by_class(g, "GetVideoComponents")
-    assert g[comp]["inputs"]["video"] == [guide, 0]
+    comps = {g[k]["inputs"]["video"][0]: k for k in by_class(g, "GetVideoComponents")}
+    assert set(comps) == {guide, plate}  # the guide feeds the model, the plate's frames feed the matte
+    (matte,) = by_class(g, "CueSyncObjectMatte")
+    assert g[matte]["inputs"]["images"] == [comps[plate], 0] and g[matte]["inputs"]["plan"] == [guide, 2]
+    assert g[shot]["inputs"]["object_mask"] == [matte, 0]
     texts = [g[k]["inputs"]["text"] for k in by_class(g, "CLIPTextEncode")]
     assert [guide, 1] in texts  # the effect's prompt, not the sample's
     assert not any("ainvfxfluid" in str(n["inputs"].get("value", "")) for n in g.values())

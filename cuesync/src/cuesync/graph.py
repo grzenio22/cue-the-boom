@@ -82,7 +82,8 @@ def _take_local_branches(graph: dict) -> None:
 def shot_graph(element: dict, *, plate_name: str = "plate.mp4", voice_name: str = "voice.wav",
                effect: str = "flame_plume", point: tuple[float, float] = (0.5, 0.7)) -> dict:
     """The whole shot as ONE ComfyUI workflow (needs the CueSync node pack):
-    voice -> CueSync Analyze Voice -> CueSync Paint Guide -> the element graph -> CueSync Composite <- plate.
+    voice -> CueSync Analyze Voice -> CueSync Paint Guide -> the element graph -> CueSync Composite <- plate,
+    with CueSync Object Matte (SAM 2.1 on the plate's first frame) keeping the object in front.
 
     Built from the element graph: its Load Video input becomes the painted guide, its prompt comes from the
     effect, and the composite sits between the decoded element and Save Video.
@@ -96,9 +97,10 @@ def shot_graph(element: dict, *, plate_name: str = "plate.mp4", voice_name: str 
     if len(prompts) != 1:
         raise GraphConvertError("expected one prompt node containing 'ainvfxfluid'")
     base = int(_new_id(g))
-    voice, cue, guide, plate, shot = (str(base + i) for i in range(5))
+    voice, cue, guide, plate, shot, frames, matte = (str(base + i) for i in range(7))
     g[voice] = {"class_type": "LoadAudio", "inputs": {"audio": voice_name}, "_meta": {"title": "Your performance"}}
     g[plate] = {"class_type": "LoadVideo", "inputs": {"file": plate_name}, "_meta": {"title": "Your plate"}}
+    g[frames] = {"class_type": "GetVideoComponents", "inputs": {"video": [plate, 0]}}
     g[cue] = {"class_type": "CueSyncAnalyzeVoice", "inputs": {"audio": [voice, 0], "offset_s": 0.0}}
     g[guide] = {"class_type": "CueSyncPaintGuide",
                 "inputs": {"cue": [cue, 0], "effect": effect, "x": point[0], "y": point[1], "width": 576, "height": 1024,
@@ -106,9 +108,12 @@ def shot_graph(element: dict, *, plate_name: str = "plate.mp4", voice_name: str 
     _rewire(g, [loads[0], 0], [guide, 0])
     _rewire(g, [prompts[0], 0], [guide, 1])
     rendered = g[savers[0]]["inputs"]["video"]
+    g[matte] = {"class_type": "CueSyncObjectMatte",
+                "inputs": {"images": [frames, 0], "x": point[0], "y": point[1], "model": "facebook/sam2.1-hiera-small",
+                           "plan": [guide, 2]}}
     g[shot] = {"class_type": "CueSyncComposite",
                "inputs": {"plate": [plate, 0], "element": rendered, "cue": [cue, 0], "plan": [guide, 2],
-                          "max_seconds": 10.0, "voice": [voice, 0]}}
+                          "max_seconds": 10.0, "voice": [voice, 0], "object_mask": [matte, 0]}}
     g[savers[0]]["inputs"]["video"] = [shot, 0]
     g[savers[0]]["inputs"]["filename_prefix"] = "cue-the-boom/shot"
     del g[loads[0]], g[prompts[0]]

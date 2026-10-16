@@ -130,3 +130,50 @@ def render_element(
         raise
     os.replace(part, out_path)
     return RenderResult(path=out_path, seconds=seconds)
+
+
+MATTE_MODEL = "facebook/sam2.1-hiera-small"
+
+
+def matte_graph(image_name: str, point: tuple[float, float], model: str = MATTE_MODEL) -> dict:
+    """A four-node workflow: plate frame -> CueSync Object Matte (SAM 2.1) -> mask saved as a PNG."""
+    return {
+        "1": {"class_type": "LoadImage", "inputs": {"image": image_name}},
+        "2": {"class_type": "CueSyncObjectMatte",
+              "inputs": {"images": ["1", 0], "x": float(point[0]), "y": float(point[1]), "model": model}},
+        "3": {"class_type": "MaskToImage", "inputs": {"mask": ["2", 0]}},
+        "4": {"class_type": "SaveImage", "inputs": {"images": ["3", 0], "filename_prefix": "cue-the-boom/matte"}},
+    }
+
+
+def object_matte(frame: "np.ndarray", point: tuple[float, float], *, timeout: float = 120.0) -> "np.ndarray | None":
+    """The object under ``point`` in ``frame`` (uint8 RGB), segmented on the server by the CueSync node pack;
+    None when the server can't (no node pack) or finds nothing plausible."""
+    import tempfile
+
+    import numpy as np
+    from PIL import Image
+
+    try:
+        from comfy_sdk import Comfy
+    except ImportError:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        src, dst = Path(tmp) / "plate0.png", Path(tmp) / "matte.png"
+        Image.fromarray(frame).save(src)
+        client = Comfy()
+        wf = client.workflows.from_json(matte_graph(src.name, point))
+        wf.set_input("1", "image", client.assets.from_file(str(src)))
+        try:
+            job = client.run(wf, timeout=timeout)
+            outputs = job.get_outputs("4")
+            if not outputs:
+                return None
+            outputs[0].to_file(str(dst))
+        except Exception:  # an old server without the node pack: fall back to the local matte
+            return None
+        m = np.asarray(Image.open(dst).convert("L"), dtype=np.float32) / 255.0
+    if m.shape != frame.shape[:2]:
+        m = np.asarray(Image.fromarray(m).resize((frame.shape[1], frame.shape[0]), Image.Resampling.BILINEAR))
+    return m if m.max() > 0.5 else None
+

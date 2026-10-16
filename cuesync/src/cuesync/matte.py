@@ -12,7 +12,6 @@ instead; everything downstream only needs a float mask at plate size.
 
 from __future__ import annotations
 
-import cv2
 import numpy as np
 
 WORK_WIDTH = 480  # segment at this width: fast, and the feathered edge hides the upscale
@@ -20,6 +19,8 @@ WORK_WIDTH = 480  # segment at this width: fast, and the feathered edge hides th
 
 def grabcut_matte(frame: np.ndarray, point: tuple[float, float], iterations: int = 5) -> np.ndarray | None:
     """Float matte (plate size, 0..1) of the object under ``point`` (normalised x, y), or None."""
+    import cv2  # imported here: the ComfyUI nodes import cuesync without needing OpenCV
+
     h, w = frame.shape[:2]
     s = min(1.0, WORK_WIDTH / w)
     sw, sh = max(8, int(round(w * s))), max(8, int(round(h * s)))

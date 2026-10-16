@@ -532,6 +532,15 @@
    "title": "Your plate"
   }
  },
+ "9829": {
+  "class_type": "GetVideoComponents",
+  "inputs": {
+   "video": [
+    "9827",
+    0
+   ]
+  }
+ },
  "9825": {
   "class_type": "CueSyncAnalyzeVoice",
   "inputs": {
@@ -558,6 +567,22 @@
    "canvas": false
   }
  },
+ "9830": {
+  "class_type": "CueSyncObjectMatte",
+  "inputs": {
+   "images": [
+    "9829",
+    0
+   ],
+   "x": 0.5,
+   "y": 0.7,
+   "model": "facebook/sam2.1-hiera-small",
+   "plan": [
+    "9826",
+    2
+   ]
+  }
+ },
  "9828": {
   "class_type": "CueSyncComposite",
   "inputs": {
@@ -580,6 +605,10 @@
    "max_seconds": 10.0,
    "voice": [
     "9824",
+    0
+   ],
+   "object_mask": [
+    "9830",
     0
    ]
   }

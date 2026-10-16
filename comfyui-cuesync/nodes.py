@@ -122,6 +122,80 @@ class CueSyncPaintGuide:
         return (_video(plan.frames, silence), eff.prompt, meta)
 
 
+_SAM = {}
+SAM_REVISIONS = {"facebook/sam2.1-hiera-small": "ee5bba1d82bb8749febdf90f45e84b687142ba03"}  # pinned weights
+
+
+def _sam(model_id: str):
+    """SAM 2.1 (Apache-2.0) through transformers, loaded once per process."""
+    if model_id not in _SAM:
+        from transformers import Sam2Model, Sam2Processor
+
+        import comfy.model_management as mm
+        device = mm.get_torch_device()
+        rev = SAM_REVISIONS.get(model_id)
+        _SAM[model_id] = (Sam2Processor.from_pretrained(model_id, revision=rev),
+                          Sam2Model.from_pretrained(model_id, revision=rev).to(device).eval(), device)
+    return _SAM[model_id]
+
+
+def sam_matte(frame_u8: np.ndarray, point: tuple[float, float], model_id: str = "facebook/sam2.1-hiera-small"):
+    """Float matte of the object under the tapped emission point, or None if no plausible mask comes out.
+
+    Prompts: object just below the point (the point sits on the object's top edge or opening), background
+    well above it (where the effect will be)."""
+    from PIL import Image as _Image
+
+    processor, model, device = _sam(model_id)
+    h, w = frame_u8.shape[:2]
+    x, y = point[0] * w, point[1] * h
+    pts = [[[[x, min(h - 1, y + 0.03 * h)], [x, max(0, y - 0.12 * h)]]]]
+    labels = [[[1, 0]]]
+    inputs = processor(images=_Image.fromarray(frame_u8), input_points=pts, input_labels=labels, return_tensors="pt").to(device)
+    with torch.no_grad():
+        out = model(**inputs)
+    masks = processor.post_process_masks(out.pred_masks.cpu(), inputs["original_sizes"])[0][0].float().numpy()
+    scores = out.iou_scores.squeeze().float().cpu().numpy().reshape(-1)
+    best, best_score = None, -1.0
+    for m, sc in zip(masks, scores):
+        area = float((m > 0.5).mean())
+        if 0.002 <= area <= 0.6 and m[int(min(h - 1, y + 0.03 * h)), int(min(w - 1, x))] > 0.5 and sc > best_score:
+            best, best_score = m, float(sc)
+    if best is None:
+        return None
+    from PIL import ImageFilter
+    img = _Image.fromarray((np.clip(best, 0, 1) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(max(1.0, 0.002 * min(w, h))))
+    return np.asarray(img, dtype=np.float32) / 255.0
+
+
+class CueSyncObjectMatte:
+    """The object the effect comes from (SAM 2.1, prompted by the emission point): it stays in front of the
+    effect below that point. Feed it the plate's frames; the first one is used (plates are locked off)."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "images": ("IMAGE",),
+            "x": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01}),
+            "y": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 1.0, "step": 0.01}),
+            "model": (["facebook/sam2.1-hiera-small", "facebook/sam2.1-hiera-tiny", "facebook/sam2.1-hiera-base-plus"],),
+        }, "optional": {"plan": ("CUESYNC_PLAN", {"tooltip": "Take the point from CueSync Paint Guide (overrides x, y)."})}}
+
+    RETURN_TYPES = ("MASK",)
+    RETURN_NAMES = ("object",)
+    FUNCTION = "run"
+    CATEGORY = CATEGORY
+
+    def run(self, images, x, y, model, plan=None):
+        if plan is not None:
+            x, y = float(plan["x"]), float(plan["y"])
+        frame = (images[0].cpu().numpy() * 255.0 + 0.5).clip(0, 255).astype(np.uint8)
+        m = sam_matte(frame, (x, y), model)
+        if m is None:  # nothing plausible: an empty matte, and the compositor's soft holdout takes over
+            m = np.zeros(frame.shape[:2], np.float32)
+        return (torch.from_numpy(m)[None],)
+
+
 class CueSyncComposite:
     """Plate + rendered element -> the shot: aligned to the voice, gated so it stops when the performer stops,
     composited onto the untouched plate (with the performance as its audio)."""
@@ -134,14 +208,14 @@ class CueSyncComposite:
             "cue": ("CUESYNC_CUE",),
             "plan": ("CUESYNC_PLAN",),
             "max_seconds": ("FLOAT", {"default": 10.0, "min": 1.0, "max": 30.0, "step": 0.5}),
-        }, "optional": {"voice": ("AUDIO",)}}
+        }, "optional": {"voice": ("AUDIO",), "object_mask": ("MASK",)}}
 
     RETURN_TYPES = ("VIDEO",)
     RETURN_NAMES = ("shot",)
     FUNCTION = "run"
     CATEGORY = CATEGORY
 
-    def run(self, plate, element, cue, plan, max_seconds, voice=None):
+    def run(self, plate, element, cue, plan, max_seconds, voice=None, object_mask=None):
         eff = load_effect(plan["effect"])
         cue_s = CueSheet.from_json(cue)
         frames, fps = _frames(plate)
@@ -155,17 +229,27 @@ class CueSyncComposite:
         gates = voice_gates(len(plate_f), cue_s.intervals(), int(plan["anchor_frame"]), eff.voice_gate,
                             eff.release_fire, eff.release_smoke, open_from=first_shown_frame(align, timing))
         emission = (float(plan["x"]) * size[0], float(plan["y"]) * size[1])
-        comp = composite(plate_f, elem, align, timing, gates=gates, emission=emission, **effect_options(eff))
+        occluder = None
+        if object_mask is not None and float(object_mask.max()) > 0:
+            m = object_mask[0].float().cpu().numpy()
+            if m.shape != plate_f.shape[1:3]:
+                from PIL import Image as _Image
+                m = np.asarray(_Image.fromarray(m).resize((plate_f.shape[2], plate_f.shape[1]), _Image.Resampling.BILINEAR))
+            occluder = m.astype(np.float32)
+        comp = composite(plate_f, elem, align, timing, gates=gates, emission=emission, occluder=occluder,
+                         **effect_options(eff))
         return (_video(comp, voice),)
 
 
 NODE_CLASS_MAPPINGS = {
     "CueSyncAnalyzeVoice": CueSyncAnalyzeVoice,
     "CueSyncPaintGuide": CueSyncPaintGuide,
+    "CueSyncObjectMatte": CueSyncObjectMatte,
     "CueSyncComposite": CueSyncComposite,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "CueSyncAnalyzeVoice": "CueSync Analyze Voice",
     "CueSyncPaintGuide": "CueSync Paint Guide",
+    "CueSyncObjectMatte": "CueSync Object Matte",
     "CueSyncComposite": "CueSync Composite",
 }
