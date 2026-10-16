@@ -4,9 +4,9 @@
   "behaviour": "jet",
   "fluid": "steam",
   "secondary": null,
-  "prompt": "ainvfxfluid, a pressurised jet of white steam, isolated on a pure black background",
-  "r_min": 0.02,
-  "r_max": 0.22,
+  "prompt": "ainvfxfluid, a wisp of white steam rising, isolated on a pure black background",
+  "r_min": 0.25,
+  "r_max": 0.55,
   "rise": 0.5,
   "keyframe_stride": 8,
   "composite": "over"

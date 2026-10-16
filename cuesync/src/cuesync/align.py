@@ -1,4 +1,12 @@
-"""Place an element on the plate so its *visible* onset lands on the cue, optionally time-remapping its peak."""
+"""Place an element on the plate.
+
+Three modes, chosen per effect:
+- "guide": element frame e lands on plate frame anchor+e, so a voice-shaped effect (a plume that grows with
+  the rising "fwoooOOOM") stays in lockstep with the voice it was painted from.
+- "hit": the element's perceived hit lands ``lead`` frames before the sound (light travels faster than
+  sound, and a fireball that blooms after its "BOOM" reads late); the seed frames before it are hidden.
+- "onset": the first visible frame lands on the anchor (optionally time-remapping the peak; legacy).
+"""
 
 from __future__ import annotations
 
@@ -9,24 +17,33 @@ from .score import ElementTiming
 
 @dataclass(frozen=True)
 class Alignment:
-    """Plate frame p shows element frame round((p - offset - onset) * speed) + onset, for p >= offset + onset."""
+    """Plate frame p shows element frame first + round((p - offset - first) * speed), for p >= offset + first."""
 
     offset: int
     speed: float = 1.0
+    first: int | None = None  # first element frame shown (None: the element's visible onset)
 
 
 MIN_REMAP_SPAN = 6  # frames; below this a one-frame cue jitter would flip the speed between extremes
+HIT_PREROLL = 2  # frames of the build-up shown before the hit
 
 
 def plan_alignment(
     anchor_frame: int,
     timing: ElementTiming,
     *,
+    mode: str = "onset",
+    lead: int = 0,
     plate_peak_frame: int | None = None,
     max_stretch: float = 0.25,
 ) -> Alignment:
-    """Visible onset lands on the anchor. With ``plate_peak_frame`` (sustained effects only), the element is
-    time-remapped so its peak approaches the loudness peak, when both spans are long enough to be meaningful."""
+    if mode == "guide":
+        return Alignment(offset=anchor_frame, first=0)
+    if mode == "hit":
+        hit = timing.hit_frame
+        return Alignment(offset=anchor_frame - lead - hit, first=max(timing.visible_onset, hit - HIT_PREROLL))
+    if mode != "onset":
+        raise ValueError(f"unknown alignment mode {mode!r}")
     offset = anchor_frame - timing.visible_onset
     speed = 1.0
     if plate_peak_frame is not None:
@@ -38,8 +55,9 @@ def plan_alignment(
 
 
 def element_index_for(alignment: Alignment, timing: ElementTiming, plate_frame: int, element_len: int) -> int | None:
-    start = alignment.offset + timing.visible_onset
+    first = timing.visible_onset if alignment.first is None else alignment.first
+    start = alignment.offset + first
     if plate_frame < start:
         return None
-    e = int(round((plate_frame - start) * alignment.speed)) + timing.visible_onset
+    e = int(round((plate_frame - start) * alignment.speed)) + first
     return e if 0 <= e < element_len else None

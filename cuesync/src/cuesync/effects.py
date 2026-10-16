@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 from dataclasses import asdict, dataclass
@@ -13,6 +14,17 @@ _ANCHORS = {"hero", "first"}
 _BEHAVIOURS = {"burst", "plume", "puff", "jet"}
 _FLUIDS = {"fire", "smoke", "steam"}
 _COMPOSITES = {"screen", "over"}
+_ALIGNS = {"guide", "hit", "onset"}
+_GATES = {"both", "attack"}
+
+# Per-behaviour defaults for the optional fields, so older effect files keep working.
+_DEFAULTS = {
+    #          align    lead  voice_gate  holdout_below  tail_frames
+    "burst": ("hit", 1, "attack", 0.08, 56),
+    "puff": ("hit", 0, "attack", 0.06, 40),
+    "plume": ("guide", 0, "both", 0.02, 24),
+    "jet": ("guide", 0, "both", 0.02, 16),
+}
 
 
 @dataclass(frozen=True)
@@ -28,6 +40,16 @@ class EffectSpec:
     rise: float  # fraction of element height risen by the last frame
     keyframe_stride: int  # multiple of 8
     composite: Literal["screen", "over"]
+    # How the element is placed: "guide" keeps element frame e on plate frame anchor+e (voice-shaped effects),
+    # "hit" puts the element's perceived hit lead_frames before the sound, "onset" puts its first visible frame on it.
+    align: Literal["guide", "hit", "onset"] = "guide"
+    lead_frames: int = 0
+    # "both": the effect also ends with the voice (compositor release); "attack": only its start follows the voice.
+    voice_gate: Literal["both", "attack"] = "both"
+    release_fire: int = 5  # frames for fire to collapse after the voice stops
+    release_smoke: int = 24  # frames for smoke/steam to disperse after the voice stops
+    holdout_below: float | None = 0.02  # cut the element this far (fraction of height) below the emission point
+    tail_frames: int = 24  # frames rendered after the voice ends (element length is per performance)
 
     def to_json(self) -> dict:
         return asdict(self)
@@ -42,7 +64,7 @@ def _candidate_dirs(effects_dir: Path) -> list[Path]:
 
 
 def _validate(d: dict, source: str) -> EffectSpec:
-    required = {f for f in EffectSpec.__dataclass_fields__}
+    required = {k for k, f in EffectSpec.__dataclass_fields__.items() if f.default is dataclasses.MISSING}
     missing = required - d.keys()
     if missing:
         raise ValueError(f"{source}: missing fields {sorted(missing)}")
@@ -58,10 +80,24 @@ def _validate(d: dict, source: str) -> EffectSpec:
             raise ValueError(f"{source}: {key} must be one of {sorted(allowed)}, got {d[key]!r}")
     if d["secondary"] not in (None, "smoke"):
         raise ValueError(f"{source}: secondary must be null or 'smoke'")
+    align, lead, gate, holdout, tail = _DEFAULTS[d["behaviour"]]
+    align, gate = d.get("align", align), d.get("voice_gate", gate)
+    if align not in _ALIGNS:
+        raise ValueError(f"{source}: align must be one of {sorted(_ALIGNS)}, got {align!r}")
+    if gate not in _GATES:
+        raise ValueError(f"{source}: voice_gate must be one of {sorted(_GATES)}, got {gate!r}")
+    ints = {k: d.get(k, v) for k, v in (("lead_frames", lead), ("release_fire", 5), ("release_smoke", 24), ("tail_frames", tail))}
+    for k, v in ints.items():
+        if not isinstance(v, int) or v < 0:
+            raise ValueError(f"{source}: {k} must be a non-negative integer, got {v!r}")
+    holdout = d.get("holdout_below", holdout)
+    if holdout is not None and not 0.0 <= float(holdout) < 1.0:
+        raise ValueError(f"{source}: holdout_below must be null or in [0, 1), got {holdout!r}")
     return EffectSpec(
         id=str(d["id"]), anchor=d["anchor"], behaviour=d["behaviour"], fluid=d["fluid"],
         secondary=d["secondary"], prompt=str(d["prompt"]), r_min=float(d["r_min"]), r_max=float(d["r_max"]),
         rise=float(d["rise"]), keyframe_stride=int(stride), composite=d["composite"],
+        align=align, voice_gate=gate, holdout_below=None if holdout is None else float(holdout), **ints,
     )
 
 

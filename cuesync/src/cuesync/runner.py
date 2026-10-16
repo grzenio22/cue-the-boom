@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -119,7 +120,13 @@ def render_element(
         raise RuntimeError(f"job produced no output on node {bound.output_id}")
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    outputs[0].to_file(str(out_path))
+    part = out_path.with_name(out_path.stem + ".part" + out_path.suffix)
+    outputs[0].to_file(str(part))
     seconds = time.perf_counter() - started
-    check_render_contract(guide_path, out_path)
+    try:
+        check_render_contract(guide_path, part)
+    except RenderContractError:
+        part.unlink(missing_ok=True)  # a broken render must never be picked up as a finished one
+        raise
+    os.replace(part, out_path)
     return RenderResult(path=out_path, seconds=seconds)

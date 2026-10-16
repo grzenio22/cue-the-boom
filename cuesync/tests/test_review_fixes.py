@@ -13,7 +13,7 @@ from cuesync.audio import CueSheet, NoOnsetError, analyze
 from cuesync.composite import composite
 from cuesync.effects import load_effect
 from cuesync.experiment import run
-from cuesync.guide import _noise_end, paint_guide
+from cuesync.guide import paint_guide
 from cuesync.media import HDRVideoError, read_audio, read_video, write_video
 from cuesync.runner import GraphBindError, bind_fluid_graph
 
@@ -90,9 +90,8 @@ def test_sustained_hiss_is_one_onset_and_fades_out():
     x = room_tone(4.0, -50); x[SR:SR + hiss.size] += hiss
     cue = analyze(x, SR)
     assert len(cue.onsets_s) == 1 and abs(cue.onsets_s[0] - 1.0) <= 1 / 24
-    env_from_anchor = np.asarray(cue.envelope[cue.frame_of(cue.onsets_s[0]):], float)
-    end = _noise_end(env_from_anchor)
-    assert end is not None and abs(end - 36) <= 3                                   # hiss lasts 1.5 s = 36 frames
+    end = cue.voice_end_frame - cue.frame_of(cue.onsets_s[0])
+    assert abs(end - 36) <= 3                                                       # hiss lasts 1.5 s = 36 frames
 
 
 def test_vrrrm_then_kaboom_hero_is_the_boom():
@@ -108,14 +107,14 @@ def test_no_remap_on_short_spans():
     assert plan_alignment(40, t, plate_peak_frame=60).speed == 1.0
 
 
-def test_smoke_over_bright_plate_has_no_dark_ring():
+def test_luminous_steam_over_bright_plate_has_no_dark_ring():
     yy, xx = np.mgrid[:128, :128]
     r = np.hypot(yy - 64, xx - 64)
-    ball = np.clip(1 - r / 50, 0, 1)                                                 # soft radial smoke ball
+    ball = np.clip(1 - r / 50, 0, 1)                                                 # soft radial steam ball
     el = (ball[..., None] * np.array([235, 235, 235]))[None].repeat(3, 0).astype(np.uint8)
     plate = np.full((3, 128, 128, 3), 245, np.uint8)
     t = ElementTiming(0, 1, np.zeros(1))
-    out = composite(plate, el, plan_alignment(0, t), t)[1, 64, 64:120, 0].astype(int)
+    out = composite(plate, el, plan_alignment(0, t), t, dense_smoke=False)[1, 64, 64:120, 0].astype(int)
     assert (np.diff(out) >= -1).all()                                               # monotonic from core to plate
 
 
@@ -176,9 +175,10 @@ def test_experiment_resumes_from_existing_elements(tmp_path, make_video, make_wa
     plate = make_video(tmp_path, n=48, fps=24, w=180, h=320, color_fn=lambda i: (200, 200, 200))
     x = np.zeros(2 * SR, np.float32); x[SR // 2: SR // 2 + 7200] = 0.8 * np.sin(np.arange(7200) * 0.1)
     noise = make_wav(tmp_path, x, SR)
-    out = tmp_path / "out"; out.mkdir()
+    out, done = tmp_path / "out", tmp_path / "done"
+    done.mkdir()
     f = np.zeros((49, 1024, 576, 3), np.uint8); f[4:30, 400:600, 200:380] = (255, 140, 0)
-    write_video(out / "element_n1_seed1.mp4", f, fps=24)
+    write_video(done / "element_n1_seed1.mp4", f, fps=24)
     m = run(plates=[plate], noises=[noise], offsets=[0.0], effect="fireball", point=(0.5, 0.5), seeds=[1],
-            length=49, elements_dir=None, workflow=None, out=out)                    # nothing to render: resumes
-    assert len(m["runs"]) == 1 and m["runs"][0]["peak_error_frames"] is None and m["runs"][0]["speed"] == 1.0
+            length=49, elements_dir=done, workflow=None, out=out)                    # nothing to render: reuses
+    assert len(m["runs"]) == 1 and m["runs"][0]["element_length"] == 49 and not m["runs"][0]["stale_element"]

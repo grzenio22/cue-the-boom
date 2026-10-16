@@ -9,5 +9,6 @@
   "r_max": 0.3,
   "rise": 0.55,
   "keyframe_stride": 8,
-  "composite": "screen"
+  "composite": "screen",
+  "release_smoke": 10
 }

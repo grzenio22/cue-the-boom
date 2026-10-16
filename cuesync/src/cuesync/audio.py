@@ -19,6 +19,12 @@ ONSET_OVER_FLOOR = 4.0  # x room tone (+12 dB) within 50 ms of an onset
 RISE_FACTOR = 2.0  # +6 dB over the preceding ~50 ms
 ENV_GATE = 2.0  # frames within 6 dB of the room tone count as silence (envelope 0)
 DB_FLOOR, DB_CEIL = -60.0, -6.0  # envelope 0 .. 1
+ACTIVE_OVER_FLOOR = 10 ** (10 / 20)  # a frame is "performing" when it is 10 dB over the room tone
+MERGE_GAP_FRAMES = 6  # pauses shorter than 250 ms are breaths inside one gesture; longer ones end it
+MIN_ACTIVE_FRAMES = 2
+GESTURE_RANGE_DB = 20.0  # a frame belongs to the performance within this range of the main gesture's peak
+PHRASE_RANGE_DB = 12.0  # a later phrase must come this close to the main gesture's peak...
+PHRASE_MAX_GAP_FRAMES = 24  # ...start within a second of the previous one, and carry its own onset
 
 
 class NoOnsetError(ValueError):
@@ -34,11 +40,24 @@ class CueSheet:
     hero_onset_s: float  # plate time
     envelope: np.ndarray  # per plate frame, absolute: -60 dBFS -> 0 ... -6 dBFS -> 1
     envelope_rel: np.ndarray  # envelope / max(envelope), shape only
-    peak_frame: int  # argmax(envelope)
+    peak_frame: int  # loudest plate frame (unclipped level, so a rising sound peaks at its top)
     extra: dict = field(default_factory=dict)
+    # [start, end) plate frames where the performer is actually making the noise. None = derive from the envelope.
+    active_intervals: list[tuple[int, int]] | None = None
 
     def frame_of(self, t_s: float) -> int:
         return int(round(t_s * self.fps))
+
+    def intervals(self) -> list[tuple[int, int]]:
+        if self.active_intervals is not None:
+            return list(self.active_intervals)
+        return active_intervals(np.asarray(self.envelope) > 0)
+
+    @property
+    def voice_end_frame(self) -> int | None:
+        """First plate frame after the performance (end of the last active interval)."""
+        iv = self.intervals()
+        return iv[-1][1] if iv else None
 
     def to_json(self) -> dict:
         r = lambda v: round(float(v), 4)  # noqa: E731
@@ -51,6 +70,8 @@ class CueSheet:
             "envelope": [r(v) for v in self.envelope],
             "envelope_rel": [r(v) for v in self.envelope_rel],
             "peak_frame": int(self.peak_frame),
+            "active_intervals": [[int(a), int(b)] for a, b in self.intervals()],
+            "voice_end_frame": self.voice_end_frame,
         }
 
     @classmethod
@@ -64,7 +85,22 @@ class CueSheet:
             envelope=np.asarray(d["envelope"], dtype=np.float64),
             envelope_rel=np.asarray(d["envelope_rel"], dtype=np.float64),
             peak_frame=int(d["peak_frame"]),
+            active_intervals=[(int(a), int(b)) for a, b in d["active_intervals"]] if "active_intervals" in d else None,
         )
+
+
+def active_intervals(active: np.ndarray, merge_gap: int = MERGE_GAP_FRAMES,
+                     min_len: int = MIN_ACTIVE_FRAMES) -> list[tuple[int, int]]:
+    """[start, end) runs of True, with short gaps bridged and blips dropped."""
+    runs: list[list[int]] = []
+    for i, on in enumerate(np.asarray(active, dtype=bool)):
+        if not on:
+            continue
+        if runs and i - runs[-1][1] < merge_gap:
+            runs[-1][1] = i + 1
+        else:
+            runs.append([i, i + 1])
+    return [(a, b) for a, b in runs if b - a >= min_len]
 
 
 def _hann(n: int) -> np.ndarray:
@@ -117,10 +153,19 @@ def analyze(samples: np.ndarray, sr: int = 48000, *, offset_s: float = 0.0, fps:
     band_rms = np.sqrt(2.0 * np.sum(mag**2, axis=1) / (N_FFT * np.sum(window**2)))
     duration_s = x.size / sr
     inside = (centres >= 0) & (centres <= duration_s)
-    power_in = band_rms[inside] ** 2
+    peak_rms = float(band_rms.max())
+    # Room tone = the quietest 100 ms of REAL audio: recorder start-up zeros or a dropout must not pass for
+    # an impossibly quiet room (every breath would then count as performing). A take whose whole background
+    # is digital silence (synthetic tests) has no real room tone; it keeps the old estimate.
+    zeros = np.cumsum(np.concatenate([[0], (np.concatenate([np.zeros(N_FFT), x, np.zeros(N_FFT)]) == 0)]))
+    starts = np.arange(len(band_rms)) * HOP
+    zero_frac = (zeros[starts + N_FFT] - zeros[starts]) / N_FFT
+    real = inside & (zero_frac < 0.25)
+    if (real & (band_rms < 0.5 * peak_rms)).sum() < 10:
+        real = inside
+    power_in = band_rms[real] ** 2
     k = max(1, min(10, power_in.size))  # quietest 100 ms of the take = its room tone
     noise_floor = max(float(np.sqrt(np.convolve(power_in, np.ones(k) / k, mode="valid").min())), 1e-6)
-    peak_rms = float(band_rms.max())
     if peak_rms < 1e-3:
         raise NoOnsetError("recording is silent below 11 kHz")
     if peak_rms < 10 ** (SILENCE_OVER_FLOOR_DB / 20) * noise_floor and peak_rms * math.sqrt(2.0) < 10 ** (-30 / 20):
@@ -188,19 +233,25 @@ def analyze(samples: np.ndarray, sr: int = 48000, *, offset_s: float = 0.0, fps:
     n_plate = max(1, int(math.ceil((offset_s + duration_s) * fps)))
     plate_t = centres + offset_s
     env = np.zeros(n_plate)
+    frame_rms = np.zeros(n_plate)
     frame_ids = np.floor(plate_t * fps).astype(int)
     valid = (frame_ids >= 0) & (frame_ids < n_plate) & (centres >= 0) & (centres <= duration_s)
-    gate = ENV_GATE * noise_floor if onset_hops and noise_floor * ONSET_OVER_FLOOR <= peak_rms else 0.0
+    has_room_tone = bool(onset_hops) and noise_floor * ONSET_OVER_FLOOR <= peak_rms
+    gate = ENV_GATE * noise_floor if has_room_tone else 0.0
     for k in np.unique(frame_ids[valid]):
         rms = np.sqrt(np.mean(band_rms[valid & (frame_ids == k)] ** 2))
+        frame_rms[k] = rms
         if rms < gate:  # within 6 dB of the room tone: nobody is performing, so plumes can fade out
             continue
         level = 20.0 * np.log10(max(rms * math.sqrt(2.0), 1e-6))
         env[k] = min(max((level - DB_FLOOR) / (DB_CEIL - DB_FLOOR), 0.0), 1.0)
+    onsets_plate = [t + offset_s for t in onset_times]
+    hero_frame = int(round(onsets_plate[hero_idx] * fps))
+    intervals = _performance_intervals(frame_rms, env, noise_floor, peak_rms, has_room_tone, hero_frame,
+                                       [int(round(t * fps)) for t in onsets_plate])
     env_max = env.max()
     env_rel = env / env_max if env_max > 0 else env.copy()
 
-    onsets_plate = [t + offset_s for t in onset_times]
     return CueSheet(
         fps=fps,
         offset_s=float(offset_s),
@@ -209,5 +260,35 @@ def analyze(samples: np.ndarray, sr: int = 48000, *, offset_s: float = 0.0, fps:
         hero_onset_s=onsets_plate[hero_idx],
         envelope=env,
         envelope_rel=env_rel,
-        peak_frame=int(np.argmax(env)),
+        peak_frame=int(np.argmax(frame_rms)),  # unclipped: env saturates at -6 dBFS and would report the first loud frame
+        active_intervals=intervals,
     )
+
+
+def _performance_intervals(frame_rms: np.ndarray, env: np.ndarray, noise_floor: float, peak_rms: float,
+                           has_room_tone: bool, hero_frame: int, onset_frames: list[int]) -> list[tuple[int, int]]:
+    """When the performer is actually making the noise, from the main gesture (around the hero onset) on.
+
+    Levels are judged against the performance, not just the room: a frame counts when it is 10 dB over the
+    room tone AND within 20 dB of the main gesture's peak, so an inhale, an exhale or the phone being put
+    down doesn't extend the performance. A later phrase counts only if it comes within 12 dB of the main
+    gesture, starts within a second of the previous phrase and carries its own onset (a breath fades in).
+    """
+    if not has_room_tone:  # a sound that fills the whole take: fall back to the gated envelope
+        return active_intervals(env > 0)
+    lo, hi = max(0, hero_frame - 12), min(len(frame_rms), hero_frame + 13)
+    gesture_peak = float(frame_rms[lo:hi].max()) if hi > lo else peak_rms
+    level = max(ACTIVE_OVER_FLOOR * noise_floor, gesture_peak * 10 ** (-GESTURE_RANGE_DB / 20), 0.01 * peak_rms)
+    runs = active_intervals(frame_rms >= level)
+    main = next((iv for iv in runs if iv[1] > hero_frame - 2), None)
+    if main is None:
+        return runs[-1:] if runs else []
+    kept = [main]
+    for a, b in runs[runs.index(main) + 1:]:
+        loud = frame_rms[a:b].max() >= gesture_peak * 10 ** (-PHRASE_RANGE_DB / 20)
+        near = a - kept[-1][1] <= PHRASE_MAX_GAP_FRAMES
+        struck = any(a - 1 <= f < b for f in onset_frames)
+        if not (loud and near and struck):
+            break
+        kept.append((a, b))
+    return kept
