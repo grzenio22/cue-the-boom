@@ -34,3 +34,22 @@ button.secondary, .btn.secondary { background: var(--chip); color: var(--fg); }
 .chip.bad { color: var(--bad); }
 .muted { color: var(--muted); }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+
+h2 { font-size: 1.15rem; margin: 1.6em 0 0.4em; }
+.lede { font-size: 1.25rem; margin: 0 0 0.6em; }
+section { border-top: 1px solid var(--chip); padding-top: 4px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 12px 0; }
+.tile { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 14px; background: var(--chip); color: var(--fg); text-align: left; }
+.tile video { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 10px; background: #000; pointer-events: none; }
+.tile span { font-size: 0.85rem; padding: 0 4px 2px; }
+
+.perform { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.perform .plate { width: 240px; aspect-ratio: 9 / 16; background: #000; object-fit: contain; border-radius: 12px; }
+.perform .face { width: 120px; aspect-ratio: 3 / 4; background: #000; object-fit: cover; transform: scaleX(-1); border-radius: 12px; }
+
+.meter { height: 10px; border-radius: 999px; background: var(--chip); overflow: hidden; margin: 12px 0 4px; max-width: 360px; }
+.meter span { display: block; height: 100%; background: linear-gradient(90deg, #ffb020, var(--accent), #ff4d1a); transition: width 60ms linear; }
+
+.result { width: 100%; max-width: 420px; background: #000; border-radius: 12px; display: block; }
+.result.wide { max-width: 720px; }

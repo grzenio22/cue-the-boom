@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { EFFECT_LABELS, type EffectInfo, fetchEffects, followJob, type JobEvent, type JobStatus, submitShot } from "@/lib/shot";
+import { useState } from "react";
+import type { Performance } from "@/components/Performer";
+import { EFFECT_LABELS, type EffectInfo, followJob, type JobEvent, type JobStatus, type Mode, type Source, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -9,16 +10,6 @@ const VIEWS: { file: View; label: string }[] = [
   { file: "breakdown.mp4", label: "How it was made" },
   { file: "composite.mp4", label: "Clean" },
 ];
-
-export interface ShotInput {
-  plate: File;
-  voice: Blob;
-  face: Blob | null;
-  faceExt: string;
-  timing: object | null;
-  point: [number, number];
-  suggested: string;
-}
 
 const pollUntilDone = async (id: string): Promise<JobStatus> => {
   for (;;) {
@@ -28,30 +19,56 @@ const pollUntilDone = async (id: string): Promise<JobStatus> => {
   }
 };
 
-export default function ShotPanel({ input }: { input: ShotInput }) {
-  const [effects, setEffects] = useState<EffectInfo[] | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [effect, setEffect] = useState(input.suggested);
-  const [seed, setSeed] = useState(1);
+const ms = (frames: number) => Math.round((frames / 24) * 1000);
+
+/** The receipt as plain claims: what rendered it, where the hit landed, when it stopped. */
+function Chips({ job, effect }: { job: JobStatus; effect: EffectInfo | undefined }) {
+  const r = job.receipt;
+  if (!r) return null;
+  const lib = r.render.library;
+  const hit = r.measured.hit_error_frames;
+  const stop = r.measured.stop_latency_frames;
+  return (
+    <div className="row">
+      <span className="chip">{lib ? `instant: a pre-rendered LTX-2.5 element, timed by your voice` : `rendered from your voice in ${r.render.seconds.toFixed(0)} s on open weights`}</span>
+      {hit !== null && <span className="chip">{hit === 0 ? "the hit lands on your exact frame" : `hit ${hit > 0 ? "+" : ""}${ms(hit)} ms from your noise`}</span>}
+      {(effect?.stops_with_voice ?? r.measured.stops_with_voice) && stop !== null && (
+        <span className="chip">{stop <= 0 ? "stops when you stop" : `stops ${ms(stop)} ms after you do`}</span>
+      )}
+      <span className="chip">{r.seconds_total.toFixed(0)} s in total</span>
+    </div>
+  );
+}
+
+/** Step 4: pick the effect and how to make it, then the shot. */
+export default function ShotPanel({ plate, point, performance, effects, modes, onDone }: {
+  plate: Source;
+  point: [number, number];
+  performance: Performance;
+  effects: EffectInfo[];
+  modes: Mode[];
+  onDone: (job: JobStatus, effect: string) => void;
+}) {
+  const [effect, setEffect] = useState(performance.suggested);
+  const [mode, setMode] = useState<Mode>(modes.includes("render") ? "render" : "instant");
+  const [seed] = useState(1); // one seed per session: retakes differ only by the performance
   const [busy, setBusy] = useState(false);
   const [event, setEvent] = useState<JobEvent | null>(null);
   const [job, setJob] = useState<JobStatus | null>(null);
   const [view, setView] = useState<View>("final.mp4");
 
-  useEffect(() => {
-    fetchEffects().then(setEffects, (e: Error) => setApiError(e.message));
-  }, []);
-
-  const make = async (nextSeed = seed) => {
+  const make = async () => {
     setBusy(true);
     setJob(null);
-    setEvent({ stage: "uploading", progress: 0.01, message: "Uploading your plate and performance", t: 0 });
+    setEvent({ stage: "uploading", progress: 0.01, message: "Uploading", t: 0 });
     try {
-      const queued = await submitShot({ ...input, effect, seed: nextSeed });
+      const queued = await submitShot({ plate, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
+        timing: performance.timing, effect, point, seed, mode });
       let done = await followJob(queued.id, setEvent);
       if (done.status !== "done" && done.status !== "error") done = await pollUntilDone(queued.id);
       setJob(done);
       setView("final.mp4");
+      if (done.status === "done") onDone(done, effect);
     } catch (e) {
       setJob({ id: "", status: "error", stage: "error", progress: 0, message: "", error: (e as Error).message, files: {}, receipt: null });
     } finally {
@@ -59,36 +76,33 @@ export default function ShotPanel({ input }: { input: ShotInput }) {
     }
   };
 
-  if (apiError) {
-    return (
-      <section>
-        <p className="chip bad">The render server isn&apos;t reachable ({apiError}).</p>
-        <p className="muted">Start it with <code>cuesync serve</code> (see the README), then reload this page.</p>
-      </section>
-    );
-  }
-
-  const r = job?.receipt;
   return (
     <section>
-      <h2>3. Make the shot</h2>
+      <h2>4. Make the shot</h2>
+      {performance.warnings.map((w) => <p key={w} className="chip warn">{w}</p>)}
       <div className="row" role="radiogroup" aria-label="Effect">
-        {(effects ?? []).map((e) => (
+        {effects.map((e) => (
           <button key={e.id} role="radio" aria-checked={effect === e.id} disabled={busy}
             className={effect === e.id ? "" : "secondary"} onClick={() => setEffect(e.id)}>
             {EFFECT_LABELS[e.id]?.name ?? e.id}
             <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[e.id]?.cue}</span>
-            {e.id === input.suggested && <span className="chip" style={{ marginLeft: 6 }}>your noise</span>}
+            {e.id === performance.suggested && <span className="chip" style={{ marginLeft: 6 }}>your noise</span>}
           </button>
         ))}
       </div>
+      <div className="row" role="radiogroup" aria-label="How to make it">
+        <button role="radio" aria-checked={mode === "render"} disabled={busy || !modes.includes("render")}
+          className={mode === "render" ? "" : "secondary"} onClick={() => setMode("render")}>
+          Render it from my voice <span className="muted">LTX-2.5 on a GPU, ~45 s</span>
+        </button>
+        <button role="radio" aria-checked={mode === "instant"} disabled={busy || !modes.includes("instant")}
+          className={mode === "instant" ? "" : "secondary"} onClick={() => setMode("instant")}>
+          Instant <span className="muted">pre-rendered, ~15 s</span>
+        </button>
+      </div>
+      {!modes.includes("render") && <p className="muted">The GPU is offline right now: instant mode places a pre-rendered element with your timing.</p>}
       <div className="row">
-        <button disabled={busy || !effects} onClick={() => void make()}>{job?.status === "done" ? "Make it again" : "Make the shot"}</button>
-        {job?.status === "done" && (
-          <button className="secondary" disabled={busy} onClick={() => { const s = seed + 1; setSeed(s); void make(s); }}>
-            Another take (seed {seed + 1})
-          </button>
-        )}
+        <button disabled={busy || effects.length === 0} onClick={() => void make()}>{job?.status === "done" ? "Make it again" : "Make the shot"}</button>
       </div>
 
       {busy && event && (
@@ -97,9 +111,7 @@ export default function ShotPanel({ input }: { input: ShotInput }) {
           <p className="muted">{event.message}…</p>
         </div>
       )}
-
-      {job?.status === "error" && <p className="chip bad">Render failed: {job.error}</p>}
-
+      {job?.status === "error" && <p className="chip bad">The shot failed: {job.error}</p>}
       {job?.status === "done" && (
         <div>
           <div className="row" role="tablist">
@@ -108,19 +120,8 @@ export default function ShotPanel({ input }: { input: ShotInput }) {
                 onClick={() => setView(v.file)}>{v.label}</button>
             ))}
           </div>
-          <video key={view} src={job.files[view]} controls autoPlay playsInline
-            style={{ width: "100%", maxWidth: 420, aspectRatio: view === "final.mp4" ? "1080 / 1984" : "9 / 16", background: "#000", borderRadius: 12 }} />
-          {r && (
-            <div className="row">
-              <span className="chip">rendered in {r.render.seconds.toFixed(0)} s on open weights</span>
-              {r.measured.onset_error_frames !== null && (
-                <span className="chip">{r.measured.onset_error_frames === 0 ? "lands on your exact frame" : `onset ${r.measured.onset_error_frames > 0 ? "+" : ""}${r.measured.onset_error_frames} frames`}</span>
-              )}
-              {r.measured.stop_latency_frames !== null && (
-                <span className="chip">stops {Math.round((r.measured.stop_latency_frames / 24) * 1000)} ms after you do</span>
-              )}
-            </div>
-          )}
+          <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
+          <Chips job={job} effect={effects.find((e) => e.id === effect)} />
           <div className="row">
             {Object.entries(job.files).map(([name, url]) => <a key={name} className="btn secondary" href={url} download={name}>{name}</a>)}
           </div>

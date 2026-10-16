@@ -1,0 +1,58 @@
+{
+ "voices": {
+  "pf.wav": {
+   "title": "pf.",
+   "effect": "fireball"
+  },
+  "ka-boom.wav": {
+   "title": "KA-BOOM",
+   "effect": "fireball"
+  },
+  "fwoooom.wav": {
+   "title": "fwoooOOOM",
+   "effect": "flame_plume"
+  },
+  "pfffff.wav": {
+   "title": "pfffff",
+   "effect": "smoke_puff"
+  },
+  "hissss.wav": {
+   "title": "hissss",
+   "effect": "steam_jet"
+  }
+ },
+ "plates": {
+  "pumpkin_kitchen.mp4": {
+   "title": "Pumpkin, kitchen",
+   "point": [
+    0.5,
+    0.56
+   ],
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+  },
+  "mug_counter.mp4": {
+   "title": "Mug, bright counter",
+   "point": [
+    0.48,
+    0.45
+   ],
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+  },
+  "toy_desk.mp4": {
+   "title": "Toy dinosaur, night",
+   "point": [
+    0.4,
+    0.475
+   ],
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+  },
+  "candle_shelf.mp4": {
+   "title": "Candle jar",
+   "point": [
+    0.53,
+    0.5
+   ],
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+  }
+ }
+}
