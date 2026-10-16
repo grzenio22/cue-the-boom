@@ -10,6 +10,18 @@ All weights are downloaded by `infra/pod/pod-setup.sh`. None are committed to th
 | ComfyUI-LTXVideo | commit `44c8a36b7c31ee00b4271daed11dc2a4aa481140` | https://github.com/Lightricks/ComfyUI-LTXVideo |
 | comfy-api-proxy | latest 0.1.x from PyPI | https://github.com/Comfy-Org/comfy-api-proxy |
 | comfy-sdk (Python) | 0.5.x | https://github.com/Comfy-Org/comfy-python-sdk |
+| Pod image | `runpod/pytorch:1.4.0-cu1300-torch2121-ubuntu2404` (torch 2.12.1+cu130, Python 3.12) | https://hub.docker.com/r/runpod/pytorch |
+
+ComfyUI v0.41.0 only enables comfy-kitchen's optimized int8 kernels with a cu130+ torch, so pods are placed on CUDA 13 hosts only.
+
+## Model repo revisions
+
+| Repo | Commit |
+|---|---|
+| Lightricks/LTX-2.5 | `49b093a39c19169a8a81721dcc541e07e945232f` |
+| AInVFX/ainvfx-fluid | `c90ad4eb423b5d2f410193e9669e589b5b8c5af5` |
+| Comfy-Org/gemma-4 | `63d0f7c476756b88910170c1df75e2384ea1af31` |
+| Lightricks/LTX-2.5-22b-IC-LoRA-Alpha-Gen | `6184df14b1b560bf9b6447d3ee126bd7e4a88513` |
 
 ## Weights (Tier 0)
 
@@ -19,7 +31,7 @@ All weights are downloaded by `infra/pod/pod-setup.sh`. None are committed to th
 | `vae/ltx-2.5-video-vae-bf16.safetensors` | Lightricks/LTX-2.5 | LTX-2.x Community License | Video VAE |
 | `vae/ltx-2.5-audio-vae-bf16.safetensors` | Lightricks/LTX-2.5 | LTX-2.x Community License | Audio VAE (the graph expects an audio track) |
 | `text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors` | Lightricks/LTX-2.5 | Gemma terms | Local text encoder |
-| `text_encoders/gemma4_e2b_it_int8_convrot.safetensors` | Comfy-Org/gemma-4 | Gemma terms | Prompt enhancer node (kept off) |
+| `text_encoders/gemma4_e2b_it_int8_convrot.safetensors` | Comfy-Org/gemma-4 | Gemma terms | Prompt enhancer (not used: `cuesync graph` removes that branch) |
 | `loras/ainvfx-fluid.safetensors` | AInVFX/ainvfx-fluid (`ltx-2.5/ainvfx-fluid.safetensors`) | LTX-2.x Community License | Fire, smoke and steam IC-LoRA (by Adrien Toupet) |
 
 ## Weights (fallback, `--with-alphagen`)
