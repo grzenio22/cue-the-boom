@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+web/next-env.d.ts
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Media and run artifacts (large; keep curated samples in samples/ explicitly)
+runs/
+*.safetensors
+models/
+
+# Local brainstorm/tooling state and internal planning notes (kept out of the public repo)
+.superpowers/
+.claude/
+docs/
+WARPLAN.md
+web/AGENTS.md
