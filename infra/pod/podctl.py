@@ -480,7 +480,7 @@ def cmd_sync(args) -> None:
     remote = ("rm -rf /workspace/cue-src && mkdir -p /workspace/cue-src && tar -xzf - -C /workspace/cue-src && "
               "/workspace/venv/bin/python -m pip install -q --no-deps -e /workspace/cue-src/cuesync && "
               "ln -sfn /workspace/cue-src/comfyui-cuesync /workspace/ComfyUI/custom_nodes/comfyui-cuesync && "
-              "cp /workspace/cue-src/infra/pod/pod-setup.sh /workspace/pod-setup.sh && "
+              "cp /workspace/cue-src/infra/pod/pod-setup.sh /workspace/pod-setup.sh && sed -i 's/\\r$//' /workspace/pod-setup.sh && "
               "echo synced $(du -sh /workspace/cue-src | cut -f1)")
     run_ssh(state, remote, input=buf.getvalue(), timeout=600)
     if args.restart:
