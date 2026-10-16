@@ -73,7 +73,7 @@ def test_element_length_fits_the_performance():
     assert performance_length(cue_with(np.ones(3)), plume) == 49        # short: the 49-frame floor
     assert performance_length(cue_with(np.ones(40)), plume) == 73        # 40 + 24 tail + 8 -> 8k+1
     assert performance_length(cue_with(np.ones(150), n=400), plume) == 121
-    assert performance_length(cue_with(np.ones(3)), fire) == 73
+    assert performance_length(cue_with(np.ones(3)), fire) == 97        # 3 + 80 tail (smoke lingers) -> 8k+1
 
 
 def test_longer_boom_holds_the_fireball_and_makes_more_smoke():

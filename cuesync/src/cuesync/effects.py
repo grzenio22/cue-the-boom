@@ -20,8 +20,8 @@ _GATES = {"both", "attack"}
 # Per-behaviour defaults for the optional fields, so older effect files keep working.
 _DEFAULTS = {
     #          align    lead  voice_gate  holdout_below  tail_frames  smoke_albedo
-    "burst": ("hit", 1, "attack", 0.08, 56, 0.3),  # a fireball's smoke is soot
-    "puff": ("hit", 0, "attack", 0.06, 40, 0.85),
+    "burst": ("hit", 1, "attack", 0.08, 80, 0.3),  # a fireball's smoke is soot, and it lingers
+    "puff": ("hit", 0, "attack", 0.06, 72, 0.85),
     "plume": ("guide", 0, "both", 0.02, 24, 0.4),
     "jet": ("guide", 0, "both", 0.02, 16, 0.95),  # steam
 }

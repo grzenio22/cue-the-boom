@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
@@ -308,21 +309,25 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     env = np.zeros(n)
     m = min(n, len(cue.envelope))
     env[:m] = np.asarray(cue.envelope)[:m]
-    final = _finalise(comp, env, spec.label or eff.id.replace("_", " "), faces)
-    final_path = out_dir / "final.mp4"
-    write_video(final_path, final, fps=FPS, audio=audio, crf=16, preset=FINISH_PRESET)
-    del final
+    final_path, breakdown_path = out_dir / "final.mp4", out_dir / "breakdown.mp4"
 
-    guide_frames = read_video(guide_path).frames
-    breakdown = _breakdown(plate, guide_frames, element, comp, align, timing, plan.keyframes)
-    breakdown_path = out_dir / "breakdown.mp4"
-    write_video(breakdown_path, breakdown, fps=FPS, audio=audio, crf=18, preset=FINISH_PRESET)
-    del breakdown
+    def write_final() -> None:
+        write_video(final_path, _finalise(comp, env, spec.label or eff.id.replace("_", " "), faces), fps=FPS,
+                    audio=audio, crf=16, preset=FINISH_PRESET)
 
-    onset = measure_composite_onset(plate, comp)
+    def write_breakdown() -> None:
+        breakdown = _breakdown(plate, read_video(guide_path).frames, element, comp, align, timing, plan.keyframes)
+        write_video(breakdown_path, breakdown, fps=FPS, audio=audio, crf=18, preset=FINISH_PRESET)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:  # the two encodes overlap (x264 and numpy release the GIL)
+        for fut in [pool.submit(write_final), pool.submit(write_breakdown)]:
+            fut.result()
+
+    small_plate, small_comp = plate[:, ::4, ::4], comp[:, ::4, ::4]  # visibility measured on a 1/4 grid
+    onset = measure_composite_onset(small_plate, small_comp)
     hit_plate = next((f for f in range(n) if gates[0][f] + gates[1][f] > 0
                       and element_index_for(align, timing, f, element.shape[0]) == timing.hit_frame), None)
-    stop = measure_composite_end(plate, comp)
+    stop = measure_composite_end(small_plate, small_comp)
     voice_end = cue.voice_end_frame
     receipt = {
         "cuesync": __version__,

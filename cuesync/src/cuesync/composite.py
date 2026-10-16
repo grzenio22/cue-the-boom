@@ -82,7 +82,8 @@ class CompositeParams:
     shoulder: float = 0.85  # what is added rolls off softly above this instead of clipping (hue kept)
     grain: bool = True
     black_floor: int | None = None  # 8-bit levels of codec noise / model haze; None = measured per element
-    end_fade_frames: int = 12  # safety fade at the element's own end
+    end_fade_frames: int = 20  # the element's own end: fire fades over this many frames...
+    smoke_end_frames: int = 36  # ...and smoke dissipates over ~1.5 s instead of vanishing
 
 
 # ------------------------------------------------------------------ helpers
@@ -130,6 +131,16 @@ def _floor_tables(floor: int) -> tuple[np.ndarray, np.ndarray]:
     v = np.clip((np.arange(256, dtype=np.float64) - floor) / (255 - floor), 0.0, 1.0) if floor > 0 \
         else np.arange(256, dtype=np.float64) / 255.0
     return v.astype(np.float32), (v ** 2.2).astype(np.float32)
+
+
+def _dissipate(a: np.ndarray, d: float) -> np.ndarray:
+    """Gain for smoke of density ``a`` that is ``d`` (0..1) of the way to gone: what is thinner than the
+    receding threshold vanishes, the rest thins, and everything is gone at d = 1."""
+    if d <= 0.0:
+        return np.ones_like(a)
+    if d >= 1.0:
+        return np.zeros_like(a)
+    return _smoothstep(0.6 * d - 0.15, 0.6 * d + 0.35, a) * (1.0 - d) ** 1.2
 
 
 def _blackbody(e: np.ndarray, k: np.ndarray) -> np.ndarray:
@@ -433,7 +444,6 @@ def composite_frame(
         cut = emission[1] - (1.0 - gf) * params.fire_lift_frac * h
         kf = _smoothstep(cut + 0.04 * h, cut - 0.02 * h, yy) * (0.3 + 0.7 * gf)
     kf = kf * hold
-    g_smoke_px = flame * kf + (1.0 - flame) * gs * hold
 
     # fire: an opaque core that never darkens the plate
     peak = e.max(-1)
@@ -452,6 +462,9 @@ def composite_frame(
         cover = _smoothstep(0.5 * params.smoke_mask_level, 2.0 * params.smoke_mask_level, y)
         depth = _blur(cover, params.interior_blur_frac * w)
         a_body = np.maximum(a_lum, params.smoke_opacity * _smoothstep(params.interior_lo, params.interior_hi, depth) * cover)
+    # Smoke going away (its gate releasing, or the element's own end) dissipates: thin parts vanish first and
+    # the dense core last, instead of the whole cloud turning uniformly see-through.
+    g_smoke_px = flame * kf + (1.0 - flame) * hold * _dissipate(a_body, 1.0 - gs)
     asm = smoke_w * a_body * g_smoke_px
     if dense_smoke:  # a fireball's flame burns inside its own soot: the cloud's body is dense behind the fire too
         body = params.smoke_opacity * _smoothstep(params.interior_lo, params.interior_hi, depth) * cover
@@ -624,6 +637,7 @@ def composite(
     gf_all = gates[0] if gates is not None else np.ones(n)
     gs_all = gates[1] if gates is not None else np.ones(n)
     window = min(params.end_fade_frames, elen // 4)
+    smoke_window = min(params.smoke_end_frames, elen // 3)
 
     def one(f: int) -> None:
         idx = element_index_for(alignment, timing, f, elen)
@@ -633,8 +647,9 @@ def composite(
         if src.shape[:2] != (h, w):
             src = np.asarray(Image.fromarray(src).resize((w, h), Image.Resampling.LANCZOS))
         fade = min(1.0, (elen - 1 - idx) / window) if window > 0 else 1.0
+        smoke_fade = min(1.0, (elen - 1 - idx) / smoke_window) if smoke_window > 0 else 1.0
         g_fire = float(gf_all[f]) * fade if f < len(gf_all) else 0.0
-        g_smoke = float(gs_all[f]) * fade if f < len(gs_all) else 0.0
+        g_smoke = float(gs_all[f]) * smoke_fade if f < len(gs_all) else 0.0
         out[f] = composite_frame(plate[f], src, params, g_fire=g_fire, g_smoke=g_smoke, holdout_row=holdout_row,
                                  emission=emission, fire_energy_ref=fire_ref or None, plate_key=plate_key,
                                  grain_sigma=grain, black_floor=floor, fire_effect=fire_effect, dense_smoke=dense_smoke,
@@ -642,6 +657,7 @@ def composite(
                                  smoke_albedo=smoke_albedo, occluder=occluder, lift=lift)
 
     # Frames are independent and numpy releases the GIL in the heavy loops, so threads share the work.
-    with ThreadPoolExecutor(max_workers=max(1, min(8, (os.cpu_count() or 2) - 1))) as pool:
+    cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 2)
+    with ThreadPoolExecutor(max_workers=max(1, min(16, cpus - 1))) as pool:
         list(pool.map(one, range(n)))
     return out

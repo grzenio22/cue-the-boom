@@ -205,7 +205,7 @@ if [ "$WITH_ALPHAGEN" = 1 ]; then
 fi
 
 log "SAM 2.1 small for CueSync Object Matte (public, Apache-2.0) + CueSync's own dependencies"
-"${PIP[@]}" "transformers>=4.56" "opencv-python-headless>=4.10" "fastapi>=0.115" "uvicorn>=0.30" "python-multipart>=0.0.9"
+"${PIP[@]}" "transformers>=4.56" "opencv-python-headless>=4.10" "comfy-sdk>=0.5,<0.6" "fastapi>=0.115" "uvicorn>=0.30" "python-multipart>=0.0.9"
 "$PY" - "$SAM_REV" <<'SAM'
 import sys
 from huggingface_hub import snapshot_download
