@@ -100,6 +100,38 @@ def _gam(x: np.ndarray) -> np.ndarray:
     return np.power(np.clip(x, 0.0, None), 1.0 / 2.2, dtype=np.float32)
 
 
+_LIN8 = ((np.arange(256, dtype=np.float64) / 255.0) ** 2.2).astype(np.float32)
+_GAM16 = ((np.arange(65536, dtype=np.float64) / 65535.0) ** (1.0 / 2.2)).astype(np.float32)
+
+
+def _gam_fast(x: np.ndarray) -> np.ndarray:
+    """_gam through a 16-bit table (values above 1 computed exactly: the shoulder needs them)."""
+    g = _GAM16[np.clip(x * 65535.0 + 0.5, 0.0, 65535.0).astype(np.uint16)]
+    big = x > 1.0
+    if big.any():
+        g[big] = np.power(x[big], 1.0 / 2.2, dtype=np.float32)
+    return g
+
+
+_LIGHT_STEPS, _LIGHT_N = 2048, 8192  # light gains up to 4, in steps of 1/2048
+_light_tables: dict = {}
+
+
+def _light_table(tint: tuple[float, float, float]) -> np.ndarray:
+    """Display-value gain per quantised light level: (1 + 2.2 L tint) ** (1/2.2), per channel."""
+    if tint not in _light_tables:
+        lv = np.arange(_LIGHT_N, dtype=np.float64)[:, None] / _LIGHT_STEPS
+        _light_tables[tint] = ((1.0 + 2.2 * lv * np.asarray(tint)) ** (1.0 / 2.2)).astype(np.float32)
+    return _light_tables[tint]
+
+
+def _floor_tables(floor: int) -> tuple[np.ndarray, np.ndarray]:
+    """uint8 element value -> (display value, linear value) with its black level removed."""
+    v = np.clip((np.arange(256, dtype=np.float64) - floor) / (255 - floor), 0.0, 1.0) if floor > 0 \
+        else np.arange(256, dtype=np.float64) / 255.0
+    return v.astype(np.float32), (v ** 2.2).astype(np.float32)
+
+
 def _blackbody(e: np.ndarray, k: np.ndarray) -> np.ndarray:
     """Fire dimmed by k in [0, 1] the way fire dims: red lasts, green follows, blue goes first."""
     k = np.clip(k, 0.0, 1.0)[..., None]
@@ -370,9 +402,11 @@ def composite_frame(
     margin = int(3 * max(params.bloom_sigma_frac, params.interior_blur_frac) * w) + 4 + k
     y0, y1 = max(0, int(np.argmax(rows)) * k - margin), min(h, (len(rows) - int(np.argmax(rows[::-1]))) * k + margin)
     x0, x1 = max(0, int(np.argmax(cols)) * k - margin), min(w, (len(cols) - int(np.argmax(cols[::-1]))) * k + margin)
-    p = plate8[y0:y1, x0:x1].astype(np.float32) / 255.0
-    e = _black_floor_f(elem8[y0:y1, x0:x1], black_floor)
-    p_lin, e_lin = _lin(p), _lin(e)
+    plate_c8, elem_c8 = plate8[y0:y1, x0:x1], elem8[y0:y1, x0:x1]
+    p = plate_c8.astype(np.float32) * (1.0 / 255.0)
+    t_g, t_l = _floor_tables(black_floor)
+    e, e_lin = t_g[elem_c8], t_l[elem_c8]
+    p_lin = _LIN8[plate_c8]
 
     warm, base_fire = _warmth(e, params)
     fire_w = fire_weight_map(e, params, w, fire_effect, base=base_fire)
@@ -473,31 +507,41 @@ def composite_frame(
                 L = np.asarray(patch.resize((lx1 - lx0, ly1 - ly0), Image.Resampling.BILINEAR), dtype=np.float32)
                 if occluder is not None and params.object_light_boost > 0:
                     L = L * (1.0 + params.object_light_boost * occluder[ly0:ly1, lx0:lx1].astype(np.float32))
-                light = (ly0, ly1, lx0, lx1, L)
+                light = (ly0, ly1, lx0, lx1, L)  # linear-light gain: plate_lin * (1 + 2.2 * L * tint)
     bloom = params.bloom_gain * _blur(np.clip(fire_l - params.bloom_threshold, 0, None), params.bloom_sigma_frac * w)
 
-    # Work only inside the region anything touches: the element's crop plus the light pool.
+    # Work only inside the region anything touches: the element's crop plus the light pool. Outside the crop
+    # the light is a gain applied to display values (the same as the linear gain, without converting the
+    # whole frame); inside it everything is blended in linear light.
     ry0, ry1, rx0, rx1 = y0, y1, x0, x1
     if light is not None:
         ry0, ry1, rx0, rx1 = min(ry0, light[0]), max(ry1, light[1]), min(rx0, light[2]), max(rx1, light[3])
-    base = plate8[ry0:ry1, rx0:rx1].astype(np.float32) / 255.0
-    out = _lin(base)
+    plate_r = plate8[ry0:ry1, rx0:rx1]
+    base = plate_r.astype(np.float32) * (1.0 / 255.0)
+    out = base.copy()
     lit = np.zeros(out.shape[:2], bool)
+    tint = np.asarray(params.light_tint, np.float32)
+    cy_ = slice(y0 - ry0, y1 - ry0)
+    cx_ = slice(x0 - rx0, x1 - rx0)
+    gain_lin = None  # the light's linear gain over the crop
     if light is not None:
         ly0, ly1, lx0, lx1, L = light
         sl = (slice(ly0 - ry0, ly1 - ry0), slice(lx0 - rx0, lx1 - rx0))
         lit[sl] = L > 1e-4
-        out[sl] *= 1.0 + 2.2 * L[..., None] * np.asarray(params.light_tint, np.float32)  # 2.2: the gamma-space gain
-    cy_ = slice(y0 - ry0, y1 - ry0)
-    cx_ = slice(x0 - rx0, x1 - rx0)
-    out[cy_, cx_] = out[cy_, cx_] * (1.0 - alpha) + emit
-    out = _gam(out)
-    region = out[cy_, cx_]
-    region = 1.0 - (1.0 - region) * (1.0 - bloom[..., None] * np.asarray(params.light_tint, np.float32))
+        out[sl] *= _light_table(tuple(params.light_tint))[np.clip(L * _LIGHT_STEPS, 0, _LIGHT_N - 1).astype(np.int32)]
+        lmap = np.zeros(out.shape[:2], np.float32)
+        lmap[sl] = L
+        gain_lin = 1.0 + 2.2 * lmap[cy_, cx_][..., None] * tint
+    region_lin = p_lin if gain_lin is None else p_lin * gain_lin
+    region = _gam_fast(region_lin * (1.0 - alpha) + emit)
+    region = 1.0 - (1.0 - region) * (1.0 - bloom[..., None] * tint)
     if params.grain and grain_sigma > 0:
         rng = np.random.default_rng(seed)
         noise = rng.normal(0.0, grain_sigma / 255.0, region.shape[:2] + (1,)).astype(np.float32)
         region += noise * np.clip(alpha + (emit.max(-1, keepdims=True) > 0.002), 0, 1)
+    rng_d = np.random.default_rng(seed + 7919)  # one-level triangular dither: smooth ramps stay smooth in 8 bits
+    region += ((rng_d.random(region.shape[:2], np.float32) - rng_d.random(region.shape[:2], np.float32))
+               * (1.0 / 255.0))[..., None]
     out[cy_, cx_] = region
     if params.shoulder < 1.0:  # roll off what was ADDED, keeping hue: compress the max channel, scale all three
         limit = np.maximum(base.max(-1), params.shoulder)
@@ -507,10 +551,7 @@ def composite_frame(
             room = np.maximum(1.0 - limit[over], 1e-4)
             new = limit[over] + room * (1.0 - np.exp(-(mx[over] - limit[over]) / room))
             out[over] *= (new / mx[over])[:, None]
-    rng_d = np.random.default_rng(seed + 7919)  # one-level triangular dither: smooth ramps stay smooth in 8 bits
-    dither = (rng_d.random(out.shape[:2], np.float32) - rng_d.random(out.shape[:2], np.float32))[..., None]
-    region8 = np.clip(out * 255.0 + 0.5 + dither, 0, 255).astype(np.uint8)
-    plate_r = plate8[ry0:ry1, rx0:rx1]
+    region8 = np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8)
     untouched = ~lit
     untouched[cy_, cx_] &= (alpha[..., 0] <= 0) & (emit.max(-1) <= 0) & (bloom <= 0)
     region8[untouched] = plate_r[untouched]  # bit-exact where nothing contributes

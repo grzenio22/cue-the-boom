@@ -8,6 +8,7 @@ from pathlib import Path
 
 import av
 import numpy as np
+from av.video.reformatter import ColorRange, Colorspace
 
 
 @dataclass
@@ -127,8 +128,12 @@ def write_video(
     audio: np.ndarray | None = None,
     sample_rate: int = 48000,
     crf: int = 12,
+    preset: str = "medium",
 ) -> None:
-    """Encode RGB frames to H.264 (yuv420p) MP4, optionally muxing mono float audio as AAC."""
+    """Encode RGB frames to H.264 (yuv420p, BT.709, tagged) MP4, optionally muxing mono float audio as AAC.
+
+    The RGB->YUV matrix is BT.709 and the stream says so: an untagged file converted with swscale's default
+    (BT.601) plays back with shifted reds and greens in browsers, which assume BT.709 for HD."""
     frames = np.asarray(frames)
     if frames.ndim != 4 or frames.shape[-1] != 3:
         raise ValueError(f"frames must be (N,H,W,3), got {frames.shape}")
@@ -141,12 +146,15 @@ def write_video(
     with av.open(str(path), "w") as container:
         vstream = container.add_stream("libx264", rate=Fraction(fps).limit_denominator(1001))
         vstream.width, vstream.height, vstream.pix_fmt = w, h, "yuv420p"
-        vstream.options = {"crf": str(crf), "preset": "medium"}
+        vstream.options = {"crf": str(crf), "preset": preset}
+        cc = vstream.codec_context
+        cc.colorspace, cc.color_primaries, cc.color_trc, cc.color_range = 1, 1, 1, 1  # BT.709, limited range
         astream = None
         if audio is not None:
             astream = container.add_stream("aac", rate=sample_rate, layout="mono")
         for i in range(n):
-            vframe = av.VideoFrame.from_ndarray(frames[i], format="rgb24")
+            vframe = av.VideoFrame.from_ndarray(frames[i], format="rgb24").reformat(
+                format="yuv420p", dst_colorspace=Colorspace.ITU709, dst_color_range=ColorRange.MPEG)
             for packet in vstream.encode(vframe):
                 container.mux(packet)
         for packet in vstream.encode():

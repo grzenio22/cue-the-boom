@@ -32,6 +32,7 @@ from .media import probe_video, read_audio, read_video, write_video
 from .score import measure_composite_end, measure_composite_onset, measure_element
 
 FPS = 24
+FINISH_PRESET = "veryfast"  # the deliverables: ~3x faster than medium at these CRFs, visually the same
 SR = 48000
 Progress = Callable[[str, float, str], None]
 
@@ -287,7 +288,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
                      **effect_options(eff))
     audio = place_audio(samples, spec.offset_s, n)
     comp_path = out_dir / "composite.mp4"
-    write_video(comp_path, comp, fps=FPS, audio=audio)
+    write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
 
     say("finishing", 0.85, "Adding your face and the voice ribbon")
     faces = None
@@ -301,13 +302,13 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     env[:m] = np.asarray(cue.envelope)[:m]
     final = _finalise(comp, env, spec.label or eff.id.replace("_", " "), faces)
     final_path = out_dir / "final.mp4"
-    write_video(final_path, final, fps=FPS, audio=audio)
+    write_video(final_path, final, fps=FPS, audio=audio, crf=16, preset=FINISH_PRESET)
     del final
 
     guide_frames = read_video(guide_path).frames
     breakdown = _breakdown(plate, guide_frames, element, comp, align, timing, plan.keyframes)
     breakdown_path = out_dir / "breakdown.mp4"
-    write_video(breakdown_path, breakdown, fps=FPS, audio=audio)
+    write_video(breakdown_path, breakdown, fps=FPS, audio=audio, crf=18, preset=FINISH_PRESET)
     del breakdown
 
     onset = measure_composite_onset(plate, comp)

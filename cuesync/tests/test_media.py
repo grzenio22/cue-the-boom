@@ -28,3 +28,18 @@ def test_read_wav(tmp_path, make_wav):
 def test_black_stays_black(tmp_path):
     write_video(tmp_path/"k.mp4", np.zeros((9, 64, 64, 3), np.uint8), fps=24)
     assert read_video(tmp_path/"k.mp4").frames.max() <= 2
+
+
+def test_written_video_is_bt709_and_tagged(tmp_path):
+    """Browsers decode HD as BT.709: the file must be converted with that matrix and say so."""
+    import av
+    path = tmp_path / "c.mp4"
+    frames = np.zeros((4, 64, 64, 3), np.uint8)
+    frames[:] = (200, 60, 30)
+    write_video(path, frames)
+    with av.open(str(path)) as c:
+        cc = c.streams.video[0].codec_context
+        assert (cc.colorspace, cc.color_primaries, cc.color_trc) == (1, 1, 1)
+        y = next(c.decode(video=0)).to_ndarray(format="yuv420p")[32, 32]
+    assert abs(int(y) - 91) <= 1  # BT.709 luma of (200, 60, 30) in limited range; BT.601 would give 101
+    assert np.abs(read_video(path).frames[1, 32, 32].astype(int) - (200, 60, 30)).max() <= 3
