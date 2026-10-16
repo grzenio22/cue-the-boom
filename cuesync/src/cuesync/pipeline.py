@@ -193,7 +193,7 @@ def _finalise(frames: np.ndarray, env: np.ndarray, label: str, faces) -> np.ndar
 
 
 def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: np.ndarray, align, timing,
-               keyframes: list[int] | None = None) -> np.ndarray:
+               keyframes: list[int] | None = None, guide_label: str = "2 voice-painted guide (last keyframe)") -> np.ndarray:
     """2x2 grid at half size: plate | guide / element | composite, each on the plate's timeline. The guide
     only exists at its keyframes, so its tile holds the latest one (the plan's list: after an mp4 round trip
     codec noise makes every frame look non-empty)."""
@@ -225,7 +225,7 @@ def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: 
         idx = element_index_for(align, timing, t, element.shape[0])
         g_idx = latest_key(None if idx is None else min(idx, guide.shape[0] - 1))
         tiles = [(half(plate[t]), "1 plate (untouched)"),
-                 (small(guide, g_idx, "g"), "2 voice-painted guide (last keyframe)"),
+                 (small(guide, g_idx, "g"), guide_label),
                  (small(element, idx, "e"), "3 LTX-2.5 element"),
                  (half(comp[t]), "4 composite")]
         for k, (tile, text) in enumerate(tiles):
@@ -315,8 +315,14 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
         write_video(final_path, _finalise(comp, env, spec.label or eff.id.replace("_", " "), faces), fps=FPS,
                     audio=audio, crf=16, preset=FINISH_PRESET)
 
+    ref_guide = (getattr(renderer, "last", None) or {}).get("guide")  # instant mode: the element's own guide
+
     def write_breakdown() -> None:
-        breakdown = _breakdown(plate, read_video(guide_path).frames, element, comp, align, timing, plan.keyframes)
+        if ref_guide:
+            breakdown = _breakdown(plate, ref_guide["frames"], element, comp, align, timing, ref_guide["keyframes"],
+                                   guide_label="2 guide of the pre-rendered element")
+        else:
+            breakdown = _breakdown(plate, read_video(guide_path).frames, element, comp, align, timing, plan.keyframes)
         write_video(breakdown_path, breakdown, fps=FPS, audio=audio, crf=18, preset=FINISH_PRESET)
 
     with ThreadPoolExecutor(max_workers=2) as pool:  # the two encodes overlap (x264 and numpy release the GIL)
@@ -339,15 +345,18 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
                   "peak_frame": cue.peak_frame},
         "guide": {k: v for k, v in plan.to_json().items() if k != "blobs"},
         "render": {"renderer": renderer.name, "seconds": round(render_s, 2), "prompt": eff.prompt,
-                   "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA"},
+                   "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA",
+                   **({"library": {k: v for k, v in renderer.last.items() if k != "guide"}}
+                      if getattr(renderer, "last", None) else {})},
         "matte": {"source": "custom" if spec.matte is not None else ("server" if hasattr(renderer, "matte") else "grabcut"),
                   "found": occluder is not None,
                   "coverage": None if occluder is None else round(float(occluder.mean()), 4)},
         "alignment": {"mode": eff.align, "offset": align.offset, "first_element_frame": align.first,
                       "visible_onset": timing.visible_onset, "hit": timing.hit_frame, "peak": timing.peak},
         "measured": {"onset_error_frames": None if onset is None else onset - plan.anchor_frame,
-                     # where the hit is seen: the first plate frame showing the element's hit with a gate open
-                     "hit_error_frames": None if hit_plate is None else hit_plate - plan.anchor_frame,
+                     # where the hit is seen (the first plate frame showing the element's hit with a gate open)
+                     # against where it should be: on the sound, or lead_frames before it (light beats sound)
+                     "hit_error_frames": None if hit_plate is None else hit_plate - (plan.anchor_frame - eff.lead_frames),
                      "stops_with_voice": eff.voice_gate == "both",
                      "stopped_within_plate": stop is not None and stop < n,
                      "stop_latency_frames": None if stop is None or voice_end is None else stop - voice_end},

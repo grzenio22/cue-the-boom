@@ -87,6 +87,40 @@ def cmd_render(args) -> int:
     return 0
 
 
+def cmd_library(args) -> int:
+    from .library import render_library
+    from .pipeline import ComfyRenderer
+
+    seeds = tuple(int(x) for x in args.seeds.split(","))
+    m = render_library(ComfyRenderer(Path(args.workflow), timeout=args.timeout), Path(args.out), seeds=seeds)
+    print(f"library: {len(m['entries'])} elements -> {args.out}")
+    return 0
+
+
+def cmd_shot(args) -> int:
+    from .pipeline import ComfyRenderer, ShotSpec, make_shot
+
+    if args.instant:
+        from .library import DEFAULT_DIR, LibraryRenderer
+        renderer = LibraryRenderer(Path(args.library) if args.library else DEFAULT_DIR)
+    else:
+        renderer = ComfyRenderer(Path(args.workflow), timeout=args.timeout)
+    spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
+                    seed=args.seed, offset_s=args.offset_s, face=Path(args.face) if args.face else None,
+                    label=args.label or "")
+    last = [""]
+
+    def progress(stage: str, frac: float, msg: str) -> None:
+        if msg != last[0]:
+            print(f"{int(frac * 100):3d}%  {msg}")
+            last[0] = msg
+
+    r = make_shot(spec, renderer, Path(args.output), progress)
+    m = r.receipt["measured"]
+    print(f"done in {r.receipt['seconds_total']:.0f} s -> {r.final}  (hit error {m['hit_error_frames']} frames)")
+    return 0
+
+
 def cmd_compare(args) -> int:
     from .audio import CueSheet
     from .compare import side_by_side
@@ -120,8 +154,9 @@ def cmd_serve(args) -> int:
     from .server import serve
 
     origins = [o.strip() for o in args.allow_origin.split(",")] if args.allow_origin else None
-    serve(workflow=Path(args.workflow), jobs_dir=Path(args.jobs), host=args.host, port=args.port,
-          allow_origins=origins, timeout=args.timeout)
+    serve(workflow=None if args.instant_only else Path(args.workflow), jobs_dir=Path(args.jobs), host=args.host,
+          port=args.port, allow_origins=origins, timeout=args.timeout,
+          library=Path(args.library) if args.library else None)
     return 0
 
 
@@ -198,6 +233,31 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("-o", "--output", required=True)
     c.set_defaults(func=cmd_compare)
 
+    lb = sub.add_parser("library", help="render the instant-mode element library (needs a GPU backend)")
+    lb.add_argument("--workflow", default="workflows/fluid_element.api.json")
+    lb.add_argument("--out", default="samples/library")
+    lb.add_argument("--seeds", default="1,2")
+    lb.add_argument("--timeout", type=float, default=600.0)
+    lb.set_defaults(func=cmd_library)
+
+    sh = sub.add_parser("shot", help="plate + performance -> the finished shot (final, breakdown, clean, receipt)")
+    sh.add_argument("--plate", required=True)
+    sh.add_argument("--voice", required=True, help="your noise (wav/m4a/webm...)")
+    sh.add_argument("--effect", required=True, choices=["fireball", "smoke_puff", "flame_plume", "steam_jet"])
+    sh.add_argument("--x", type=float, default=0.5, help="emission point, 0..1 across the plate")
+    sh.add_argument("--y", type=float, default=0.7, help="emission point, 0..1 down the plate")
+    sh.add_argument("--offset-s", type=float, default=0.0, help="plate time of the recording's first sample")
+    sh.add_argument("--seed", type=int, default=1)
+    sh.add_argument("--face", help="optional face clip for the inset")
+    sh.add_argument("--label", help="text on the final video (default: the effect)")
+    sh.add_argument("--instant", action="store_true",
+                    help="no GPU: use the pre-rendered element library (timed and placed by your performance)")
+    sh.add_argument("--library", help="library folder (default: samples/library)")
+    sh.add_argument("--workflow", default="workflows/fluid_element.api.json")
+    sh.add_argument("--timeout", type=float, default=600.0)
+    sh.add_argument("-o", "--output", default="runs/shot")
+    sh.set_defaults(func=cmd_shot)
+
     sv = sub.add_parser("serve", help="HTTP API for the web app (renders through COMFY_BASE_URL)")
     sv.add_argument("--workflow", default="workflows/fluid_element.api.json")
     sv.add_argument("--jobs", default="runs/jobs", help="where job inputs and results are kept")
@@ -205,6 +265,8 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--port", type=int, default=8765)
     sv.add_argument("--allow-origin", help="comma list of browser origins allowed to call the API directly")
     sv.add_argument("--timeout", type=float, default=600.0, help="seconds to wait for one render")
+    sv.add_argument("--library", help="instant-mode element library (default: samples/library)")
+    sv.add_argument("--instant-only", action="store_true", help="no GPU backend: serve instant mode only")
     sv.set_defaults(func=cmd_serve)
 
     e = sub.add_parser("experiment", help="performances x seeds -> composites on every plate + metrics + compares")

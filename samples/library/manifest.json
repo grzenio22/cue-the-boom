@@ -1,0 +1,278 @@
+{
+ "point": [
+  0.5,
+  0.75
+ ],
+ "size": [
+  576,
+  1024
+ ],
+ "fps": 24,
+ "entries": [
+  {
+   "effect": "fireball",
+   "performance": "hit",
+   "seed": 1,
+   "file": "fireball_hit_s1.mp4",
+   "length": 97,
+   "anchor_frame": 24,
+   "voice_end": 3,
+   "peak_level": 0.7834,
+   "render_s": 21.6
+  },
+  {
+   "effect": "fireball",
+   "performance": "hit",
+   "seed": 2,
+   "file": "fireball_hit_s2.mp4",
+   "length": 97,
+   "anchor_frame": 24,
+   "voice_end": 3,
+   "peak_level": 0.7834,
+   "render_s": 16.4
+  },
+  {
+   "effect": "fireball",
+   "performance": "short",
+   "seed": 1,
+   "file": "fireball_short_s1.mp4",
+   "length": 105,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 21.5
+  },
+  {
+   "effect": "fireball",
+   "performance": "short",
+   "seed": 2,
+   "file": "fireball_short_s2.mp4",
+   "length": 105,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 21.4
+  },
+  {
+   "effect": "fireball",
+   "performance": "medium",
+   "seed": 1,
+   "file": "fireball_medium_s1.mp4",
+   "length": 121,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 26.6
+  },
+  {
+   "effect": "fireball",
+   "performance": "medium",
+   "seed": 2,
+   "file": "fireball_medium_s2.mp4",
+   "length": 121,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 21.5
+  },
+  {
+   "effect": "smoke_puff",
+   "performance": "hit",
+   "seed": 1,
+   "file": "smoke_puff_hit_s1.mp4",
+   "length": 89,
+   "anchor_frame": 24,
+   "voice_end": 3,
+   "peak_level": 0.7834,
+   "render_s": 21.5
+  },
+  {
+   "effect": "smoke_puff",
+   "performance": "hit",
+   "seed": 2,
+   "file": "smoke_puff_hit_s2.mp4",
+   "length": 89,
+   "anchor_frame": 24,
+   "voice_end": 3,
+   "peak_level": 0.7834,
+   "render_s": 16.3
+  },
+  {
+   "effect": "smoke_puff",
+   "performance": "short",
+   "seed": 1,
+   "file": "smoke_puff_short_s1.mp4",
+   "length": 97,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 21.7
+  },
+  {
+   "effect": "smoke_puff",
+   "performance": "short",
+   "seed": 2,
+   "file": "smoke_puff_short_s2.mp4",
+   "length": 97,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 21.4
+  },
+  {
+   "effect": "smoke_puff",
+   "performance": "medium",
+   "seed": 1,
+   "file": "smoke_puff_medium_s1.mp4",
+   "length": 113,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 26.8
+  },
+  {
+   "effect": "smoke_puff",
+   "performance": "medium",
+   "seed": 2,
+   "file": "smoke_puff_medium_s2.mp4",
+   "length": 113,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 21.5
+  },
+  {
+   "effect": "flame_plume",
+   "performance": "short",
+   "seed": 1,
+   "file": "flame_plume_short_s1.mp4",
+   "length": 49,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 11.3
+  },
+  {
+   "effect": "flame_plume",
+   "performance": "short",
+   "seed": 2,
+   "file": "flame_plume_short_s2.mp4",
+   "length": 49,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 11.3
+  },
+  {
+   "effect": "flame_plume",
+   "performance": "medium",
+   "seed": 1,
+   "file": "flame_plume_medium_s1.mp4",
+   "length": 65,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 16.4
+  },
+  {
+   "effect": "flame_plume",
+   "performance": "medium",
+   "seed": 2,
+   "file": "flame_plume_medium_s2.mp4",
+   "length": 65,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 11.3
+  },
+  {
+   "effect": "flame_plume",
+   "performance": "long",
+   "seed": 1,
+   "file": "flame_plume_long_s1.mp4",
+   "length": 97,
+   "anchor_frame": 24,
+   "voice_end": 62,
+   "peak_level": 0.8337,
+   "render_s": 21.6
+  },
+  {
+   "effect": "flame_plume",
+   "performance": "long",
+   "seed": 2,
+   "file": "flame_plume_long_s2.mp4",
+   "length": 97,
+   "anchor_frame": 24,
+   "voice_end": 62,
+   "peak_level": 0.8337,
+   "render_s": 16.3
+  },
+  {
+   "effect": "steam_jet",
+   "performance": "short",
+   "seed": 1,
+   "file": "steam_jet_short_s1.mp4",
+   "length": 49,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 11.3
+  },
+  {
+   "effect": "steam_jet",
+   "performance": "short",
+   "seed": 2,
+   "file": "steam_jet_short_s2.mp4",
+   "length": 49,
+   "anchor_frame": 24,
+   "voice_end": 11,
+   "peak_level": 0.825,
+   "render_s": 11.3
+  },
+  {
+   "effect": "steam_jet",
+   "performance": "medium",
+   "seed": 1,
+   "file": "steam_jet_medium_s1.mp4",
+   "length": 57,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 11.3
+  },
+  {
+   "effect": "steam_jet",
+   "performance": "medium",
+   "seed": 2,
+   "file": "steam_jet_medium_s2.mp4",
+   "length": 57,
+   "anchor_frame": 24,
+   "voice_end": 29,
+   "peak_level": 0.839,
+   "render_s": 11.3
+  },
+  {
+   "effect": "steam_jet",
+   "performance": "long",
+   "seed": 1,
+   "file": "steam_jet_long_s1.mp4",
+   "length": 89,
+   "anchor_frame": 24,
+   "voice_end": 62,
+   "peak_level": 0.8337,
+   "render_s": 16.6
+  },
+  {
+   "effect": "steam_jet",
+   "performance": "long",
+   "seed": 2,
+   "file": "steam_jet_long_s2.mp4",
+   "length": 89,
+   "anchor_frame": 24,
+   "voice_end": 62,
+   "peak_level": 0.8337,
+   "render_s": 16.4
+  }
+ ],
+ "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA"
+}

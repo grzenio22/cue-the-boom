@@ -339,3 +339,25 @@ def test_stale_elements_are_refused_unless_allowed(tmp_path, make_video, make_wa
         run(out=tmp_path / "a", **kw)
     m = run(out=tmp_path / "b", allow_stale=True, **kw)
     assert m["runs"][0]["stale_element"] and m["runs"][0]["stop_latency_frames"] is None
+
+
+def test_a_soft_lead_in_belongs_to_the_gesture():
+    """A sharp quiet "f" (the onset) swelling smoothly into a loud "WOOOM": the performance starts at the
+    onset, not when it gets loud, so a plume's voice gate never closes in between."""
+    from cuesync.audio import analyze
+    from cuesync.composite import voice_gates
+    sr = 48000
+    rng = np.random.default_rng(5)
+    x = rng.normal(0, 10 ** (-62 / 20), 4 * sr).astype(np.float32)  # room tone
+    n1 = int(0.3 * sr)
+    x[sr: sr + n1] += (0.03 * rng.standard_normal(n1)).astype(np.float32)  # the "f": abrupt, quiet
+    t2 = np.arange(int(1.2 * sr)) / sr
+    swell = np.minimum(t2 / 0.4, 1.0) ** 2  # no second onset: it fades in
+    x[sr + n1: sr + n1 + t2.size] += (0.8 * swell * np.sin(2 * np.pi * 120 * t2)).astype(np.float32)
+    cue = analyze(x, sr, fps=24)
+    hero = round(cue.hero_onset_s * 24)
+    assert hero <= 25  # the onset is the "f"
+    first = cue.intervals()[0]
+    assert first[0] <= hero + 1
+    gf, _ = voice_gates(100, cue.intervals(), hero, "both", 9, 10)
+    assert (gf[hero: first[1]] == 1.0).all()  # never closes during the gesture
