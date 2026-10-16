@@ -6,9 +6,11 @@
 # ComfyUI on 127.0.0.1:8188 and the Comfy API v2 proxy on 127.0.0.1:8189.
 # Both bind to loopback only; reach them from your laptop over an SSH tunnel.
 #
-# Usage (on the pod):
-#   export HF_TOKEN=hf_...          # type it on the pod; never commit it
+# Usage (on the pod), either:
+#   hf auth login                    # once: paste your token; it's saved on the pod, never in this repo
 #   bash pod-setup.sh [--with-alphagen]
+# or, for a single session:
+#   export HF_TOKEN=hf_...; bash pod-setup.sh [--with-alphagen]
 #
 # Prerequisite: accept the LTX-2.5 terms at https://huggingface.co/Lightricks/LTX-2.5
 # (and the Alpha-Gen repo, if you use --with-alphagen) with the same HF account.
@@ -36,8 +38,6 @@ for arg in "$@"; do
   esac
 done
 
-: "${HF_TOKEN:?Set HF_TOKEN first: export HF_TOKEN=hf_...  (accept the LTX-2.5 terms on Hugging Face)}"
-export HF_TOKEN
 mkdir -p "$LOG_DIR"
 
 log() { printf '\n==> %s\n' "$*"; }
@@ -79,6 +79,15 @@ fi
 log "comfy-api-proxy + Hugging Face CLI"
 "$PY" -m pip install -q comfy-api-proxy "huggingface_hub[cli]>=0.34"
 if command -v hf >/dev/null 2>&1; then HF=(hf download); else HF=(huggingface-cli download); fi
+
+# Hugging Face auth: HF_TOKEN from the environment, or a login saved earlier with `hf auth login`.
+if [ -n "${HF_TOKEN:-}" ]; then
+  export HF_TOKEN
+elif ! "$PY" -c 'import sys; from huggingface_hub import get_token; sys.exit(0 if get_token() else 1)'; then
+  echo "No Hugging Face login found. On the pod run:  hf auth login   (paste a read token), then re-run this script." >&2
+  echo "First accept the terms at https://huggingface.co/Lightricks/LTX-2.5 with the same account." >&2
+  exit 1
+fi
 
 # ----------------------------------------------------------------- downloads
 M="$COMFY_DIR/models"
