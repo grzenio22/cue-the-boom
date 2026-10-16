@@ -174,8 +174,8 @@ def _performance(cue: CueSheet, anchor: int, length: int) -> _Performance:
 
 def _burst_shapes(effect: EffectSpec, e: int, perf: _Performance, length: int, w: int, h: int,
                   x0: float, y0: float, keys: list[int], tail: Tail) -> list[dict]:
-    r0 = max(effect.r_min * w, MIN_RADIUS_PX)
-    rpk = max((effect.r_min + (effect.r_max - effect.r_min) * perf.peak_early) * w, r0)
+    r0 = max(effect.r_min * min(w, h), MIN_RADIUS_PX)  # sizes follow the short side: same look in landscape
+    rpk = max((effect.r_min + (effect.r_max - effect.r_min) * perf.peak_early) * min(w, h), r0)
     rise_y = y0 - effect.rise * h * (e / (length - 1))
     later = [k for k in keys if k > 1]
     p1 = later[0] if len(later) > 1 else keys[-1]
@@ -204,8 +204,8 @@ def _burst_shapes(effect: EffectSpec, e: int, perf: _Performance, length: int, w
 
 def _puff_shapes(effect: EffectSpec, e: int, perf: _Performance, length: int, w: int, h: int,
                  x0: float, y0: float, keys: list[int], tail: Tail, canvas: bool) -> list[dict]:
-    r0 = max(effect.r_min * w, MIN_RADIUS_PX)
-    rpk = max((effect.r_min + (effect.r_max - effect.r_min) * perf.peak_early) * w, r0)
+    r0 = max(effect.r_min * min(w, h), MIN_RADIUS_PX)  # sizes follow the short side: same look in landscape
+    rpk = max((effect.r_min + (effect.r_max - effect.r_min) * perf.peak_early) * min(w, h), r0)
     rise_y = y0 - effect.rise * h * (e / (length - 1))
     later = [k for k in keys if k > 1]
     p1 = later[0] if len(later) > 1 else keys[-1]
@@ -236,7 +236,7 @@ def _sustained_shapes(effect: EffectSpec, e: int, perf: _Performance, length: in
 
     def size(i: int) -> float:
         level = perf.env[i] if perf.active[i] else 0.0
-        return (effect.r_min + span * level) * (w if effect.behaviour == "plume" else h)
+        return (effect.r_min + span * level) * (min(w, h) if effect.behaviour == "plume" else h)
 
     def jet(s: float, color=None) -> list[dict]:
         """A 1:8 jet whose LENGTH follows the voice; only its width is held at the visible minimum."""

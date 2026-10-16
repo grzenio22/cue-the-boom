@@ -44,11 +44,43 @@ def _rotation_k(frame: av.VideoFrame) -> int:
     return int(round((getattr(frame, "rotation", 0) or 0) / 90.0)) % 4
 
 
-def read_video(path: str | Path, size: tuple[int, int] | None = None) -> VideoClip:
+@dataclass(frozen=True)
+class VideoInfo:
+    width: int  # as displayed (rotation applied)
+    height: int
+    duration_s: float
+    fps: float
+
+
+def probe_video(path: str | Path) -> VideoInfo:
+    """Displayed size, duration and nominal rate, from the first frame and the container (no full decode)."""
+    with av.open(str(path)) as container:
+        if not container.streams.video:
+            raise ValueError(f"no video stream in {path}")
+        stream = container.streams.video[0]
+        rate = stream.average_rate or stream.guessed_rate
+        fps = float(rate) if rate else 0.0
+        frame = next(container.decode(stream), None)
+        if frame is None:
+            raise ValueError(f"no decodable video frames in {path}")
+        w, h = (frame.height, frame.width) if _rotation_k(frame) % 2 else (frame.width, frame.height)
+        if stream.duration is not None and stream.time_base is not None:
+            duration = float(stream.duration * stream.time_base)
+        elif container.duration is not None:
+            duration = container.duration / av.time_base
+        elif stream.frames and fps:
+            duration = stream.frames / fps
+        else:
+            duration = 0.0
+    return VideoInfo(width=w, height=h, duration_s=duration, fps=fps)
+
+
+def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: float | None = None) -> VideoClip:
     """Decode every frame as RGB, *as displayed* (phone rotation metadata applied), with its timestamp.
 
     Sorted by timestamp (VFR- and out-of-order-safe). ``size`` = (W, H) of the displayed frame scales
-    during decode (keeps memory bounded for previews/compares). HDR plates raise HDRVideoError.
+    during decode (keeps memory bounded for previews/compares). ``max_s`` stops decoding once frames are more
+    than that many seconds after the first. HDR plates raise HDRVideoError.
     """
     frames: list[np.ndarray] = []
     times: list[float] = []
@@ -62,6 +94,8 @@ def read_video(path: str | Path, size: tuple[int, int] | None = None) -> VideoCl
         for frame in container.decode(stream):
             if not frames:
                 _check_sdr(frame, stream, path)
+            elif max_s is not None and frame.time is not None and frame.time - times[0] > max_s + 0.5:
+                break  # a margin past max_s: out-of-order frames near the cut still land in order
             k = _rotation_k(frame)
             if size is not None:
                 w, h = (size[1], size[0]) if k % 2 else size  # decode in stored orientation, then rotate

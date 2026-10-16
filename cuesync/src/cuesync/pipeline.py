@@ -23,11 +23,12 @@ from . import __version__
 from .align import element_index_for, plan_alignment
 from .audio import analyze
 from .compare import PLAYHEAD, RIBBON_BG, RIBBON_FILL, RIBBON_FUTURE, RIBBON_H, _font
-from .composite import composite, first_shown_frame, voice_gates
-from .conform import conform
+from .composite import composite, effect_options, first_shown_frame, voice_gates
+from .conform import _crop_box, clip_duration, conform, crop_point
 from .effects import load_effect
 from .guide import paint_guide, write_guide
-from .media import read_audio, read_video, write_video
+from .matte import grabcut_matte
+from .media import probe_video, read_audio, read_video, write_video
 from .score import measure_composite_end, measure_composite_onset, measure_element
 
 FPS = 24
@@ -69,8 +70,9 @@ class ShotSpec:
     face_offset_s: float | None = None  # face clip lag behind the voice recording (Dub Mode timing.json)
     label: str = ""
     max_plate_s: float = 10.0
-    plate_size: tuple[int, int] = (1080, 1920)
-    element_size: tuple[int, int] = (576, 1024)
+    plate_size: tuple[int, int] | None = None  # None: 1080x1920 for portrait plates, 1920x1080 for landscape
+    element_size: tuple[int, int] | None = None  # None: 576x1024 or 1024x576 to match
+    matte: Callable[[np.ndarray, tuple[float, float]], np.ndarray | None] | None = None  # None: GrabCut
     extra: dict = field(default_factory=dict)
 
 
@@ -115,7 +117,11 @@ def _fit(frame: np.ndarray, w: int, h: int) -> np.ndarray:
 
 def _face_track(face: Path, n_frames: int, plate_offset_s: float, face_offset_s: float | None, size: int):
     """Face frames per plate frame (square ``size``), or None outside the face clip."""
-    clip = read_video(face)
+    info = probe_video(face)
+    scale = min(1.0, 2.0 * size / max(1, min(info.width, info.height)))  # decode small: it becomes an inset
+    clip = read_video(face, size=None if scale >= 1.0 else (max(2, round(info.width * scale / 2) * 2),
+                                                             max(2, round(info.height * scale / 2) * 2)),
+                      max_s=n_frames / FPS + abs(plate_offset_s) + abs(face_offset_s or 0.0) + 1.0)
     times = np.asarray(clip.times_s)
     lag = face_offset_s or 0.0
     out: list[np.ndarray | None] = []
@@ -177,8 +183,11 @@ def _finalise(frames: np.ndarray, env: np.ndarray, label: str, faces) -> np.ndar
     return out
 
 
-def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: np.ndarray, align, timing) -> np.ndarray:
-    """2x2 grid at half size: plate | guide / element | composite, each on the plate's timeline."""
+def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: np.ndarray, align, timing,
+               keyframes: list[int] | None = None) -> np.ndarray:
+    """2x2 grid at half size: plate | guide / element | composite, each on the plate's timeline. The guide
+    only exists at its keyframes, so its tile holds the latest one (the plan's list: after an mp4 round trip
+    codec noise makes every frame look non-empty)."""
     n, h, w = plate.shape[:3]
     hw, hh = w // 2, h // 2
     out = np.zeros((n, h, w, 3), np.uint8)
@@ -194,7 +203,7 @@ def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: 
             cache[k] = np.asarray(Image.fromarray(src[i]).resize((hw, hh), Image.Resampling.BILINEAR))
         return cache[k]
 
-    keyed = [i for i in range(guide.shape[0]) if guide[i].any()]  # the guide only exists at its keyframes
+    keyed = sorted(keyframes) if keyframes else [i for i in range(guide.shape[0]) if guide[i].max() > 32]
 
     def latest_key(i: int | None) -> int | None:
         if i is None:
@@ -207,7 +216,7 @@ def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: 
         idx = element_index_for(align, timing, t, element.shape[0])
         g_idx = latest_key(None if idx is None else min(idx, guide.shape[0] - 1))
         tiles = [(half(plate[t]), "1 plate (untouched)"),
-                 (small(guide, g_idx, "g"), "2 voice-painted guide"),
+                 (small(guide, g_idx, "g"), "2 voice-painted guide (last keyframe)"),
                  (small(element, idx, "e"), "3 LTX-2.5 element"),
                  (half(comp[t]), "4 composite")]
         for k, (tile, text) in enumerate(tiles):
@@ -218,6 +227,28 @@ def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: 
     return out
 
 
+def load_plate(path: Path, point: tuple[float, float], max_s: float, size: tuple[int, int] | None = None,
+               element_size: tuple[int, int] | None = None):
+    """The plate at 24 fps, cropped to 9:16 or 16:9 (by its orientation) around the tapped point, at most
+    ``max_s`` long and never padded; returns (frames, the point in the cropped frame, the element size).
+
+    Decodes at just enough resolution to cover the crop, so a 4K phone clip stays in bounded memory."""
+    info = probe_video(path)
+    landscape = info.width > info.height
+    size = size or ((1920, 1080) if landscape else (1080, 1920))
+    element_size = element_size or ((1024, 576) if landscape else (576, 1024))
+    scale = max(size[0] / info.width, size[1] / info.height)
+    dec = None if scale >= 1.0 else (max(2, round(info.width * scale / 2) * 2), max(2, round(info.height * scale / 2) * 2))
+    clip = read_video(path, size=dec, max_s=max_s)
+    src_h, src_w = clip.frames.shape[1:3]
+    duration = min(clip_duration(clip, FPS), max_s)
+    frames = conform(clip, size=size, fps=FPS, duration_s=duration, focus=point)
+    del clip
+    box = _crop_box(src_w, src_h, size[0], size[1], point)
+    px, py = crop_point(point, src_w, src_h, box)
+    return frames, (min(max(px, 0.0), 1.0), min(max(py, 0.0), 1.0)), element_size
+
+
 def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progress | None = None) -> ShotResult:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -226,7 +257,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     eff = load_effect(spec.effect)
 
     say("reading", 0.03, "Reading your plate")
-    plate = conform(read_video(spec.plate), size=spec.plate_size, fps=FPS, duration_s=spec.max_plate_s)
+    plate, point, element_size = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size, spec.element_size)
     n = plate.shape[0]
 
     say("listening", 0.08, "Listening to your performance")
@@ -235,7 +266,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     (out_dir / "cue.json").write_text(json.dumps(cue.to_json(), indent=1))
 
     say("painting", 0.12, "Painting your voice into a guide")
-    plan = paint_guide(cue, eff, spec.point, size=spec.element_size)
+    plan = paint_guide(cue, eff, point, size=element_size)
     guide_path = out_dir / "guide.mp4"
     write_guide(plan, guide_path, fps=FPS)
     (out_dir / "guide.json").write_text(json.dumps(plan.to_json(), indent=1))
@@ -250,9 +281,10 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     align = plan_alignment(plan.anchor_frame, timing, mode=eff.align, lead=eff.lead_frames)
     gates = voice_gates(n, cue.intervals(), plan.anchor_frame, eff.voice_gate, eff.release_fire, eff.release_smoke,
                         open_from=first_shown_frame(align, timing))
-    emission = (spec.point[0] * plate.shape[2], spec.point[1] * plate.shape[1])
-    comp = composite(plate, element, align, timing, gates=gates, emission=emission, holdout_below=eff.holdout_below,
-                     fire_effect=eff.fluid == "fire", dense_smoke=eff.fluid == "smoke" or eff.secondary == "smoke")
+    emission = (point[0] * plate.shape[2], point[1] * plate.shape[1])
+    occluder = spec.matte(plate[0], point) if spec.matte is not None else grabcut_matte(plate[0], point)
+    comp = composite(plate, element, align, timing, gates=gates, emission=emission, occluder=occluder,
+                     **effect_options(eff))
     audio = place_audio(samples, spec.offset_s, n)
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio)
@@ -261,7 +293,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     faces = None
     if spec.face is not None:
         try:
-            faces = _face_track(spec.face, n, spec.offset_s, spec.face_offset_s, plate.shape[2] // 3)
+            faces = _face_track(spec.face, n, spec.offset_s, spec.face_offset_s, min(plate.shape[1:3]) // 3)
         except Exception:  # a broken face clip must not cost the shot
             faces = None
     env = np.zeros(n)
@@ -273,7 +305,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     del final
 
     guide_frames = read_video(guide_path).frames
-    breakdown = _breakdown(plate, guide_frames, element, comp, align, timing)
+    breakdown = _breakdown(plate, guide_frames, element, comp, align, timing, plan.keyframes)
     breakdown_path = out_dir / "breakdown.mp4"
     write_video(breakdown_path, breakdown, fps=FPS, audio=audio)
     del breakdown
@@ -292,6 +324,8 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
         "guide": {k: v for k, v in plan.to_json().items() if k != "blobs"},
         "render": {"renderer": renderer.name, "seconds": round(render_s, 2), "prompt": eff.prompt,
                    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA"},
+        "matte": {"source": "custom" if spec.matte is not None else "grabcut", "found": occluder is not None,
+                  "coverage": None if occluder is None else round(float(occluder.mean()), 4)},
         "alignment": {"mode": eff.align, "offset": align.offset, "first_element_frame": align.first,
                       "visible_onset": timing.visible_onset, "hit": timing.hit_frame, "peak": timing.peak},
         "measured": {"onset_error_frames": None if onset is None else onset - plan.anchor_frame,
