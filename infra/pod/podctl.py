@@ -460,6 +460,36 @@ def cmd_setup(args) -> None:
     sys.exit(run_ssh(state, remote, input=(token + "\n").encode(), check=False).returncode)
 
 
+SYNC_PATHS = ["cuesync/src", "cuesync/pyproject.toml", "cuesync/README.md", "comfyui-cuesync", "effects", "workflows",
+              "infra/pod/pod-setup.sh"]
+
+
+def cmd_sync(args) -> None:
+    """Ship this checkout's cuesync engine, the CueSync node pack, effects and workflows to the pod, install
+    cuesync into the pod's venv and link the node pack into ComfyUI (restart ComfyUI to load new nodes)."""
+    import io
+    import tarfile
+
+    state = require_pod(load_state())
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for rel in SYNC_PATHS:
+            if (REPO / rel).exists():
+                tar.add(REPO / rel, arcname=rel,
+                        filter=lambda t: None if "__pycache__" in t.name or t.name.endswith(".pyc") else t)
+    remote = ("rm -rf /workspace/cue-src && mkdir -p /workspace/cue-src && tar -xzf - -C /workspace/cue-src && "
+              "/workspace/venv/bin/python -m pip install -q --no-deps -e /workspace/cue-src/cuesync && "
+              "ln -sfn /workspace/cue-src/comfyui-cuesync /workspace/ComfyUI/custom_nodes/comfyui-cuesync && "
+              "cp /workspace/cue-src/infra/pod/pod-setup.sh /workspace/pod-setup.sh && "
+              "echo synced $(du -sh /workspace/cue-src | cut -f1)")
+    run_ssh(state, remote, input=buf.getvalue(), timeout=600)
+    if args.restart:
+        # [.] / [y]: the patterns must not match this very command line, or pkill kills its own shell
+        run_ssh(state, "pkill -f 'main[.]py --listen 127.0.0.1 --port 8188'; pkill -f 'comfy-api-prox[y]'; sleep 3; "
+                       "bash /workspace/pod-setup.sh > /workspace/logs/restart.log 2>&1; tail -n 3 /workspace/logs/restart.log",
+                timeout=900)
+
+
 def cmd_tunnel(args) -> None:
     state = require_pod(load_state())
     run_ssh(state, "true", timeout=60)
@@ -542,6 +572,10 @@ def main(argv: list[str] | None = None) -> None:
     s = sub.add_parser("setup", help="install/start ComfyUI + Comfy API proxy on the pod")
     s.add_argument("--with-alphagen", action="store_true")
     s.set_defaults(fn=cmd_setup)
+
+    s = sub.add_parser("sync", help="ship cuesync + the CueSync node pack to the pod and install them")
+    s.add_argument("--restart", action="store_true", help="restart ComfyUI and the proxy afterwards (loads new nodes)")
+    s.set_defaults(fn=cmd_sync)
 
     s = sub.add_parser("tunnel", help="forward 127.0.0.1:8188 and :8189 to the pod (blocks)")
     s.set_defaults(fn=cmd_tunnel)

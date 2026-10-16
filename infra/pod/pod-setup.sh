@@ -209,7 +209,7 @@ unset HF_TOKEN   # the services never need it
 # Read the big weights once now so the first render loads them from RAM instead of the
 # network volume; the log records the volume's read speed.
 log "Pre-reading model weights into the page cache (background) -> $LOG_DIR/prewarm.log"
-nohup "$PY" - "$M" > "$LOG_DIR/prewarm.log" 2>&1 <<'WARM' &
+setsid -f nohup "$PY" - "$M" > "$LOG_DIR/prewarm.log" 2>&1 <<'WARM'
 import glob, os, sys, time
 m = sys.argv[1]
 for f in sorted(glob.glob(f"{m}/diffusion_models/ltx-2.5-22b-distilled-*.safetensors")
@@ -228,14 +228,15 @@ if pgrep -f "main.py --listen 127.0.0.1 --port 8188" >/dev/null; then
 else
   # --highvram keeps every model resident on the GPU; without it, DynamicVRAM re-streams the weights
   # from host RAM and renders slow from ~22 s to 45-90 s within a session.
-  (cd "$COMFY_DIR" && setsid nohup "$PY" main.py --listen 127.0.0.1 --port 8188 --highvram < /dev/null > "$LOG_DIR/comfyui.log" 2>&1 &)
+  # setsid -f: fully detached, so this script (and the SSH session running it) can exit
+  (cd "$COMFY_DIR" && setsid -f nohup "$PY" main.py --listen 127.0.0.1 --port 8188 --highvram < /dev/null > "$LOG_DIR/comfyui.log" 2>&1)
   echo "ComfyUI starting -> $LOG_DIR/comfyui.log"
 fi
 if pgrep -f "comfy-api-proxy" >/dev/null; then
   echo "comfy-api-proxy already running"
 else
-  setsid nohup "$VENV/bin/comfy-api-proxy" --comfyui http://127.0.0.1:8188 --port 8189 --comfyui-base-dir "$COMFY_DIR" \
-    --max-upload-mb 500 < /dev/null > "$LOG_DIR/proxy.log" 2>&1 &
+  setsid -f nohup "$VENV/bin/comfy-api-proxy" --comfyui http://127.0.0.1:8188 --port 8189 --comfyui-base-dir "$COMFY_DIR" \
+    --max-upload-mb 500 < /dev/null > "$LOG_DIR/proxy.log" 2>&1
   echo "comfy-api-proxy starting -> $LOG_DIR/proxy.log"
 fi
 
