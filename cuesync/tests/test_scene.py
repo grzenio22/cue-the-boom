@@ -821,3 +821,22 @@ def test_a_hit_the_model_merged_gets_no_flash_of_its_own():
     assert corner[st.hits[0] + PEAK_AFTER] > corner[0] + 5  # the first hit flashes
     assert abs(corner[st.hits[1] + PEAK_AFTER] - corner[0]) <= 2  # the merged one doesn't
 
+
+def test_a_rhythm_pauses_between_its_hits_on_the_guide():
+    from cuesync.scene import is_fire, is_rest
+
+    cue = cue_of([(1.0, 0.12, 0.6), (1.67, 0.12, 0.6), (2.5, 0.6, 0.95)], length_s=5.0)
+    eff = load_effect("fire_burst")
+    start, length = plan_window(cue, eff, None)
+    plate = two_tone_plate()[None]
+    shapes = lambda sp, e: next(b["shapes"] for b in sp.guide.blobs if b["e"] == e)  # noqa: E731
+    on = paint_scene_guide(cue, eff, (0.5, 0.6), plate, start=start, length=length, gaps="none")
+    a, b = on.events[0].at, on.events[1].at
+    gap = max(k for k in on.guide.keyframes if a < k < b)
+    assert any(is_fire(s) and not is_rest(s) for s in shapes(on, gap))  # without gaps the first burst burns on
+    free = paint_scene_guide(cue, eff, (0.5, 0.6), plate, start=start, length=length, gaps="free")
+    assert not any(is_fire(s) and not is_rest(s) for s in shapes(free, gap))  # a pause the model can see
+    held = paint_scene_guide(cue, eff, (0.5, 0.6), plate, start=start, length=length, gaps="hold")
+    assert all(is_rest(s) for s in shapes(held, gap))
+    assert all(np.array_equal(held.guide.frames[f], held.guide.frames[gap]) for f in range(gap + 1, b))  # held to the hit
+    assert held.guide.frames[b].max() > 0 or b not in held.guide.keyframes

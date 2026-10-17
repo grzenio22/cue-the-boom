@@ -762,7 +762,7 @@ class ScenePlan:
 def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float], plate_frames: np.ndarray, *,
                       start: int, length: int, direction: float | None = None, scale: float = 1.0,
                       size: tuple[int, int] | None = None, multi_hit: bool = True, hold: str = "pre",
-                      strokes: Strokes | None = None) -> ScenePlan:
+                      strokes: Strokes | None = None, gaps: str = "free") -> ScenePlan:
     """Paint the control video for an in-scene render. ``plate_frames`` are the plate's frames (one frame
     for a still plate); keyframe e is painted over the zones of plate frame start + e, all in the palette of
     the first, so a moving plate's zones move with it and the colours never flicker.
@@ -776,6 +776,11 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
     ``strokes``: the performer drew the effect; the drawing replaces the effect's own shape (its source and
     direction come from the first stroke) and the voice fills it.
 
+    ``gaps``: between two hits of a rhythm, the last keyframe before the next hit shows none of the first one's
+    fire ("free"), and is also held, the plate and its resting flame only, until the next hit ("hold"), so the
+    model renders a dip between them rather than one long fire; "none" paints the fire on. LTX-2.5 merged 5 of
+    12 rhythm hits with "none".
+
     Smoke is painted relative to the scene's brightness: light grey reads as white cotton in a dark room."""
     if eff.scene is None:
         raise ValueError(f"effect {eff.id!r} has no scene section")
@@ -787,6 +792,8 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
 
     if hold not in ("pre", "all", "none"):
         raise ValueError(f"hold must be 'pre', 'all' or 'none', got {hold!r}")
+    if gaps not in ("none", "free", "hold"):
+        raise ValueError(f"gaps must be 'none', 'free' or 'hold', got {gaps!r}")
     keys = keyframe_indices(length, 8, with_one=True)
     events = events_for(cue, eff, start, multi_hit=multi_hit)
     dropped = [start + ev.at for ev in events if not 0 <= ev.at <= length - 2] + omitted_hits(cue, multi_hit)
@@ -821,6 +828,14 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
             active[a2:b2] = True
     ctx = _Ctx(eff=eff, s=(float(point[0]) * w, float(point[1]) * h), u=unit(direction), w=w, h=h, scale=scale,
                env=env, active=active, length=length, notes=notes)
+    # the keyframe each rhythm hit must be fire-free on: the last before the next hit, after its own first one
+    gap_of: dict[int, int] = {}
+    if gaps != "none":
+        for k in range(len(events) - 1):
+            first_k = next(x for x in keys if x >= events[k].at)
+            between = [x for x in keys if first_k < x < events[k + 1].at]
+            if between:
+                gap_of[k] = between[-1]
     palette = zone_palette(plate_frames[min(max(start, 0), len(plate_frames) - 1)])
     painter = _PAINTERS[eff.behaviour]
     # a drawing is where the effect goes; blowing a flame out has nowhere to go, the drawing only says where
@@ -840,7 +855,12 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
             if nxt is not None and e >= nxt and eff.behaviour in ("plume", "jet"):
                 continue
             part = drawn.shapes(ctx, ev, e) if drawn is not None else painter(ctx, ev, e)
+            if gap_of.get(k) == e:  # the pause before the next hit: none of this hit's fire
+                part = [s for s in part if not is_fire(s) or is_rest(s)]
             shapes += [s for s in part if s not in shapes]
+        gap_next = next((events[k + 1].at for k, g in gap_of.items() if g == e), None)
+        if gap_next is not None and gaps == "hold":
+            shapes = [s for s in shapes if is_rest(s)]  # the plate and its resting flame, held until the next hit
         if eff.behaviour == "extinguish" and events and e >= events[0].at:
             shapes = [s for s in shapes if not is_fire(s)]  # once blown out it stays out, whatever comes after
         # the resting flame goes under the effect (painted first), and only once
@@ -854,8 +874,9 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
         quiet_gap = any(a.at < e and e + 7 < b.at for a, b in zip(events, events[1:])) and all(
             is_rest(s) for s in shapes)  # truly quiet: only the flame that is there anyway (held, the model copies)
         over = not shapes and e > last_end
-        if 0 < e < length - 1 and (hold == "all" or (hold == "pre" and (e + 7 < first_at or quiet_gap or over))):
-            for f in range(e + 1, min(e + 8, length - 1)):
+        gap_hold = gap_next is not None and gaps == "hold"
+        if 0 < e < length - 1 and (hold == "all" or gap_hold or (hold == "pre" and (e + 7 < first_at or quiet_gap or over))):
+            for f in range(e + 1, min(e + 8, gap_next if gap_hold else length, length - 1)):
                 if still:
                     frames[f] = frames[e]
                 else:  # a moving plate keeps moving under a held keyframe
