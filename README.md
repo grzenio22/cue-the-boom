@@ -2,7 +2,7 @@
 
 **Draw where. Cue it with a sound. The scene reacts.**
 
-Put fire, smoke or steam into your own shot exactly where it should come from (tap it, or draw it) and exactly when it should happen: say it ("pf.", "KA-BOOM", "fwoooOOOM", "hissss"), lock it to a sound that is already in your clip (a finger snap, a lighter's click, a door slam), or press and hold. No timestamps to type: the sound sets the hit frame, and how you made it sets how big it gets, how long it lasts and when it stops. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into your scene, so the generated fire lights the room and the scene changes with it: a blown-out candle stays out. Then CueSync measures where the effect actually landed and moves it onto your cue, and every shot says by how much.
+Put fire, smoke or steam into your own shot exactly where it should come from (tap it, or draw it) and exactly when it should happen: say it ("pf.", "KA-BOOM", "fwoooOOOM", "hissss"), lock it to a sound that is already in your clip (a finger snap, a lighter's click, a door slam), or press and hold. No timestamps to type: the sound sets the hit frame, and how you made it sets how big it gets and how long it lasts. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into your scene, so the generated fire lights the room and the scene changes with it: a blown-out candle stays out. Then CueSync measures where the effect actually landed and moves it onto your cue, and every shot says by how much.
 
 ![The scene reacts](media/hero.jpg)
 <sub>Scene-mode shots. The plates are stand-ins generated with LTX-2.5 and the noises are synthetic, until real phone footage is added; the effects are rendered into each plate by LTX-2.5 + ainvfx-fluid, from the cue, and timed by CueSync.</sub>
@@ -14,9 +14,9 @@ An entry for Comfy's **Open Source Higgsfield** contest, built on the Comfy Deve
 Preset effects decide for you where and when the effect happens; prompt-based video edits make you type the timing ("at about 2.2 seconds, on his finger snap"). Cue the Boom keeps you in charge of the two things a shot is made of:
 
 - **Where.** Tap the thing it comes from (a toy's mouth, a candle's wick), drag to aim it, or draw it (flames along the top of a pumpkin, smoke pouring out of a lamp).
-- **When, and how much.** A sound pins the exact frame, and its loudness and length shape the effect. Your voice is the fun way to do it; the sound already in your clip is the editor's way (hits are cut to sound anyway); press-and-hold works in a quiet room.
+- **When, and how much.** A sound pins the frame, and its loudness and length shape the effect. Your voice is the fun way to do it; the sound already in your clip is the editor's way (hits are cut to sound anyway); press-and-hold works in a quiet room.
 
-The effect is rendered into the scene, so it lights and changes what is around it. A moving clip keeps its own pixels outside what the effect changed; that is checked on every shot, and the shot tells you when it isn't.
+The effect is rendered into the scene, so it lights and changes what is around it. On a moving clip CueSync adds only what the effect changed and checks the result (if the check fails, the shot says so and uses the render); the sample plates so far are still.
 
 ## Try it
 
@@ -81,10 +81,22 @@ Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pi
 1. **Read the cue** ([`cues.py`](cuesync/src/cuesync/cues.py), [`audio.py`](cuesync/src/cuesync/audio.py)). Onsets, the hits of a rhythm ("pf, pf, KA-BOOM"), an absolute loudness envelope per video frame, and when the sound is actually there. From your voice, from the clip's own soundtrack, or from press-and-hold. Its shape (a hit, a rhythm, a sustained sound, a breath, a hiss) picks the effect when you let it ([`gestures.py`](cuesync/src/cuesync/gestures.py)).
 2. **Paint the scene** ([`scene.py`](cuesync/src/cuesync/scene.py)). ainvfx-fluid was trained on controls that paint the whole frame in six flat colour zones, with the real first frame as conditioning. So CueSync paints your plate in its own zones on every keyframe and paints the effect over them: at its source, going its way (a jet out of a mouth that curls up as hot gas rises; a flare that grows out of the candle's own flame and settles back), or filling your drawing as far as your cue says. The scene is held over each 8-frame latent until the hit (a blank latent lets the model start the effect early), and every hit lands on a keyframe.
 3. **Render into the scene.** LTX-2.5 image-to-video starts from your plate's frame at full strength, with the painted guide, through the Comfy SDK ([`runner.py`](cuesync/src/cuesync/runner.py)). The model lights the room, the table and the prop itself, and leaves what the effect leaves behind.
-4. **Time it** ([`scene_shot.py`](cuesync/src/cuesync/scene_shot.py)). Where the effect visibly starts is measured on the render and moved onto your cue (a burst shows a frame before its "BOOM": light beats sound). A blast adds a warm flash at its peak and a camera shake just after it.
+4. **Time it** ([`scene_shot.py`](cuesync/src/cuesync/scene_shot.py)). The first frame where the effect is visible is measured on the render and moved onto your cue (a burst shows a frame before its "BOOM": light beats sound). A rhythm moves by the middle error of the hits the model kept apart. A blast adds a warm flash at its peak and a camera shake just after it.
 5. **Keep your footage** ([`transfer.py`](cuesync/src/cuesync/transfer.py)). A still plate becomes the render. A moving clip keeps its own pixels: the render is registered onto its own scene, and only what changed is added, in linear light; where the structure changed (the fire, smoke, debris) the render replaces the plate. The transfer is checked, and if the render drifted it is not used blindly; the shot says so.
 
-Every shot writes a receipt: the cue, where the hits were painted, how early or late the model put them, how far they were moved, whether the transfer passed its check. LTX-2.5 can only take the guide on an 8-frame grid (a third of a second at 24 fps), and it often lands the effect a few frames off, so this measure-and-move step is what puts the hit on your frame.
+Every shot writes a receipt: the cue, where the hits were painted, how early or late the model put them, how far they were moved, whether the transfer passed its check. LTX-2.5 can only take the guide on an 8-frame grid (a third of a second at 24 fps), and it nearly always starts the effect a few frames early, so this measure-and-move step is what puts the hit on your cue.
+
+How well it works, marked by eye frame by frame on the raw renders of 22 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
+
+| | within one frame (42 ms) of the cue | mean error |
+|---|---|---|
+| LTX-2.5 render, as it comes | 1 of 23 hits | 5.2 frames |
+| the finished shot | 19 of 23 hits | 0.7 frames |
+| the finished shot, takes marked before the detector was tuned | 8 of 10 | |
+
+![Timing: raw render vs finished shot](media/timing.png)
+
+The limits, measured the same way: in a rhythm LTX-2.5 sometimes merges two close hits into one (2 of 6 here); those are reported, not faked, and the rest move together. A flame dies down about half a second after the voice stops (median 14 frames), and one drawn flame plume kept burning to the end of the shot.
 
 **Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate, with a SAM 2.1 object matte and a linear-light compositor ([`composite.py`](cuesync/src/cuesync/composite.py)).
 

@@ -169,7 +169,11 @@ def chart(raw: list, fin: list, path: Path, lo: int = -10, hi: int = 16) -> None
     d.text((xf(0), bottom + 56), "frames from the cue (24 fps)", font=_font(24), fill=MUTED, anchor="ma")
     d.text((left, bottom + 56), "early", font=_font(24), fill=MUTED, anchor="la")
     d.text((right, bottom + 56), "late", font=_font(24), fill=MUTED, anchor="ra")
-    r = 13
+    # dots stack out from each row's line; size them so the tallest stack stays inside its own row
+    tallest = max((sum(1 for v in vals if v is not None and int(round(min(max(v, lo), hi))) == k)
+                   for _, _, vals, _, _ in rows for k in range(lo, hi + 1)), default=1)
+    step = min(29.0, 120.0 / max(1, tallest // 2))
+    r = max(4, int((step - 3) / 2))
     for a, b, vals, colour, y in rows:
         d.text((40, y - 34), a, font=_font(30, bold=True), fill=FG)
         d.text((40, y + 4), b, font=_font(30, bold=True), fill=FG)
@@ -183,7 +187,7 @@ def chart(raw: list, fin: list, path: Path, lo: int = -10, hi: int = 16) -> None
             k = int(round(min(max(v, lo), hi)))
             n = seen.get(k, 0)
             seen[k] = n + 1
-            cy = y + (n // 2 + n % 2) * (2 * r + 3) * (-1 if n % 2 else 1)  # stack out from the row's line
+            cy = y + (n // 2 + n % 2) * step * (-1 if n % 2 else 1)  # stack out from the row's line
             d.ellipse([xf(k) - r, cy - r, xf(k) + r, cy + r], fill=colour)
     img.save(path)
 
