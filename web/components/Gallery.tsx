@@ -23,7 +23,9 @@ export default function Gallery() {
           <button key={s.id} className="tile" onClick={() => setOpen({ shot: s, file: "final.mp4" })}>
             <video src={s.files["final.mp4"]} muted playsInline preload="metadata" />
             <span>{s.title}</span>
-            <span className="muted note">{s.mode === "render" ? "rendered from the noise" : "instant (pre-rendered element)"}</span>
+            <span className="muted note">{s.mode === "scene"
+              ? `rendered into the scene (LTX-2.5)${s.receipt?.inputs?.drawn ? ", drawn" : ""}${s.receipt?.inputs?.cue === "clip" ? ", locked to the clip's sound" : s.receipt?.inputs?.cue === "hold" ? ", press and hold" : ""}`
+              : s.mode === "render" ? "element rendered from the noise" : "instant (pre-rendered element)"}</span>
           </button>
         ))}
       </div>

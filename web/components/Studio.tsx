@@ -23,6 +23,7 @@ export default function Studio() {
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [takes, setTakes] = useState<Take[]>([]);
   const [performing, setPerforming] = useState(true);
+  const [rendering, setRendering] = useState(false); // a shot is being made: stepping back would lose it
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchEffects(), fetchSamples()]).then(([h, e, s]) => {
@@ -44,8 +45,8 @@ export default function Studio() {
   };
 
   const current = takes.at(-1);
-  // a drawing says where it comes from (its first point), so it stands in for a tapped point
-  const where: [number, number] | null = strokes.length ? strokes[0].points[0] : point;
+  // a drawing says where it comes from (its first point); in tap mode the tapped point wins
+  const where: [number, number] | null = drawing && strokes.length ? strokes[0].points[0] : point;
 
   if (apiError && !health) {
     return (
@@ -65,7 +66,7 @@ export default function Studio() {
           <h2>2. Where does it come from?</h2>
           <div className="row">
             <span className="muted">{plate.title}</span>
-            <button className="secondary" onClick={() => setPlate(null)}>Different shot</button>
+            <button className="secondary" disabled={rendering} onClick={() => setPlate(null)}>Different shot</button>
           </div>
           {!pointSet ? (
             <>
@@ -89,7 +90,7 @@ export default function Studio() {
           ) : (
             <div className="row">
               <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
-              <button className="secondary" onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : "Move it"}</button>
+              <button className="secondary" disabled={rendering} onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : "Move it"}</button>
             </div>
           )}
         </section>
@@ -102,7 +103,7 @@ export default function Studio() {
 
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
-          strokes={drawing ? strokes : []}
+          strokes={drawing ? strokes : []} initialJob={current.job} onBusy={setRendering}
           effects={effects} modes={health?.modes ?? []}
           onDone={(job, effect) => {
             const id = current.id; // this take, even if the user has moved on to another before it finishes
@@ -113,7 +114,7 @@ export default function Studio() {
       {plate && where && pointSet && !performing && (
         <section>
           <div className="row">
-            <button className="secondary" onClick={() => setPerforming(true)}>Cue it differently</button>
+            <button className="secondary" disabled={rendering} onClick={() => setPerforming(true)}>Cue it differently</button>
             <span className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</span>
           </div>
         </section>

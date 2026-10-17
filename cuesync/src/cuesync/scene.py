@@ -160,16 +160,29 @@ def _tongues(base, u, height, width, e: int, color) -> list[dict]:
     return out
 
 
+def _tag(shapes: list[dict], **flags) -> list[dict]:
+    return [dict(sh, **flags) for sh in shapes]
+
+
 def _fire(shape_fn, inner: float = 0.55) -> list[dict]:
     """An outer orange volume and its yellow core (the model's fire palette)."""
-    return [shape_fn(1.0, FIRE_OUTER), shape_fn(inner, FIRE_INNER)]
+    return _tag([shape_fn(1.0, FIRE_OUTER), shape_fn(inner, FIRE_INNER)], fire=True)
 
 
 def draw(shapes: list[dict], base: np.ndarray) -> np.ndarray:
+    """Paint ``shapes`` over ``base`` in order. A polygon may have holes (a drawn ring keeps its middle)."""
     img = Image.fromarray(base.copy())
     d = ImageDraw.Draw(img)
     for s in shapes:
-        if s["kind"] == "poly":
+        if s["kind"] == "poly" and s.get("holes"):
+            m = Image.new("L", img.size, 0)
+            md = ImageDraw.Draw(m)
+            md.polygon([tuple(p) for p in s["pts"]], fill=255)
+            for hole in s["holes"]:
+                md.polygon([tuple(p) for p in hole], fill=0)
+            img.paste(Image.new("RGB", img.size, tuple(s["color"])), (0, 0), m)
+            d = ImageDraw.Draw(img)
+        elif s["kind"] == "poly":
             d.polygon([tuple(p) for p in s["pts"]], fill=tuple(s["color"]))
         else:
             d.ellipse([s["cx"] - s["rx"], s["cy"] - s["ry"], s["cx"] + s["rx"], s["cy"] + s["ry"]], fill=tuple(s["color"]))
@@ -177,7 +190,13 @@ def draw(shapes: list[dict], base: np.ndarray) -> np.ndarray:
 
 
 def is_fire(shape: dict) -> bool:
-    return shape["color"] in FIRE_COLOURS
+    """Fire, tagged when painted (older plans: by the fire palette)."""
+    return bool(shape.get("fire", shape["color"] in FIRE_COLOURS))
+
+
+def is_rest(shape: dict) -> bool:
+    """The resting flame that is there anyway (a lit candle), not the effect."""
+    return bool(shape.get("rest", False))
 
 
 # ---------------------------------------------------------------- drawn effects
@@ -192,15 +211,29 @@ class Strokes:
 
     @classmethod
     def parse(cls, data) -> "Strokes | None":
-        """From JSON (a list of {"points": [[x, y], ...], "width": w}); None for no usable stroke."""
+        """From JSON (a list of {"points": [[x, y], ...], "width": w}); None for no usable stroke. Raises
+        ValueError for anything that isn't strokes (wrong types, non-finite numbers)."""
         if not data:
             return None
+        if not isinstance(data, list):
+            raise ValueError("strokes must be a list")
         out = []
         for s in data:
-            pts = [(float(x), float(y)) for x, y in s.get("points", [])]
-            pts = [(min(max(x, 0.0), 1.0), min(max(y, 0.0), 1.0)) for x, y in pts]
-            if len(pts) >= 1:
-                out.append({"points": pts, "width": float(min(max(s.get("width", 0.04), 0.005), 0.3))})
+            if not isinstance(s, dict) or not isinstance(s.get("points", []), list):
+                raise ValueError("each stroke needs a list of points")
+            pts = []
+            for p in s.get("points", []):
+                if not isinstance(p, (list, tuple)) or len(p) != 2:
+                    raise ValueError("each point is [x, y]")
+                x, y = float(p[0]), float(p[1])
+                if not (math.isfinite(x) and math.isfinite(y)):
+                    raise ValueError("stroke points must be finite numbers")
+                pts.append((min(max(x, 0.0), 1.0), min(max(y, 0.0), 1.0)))
+            width = float(s.get("width", 0.04))
+            if not math.isfinite(width):
+                raise ValueError("a stroke's width must be a finite number")
+            if pts:
+                out.append({"points": pts, "width": min(max(width, 0.005), 0.3)})
         return cls(out) if out else None
 
     @property
@@ -249,17 +282,38 @@ class Strokes:
 
 
 def _mask_shapes(mask: np.ndarray, color, scale: int = 2) -> list[dict]:
-    """A boolean mask as polygons (outer contours, found at 1/``scale`` resolution)."""
+    """A boolean mask as polygons (found at 1/``scale`` resolution), with their holes: a drawn ring stays a
+    ring and does not cover what it surrounds."""
     small = cv2.resize(mask.astype(np.uint8), (max(1, mask.shape[1] // scale), max(1, mask.shape[0] // scale)),
                        interpolation=cv2.INTER_NEAREST)
-    contours, _ = cv2.findContours(small, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    out = []
-    for c in contours:
-        if cv2.contourArea(c) < 4:
-            continue
+    contours, hier = cv2.findContours(small, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    if hier is None:
+        return []
+    hier = hier[0]
+
+    def pts(c):
         c = cv2.approxPolyDP(c, 1.0, True)
-        if len(c) >= 3:
-            out.append(_poly([(float(p[0][0]) * scale, float(p[0][1]) * scale) for p in c], color))
+        return [(float(p[0][0]) * scale, float(p[0][1]) * scale) for p in c] if len(c) >= 3 else None
+
+    out = []
+    for i, c in enumerate(contours):
+        if hier[i][3] != -1 or cv2.contourArea(c) < 4:  # holes are handled with their outer contour
+            continue
+        outer = pts(c)
+        if outer is None:
+            continue
+        shape = _poly(outer, color)
+        holes = []
+        j = hier[i][2]  # first child: a hole
+        while j != -1:
+            if cv2.contourArea(contours[j]) >= 4:
+                hole = pts(contours[j])
+                if hole is not None:
+                    holes.append([[round(x, 1), round(y, 1)] for x, y in hole])
+            j = hier[j][0]
+        if holes:
+            shape["holes"] = holes
+        out.append(shape)
     return out
 
 
@@ -293,27 +347,43 @@ class _Drawn:
             return amount, 0.0
         # sustained: as far as the voice is loud, relative to its loudest moment
         peak = max(float(c.env[c.active].max()) if c.active.any() else 1.0, 1e-3)
-        if ev.end is None or e < ev.end:
-            level = (c.env[e] / peak) if c.active[e] else 0.3
-            return max(0.25, min(1.0, level)) * _ease((t + 8) / 10) * ev.size, 0.0
-        since = e - ev.end
-        last = max(float(c.env[i]) for i in range(max(0, ev.end - 8), max(1, ev.end))) / peak
+        end = c.length if ev.end is None else ev.end
+
+        def on(i: int) -> float:
+            # the loudest moment within half a keyframe step: a "pf" between two keyframes still shows its size
+            win = [j for j in range(max(ev.at, i - 4), min(end, i + 4)) if c.active[j]]
+            level = max(float(c.env[j]) for j in win) / peak if win else 0.3
+            return max(0.25, min(1.0, level)) * _ease((i - ev.at + 8) / 10) * ev.size
+
+        if e < end:
+            return on(e), 0.0
+        since = e - end
+        # carry on from the fill it had when the sound stopped (a small "pf" stays small, then recedes)
+        last = max(on(i) for i in range(max(ev.at, end - 8), max(ev.at + 1, end)))
         if fire:
             return max(0.0, last * (1 - since / 14)), 0.0
-        k = since / max(8, c.length - 1 - ev.end)
+        k = since / max(8, c.length - 1 - end)
         return (last, min(1.0, 0.2 + 0.8 * k)) if k < 0.85 else (0.0, 1.0)
 
     def shapes(self, c: "_Ctx", ev: "Event", e: int) -> list[dict]:
         amount, thin = self.fill(c, ev, e)
+        out: list[dict] = []
+        t = e - ev.at
+        if c.eff.behaviour == "burst" and c.eff.secondary == "smoke" and t >= 10:
+            # a drawn burst leaves its smoke where the drawing was, thinning out
+            held = 8 if ev.end is None else min(max(ev.end - ev.at, 8), 24)
+            k = max(0.0, (t - held) / max(1, c.length - ev.at - held))
+            smoke = self.mask & (self.dist <= max(0.5, amount) * self.reach * 1.1 + 1.0)
+            out += [_gas(sh, "smoke", 0.8 - 0.7 * k) for sh in _mask_shapes(smoke, SMOKE)]
         if amount <= 0.02:
-            return []
+            return out + _rest(c)  # a lit candle burns before the effect and again once it is gone
         m = self.mask & (self.dist <= amount * self.reach + 1.0)
         if not m.any():
-            return []
+            return out + _rest(c)
         if c.eff.fluid == "fire":
-            return _mask_shapes(m, FIRE_OUTER) + _mask_shapes(m & self.spine, FIRE_INNER)
+            return out + _tag(_mask_shapes(m, FIRE_OUTER) + _mask_shapes(m & self.spine, FIRE_INNER), fire=True)
         fluid = "smoke" if c.eff.fluid == "smoke" else "steam"
-        return [_gas(sh, fluid, 1.0 - thin) for sh in _mask_shapes(m, GAS[fluid])]
+        return out + [_gas(sh, fluid, 1.0 - thin) for sh in _mask_shapes(m, GAS[fluid])] + _rest(c)
 
 
 # ---------------------------------------------------------------- events
@@ -341,6 +411,7 @@ class _Ctx:
     env: np.ndarray  # smoothed absolute envelope per element frame
     active: np.ndarray  # performing per element frame
     length: int
+    notes: set = field(default_factory=set)  # things the painting had to change (told to the performer)
 
     @property
     def side(self) -> float:
@@ -372,7 +443,7 @@ def _rest(c: _Ctx) -> list[dict]:
     if r <= 0:
         return []
     height = max(r, MIN_RADIUS_PX * 1.2)
-    return [_flame(c.s, c.u, height, max(height * 0.42, MIN_RADIUS_PX * 0.9), FIRE_OUTER)]
+    return [dict(_flame(c.s, c.u, height, max(height * 0.42, MIN_RADIUS_PX * 0.9), FIRE_OUTER), fire=True, rest=True)]
 
 
 def _burst(c: _Ctx, ev: Event, e: int) -> list[dict]:
@@ -423,8 +494,8 @@ def _plume(c: _Ctx, ev: Event, e: int) -> list[dict]:
 
     def flame(hgt: float) -> list[dict]:
         width = max(hgt * 0.42, MIN_RADIUS_PX)
-        return (_tongues(c.s, c.u, hgt, width, e, FIRE_OUTER)
-                + [_flame(c.s, c.u, hgt * 0.5, max(width * 0.5, MIN_RADIUS_PX * 0.8), FIRE_INNER)])
+        return _tag(_tongues(c.s, c.u, hgt, width, e, FIRE_OUTER)
+                    + [_flame(c.s, c.u, hgt * 0.5, max(width * 0.5, MIN_RADIUS_PX * 0.8), FIRE_INNER)], fire=True)
 
     if ev.end is None or e < ev.end:
         hgt = max(height(e), MIN_RADIUS_PX * 2)
@@ -453,13 +524,23 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
     span = sc.r_max - sc.r_min
     fire = c.eff.fluid == "fire"
     reach = c.reach()
+    if reach < MIN_RADIUS_PX * 3:  # no room the way it is aimed: turn it up until it has some
+        for turn in (30, 60, 90):
+            a = math.radians(turn) * (-1 if c.u[0] > 0 else 1)
+            u2 = (c.u[0] * math.cos(a) - c.u[1] * math.sin(a), c.u[0] * math.sin(a) + c.u[1] * math.cos(a))
+            if c.reach(u2) >= MIN_RADIUS_PX * 3:
+                c = dataclasses.replace(c, u=u2)
+                reach = c.reach()
+                c.notes.add("there was no room in the aimed direction, so it was turned upwards")
+                break
 
     def length(i: int) -> float:
         level = c.env[i] if c.active[i] else 0.0
         return (sc.r_min + span * level) * c.side * ev.size
 
     def jet(L: float, start: float = 0.0, fade: float = 0.0) -> list[dict]:
-        L = min(L, 0.8 * reach)  # ends well inside the frame: at the edge it reads as cut off
+        # ends well inside the frame (at the edge it reads as cut off), unless that would leave nothing
+        L = min(L, 0.8 * reach) if 0.8 * reach >= MIN_RADIUS_PX * 1.5 else min(L, reach)
         if L < MIN_RADIUS_PX * 1.5:
             return []
         bend = sc.bend * abs(c.u[0])  # sideways jets curl up; an upward one just rises
@@ -469,9 +550,9 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
         w1 = max(0.32 * L, MIN_RADIUS_PX)
         if fire:
             core_n = max(3, int(len(pts) * 0.6))
-            return [_tube(pts, w0, w1, _thinning(FIRE_OUTER, fade) if fade else FIRE_OUTER, wobble=e),
-                    _tube(pts[:core_n], w0 * 0.6, w1 * 0.45, _thinning(FIRE_INNER, fade) if fade else FIRE_INNER,
-                          wobble=e + 5)]
+            return _tag([_tube(pts, w0, w1, _thinning(FIRE_OUTER, fade) if fade else FIRE_OUTER, wobble=e),
+                         _tube(pts[:core_n], w0 * 0.6, w1 * 0.45, _thinning(FIRE_INNER, fade) if fade else FIRE_INNER,
+                               wobble=e + 5)], fire=True)
         return _steam(c, L, start, fade, e)
 
     if ev.end is None or e < ev.end:
@@ -599,6 +680,14 @@ def events_for(cue: CueSheet, eff: EffectSpec, start: int, multi_hit: bool = Tru
     return [Event(at=at - start, end=None if end is None else end - start, peak=peak_at(at), size=size, energy=energy)]
 
 
+def omitted_hits(cue: CueSheet, multi_hit: bool = True) -> list[int]:
+    """Plate frames of hits the take has but a rhythm can't carry (more than CueSheet.hits keeps)."""
+    if not multi_hit:
+        return []
+    kept = {h.frame for h in cue.hits()}
+    return [h.frame for h in cue.hits(max_hits=99) if h.frame not in kept] if len(kept) >= 2 else []
+
+
 def plan_window(cue: CueSheet, eff: EffectSpec, n_plate: int | None, multi_hit: bool = True) -> tuple[int, int]:
     """(start, length): the plate frame the render starts on and its length (8k+1, 49..121). The first event
     lands on a keyframe (start = its frame - PREROLL, PREROLL = 1 + 2*8) when the plate allows; ``n_plate``
@@ -626,18 +715,20 @@ class ScenePlan:
     zones: np.ndarray | None = None  # the zones painted under every keyframe (first one)
     dropped: list[int] = field(default_factory=list)  # plate frames of hits the render window could not hold
     strokes: Strokes | None = None
+    notes: list[str] = field(default_factory=list)  # what the painting had to change, for the performer
 
     @classmethod
     def from_json(cls, d: dict, frames: np.ndarray) -> "ScenePlan":
         """A plan back from its guide.json and guide video (re-timing a finished shot)."""
         return cls(guide=GuidePlan.from_json(d, frames), start=int(d["start"]),
                    events=[Event(**ev) for ev in d.get("events", [])], direction=float(d.get("direction", 0.0)),
-                   dropped=[int(f) for f in d.get("dropped", [])], strokes=Strokes.parse(d.get("strokes")))
+                   dropped=[int(f) for f in d.get("dropped", [])], strokes=Strokes.parse(d.get("strokes")),
+                   notes=list(d.get("notes", [])))
 
     def to_json(self) -> dict:
         return self.guide.to_json() | {"mode": "scene", "start": self.start, "direction": round(self.direction, 1),
                                        "events": [dataclasses.asdict(ev) for ev in self.events],
-                                       "dropped": self.dropped,
+                                       "dropped": self.dropped, "notes": self.notes,
                                        "strokes": self.strokes.to_json() if self.strokes else None}
 
 
@@ -671,12 +762,23 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
         raise ValueError(f"hold must be 'pre', 'all' or 'none', got {hold!r}")
     keys = keyframe_indices(length, 8, with_one=True)
     events = events_for(cue, eff, start, multi_hit=multi_hit)
-    dropped = [start + ev.at for ev in events if not 0 <= ev.at < length - 8]
-    events = [ev for ev in events if 0 <= ev.at < length - 8]
-    for i, ev in enumerate(events):  # each hit is active on the first keyframe at or after it
-        k_next = next((k for k in keys if k >= ev.at), None)
-        if ev.end is not None and k_next is not None and ev.end <= k_next:
-            events[i] = dataclasses.replace(ev, end=k_next + 1)
+    dropped = [start + ev.at for ev in events if not 0 <= ev.at <= length - 2] + omitted_hits(cue, multi_hit)
+    events = [ev for ev in events if 0 <= ev.at <= length - 2]
+    notes: set = set()
+    merged: list[Event] = []
+    for ev in events:  # each hit is active on the first keyframe at or after it; two hits on one keyframe are one
+        k_next = next(k for k in keys if k >= ev.at)
+        if ev.end is not None and ev.end <= k_next:
+            ev = dataclasses.replace(ev, end=k_next + 1)
+        if merged and next(k for k in keys if k >= merged[-1].at) == k_next:
+            m = merged[-1]
+            merged[-1] = dataclasses.replace(m, end=None if m.end is None or ev.end is None else max(m.end, ev.end),
+                                             peak=max(m.peak, ev.peak), size=max(m.size, ev.size),
+                                             energy=m.energy + ev.energy)
+            notes.add("two hits closer than the model can tell apart were made one")
+            continue
+        merged.append(ev)
+    events = merged
     first_at = min((ev.at for ev in events), default=length)
     last_end = max(((ev.end if ev.end is not None else length) for ev in events), default=0) + eff.tail_frames // 2
     still = len(plate_frames) == 1
@@ -691,10 +793,11 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
         if b2 > a2:
             active[a2:b2] = True
     ctx = _Ctx(eff=eff, s=(float(point[0]) * w, float(point[1]) * h), u=unit(direction), w=w, h=h, scale=scale,
-               env=env, active=active, length=length)
+               env=env, active=active, length=length, notes=notes)
     palette = zone_palette(plate_frames[min(max(start, 0), len(plate_frames) - 1)])
     painter = _PAINTERS[eff.behaviour]
-    drawn = _Drawn(strokes, w, h) if strokes is not None else None
+    # a drawing is where the effect goes; blowing a flame out has nowhere to go, the drawing only says where
+    drawn = _Drawn(strokes, w, h) if strokes is not None and eff.behaviour != "extinguish" else None
     frames = np.zeros((length, h, w, 3), np.uint8)
     blobs, first_zones = [], None
     for e in keys:
@@ -713,12 +816,16 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
             shapes += [s for s in part if s not in shapes]
         if eff.behaviour == "extinguish" and events and e >= events[0].at:
             shapes = [s for s in shapes if not is_fire(s)]  # once blown out it stays out, whatever comes after
+        # the resting flame goes under the effect (painted first), and only once
+        rest = [s for s in shapes if is_rest(s)][:1]
+        shapes = rest + [s for s in shapes if not is_rest(s)] if not any(is_fire(s) and not is_rest(s) for s in shapes) \
+            else [s for s in shapes if not is_rest(s)]
         shapes = [sh for sh in shapes if sh.get("density", 1.0) >= MIN_DENSITY]
         frames[e] = draw([_resolve(sh, zones, smoke_k) for sh in shapes], zones)
         # held: the scene before the first hit, a quiet keyframe between two hits (no fire painted), so the model
         # can't fill the pause between "pf" and "pf" with fire, and the scene once the effect is over
-        quiet_gap = any(a.at < e and e + 7 < b.at for a, b in zip(events, events[1:])) and not any(
-            is_fire(s) for s in shapes)
+        quiet_gap = any(a.at < e and e + 7 < b.at for a, b in zip(events, events[1:])) and all(
+            is_rest(s) for s in shapes)  # truly quiet: only the flame that is there anyway (held, the model copies)
         over = not shapes and e > last_end
         if 0 < e < length - 1 and (hold == "all" or (hold == "pre" and (e + 7 < first_at or quiet_gap or over))):
             for f in range(e + 1, min(e + 8, length - 1)):
@@ -733,7 +840,7 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
                       voice_end=voice_end if voice_end is not None and 0 <= voice_end < length else None,
                       tail="scene", canvas=True, point=(float(point[0]), float(point[1])), scale=float(scale))
     return ScenePlan(guide=guide, start=start, events=events, direction=direction, zones=first_zones, dropped=dropped,
-                     strokes=strokes)
+                     strokes=strokes, notes=sorted(ctx.notes))
 
 
 def _smoke_level(zones: np.ndarray) -> float:

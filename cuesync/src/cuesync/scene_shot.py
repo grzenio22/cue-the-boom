@@ -32,7 +32,7 @@ from .media import probe_video, read_video, write_video
 from .pipeline import (FINISH_PRESET, FPS, Progress, Renderer, ShotResult, ShotSpec, _breakdown, _face_track,
                        _finalise, _sha, auto_scale, load_plate, place_audio, shot_cue)
 from .scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
-from .transfer import (TransferStats, change_energy, effect_region, gam, is_still, lin, steepest_rise, transfer,
+from .transfer import (TransferStats, _ecc, change_energy, effect_region, gam, is_still, lin, steepest_rise, transfer,
                        visible_onset)
 
 MAX_SHIFT = 16  # the model is trusted to land within this many frames of the painted hit
@@ -48,6 +48,7 @@ class SceneTiming:
     plate_view: np.ndarray  # the plate on the shot's timeline (a still plate is held)
     onset: int | None  # render frame where the effect visibly starts (a rhythm: where its biggest hit lands)
     painted: int  # render frame where that was painted
+    raw: int | None  # (painted - lead) - onset: how far the model was from the cue, in frames (+ early)
     auto_shift: int  # frames the render was moved so that onset lands on the cue
     shift: int  # auto_shift plus a hand re-time
     transfer: TransferStats | None  # delta transfer (moving plates only)
@@ -61,6 +62,20 @@ def _fire_area(frame: np.ndarray, region: np.ndarray) -> float:
     r = region[::4, ::4]
     fire = (f[..., 0] > 170) & (f[..., 0] - f[..., 2] > 70) & (f[..., 1] > 70)
     return float((fire & r).sum()) / max(1, int(r.sum()))
+
+
+def flame_out(render: np.ndarray, region: np.ndarray, ref_frames: int, share: float = 0.4) -> int | None:
+    """The render frame where a flame that was burning goes out: its visible area drops below ``share`` of
+    what it was before the cue and stays there for three frames. None if no flame was visible."""
+    area = np.array([_fire_area(f, region) for f in render])
+    base = float(np.median(area[: max(1, ref_frames)]))
+    if base < 1e-3:
+        return None
+    low = area < share * base
+    for f in range(1, len(area) - 2):
+        if low[f] and low[f + 1] and low[f + 2]:
+            return f
+    return None
 
 
 def measure_stop(frames: np.ndarray, region: np.ndarray, voice_end: int | None, fire: bool, first: int) -> int | None:
@@ -117,14 +132,20 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     region = effect_region(sp.guide.blobs, sp.guide.size, (plate.shape[2], plate.shape[1]))
     at0 = sp.events[0].at if sp.events else 0
     ref_frames = max(1, at0 - 3)
-    energy = change_energy(render, region, ref_frames)
-    if len(sp.events) >= 2:  # a rhythm: line up its biggest hit (loudest and longest), where the change jumps most
+    steady = registered(render, region, ref_frames)  # camera drift must not read as the effect
+    energy = change_energy(steady, region, ref_frames)
+    if eff.behaviour == "extinguish":  # what must land on the cue is the flame going out, not the smoke after it
+        painted = at0
+        onset = flame_out(steady, region, ref_frames)
+        if onset is None:
+            onset = visible_onset(energy, ref_frames)
+    elif len(sp.events) >= 2:  # a rhythm: line up its biggest hit (loudest and longest), where the change jumps most
         main = max(sp.events, key=lambda ev: ev.size)
         painted, onset = main.at, steepest_rise(energy, main.at)
     else:
         painted, onset = at0, visible_onset(energy, ref_frames)
         if onset is None and ref_frames > 4:  # the model started very early: compare with its first frames instead
-            energy = change_energy(render, region, 4)
+            energy = change_energy(steady, region, 4)
             onset = visible_onset(energy, 4)
     desired = painted - eff.lead_frames  # light beats sound: a burst shows a frame before its "BOOM"
     raw = None if onset is None else desired - onset
@@ -138,8 +159,10 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     # A still plate is held for as long as the render needs; a moving one is as long as it is.
     n_out = min(max(n, start + shift + L), max_frames) if still else n
     index = [f - start - shift for f in range(n_out)]
-    # where each event now shows: the auto shift already put the model's events on their painted times
-    hits = [start + hit_shift + ev.at - eff.lead_frames for ev in sp.events]
+    # where each event now shows: the auto shift put the model's events on their painted times, except for what
+    # the clamp could not take out (err), so the camera reacts to the burst, not to the cue
+    err = 0 if raw is None else raw - auto
+    hits = [start + hit_shift + ev.at - eff.lead_frames - err for ev in sp.events]
     strengths = [ev.size * (0.5 + 0.5 * ev.peak) for ev in sp.events]
     sc = eff.scene
     if sp.dropped:
@@ -157,9 +180,26 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
             warnings.append(f"used the render instead of your clip's own pixels: {stats.reason}")
             frames = _render_over_plate(plate, render, idx)
         plate_view, idx_out = plate, idx
-    frames = impact(frames, hits, strengths, sc.shake if sc else 0.0, sc.flash if sc else 0.0)
-    return SceneTiming(frames=frames, index=idx_out, plate_view=plate_view, onset=onset, painted=painted,
-                       auto_shift=auto, shift=shift, transfer=stats, hits=hits, warnings=warnings)
+    if onset is not None:  # no flash or shake for a burst that can't be found
+        frames = impact(frames, hits, strengths, sc.shake if sc else 0.0, sc.flash if sc else 0.0)
+    return SceneTiming(frames=frames, index=idx_out, plate_view=plate_view, onset=onset, painted=painted, raw=raw,
+                       auto_shift=auto, shift=shift, transfer=stats, hits=hits, warnings=warnings + list(sp.notes))
+
+
+def registered(render: np.ndarray, region: np.ndarray, ref_frames: int) -> np.ndarray:
+    """The render with each frame registered onto its own settled scene (the frames before the effect), so
+    that a slow drift or zoom of the model's camera doesn't count as change."""
+    ref = np.median(render[: max(1, ref_frames)], axis=0).astype(np.uint8)
+    static = ~region
+    if static.mean() < 0.05:
+        return render
+    h, w = ref.shape[:2]
+    out = np.empty_like(render)
+    for i, f in enumerate(render):
+        A = _ecc(f, ref, static)
+        out[i] = f if np.allclose(A, np.eye(2, 3)) else cv2.warpAffine(
+            f, A, (w, h), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT)
+    return out
 
 
 SHAKE_FRAMES = 18  # a blast shakes the phone for three quarters of a second
@@ -214,7 +254,9 @@ def shake(frames: np.ndarray, hits: list[int], strengths: list[float], amount: f
 
 
 def _plate_strokes(spec: ShotSpec) -> Strokes | None:
-    """The drawing, in the cropped plate's coordinates (the same crop ``load_plate`` makes around the point)."""
+    """The drawing, in the cropped plate's coordinates (the same crop ``load_plate`` makes around the point).
+    Parts drawn outside the crop are left out (a stroke that leaves the frame is split), not squashed onto
+    its edge."""
     strokes = Strokes.parse(spec.strokes)
     if strokes is None:
         return None
@@ -222,12 +264,19 @@ def _plate_strokes(spec: ShotSpec) -> Strokes | None:
     landscape = info.width > info.height
     size = spec.plate_size or ((1920, 1080) if landscape else (1080, 1920))
     box = _crop_box(info.width, info.height, size[0], size[1], spec.point)
+    scale = info.width / max(1, box[2] - box[0])  # a brush width in source widths -> in crop widths
     mapped = []
     for s in strokes.strokes:
-        pts = [crop_point(p, info.width, info.height, box) for p in s["points"]]
-        scale = info.width / max(1, box[2] - box[0])  # a brush width in source widths -> in crop widths
-        mapped.append({"points": [[min(max(x, 0.0), 1.0), min(max(y, 0.0), 1.0)] for x, y in pts],
-                       "width": s["width"] * scale})
+        run: list[list[float]] = []
+        for p in s["points"]:
+            x, y = crop_point(p, info.width, info.height, box)
+            if 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
+                run.append([x, y])
+            elif run:
+                mapped.append({"points": run, "width": s["width"] * scale})
+                run = []
+        if run:
+            mapped.append({"points": run, "width": s["width"] * scale})
     return Strokes.parse(mapped)
 
 
@@ -269,6 +318,9 @@ def make_scene_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress:
     sp = paint_scene_guide(cue, eff, point, plate[:1] if still else plate, start=start, length=length,
                            direction=spec.direction, scale=scale, size=scene_size(pw, ph), multi_hit=spec.multi_hit,
                            hold=str(spec.extra.get("hold", "pre")), strokes=strokes)
+    if not sp.events:  # nothing to render: say so before spending a GPU render on it
+        raise ValueError("the cue's hit is too close to the end of the clip (or outside it) to paint an effect; "
+                         "cue it earlier or use a longer clip")
     write_guide(sp.guide, out_dir / "guide.mp4", fps=FPS)
     write_guide_preview(sp.guide, out_dir / "guide_preview.mp4", fps=FPS)
     (out_dir / "guide.json").write_text(json.dumps(sp.to_json(), indent=1))
@@ -365,8 +417,9 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
 
     region = effect_region(sp.guide.blobs, sp.guide.size, (pw, ph))
     stops = eff.voice_gate == "both"
-    stop = measure_stop(comp, region, voice_end, eff.fluid == "fire", start + at0) if stops else None
-    raw = None if onset is None else (at0 - eff.lead_frames) - onset
+    raw = st.raw
+    first = start + at0 - eff.lead_frames + hit_shift - (0 if raw is None else raw - auto)  # where it now shows
+    stop = measure_stop(comp, region, voice_end, eff.fluid == "fire", first) if stops else None
     receipt = {
         "cuesync": __version__,
         "mode": "scene",
@@ -390,10 +443,12 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
                   "coverage": None if occluder is None else round(float(occluder.mean()), 4)},
         "alignment": {"mode": "scene", "painted_hit": at0, "model_onset": onset, "auto_shift": auto,
                       "clamped": raw is not None and raw != auto, "retime_frames": hit_shift,
-                      "offset": start + st.shift, "lead": eff.lead_frames},
+                      "offset": start + st.shift, "lead": eff.lead_frames,
+                      # the shot frame of the (biggest) hit: where the re-time handle sits
+                      "hit_frame": start + at0 - eff.lead_frames + hit_shift},
         "measured": {
-            # how early (+) or late the model put the effect against where it was painted (measured on the render)
-            "model_early_frames": None if onset is None else at0 - onset,
+            # how early (+) or late the model put the effect against the cue (measured on the render)
+            "model_early_frames": raw,
             # what the re-timing could not take out (the model was further off than MAX_SHIFT)
             "hit_error_frames": None if raw is None else raw - auto,
             "stops_with_voice": stops,  # what the effect is meant to do

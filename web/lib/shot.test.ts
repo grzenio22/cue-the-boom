@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dragDirection, suggestEffect } from "./shot";
+import { dragDirection, hitAnchor, type Receipt, suggestEffect } from "./shot";
 
 const SR = 48000;
 
@@ -31,4 +31,12 @@ describe("dragDirection", () => {
     expect(Math.abs(dragDirection(0, 10))).toBe(180);
   });
   it("rounds to 5 degrees", () => expect(dragDirection(10, -9)).toBe(50));
+});
+
+describe("hitAnchor", () => {
+  const guide = { length: 96, tail: "fade", keyframes: [0, 1, 9], anchor_frame: 7 };
+  it("puts a scene shot's handle on its hit, not on the render's first frame", () =>
+    expect(hitAnchor({ mode: "scene", guide, alignment: { hit_frame: 24 } } as Receipt)).toBe(24));
+  it("keeps an element shot's guide anchor", () => expect(hitAnchor({ guide } as Receipt)).toBe(7));
+  it("has nothing to anchor without a receipt", () => expect(hitAnchor(null)).toBe(0));
 });

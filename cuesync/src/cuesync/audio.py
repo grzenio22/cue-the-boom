@@ -87,7 +87,8 @@ class CueSheet:
             hits.append(Hit(frame=anchor, strength=max(level(f) for f in g), start=g[0], end=end))
         loudest = max(h.strength for h in hits)
         keep = [h for h in hits if h.strength >= loudest - range_db / 54.0]  # the envelope spans 54 dB
-        keep = sorted(sorted(keep, key=lambda h: -h.strength)[:max_hits], key=lambda h: h.frame)
+        # the loudest are kept; at equal loudness the longer one (the "KA-BOOM", not a "pf")
+        keep = sorted(sorted(keep, key=lambda h: (-h.strength, -(h.end - h.start)))[:max_hits], key=lambda h: h.frame)
         return keep
 
     def for_hit(self, hit: "Hit") -> "CueSheet":

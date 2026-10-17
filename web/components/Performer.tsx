@@ -43,6 +43,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, o
   const [kind, setKind] = useState<CueKind>("voice");
   const [holds, setHolds] = useState<[number, number][]>([]);
   const [holding, setHolding] = useState(false);
+  const [holdPlaying, setHoldPlaying] = useState(false); // the hold pass plays the clip; the mic stays as it was
   const holdStart = useRef<number | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [withFace, setWithFace] = useState(false);
@@ -99,6 +100,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, o
 
   const arm = async () => {
     setError(null);
+    release(); // never orphan an earlier stream or meter
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: withFace ? videoConstraints("user") : false });
       streamRef.current = stream;
@@ -227,10 +229,10 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, o
     setHolds([]);
     plate.muted = true;
     plate.currentTime = 0;
-    plate.onended = () => setStep("idle");
-    plate.ontimeupdate = () => { if (plate.currentTime >= MAX_SHOT_S) { plate.pause(); setStep("idle"); } };
-    setStep("performing");
-    try { await plate.play(); } catch { setStep("idle"); }
+    plate.onended = () => setHoldPlaying(false);
+    plate.ontimeupdate = () => { if (plate.currentTime >= MAX_SHOT_S) { plate.pause(); setHoldPlaying(false); } };
+    setHoldPlaying(true);
+    try { await plate.play(); } catch { setHoldPlaying(false); }
   };
   const press = () => {
     const plate = plateRef.current;
@@ -258,11 +260,11 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, o
       <h2>3. Cue it</h2>
       <div className="row" role="radiogroup" aria-label="How to cue it">
         <button role="radio" aria-checked={kind === "voice"} className={kind === "voice" ? "" : "secondary"}
-          disabled={step === "performing"} onClick={() => setKind("voice")}>Say it</button>
+          disabled={step === "performing" || holdPlaying} onClick={() => setKind("voice")}>Say it</button>
         <button role="radio" aria-checked={kind === "clip"} className={kind === "clip" ? "" : "secondary"}
-          disabled={step === "performing" || !clipSound} onClick={() => setKind("clip")}>The clip&apos;s own sound</button>
+          disabled={step === "performing" || holdPlaying || !clipSound} onClick={() => setKind("clip")}>The clip&apos;s own sound</button>
         <button role="radio" aria-checked={kind === "hold"} className={kind === "hold" ? "" : "secondary"}
-          disabled={step === "performing"} onClick={() => setKind("hold")}>Press and hold</button>
+          disabled={step === "performing" || holdPlaying} onClick={() => setKind("hold")}>Press and hold</button>
       </div>
       <div className="perform">
         <video ref={plateRef} src={plateUrl} playsInline muted preload="auto" className="plate" />
@@ -278,12 +280,12 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, o
         <>
           <p className="muted">No sound needed: play the clip and hold the button while the effect should be there. Press briefly for a pop, hold for a flame.</p>
           <div className="row">
-            <button className="secondary" disabled={step === "performing"} onClick={() => void playForHolds()}>{holds.length ? "Play again" : "Play the clip"}</button>
-            <button aria-pressed={holding} disabled={step !== "performing"} onPointerDown={press} onPointerUp={lift}
+            <button className="secondary" disabled={holdPlaying} onClick={() => void playForHolds()}>{holds.length ? "Play again" : "Play the clip"}</button>
+            <button aria-pressed={holding} disabled={!holdPlaying} onPointerDown={press} onPointerUp={lift}
               onPointerLeave={() => { if (holding) lift(); }} style={{ minWidth: 160, touchAction: "none" }}>
               {holding ? "Holding…" : "Hold"}
             </button>
-            <button disabled={step === "performing" || holds.length === 0} onClick={useHolds}>Use {holds.length || "my"} hold{holds.length === 1 ? "" : "s"}</button>
+            <button disabled={holdPlaying || holds.length === 0} onClick={useHolds}>Use {holds.length || "my"} hold{holds.length === 1 ? "" : "s"}</button>
           </div>
           {holds.length > 0 && <p className="muted">{holds.map(([a, b]) => `${a.toFixed(2)}–${b.toFixed(2)} s`).join(" · ")}</p>}
         </>

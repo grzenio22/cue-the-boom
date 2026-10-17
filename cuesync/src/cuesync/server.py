@@ -18,6 +18,7 @@ Full renders go through one worker in order (one GPU); instant shots have their 
 import asyncio
 import hashlib
 import json
+import math
 import queue
 import threading
 import time
@@ -247,20 +248,23 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         if cue not in SOURCES:
             raise HTTPException(400, f"cue must be one of {list(SOURCES)}")
         hold_list = None
+        max_s = float((shot_defaults or {}).get("max_plate_s", 10.0))
         if holds:
             try:
                 hold_list = [(float(a), float(b)) for a, b in json.loads(holds)]
             except (ValueError, TypeError) as exc:
                 raise HTTPException(400, f"holds must be a JSON list of [press_s, release_s]: {exc}") from None
-            if not hold_list or any(b <= a or a < 0 or b > 60 for a, b in hold_list):
-                raise HTTPException(400, "each hold must be a press time before its release, within the clip")
+            if not hold_list or any(not (math.isfinite(a) and math.isfinite(b)) or b <= a or a < 0 or a >= max_s
+                                    for a, b in hold_list):
+                raise HTTPException(400, f"each hold must be a press time before its release, within the first {max_s:.0f} s")
         stroke_data = None
         if strokes:
             try:
                 stroke_data = json.loads(strokes)
-            except ValueError as exc:
-                raise HTTPException(400, f"strokes must be JSON: {exc}") from None
-            if Strokes.parse(stroke_data) is None:
+                parsed = Strokes.parse(stroke_data)
+            except (ValueError, TypeError, AttributeError, KeyError) as exc:
+                raise HTTPException(400, f"strokes must be a JSON list of {{points: [[x, y], ...], width}}: {exc}") from None
+            if parsed is None:
                 raise HTTPException(400, "strokes need at least one point")
         describe = " ".join((describe or "").split())[:200] or None
         auto = effect == "auto"
@@ -295,10 +299,25 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             raise HTTPException(400, f"no sample voice {voice_sample!r}")
         job_id = uuid.uuid4().hex[:12]
         d = jq.root / job_id
-        pm = sample_meta().get("plates", {}).get(plate_sample, {}) if plate_sample else {}
+        meta = sample_meta()
+        pm = meta.get("plates", {}).get(plate_sample, {}) if plate_sample else {}
         if mode == "scene" and plate_sample:  # a sample plate knows what it shows and which way its source faces
             subject = subject or pm.get("subject")
             direction = direction if direction is not None else pm.get("direction")
+        if auto and voice_sample and cue == "voice":  # a sample noise's gesture is known: decide now (and hit the cache)
+            from .gestures import DEFAULTS, effect_for
+
+            g = meta.get("voices", {}).get(voice_sample, {}).get("gesture")
+            if g:
+                aim = pm | ({"direction": direction} if direction is not None else {})
+                effect = effect_for(g, aim, voice_sample) if mode == "scene" else DEFAULTS[g]
+                if mode == "scene" and load_effect(effect).scene is None:
+                    effect = DEFAULTS[g]
+                auto, auto_gesture = False, g
+            else:
+                auto_gesture = None
+        else:
+            auto_gesture = None
         if (plate_sample and voice_sample and face is None and timing is None and offset_s is None and scale is None
                 and element is None and x is not None and y is not None and not auto and not stroke_data
                 and not describe):
@@ -310,6 +329,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                                 effect=effect, point=(float(x), float(y)), seed=int(hit.get("seed", seed)),
                                 mode="scene" if mode == "scene" else "element", direction=direction, subject=subject,
                                 **(shot_defaults or {}))
+                if auto_gesture:
+                    spec.extra["gesture"] = auto_gesture
                 job = Job(id=job_id, dir=d, spec=spec, mode=mode, status="done", stage="done", progress=1.0,
                           message="Made earlier", cached=True, title=hit["title"])
                 jq.jobs[job_id] = job
@@ -341,6 +362,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                         mode="scene" if mode == "scene" else "element", direction=direction, subject=subject,
                         cue=cue, holds=hold_list, strokes=stroke_data, describe=describe,
                         **(shot_defaults or {}))
+        if auto_gesture:
+            spec.extra["gesture"] = auto_gesture
         if auto:  # the noise decides: its gesture, read through the plate's own map
             from .gestures import effect_for, gesture
             from .pipeline import shot_cue
@@ -353,8 +376,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
             g = gesture(c.cue, c.samples, source=c.source)
             spec.extra["gesture"] = g
-            # scene mode reads the plate's own map; elements come from the classic four (the library has those)
-            spec.effect = effect_for(g, pm, voice_sample) if mode == "scene" else DEFAULTS[g]
+            # scene mode reads the plate's own map (with the performer's aim); elements come from the classic four
+            aim = pm | ({"direction": direction} if direction is not None else {})
+            spec.effect = effect_for(g, aim, voice_sample) if mode == "scene" else DEFAULTS[g]
             if load_effect(spec.effect).scene is None and mode == "scene":
                 spec.effect = DEFAULTS[g]
         return jq.submit(Job(id=job_id, dir=d, spec=spec, mode=mode)).public()

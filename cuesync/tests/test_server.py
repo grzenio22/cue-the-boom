@@ -278,6 +278,10 @@ def test_cue_inputs_are_checked(scene_client, tmp_path, make_video, make_wav):
     assert post({"cue": "hold", "holds": "not json"}).status_code == 400
     assert post({"cue": "tap"}).status_code == 400
     assert post({"cue": "hold", "strokes": "[]"}).status_code == 400
+    assert post({"cue": "hold", "holds": "[[NaN, 1]]"}).status_code == 400
+    assert post({"cue": "hold", "holds": "[[5, 6]]"}).status_code == 400  # pressed after the end of the shot
+    for bad in ('[{"points": "no"}]', "[1, 2]", '[{"points": [[0.1, NaN]]}]', '{"points": 3}'):
+        assert post({"cue": "hold", "strokes": bad}).status_code == 400, bad  # refused, never a server error
     r = client.post("/api/jobs", files={"plate": ("plate.mp4", open(plate, "rb"), "video/mp4")},
                     data={"effect": "fireball", "mode": "render", "cue": "hold", "describe": "fire"})
     assert r.status_code == 400  # describing needs scene mode
@@ -308,3 +312,27 @@ def test_an_edited_effect_retires_its_old_sample_shots():
 
     k = cache_key("scene", "a.mp4", "b.wav", "fireball", (0.5, 0.5), 1, None)
     assert "fireball@" in k and len(k.split("@")[1].split("|")[0]) == 8
+
+
+def test_auto_with_a_sample_noise_is_answered_from_the_shots_made_ahead(tmp_path, make_video, make_wav):
+    from cuesync.precompute import cache_key
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    make_video(tmp_path, n=24, fps=24, w=90, h=160, color_fn=lambda i: (60, 60, 60)).rename(samples / "plates" / "mug.mp4")
+    make_voice(tmp_path, make_wav).rename(samples / "voices" / "pf.wav")
+    (samples / "samples.json").write_text(json.dumps({"plates": {"mug.mp4": {"point": [0.5, 0.6]}},
+                                                      "voices": {"pf.wav": {"gesture": "hit"}}}))
+    shot = tmp_path / "pre" / "instant" / "mug__pf__fireball"
+    shot.mkdir(parents=True)
+    for name in ("final.mp4", "composite.mp4", "receipt.json", "cue.json", "guide.json"):
+        (shot / name).write_bytes(b"{}" if name.endswith(".json") else b"\x00" * 64)
+    key = cache_key("instant", "mug.mp4", "pf.wav", "fireball", (0.5, 0.6))
+    (tmp_path / "pre" / "instant" / "index.json").write_text(json.dumps(
+        {key: {"dir": "mug__pf__fireball", "title": "pf. · Mug", "plate": "mug.mp4", "voice": "pf.wav",
+               "effect": "fireball", "mode": "instant"}}))
+    client = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), samples_dir=samples,
+                                   precomputed=tmp_path / "pre"))
+    r = client.post("/api/jobs", data={"effect": "auto", "plate_sample": "mug.mp4", "voice_sample": "pf.wav",
+                                       "mode": "instant", "x": "0.5", "y": "0.6", "seed": "1"}).json()
+    assert r["cached"] is True and r["effect"] == "fireball" and r["gesture"] == "hit"  # the "pf." decided, at once

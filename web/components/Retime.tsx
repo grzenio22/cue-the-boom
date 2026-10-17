@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { followJob, type JobEvent, type JobStatus } from "@/lib/shot";
+import { followJob, hitAnchor, type JobEvent, type JobStatus } from "@/lib/shot";
 
 const W = 600, H = 90, FPS = 24;
 
@@ -15,7 +15,7 @@ export default function Retime({ job, stopsWithVoice, onRetimed }: {
   onRetimed: (job: JobStatus) => void;
 }) {
   const [env, setEnv] = useState<number[]>([]);
-  const anchor = job.receipt?.guide.anchor_frame ?? 0;
+  const anchor = hitAnchor(job.receipt);
   const voiceEnd = job.receipt?.voice.voice_end_frame ?? null;
   const [hit, setHit] = useState(anchor);
   const [stop, setStop] = useState<number | null>(voiceEnd);
@@ -32,7 +32,7 @@ export default function Retime({ job, stopsWithVoice, onRetimed }: {
 
   if (env.length === 0) return null;
   const n = env.length;
-  const x = (f: number) => (f / Math.max(1, n - 1)) * W;
+  const x = (f: number) => (Math.min(Math.max(f, 0), n - 1) / Math.max(1, n - 1)) * W;
   const frameAt = (clientX: number) => {
     const r = svg.current!.getBoundingClientRect();
     return Math.round(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * (n - 1));

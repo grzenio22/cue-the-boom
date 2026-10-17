@@ -17,9 +17,15 @@ export interface JobEvent {
   t: number;
 }
 
+/** The shot frame of the hit: a scene shot's render starts well before it, so its receipt says where. */
+export function hitAnchor(r: Receipt | null | undefined): number {
+  if (!r) return 0;
+  return r.mode === "scene" ? (r.alignment?.hit_frame ?? r.guide.anchor_frame) : r.guide.anchor_frame;
+}
+
 export interface Receipt {
   mode?: "scene";
-  alignment?: { model_onset?: number | null; auto_shift?: number };
+  alignment?: { model_onset?: number | null; auto_shift?: number; hit_frame?: number; retime_frames?: number };
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
   warnings?: string[];
   inputs?: { cue?: CueKind; drawn?: boolean; describe?: string | null };

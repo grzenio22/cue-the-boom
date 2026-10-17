@@ -180,6 +180,10 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
     rl = R * gain
     r_struct = _structure(rl)
     reg_cache: dict[int, np.ndarray] = {}
+    # the render may replace the plate only around the effect; elsewhere only its smooth light reaches the
+    # plate, and not where the render's own content moved (else anything moving in the plate would ghost)
+    feather = cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.02 * min(w, h)))
+    feather = np.clip(feather * 2.0, 0.0, 1.0)
 
     def layers(e: int):
         if e not in reg_cache:
@@ -190,8 +194,13 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         sdiff = np.abs(_structure(gl) - r_struct)
         y_g, y_r = gl.max(-1), rl.max(-1)
         sdiff_valid = np.where((y_g < 0.85) & (y_r < 0.85) & (y_r > 2e-3), sdiff, 0.0)  # clipped light is light
-        M = cv2.GaussianBlur(np.clip((cv2.GaussianBlur(sdiff, (0, 0), 2.0) - 0.06) / 0.18, 0.0, 1.0), (0, 0), 3.0)
-        return gl, gl - rl, M, sdiff_valid
+        changed = np.clip((cv2.GaussianBlur(sdiff, (0, 0), 2.0) - 0.06) / 0.18, 0.0, 1.0)
+        M = cv2.GaussianBlur(changed, (0, 0), 3.0) * feather
+        delta = gl - rl
+        quiet = 1.0 - cv2.dilate(cv2.GaussianBlur(changed, (0, 0), 4.0), np.ones((9, 9), np.uint8))
+        light = cv2.GaussianBlur(delta, (0, 0), 16.0) * np.clip(quiet, 0.0, 1.0)[..., None]
+        delta = delta * feather[..., None] + light * (1.0 - feather)[..., None]
+        return gl, delta, M, sdiff_valid
 
     out = np.empty_like(plate)
     res_in, res_out = [], []

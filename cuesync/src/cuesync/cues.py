@@ -74,11 +74,23 @@ def load_cue(source: str, *, plate: Path, voice: Path | None = None, offset_s: f
             samples = read_audio(plate, sr)
         except Exception as exc:
             raise CueError("your clip has no sound to lock to; perform it or press and hold instead") from exc
+        samples = samples[: int(round(duration_s * sr))]  # only the part of the clip the shot uses
         if samples.size == 0 or float(np.abs(samples).max()) < 1e-4:
             raise CueError("your clip is silent; perform it or press and hold instead")
         try:
-            return Cue("clip", analyze(samples, sr, offset_s=0.0, fps=fps), samples, 0.0)
+            cue = analyze(samples, sr, offset_s=0.0, fps=fps)
         except NoOnsetError as exc:
             raise CueError("no clear sound in your clip to lock to (a snap, a click, a slam)") from exc
-    cue = cue_from_holds(holds or [DEFAULT_HOLD], duration_s, fps)
+        return Cue("clip", _within(cue, duration_s), samples, 0.0)
+    clean = [(a, b) for a, b in (holds or [DEFAULT_HOLD]) if 0 <= a < duration_s]
+    if not clean:
+        raise CueError(f"every press is after the end of the shot ({duration_s:.1f} s)")
+    cue = cue_from_holds([(a, min(b, duration_s)) for a, b in clean], duration_s, fps)
     return Cue("hold", cue, np.zeros(int(round(cue.duration_s * sr)), np.float32), 0.0)
+
+
+def _within(cue: CueSheet, duration_s: float) -> CueSheet:
+    """Refuse a cue whose hit falls outside the shot."""
+    if not 0 <= cue.hero_onset_s < duration_s:
+        raise CueError(f"the sound to lock to is after the end of the shot ({duration_s:.1f} s)")
+    return cue

@@ -15,7 +15,7 @@ from cuesync.pipeline import ShotSpec, make_shot, retime_shot
 from cuesync.runner import GraphBindError, bind_fluid_graph
 from cuesync.scene import (MARGIN_PX, PREROLL, events_for, paint_scene_guide, paint_zones, plan_window, scene_prompt,
                            scene_size, unit, zone_palette)
-from cuesync.transfer import effect_region, is_still, transfer, visible_onset
+from cuesync.transfer import change_energy, effect_region, is_still, transfer, visible_onset
 
 SR = 48000
 
@@ -543,3 +543,182 @@ def test_a_drawn_effect_with_no_voice_and_the_performers_words(tmp_path, make_vi
     assert r.calls[0]["prompt"].startswith("ainvfxfluid, thick smoke pours out of the lamp,")
     plan = json.loads((tmp_path / "drawn" / "guide.json").read_text())
     assert plan["strokes"] and plan["point"] == [0.2, 0.6]
+
+
+# ---------------------------------------------------------------- the pivot review's confirmed findings
+
+
+def _fire_share(frame, mask):
+    f = np.all(frame == FIRE_OUTER, -1) | np.all(frame == FIRE_INNER, -1)
+    return float((f & mask).sum()) / max(1, int(mask.sum()))
+
+
+def test_a_drawn_pf_does_not_grow_after_the_sound_stops():
+    from cuesync.scene import Strokes
+
+    st = Strokes.parse([{"points": [[0.2, 0.6], [0.8, 0.6]], "width": 0.08}])
+    cue = cue_of([(1.0, 0.12, 0.5), (1.6, 0.12, 0.5), (2.2, 0.8, 0.9)], length_s=5.0)
+    eff = load_effect("flame_plume")
+    start, length = plan_window(cue, eff, None)
+    sp = paint_scene_guide(cue, eff, (0.2, 0.6), two_tone_plate()[None], start=start, length=length, strokes=st)
+    mask = st.mask(576, 1024)
+    shares = {b["e"]: _fire_share(sp.guide.frames[b["e"]], mask) for b in sp.guide.blobs}
+    first = sp.events[0]
+    on = [shares[k] for k in sp.guide.keyframes if first.at <= k < first.end]
+    off = [shares[k] for k in sp.guide.keyframes if first.end <= k < sp.events[1].at]
+    assert on and max(off, default=0) <= max(on) + 0.02  # it recedes (or stays), it never swells after the "pf"
+
+
+def test_a_drawn_ring_keeps_its_middle():
+    from cuesync.scene import Strokes, draw
+
+    ring = [[0.5 + 0.2 * np.cos(t), 0.5 + 0.12 * np.sin(t)] for t in np.linspace(0, 2 * np.pi, 40)]
+    st = Strokes.parse([{"points": ring, "width": 0.04}])
+    cue = cue_of([(1.0, 1.5, 0.9)], length_s=5.0)
+    eff = load_effect("flame_plume")
+    start, length = plan_window(cue, eff, None)
+    sp = paint_scene_guide(cue, eff, (0.5, 0.5), two_tone_plate()[None], start=start, length=length, strokes=st)
+    k = max(sp.guide.keyframes, key=lambda e: _fire_share(sp.guide.frames[e], st.mask(576, 1024)))
+    centre = sp.guide.frames[k][490:534, 268:308]
+    assert not (np.all(centre == FIRE_OUTER, -1) | np.all(centre == FIRE_INNER, -1)).any()
+    reg = effect_region(sp.guide.blobs, sp.guide.size, grow=0.0)
+    assert not reg[512, 288]  # the transfer won't replace what the ring surrounds
+
+
+def test_a_drawn_candle_keeps_its_flame_and_a_drawn_blow_out_still_blows_it_out():
+    from cuesync.scene import Strokes, is_fire
+
+    st = Strokes.parse([{"points": [[0.5, 0.5], [0.5, 0.3]], "width": 0.08}])
+    cue = cue_of([(1.0, 1.2, 0.6)], length_s=5.0)
+    for eid in ("wick_flare", "blow_out"):
+        eff = load_effect(eid)
+        start, length = plan_window(cue, eff, None)
+        sp = paint_scene_guide(cue, eff, (0.5, 0.5), two_tone_plate()[None], start=start, length=length, strokes=st)
+        lit = {b["e"]: any(is_fire(s) for s in b["shapes"]) for b in sp.guide.blobs}
+        before = [lit[k] for k in sp.guide.keyframes if k < sp.events[0].at]
+        assert all(before), eid  # the candle is lit before the cue either way
+        if eid == "wick_flare":
+            assert lit[sp.guide.keyframes[-1]]  # and still lit after the flare
+        else:
+            assert not any(lit[k] for k in sp.guide.keyframes if k >= sp.events[0].at)  # and out after "pf"
+
+
+def test_quiet_gaps_hold_only_when_truly_quiet():
+    cue = cue_of([(1.0, 0.12, 0.5), (1.9, 0.12, 0.5), (2.8, 0.6, 0.9)], length_s=5.0)
+    eff = load_effect("steam_jet")
+    start, length = plan_window(cue, eff, None)
+    sp = paint_scene_guide(cue, eff, (0.5, 0.6), two_tone_plate()[None], start=start, length=length)
+    keys = set(sp.guide.keyframes)
+    shapes_at = {b["e"]: b["shapes"] for b in sp.guide.blobs}
+    for e in range(sp.events[0].at, length):
+        if e not in keys and sp.guide.frames[e].max() > 0:  # a held frame after the first hit
+            k = max(x for x in keys if x < e)
+            assert all(s.get("rest") for s in shapes_at[k]), (e, k)  # live steam is never frozen
+
+
+def test_close_hits_merge_and_omitted_hits_are_reported():
+    from cuesync.scene import omitted_hits
+
+    cue = cue_of([(1.0, 0.1, 0.6), (1.27, 0.1, 0.6), (2.2, 0.8, 0.9)], length_s=5.0)  # 6-7 frames apart
+    eff = load_effect("fireball")
+    start, length = plan_window(cue, eff, None)
+    sp = paint_scene_guide(cue, eff, (0.5, 0.6), two_tone_plate()[None], start=start, length=length)
+    keys = sp.guide.keyframes
+    firsts = [next(k for k in keys if k >= ev.at) for ev in sp.events]
+    assert len(firsts) == len(set(firsts))  # no two events share a keyframe
+    many = cue_of([(0.5 + 0.45 * i, 0.1, 0.6) for i in range(6)], length_s=5.0)
+    assert len(omitted_hits(many)) == len(many.hits(max_hits=99)) - len(many.hits())
+
+
+def test_a_late_hit_is_still_painted_and_a_jet_at_the_edge_is_turned_up():
+    from cuesync.scene import is_fire
+
+    cue = cue_of([(1.0, 1.2, 0.8)], length_s=5.0)
+    eff = load_effect("fire_breath")
+    start, length = plan_window(cue, eff, None)
+    sp = paint_scene_guide(cue, eff, (0.04, 0.6), two_tone_plate()[None], start=start, length=length, direction=-90)
+    assert any(is_fire(s) for b in sp.guide.blobs for s in b["shapes"])
+    assert any("turned upwards" in n for n in sp.notes)
+
+
+def test_bad_strokes_are_refused_not_crashed_on():
+    from cuesync.scene import Strokes
+
+    for bad in ("x", [1, 2], [{"points": "no"}], [{"points": [[0.1, float("nan")]]}], [{"points": [[0.1]]}]):
+        with pytest.raises(ValueError):
+            Strokes.parse(bad)
+    assert Strokes.parse([]) is None
+
+
+def test_a_perfect_render_does_not_ghost_what_moves_in_the_plate():
+    rng = np.random.default_rng(7)
+    base = np.clip(two_tone_plate(128, 256).astype(int) + rng.integers(-10, 10, (256, 128, 3)), 0, 255).astype(np.uint8)
+    n = 12
+    plate = np.repeat(base[None], n, 0)
+    for i in range(n):  # something moves across the wall, far from the effect
+        plate[i, 30:50, 5 + 6 * i: 25 + 6 * i] = 240
+    region = np.zeros((256, 128), bool)
+    region[170:240, 40:90] = True
+    render = np.repeat(plate[:1], n, 0)  # the render: the start frame, the effect inside its region only
+    render[4:, 180:230, 50:80] = (250, 170, 60)
+    out, st = transfer(plate, render, list(range(n)), region, ref_frames=3, start=0)
+    assert np.abs(out[10, 20:60].astype(int) - plate[10, 20:60]).mean() < 4  # the moving thing is the plate's
+    assert out[10, 200, 65, 0] > 200  # and the effect is there
+
+
+def test_the_onset_ignores_a_drifting_camera():
+    from cuesync.scene_shot import registered
+
+    rng = np.random.default_rng(3)
+    tex = rng.integers(40, 200, (256, 128, 3)).astype(np.uint8)
+    import cv2
+    tex = cv2.GaussianBlur(tex, (0, 0), 1.5)
+    frames = []
+    for i in range(40):  # a slow drift right (inside the warp bound), a subtle glow only from frame 30
+        M = np.float32([[1, 0, 0.15 * i], [0, 1, 0]])
+        f = cv2.warpAffine(tex, M, (128, 256), borderMode=cv2.BORDER_REFLECT)
+        if i >= 30:
+            f[150:200, 40:90] = (0.6 * f[150:200, 40:90] + 0.4 * np.array([250, 170, 60])).astype(np.uint8)
+        frames.append(f)
+    render = np.stack(frames)
+    region = np.zeros((256, 128), bool)
+    region[140:210, 30:100] = True
+    raw = visible_onset(change_energy(render, region, 10), 10)
+    steady = visible_onset(change_energy(registered(render, region, 10), region, 10), 10)
+    assert steady in range(29, 32) and raw is not None and raw < steady  # the drift alone fools the raw measure
+
+
+def test_strokes_outside_the_crop_are_cut_not_squashed(tmp_path, make_video):
+    from cuesync.scene_shot import _plate_strokes
+
+    plate = make_video(tmp_path, 4, 24, 256, 256, lambda i: (80, 80, 80))  # square: cropped to 9:16 around x
+    spec = ShotSpec(plate=plate, voice=None, effect="flame_plume", point=(0.5, 0.5), mode="scene", cue="hold",
+                    strokes=[{"points": [[0.05, 0.5], [0.5, 0.5], [0.95, 0.5]], "width": 0.05}], plate_size=(144, 256))
+    st = _plate_strokes(spec)
+    xs = [p[0] for s in st.strokes for p in s["points"]]
+    assert xs and all(0.0 < x < 1.0 for x in xs)  # the parts outside the crop are gone, none pinned to an edge
+
+
+def test_a_clip_cue_after_the_end_of_the_shot_is_refused(tmp_path):
+    from cuesync.cues import CueError, load_cue
+
+    a = np.zeros(int(6 * SR), np.float32)
+    a[int(5.0 * SR): int(5.0 * SR) + 2400] = 0.8 * np.sin(np.arange(2400) / 3.0)  # a snap at 5 s
+    clip = tmp_path / "late.mp4"
+    write_video(clip, np.zeros((144, 64, 48, 3), np.uint8), fps=24, audio=a)
+    with pytest.raises(CueError):
+        load_cue("clip", plate=clip, duration_s=3.0)
+    with pytest.raises(CueError):
+        load_cue("hold", plate=clip, holds=[(4.0, 4.5)], duration_s=3.0)
+
+
+def test_the_sample_noises_read_as_what_they_are_at_any_offset():
+    from cuesync.gestures import gesture
+    from cuesync.media import read_audio
+
+    want = {"pf": "hit", "ka-boom": "hit", "fwoooom": "sustained", "pfffff": "breath", "hissss": "hiss",
+            "pf-pf-ka-boom": "rhythm"}
+    for name, g in want.items():
+        x = read_audio(f"samples/voices/{name}.wav", SR)
+        for off in (0.0, 1.3):
+            assert gesture(analyze(x, SR, offset_s=off, fps=24), x) == g, (name, off)

@@ -6,9 +6,10 @@ For every scene shot (a folder with receipt.json, guide.json, render.mp4, compos
 - the cue frame: where the hit is (the sound's onset; a burst a frame before it, light beats sound);
 - raw error: where the render, used as it came out of LTX-2.5, shows the effect, minus the cue frame
   (measured on the render, as the pipeline does);
-- final error: where the finished shot shows it, minus the cue frame, measured INDEPENDENTLY of the pipeline's
-  own detector: the first frame whose frame-to-frame change inside the painted region jumps above a third of
-  its largest jump.
+- final error: where the finished shot shows it, minus the cue frame, measured on the finished shot with a
+  different detector from the pipeline's: the first frame whose frame-to-frame change inside the painted region
+  jumps above a third of its largest jump (a rhythm: the largest jump near its biggest hit; a blow-out: the
+  frame its flame is gone, since flicker would trip a jump detector).
 Writes timing.csv, timing.md (per shot + hit rates within +-1 frame) and timing.png (raw vs final per shot).
 """
 
@@ -24,6 +25,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cuesync" / "src"))
 from cuesync.media import read_video  # noqa: E402
+from cuesync.scene_shot import flame_out  # noqa: E402
 from cuesync.transfer import effect_region  # noqa: E402
 
 JUMP_SHARE = 0.33
@@ -75,7 +77,10 @@ def measure(d: Path) -> dict | None:
     region = effect_region(g["blobs"], tuple(g["size"]), (w, h))
     raw = None if al["model_onset"] is None else (start + al["model_onset"]) - cue
     rhythm = bool(rc.get("hits"))  # a rhythm lines up its biggest hit: measure that one
-    final_on = biggest_jump(comp, region, cue) if rhythm else first_jump(comp, region, after=max(1, cue - 12))
+    if rc["effect"]["behaviour"] == "extinguish":  # a blow-out: when the flame is gone in the finished shot
+        final_on = flame_out(comp, region, max(1, cue - 8))
+    else:
+        final_on = biggest_jump(comp, region, cue) if rhythm else first_jump(comp, region, after=max(1, cue - 12))
     return {"shot": d.name, "effect": rc["effect"]["id"], "cue_frame": cue,
             "raw_error": raw, "final_error": None if final_on is None else final_on - cue,
             "auto_shift": al["auto_shift"], "clamped": al.get("clamped", False)}

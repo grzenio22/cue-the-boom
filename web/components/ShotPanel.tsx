@@ -58,7 +58,7 @@ function Chips({ job, effect }: { job: JobStatus; effect: EffectInfo | undefined
 }
 
 /** Step 4: pick the effect and how to make it, then the shot. */
-export default function ShotPanel({ plate, point, direction, performance, effects, modes, strokes, onDone }: {
+export default function ShotPanel({ plate, point, direction, performance, effects, modes, strokes, initialJob, onBusy, onDone }: {
   plate: PickedPlate;
   point: [number, number];
   direction: number | null;
@@ -66,6 +66,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   effects: EffectInfo[];
   modes: Mode[];
   strokes: Stroke[];
+  initialJob?: JobStatus | null; // this take's shot, if it was already made (coming back to it)
+  onBusy?: (busy: boolean) => void;
   onDone: (job: JobStatus, effect: string) => void;
 }) {
   const firstMode: Mode = modes.includes("scene") ? "scene" : modes.includes("instant") ? "instant" : "render";
@@ -83,9 +85,10 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     }
   };
   const [seed] = useState(1); // one seed per session: retakes differ only by the performance
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const setBusy = (b: boolean) => { setBusyState(b); onBusy?.(b); };
   const [event, setEvent] = useState<JobEvent | null>(null);
-  const [job, setJob] = useState<JobStatus | null>(null);
+  const [job, setJob] = useState<JobStatus | null>(initialJob ?? null);
   const [view, setView] = useState<View>("final.mp4");
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
 
@@ -208,8 +211,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
             ))}
           </div>
           <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
-          <Chips job={job} effect={effects.find((e) => e.id === effect)} />
-          <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === effect)?.stops_with_voice ?? false)}
+          <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} />
+          <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}
             onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />
           <div className="row">
             {Object.entries(job.files).map(([name, url]) => <a key={name} className="btn secondary" href={url} download={name}>{name}</a>)}

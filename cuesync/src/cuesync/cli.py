@@ -112,6 +112,9 @@ def cmd_shot(args) -> int:
         holds = [tuple(float(v) for v in h.split("-", 1)) for h in args.hold]
     if args.cue == "voice" and not args.voice:
         raise SystemExit("--voice is required for a voice cue (or use --cue clip / --cue hold)")
+    if not args.scene and (args.strokes or args.describe or args.effect not in ("fireball", "flame_plume", "smoke_puff", "steam_jet")):
+        raise SystemExit("--strokes, --describe and the scene effects (fire_breath, fire_burst, wick_flare, blow_out) "
+                         "need --scene")
     strokes = json.loads(Path(args.strokes).read_text(encoding="utf-8")) if args.strokes else None
     spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice) if args.voice else None, effect=args.effect,
                     point=(args.x, args.y), seed=args.seed, offset_s=args.offset_s,
@@ -148,8 +151,13 @@ def cmd_precompute(args) -> int:
 def cmd_retime(args) -> int:
     from .pipeline import ShotSpec, retime_shot
 
-    spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
-                    offset_s=args.offset_s)
+    rc = json.loads((Path(args.shot) / "receipt.json").read_text(encoding="utf-8"))
+    cue = rc.get("inputs", {}).get("cue", "voice")  # the shot knows what timed it
+    if cue == "voice" and not args.voice:
+        raise SystemExit("this shot was cued by a voice: pass --voice")
+    spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice) if args.voice else None, effect=args.effect,
+                    point=(args.x, args.y), offset_s=args.offset_s, cue=cue,
+                    mode="scene" if rc.get("mode") == "scene" else "element")
     r = retime_shot(Path(args.shot), spec, Path(args.output), hit_shift=args.shift, stop_frame=args.stop)
     print(f"re-timed in {r.receipt['seconds_total']:.0f} s -> {r.final}")
     return 0
@@ -310,7 +318,7 @@ def build_parser() -> argparse.ArgumentParser:
     rt = sub.add_parser("retime", help="move the hit / the stop of a finished shot, no new render")
     rt.add_argument("--shot", required=True, help="the finished shot's folder")
     rt.add_argument("--plate", required=True)
-    rt.add_argument("--voice", required=True)
+    rt.add_argument("--voice", help="the voice the shot was cued with (not needed for a clip or hold cue)")
     rt.add_argument("--effect", required=True)
     rt.add_argument("--x", type=float, default=0.5)
     rt.add_argument("--y", type=float, default=0.7)
