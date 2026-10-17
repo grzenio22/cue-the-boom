@@ -1,0 +1,17 @@
+[project]
+name = "comfyui-cuesync"
+description = "CueSync for ComfyUI: perform a noise with your mouth and get voice-shaped fire, smoke or steam composited onto your footage, with LTX-2.5 and the ainvfx-fluid IC-LoRA."
+version = "0.1.0"
+license = { file = "LICENSE" }
+dependencies = [
+  "transformers>=4.56",
+  "cuesync @ git+https://github.com/grzenio22/cue-the-boom#subdirectory=cuesync",
+]
+
+[project.urls]
+Repository = "https://github.com/grzenio22/cue-the-boom"
+
+[tool.comfy]
+PublisherId = "grzenio22"  # set to the publisher created on registry.comfy.org
+DisplayName = "CueSync: voice-shaped VFX"
+Icon = ""
