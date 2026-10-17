@@ -137,7 +137,7 @@
  },
  "render": {
   "renderer": "comfy",
-  "seconds": 83.88,
+  "seconds": 83.87,
   "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks bursts up out of the carved jack-o'-lantern on the kitchen table in two small puffs and then one big blast, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
   "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
   "start_frame": 8,
@@ -146,7 +146,7 @@
  "plate": {
   "still": true,
   "frames": 96,
-  "shot_frames": 133,
+  "shot_frames": 132,
   "size": [
    1080,
    1920
@@ -160,17 +160,20 @@
   {
    "frame": 24,
    "size": 0.598,
-   "strength": 0.855
+   "strength": 0.855,
+   "merged": false
   },
   {
    "frame": 40,
    "size": 0.594,
-   "strength": 0.839
+   "strength": 0.839,
+   "merged": true
   },
   {
    "frame": 59,
    "size": 1.0,
-   "strength": 1.0
+   "strength": 1.0,
+   "merged": false
   }
  ],
  "dropped_hits": [],
@@ -183,16 +186,16 @@
  "alignment": {
   "mode": "scene",
   "painted_hit": 17,
-  "model_onset": 12,
-  "auto_shift": 4,
+  "model_onset": 13,
+  "auto_shift": 3,
   "clamped": false,
   "retime_frames": 0,
-  "offset": 12,
+  "offset": 11,
   "lead": 1,
   "hit_frame": 24
  },
  "measured": {
-  "model_early_frames": 4,
+  "model_early_frames": 3,
   "hit_error_frames": 0,
   "stops_with_voice": false,
   "stop_latency_frames": null,
@@ -203,5 +206,5 @@
   "the model merged 1 of the 3 hits into their neighbours"
  ],
  "retimed": null,
- "seconds_total": 103.1
+ "seconds_total": 105.5
 }

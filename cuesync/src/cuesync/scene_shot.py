@@ -333,7 +333,7 @@ def make_scene_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress:
     sp = paint_scene_guide(cue, eff, point, plate[:1] if still else plate, start=start, length=length,
                            direction=spec.direction, scale=scale, size=scene_size(pw, ph), multi_hit=spec.multi_hit,
                            hold=str(spec.extra.get("hold", "pre")), strokes=strokes,
-                           gaps=str(spec.extra.get("gaps", "free")))
+                           gaps=str(spec.extra.get("gaps", "hold")))
     if not sp.events:  # nothing to render: say so before spending a GPU render on it
         raise ValueError("the cue's hit is too close to the end of the clip (or outside it) to paint an effect; "
                          "cue it earlier or use a longer clip")

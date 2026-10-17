@@ -87,16 +87,26 @@
     "scene/jackolantern_kitchen__ka-boom__fire_burst": [
       11
     ],
-    "scene/jackolantern_kitchen__pf-pf-ka-boom__fire_burst": [
-      12,
-      null,
-      52
-    ],
     "scene/jackolantern_kitchen__pf__fire_burst": [
       11
     ],
     "scene/pumpkin_kitchen__fwoooom__flame_plume": [
       10
+    ],
+    "dropped/jackolantern_kitchen__pf-pf-ka-boom__fire_burst": [
+      12,
+      null,
+      52
+    ],
+    "scene/jackolantern_kitchen__pf-pf-ka-boom__fire_burst": [
+      11,
+      null,
+      51
+    ],
+    "scene/toy_desk__pf-pf-ka-boom__fire_breath": [
+      12,
+      31,
+      54
     ]
   }
 }

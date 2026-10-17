@@ -130,7 +130,8 @@
     "fwoooom.wav": "fire_breath",
     "hit": "fire_breath",
     "rhythm": "fire_breath",
-    "sustained": "fire_breath"
+    "sustained": "fire_breath",
+    "pf-pf-ka-boom.wav": "fire_breath"
    }
   },
   "candle_shelf.mp4": {

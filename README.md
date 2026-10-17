@@ -4,7 +4,7 @@
 
 [Try it without a GPU](#try-it) · [How it works](#how-it-works) · [How well it lands](#how-well-it-lands)
 
-Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or point at a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 29 test shots, 26 of 31 hits land within a frame, against 2 of 31 straight from the model.
+Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or point at a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 31 test shots, 22 of 24 single hits land within a frame (42 ms) of the cue; straight from the model, none do.
 
 **New here:** a performed sound becomes the hit frame and growth curve of a generated effect, painted in the control format the LoRA was trained on; the render's real onset is then measured and corrected, with the error written into every shot's receipt.
 
@@ -104,15 +104,16 @@ Every shot writes a receipt: the cue, where the hits were painted, how early or 
 
 ### How well it lands
 
-Marked by eye frame by frame on the raw renders of 29 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
+Marked by eye frame by frame on the raw renders of 31 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
 
-| | within one frame (42 ms) of the cue | mean error |
+| hits | within one frame (42 ms) of the cue: LTX-2.5 render as it comes → finished shot | mean error |
 |---|---|---|
-| LTX-2.5 render, as it comes | 2 of 31 hits | 4.9 frames |
-| the finished shot | 26 of 31 hits | 0.8 frames |
-| the finished shot, renders the onset threshold was not fitted on | 15 of 18 hits | 0.9 frames |
+| all 36 | 3 → 26 | 4.6 → 1.1 frames |
+| single hits (24) | 0 → 22 | 5.5 → 0.5 frames |
+| hits in a rhythm (12) | 3 → 4 | 2.9 → 2.1 frames |
+| renders the onset threshold was not fitted on (23) | 2 → 15 | 4.5 → 1.3 frames |
 
-Of the 37 hits painted, 31 have an onset that can be marked; the other 6 are 5 rhythm hits the model merged into a neighbour and 1 start too faint to call. Every render the marks refer to ships with the repository (`samples/made_ahead/scene` and `samples/timing_set/`), so the whole table re-measures in under a minute:
+Of the 43 hits painted, 36 have an onset that can be marked; the other 7 are 6 rhythm hits the model merged into a neighbour and 1 start too faint to call. Every render the marks refer to ships with the repository (`samples/made_ahead/scene` and `samples/timing_set/`), so the whole table re-measures in under a minute:
 
 ```bash
 python tools/measure_timing.py samples/made_ahead/scene samples/timing_set/before_fixes samples/timing_set/other_seeds samples/timing_set/dropped
@@ -124,7 +125,7 @@ All of these are LTX-2.5 stand-in plates: real phone footage is still untested.
 
 Before any of that, the take itself has to land where it was performed: [`tools/check_take_timing.py`](tools/check_take_timing.py) replaces the studio's microphone with a synthetic one that makes a noise at the moment the clip shows a chosen frame; in 8 takes the noise was found within 45 ms of it (6 within 20 ms). A synthetic microphone has no input latency; a real one reports its own, and the studio subtracts it.
 
-The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (5 of 12 here); those are reported, not faked, and the rest move together. A flame dies down about half a second after the voice stops (0.4 to 1.0 s).
+The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (6 of 18 here); those are reported, not faked, and the rest move together. A flame dies down about 0.6 s after the voice stops (0.3 to 1.0 s).
 
 **Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate in linear light ([`composite.py`](cuesync/src/cuesync/composite.py)); the object stays in front through a GrabCut matte in the studio and the command line ([`matte.py`](cuesync/src/cuesync/matte.py)), or SAM 2.1 in the ComfyUI node.
 

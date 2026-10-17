@@ -229,9 +229,14 @@ def main() -> int:
     by = lambda g, k: [r[k] for r in rows if r["set"] == g]  # noqa: E731
     merged = sum(r["raw_error"] is None and r["of"] > 1 for r in rows)
     unclear = sum(r["raw_error"] is None and r["of"] == 1 for r in rows)
-    lines += ["", f"Every hit within one frame (42 ms) of its cue: raw render {rate(raw)}, finished shot {rate(fin)}.",
+    single = [r for r in rows if r["of"] == 1]
+    summary = [f"Every hit within one frame (42 ms) of its cue: raw render {rate(raw)}, finished shot {rate(fin)}.",
               f"Mean absolute error: raw {mae(raw):.1f} frames, finished {mae(fin):.1f} frames.",
-              f"Held-out takes only: raw {rate(by('held_out', 'raw_error'))}, finished {rate(by('held_out', 'final_error'))}."
+              f"Single hits: raw {rate([r['raw_error'] for r in single])}, finished {rate([r['final_error'] for r in single])} "
+              f"(mean {mae([r['raw_error'] for r in single]):.1f} -> {mae([r['final_error'] for r in single]):.1f} frames)."
+              if single else "",
+              f"Held-out takes only: raw {rate(by('held_out', 'raw_error'))}, finished {rate(by('held_out', 'final_error'))} "
+              f"(mean {mae(by('held_out', 'raw_error')):.1f} -> {mae(by('held_out', 'final_error')):.1f} frames)."
               if by("held_out", "raw_error") else "",
               f"{merged} rhythm hit(s) the model merged into a neighbour have no onset of their own and are not counted." if merged else "",
               f"{unclear} take(s) whose start can't be called by eye are not counted." if unclear else "",
@@ -240,8 +245,9 @@ def main() -> int:
               f"Flames that should stop with the voice stop {int(np.median(fl))} frames after it (median, finished; "
               f"range {min(fl)} to {max(fl)})." if fl else "",
               "Onsets marked by eye on the raw render; the finished error is that mark moved by the shot's re-time."]
-    (out / "timing.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("\n".join(x for x in lines[-7:] if x))
+    summary = [x for x in summary if x]
+    (out / "timing.md").write_text("\n".join(lines + [""] + summary) + "\n", encoding="utf-8")
+    print("\n".join(summary))
     chart(raw, fin, out / "timing.png")
     return 0
 

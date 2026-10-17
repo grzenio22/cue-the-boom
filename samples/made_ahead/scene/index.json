@@ -59,16 +59,6 @@
   "seed": 1,
   "drawn": false
  },
- "scene|jackolantern_kitchen.mp4|pf-pf-ka-boom.wav|fire_burst@a735a743|0.48,0.39|1": {
-  "dir": "jackolantern_kitchen__pf-pf-ka-boom__fire_burst",
-  "title": "pf, pf, KA-BOOM · Jack-o'-lantern, kitchen",
-  "plate": "jackolantern_kitchen.mp4",
-  "voice": "pf-pf-ka-boom.wav",
-  "effect": "fire_burst",
-  "mode": "scene",
-  "seed": 1,
-  "drawn": false
- },
  "scene|jackolantern_kitchen.mp4|pf.wav|fire_burst@a735a743|0.48,0.39|1": {
   "dir": "jackolantern_kitchen__pf__fire_burst",
   "title": "pf. · Jack-o'-lantern, kitchen",
@@ -88,5 +78,25 @@
   "mode": "scene",
   "seed": 1,
   "drawn": true
+ },
+ "scene|jackolantern_kitchen.mp4|pf-pf-ka-boom.wav|fire_burst@a735a743|0.48,0.39|1": {
+  "dir": "jackolantern_kitchen__pf-pf-ka-boom__fire_burst",
+  "title": "pf, pf, KA-BOOM · Jack-o'-lantern, kitchen",
+  "plate": "jackolantern_kitchen.mp4",
+  "voice": "pf-pf-ka-boom.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|toy_desk.mp4|pf-pf-ka-boom.wav|fire_breath@829e0743|0.38,0.48|1|-90": {
+  "dir": "toy_desk__pf-pf-ka-boom__fire_breath",
+  "title": "pf, pf, KA-BOOM · Toy dinosaur, night",
+  "plate": "toy_desk.mp4",
+  "voice": "pf-pf-ka-boom.wav",
+  "effect": "fire_breath",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
  }
 }

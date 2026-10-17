@@ -762,7 +762,7 @@ class ScenePlan:
 def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float], plate_frames: np.ndarray, *,
                       start: int, length: int, direction: float | None = None, scale: float = 1.0,
                       size: tuple[int, int] | None = None, multi_hit: bool = True, hold: str = "pre",
-                      strokes: Strokes | None = None, gaps: str = "free") -> ScenePlan:
+                      strokes: Strokes | None = None, gaps: str = "hold") -> ScenePlan:
     """Paint the control video for an in-scene render. ``plate_frames`` are the plate's frames (one frame
     for a still plate); keyframe e is painted over the zones of plate frame start + e, all in the palette of
     the first, so a moving plate's zones move with it and the colours never flicker.
@@ -779,7 +779,7 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
     ``gaps``: between two hits of a rhythm, the last keyframe before the next hit shows none of the first one's
     fire ("free"), and is also held, the plate and its resting flame only, until the next hit ("hold"), so the
     model renders a dip between them rather than one long fire; "none" paints the fire on. LTX-2.5 merged 5 of
-    12 rhythm hits with "none".
+    12 rhythm hits with "none"; on the same two rhythms, "hold" kept 5 of 6 hits apart and "free" 2.
 
     Smoke is painted relative to the scene's brightness: light grey reads as white cotton in a dark room."""
     if eff.scene is None:
