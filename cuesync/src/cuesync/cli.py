@@ -67,11 +67,13 @@ def cmd_guide(args) -> int:
 
 
 def cmd_graph(args) -> int:
-    from .graph import element_graph, shot_graph
+    from .graph import element_graph, scene_graph, shot_graph
 
     g = element_graph(json.loads(Path(args.sample).read_text(encoding="utf-8")), video_name=args.video_name)
     if args.shot:
         g = shot_graph(g)
+    elif args.scene:
+        g = scene_graph(g)
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(g, indent=1) + "\n", encoding="utf-8")
     print(f"element graph {args.output}: {len(g)} nodes")
@@ -105,9 +107,17 @@ def cmd_shot(args) -> int:
         renderer = LibraryRenderer(Path(args.library) if args.library else DEFAULT_DIR)
     else:
         renderer = ComfyRenderer(Path(args.workflow), timeout=args.timeout)
-    spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
-                    seed=args.seed, offset_s=args.offset_s, face=Path(args.face) if args.face else None,
-                    label=args.label or "", scale=args.scale)
+    holds = None
+    if args.hold:
+        holds = [tuple(float(v) for v in h.split("-", 1)) for h in args.hold]
+    if args.cue == "voice" and not args.voice:
+        raise SystemExit("--voice is required for a voice cue (or use --cue clip / --cue hold)")
+    strokes = json.loads(Path(args.strokes).read_text(encoding="utf-8")) if args.strokes else None
+    spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice) if args.voice else None, effect=args.effect,
+                    point=(args.x, args.y), seed=args.seed, offset_s=args.offset_s,
+                    face=Path(args.face) if args.face else None, label=args.label or "", scale=args.scale,
+                    mode="scene" if args.scene else "element", direction=args.direction, subject=args.subject,
+                    cue=args.cue, holds=holds, strokes=strokes, describe=args.describe)
     last = [""]
 
     def progress(stage: str, frac: float, msg: str) -> None:
@@ -232,6 +242,7 @@ def build_parser() -> argparse.ArgumentParser:
     gr.add_argument("sample", help="the sample workflow exported in API format")
     gr.add_argument("--video-name", default="guide.mp4", help="placeholder file for the Load Video node")
     gr.add_argument("--shot", action="store_true", help="the whole shot as one workflow (needs the CueSync node pack)")
+    gr.add_argument("--scene", action="store_true", help="the whole shot in scene mode (the effect rendered into the plate) as one workflow")
     gr.add_argument("-o", "--output", required=True)
     gr.set_defaults(func=cmd_graph)
 
@@ -267,8 +278,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sh = sub.add_parser("shot", help="plate + performance -> the finished shot (final, breakdown, clean, receipt)")
     sh.add_argument("--plate", required=True)
-    sh.add_argument("--voice", required=True, help="your noise (wav/m4a/webm...)")
-    sh.add_argument("--effect", required=True, choices=["fireball", "smoke_puff", "flame_plume", "steam_jet"])
+    sh.add_argument("--voice", help="your noise (wav/m4a/webm...); needed for --cue voice")
+    sh.add_argument("--cue", choices=["voice", "clip", "hold"], default="voice",
+                    help="what times it: your voice, a sound already in the plate (snap, click, slam), or --hold")
+    sh.add_argument("--hold", action="append", metavar="PRESS-RELEASE",
+                    help="--cue hold: press and release times in seconds, e.g. 1.0-2.5 (repeat for more)")
+    sh.add_argument("--effect", required=True, help="an effect id from effects/ (fireball, fire_breath, wick_flare, "
+                                                    "blow_out, flame_plume, smoke_puff, steam_jet)")
     sh.add_argument("--x", type=float, default=0.5, help="emission point, 0..1 across the plate")
     sh.add_argument("--y", type=float, default=0.7, help="emission point, 0..1 down the plate")
     sh.add_argument("--offset-s", type=float, default=0.0, help="plate time of the recording's first sample")
@@ -276,6 +292,13 @@ def build_parser() -> argparse.ArgumentParser:
     sh.add_argument("--scale", type=float, help="effect size, e.g. 0.75 or 1.3 (default: from the object's size)")
     sh.add_argument("--face", help="optional face clip for the inset")
     sh.add_argument("--label", help="text on the final video (default: the effect)")
+    sh.add_argument("--scene", action="store_true",
+                    help="render the effect into the plate itself (the scene reacts; needs a GPU backend)")
+    sh.add_argument("--direction", type=float,
+                    help="scene mode: where the effect goes, degrees clockwise from up (-90 left, 90 right)")
+    sh.add_argument("--subject", help='scene mode: what it happens to, e.g. "the toy dinosaur on the table"')
+    sh.add_argument("--strokes", help='scene mode: a JSON file of drawn strokes [{"points": [[x, y], ...], "width": w}]')
+    sh.add_argument("--describe", help='scene mode: say what happens, e.g. "thick smoke pours out of the lamp"')
     sh.add_argument("--instant", action="store_true",
                     help="no GPU: use the pre-rendered element library (timed and placed by your performance)")
     sh.add_argument("--library", help="library folder (default: samples/library)")
@@ -309,7 +332,7 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--precomputed", help="sample shots made ahead of time (cuesync precompute) for the gallery")
 
     pc = sub.add_parser("precompute", help="make every sample shot ahead of time (gallery + instant first clicks)")
-    pc.add_argument("--mode", choices=["instant", "render"], default="instant")
+    pc.add_argument("--mode", choices=["instant", "render", "scene"], default="instant")
     pc.add_argument("--out", default="runs/precomputed")
     pc.add_argument("--samples", default="samples")
     pc.add_argument("--workflow", default="workflows/fluid_element.api.json")

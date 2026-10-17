@@ -1,0 +1,20 @@
+{
+  "id": "blow_out",
+  "anchor": "hero",
+  "behaviour": "extinguish",
+  "fluid": "smoke",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a thin curl of grey smoke rising, isolated on a pure black background",
+  "r_min": 0.02,
+  "r_max": 0.1,
+  "rise": 0.4,
+  "keyframe_stride": 8,
+  "composite": "over",
+  "tail_frames": 32,
+  "scene": {
+    "prompt": "ainvfxfluid, the flame of {subject} is blown out, a thin curl of grey smoke rises from the wick and drifts away, the light in the scene dims a little, static camera, realistic phone video",
+    "r_min": 0.0,
+    "r_max": 0.1,
+    "resting": 0.09
+  }
+}

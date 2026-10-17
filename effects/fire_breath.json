@@ -1,0 +1,25 @@
+{
+  "id": "fire_breath",
+  "anchor": "first",
+  "behaviour": "jet",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a jet of roaring orange fire, isolated on a pure black background",
+  "r_min": 0.2,
+  "r_max": 0.5,
+  "rise": 0.3,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "tail_frames": 40,
+  "release_smoke": 10,
+  "release_fire": 6,
+  "scene": {
+    "prompt": "ainvfxfluid, {subject} breathes {rhythm} {towards} out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+    "r_min": 0.12,
+    "r_max": 0.46,
+    "direction": -90,
+    "bend": 0.2,
+    "rhythm": "short separate bursts of bright orange fire, with dark pauses between them and the last burst the longest,",
+    "single": "a long roaring jet of bright orange fire"
+  }
+}

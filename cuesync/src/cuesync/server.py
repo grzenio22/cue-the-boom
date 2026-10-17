@@ -44,7 +44,7 @@ class Job:
     id: str
     dir: Path
     spec: object
-    mode: str = "render"  # render | instant | compare
+    mode: str = "render"  # render | scene | instant | compare | retime
     cached: bool = False  # answered from the shots made ahead of time
     title: str = ""
     retime: dict | None = None  # {"src": Path, "hit_shift": int, "stop": int | None}: re-time a finished shot
@@ -62,10 +62,15 @@ class Job:
         receipt = None
         if self.status == "done" and (self.dir / "receipt.json").exists():
             receipt = json.loads((self.dir / "receipt.json").read_text())
+        spec_extra = getattr(self.spec, "extra", None) or {}
         return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "status": self.status,
+                "effect": getattr(self.spec, "effect", None), "gesture": spec_extra.get("gesture"),
                 "stage": self.stage,
                 "progress": round(self.progress, 3), "message": self.message, "error": self.error, "files": files,
                 "receipt": receipt}
+
+
+ELEMENT_EFFECTS = ("fireball", "flame_plume", "smoke_puff", "steam_jet")  # tuned for element mode, in the library
 
 
 class JobQueue:
@@ -82,16 +87,22 @@ class JobQueue:
         for mode in modes:
             threading.Thread(target=self._work, args=(mode,), daemon=True).start()
 
+    @staticmethod
+    def queue_of(mode: str) -> str:
+        """Scene renders and element renders share the one GPU worker."""
+        return "render" if mode == "scene" else mode
+
     def queued(self, mode: str = "render") -> int:
-        q = self._qs.get(mode)
+        q = self._qs.get(self.queue_of(mode))
         return q.qsize() if q else 0
 
     def submit(self, job: Job) -> Job:
         with self._lock:
             self.jobs[job.id] = job
         ahead = self.queued(job.mode)
-        self._emit(job, "queued", 0.0, f"Waiting for the GPU ({ahead} ahead)" if job.mode == "render" else "Starting")
-        self._qs[job.mode].put(job.id)
+        gpu = self.queue_of(job.mode) == "render"
+        self._emit(job, "queued", 0.0, f"Waiting for the GPU ({ahead} ahead)" if gpu else "Starting")
+        self._qs[self.queue_of(job.mode)].put(job.id)
         return job
 
     def _emit(self, job: Job, stage: str, frac: float, msg: str) -> None:
@@ -132,7 +143,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
     cache = load_cache(precomputed)
     gallery: list[Job] = []
-    for key, entry in sorted(cache.items(), key=lambda kv: (kv[1]["mode"] != "render", kv[1]["title"])):
+    rank = {"scene": 0, "render": 1}  # one tile per sample pair: the scene render, else the element render
+    for key, entry in sorted(cache.items(), key=lambda kv: (rank.get(kv[1]["mode"], 2), kv[1]["title"])):
         same = [g for g in gallery if g.title == entry["title"]]
         if same:  # one gallery tile per sample pair: the full render when there is one
             continue
@@ -154,8 +166,17 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             ready["ok"], ready["t"] = bool(probe()), time.time()
         return ready["ok"]
 
+    scenes = bool(getattr(renderer, "scenes", False))
+
     def available_modes() -> list[str]:
-        return sorted(m for m in jq.renderers if m != "render" or render_ready())
+        modes = [m for m in jq.renderers if m != "render" or render_ready()]
+        if scenes and "render" in modes:
+            modes.append("scene")
+        return sorted(modes)
+
+    def sample_meta() -> dict:
+        f = samples_dir / "samples.json"
+        return json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
 
     def sample_files(kind: str) -> dict[str, Path]:
         exts = {".mp4", ".mov", ".webm"} if kind == "plates" else {".wav", ".m4a", ".mp3", ".webm", ".ogg"}
@@ -175,9 +196,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
     @app.get("/api/samples")
     def samples():
-        meta = {}
-        if (samples_dir / "samples.json").exists():
-            meta = json.loads((samples_dir / "samples.json").read_text(encoding="utf-8"))
+        meta = sample_meta()
         return {kind: [{"name": n, "url": f"/api/samples/{kind}/{n}", **meta.get(kind, {}).get(n, {})}
                        for n in sample_files(kind)] for kind in ("plates", "voices")}
 
@@ -197,7 +216,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         out = []
         for i in effect_ids():
             e = load_effect(i)
-            out.append({"id": e.id, "fluid": e.fluid, "behaviour": e.behaviour, "stops_with_voice": e.voice_gate == "both"})
+            out.append({"id": e.id, "fluid": e.fluid, "behaviour": e.behaviour, "stops_with_voice": e.voice_gate == "both",
+                        "scene": e.scene is not None, "direction": e.scene.direction if e.scene else None,
+                        "element": e.id in ELEMENT_EFFECTS})
         return out
 
     async def save(upload: UploadFile, path: Path) -> Path:
@@ -216,30 +237,79 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      seed: int = Form(1), offset_s: float | None = Form(None), timing: UploadFile | None = File(None),
                      face: UploadFile | None = File(None), label: str = Form(""), mode: str = Form("render"),
                      plate_sample: str | None = Form(None), voice_sample: str | None = Form(None),
-                     scale: float | None = Form(None), element: str | None = Form(None)):
+                     scale: float | None = Form(None), element: str | None = Form(None),
+                     direction: float | None = Form(None), subject: str | None = Form(None),
+                     cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
+                     describe: str | None = Form(None)):
+        from .cues import SOURCES
+        from .scene import Strokes
+
+        if cue not in SOURCES:
+            raise HTTPException(400, f"cue must be one of {list(SOURCES)}")
+        hold_list = None
+        if holds:
+            try:
+                hold_list = [(float(a), float(b)) for a, b in json.loads(holds)]
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(400, f"holds must be a JSON list of [press_s, release_s]: {exc}") from None
+            if not hold_list or any(b <= a or a < 0 or b > 60 for a, b in hold_list):
+                raise HTTPException(400, "each hold must be a press time before its release, within the clip")
+        stroke_data = None
+        if strokes:
+            try:
+                stroke_data = json.loads(strokes)
+            except ValueError as exc:
+                raise HTTPException(400, f"strokes must be JSON: {exc}") from None
+            if Strokes.parse(stroke_data) is None:
+                raise HTTPException(400, "strokes need at least one point")
+        describe = " ".join((describe or "").split())[:200] or None
+        auto = effect == "auto"
         try:
-            load_effect(effect)
+            eff = load_effect("fireball" if auto else effect)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(400, f"unknown effect {effect!r}: {exc}") from None
-        if mode not in jq.renderers:
-            raise HTTPException(400, f"mode {mode!r} is not available here (available: {sorted(jq.renderers)})")
-        if mode == "render" and not render_ready():
+        if mode != "scene" and (stroke_data or describe):
+            raise HTTPException(400, "drawing and describing the effect need scene mode")
+        if mode == "scene" and not (scenes and "render" in jq.renderers):
+            raise HTTPException(400, "scene mode needs the GPU render API, which this server doesn't have")
+        if mode != "scene" and mode not in jq.renderers:
+            raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
+        if mode == "scene" and eff.scene is None:
+            raise HTTPException(400, f"{effect!r} has no scene mode")
+        if mode != "scene" and not auto and effect not in ELEMENT_EFFECTS:
+            raise HTTPException(400, f"{effect!r} only exists in scene mode")
+        if mode in ("render", "scene") and not render_ready():
             raise HTTPException(503, "the GPU is offline right now; instant mode still works")
-        if (plate is None) == (plate_sample is None) or (voice is None) == (voice_sample is None):
-            raise HTTPException(400, "send a plate (or plate_sample) and a voice (or voice_sample)")
+        if direction is not None and not -180 <= direction <= 180:
+            raise HTTPException(400, "direction must be in [-180, 180] degrees")
+        subject = (subject or "").strip()[:120] or None
+        if (plate is None) == (plate_sample is None):
+            raise HTTPException(400, "send a plate (or plate_sample)")
+        if cue == "voice" and (voice is None) == (voice_sample is None):
+            raise HTTPException(400, "a voice cue needs a voice (or voice_sample)")
+        if cue != "voice" and (voice is not None or voice_sample is not None):
+            raise HTTPException(400, f"a {cue} cue takes no voice")
         if plate_sample is not None and plate_sample not in sample_files("plates"):
             raise HTTPException(400, f"no sample plate {plate_sample!r}")
         if voice_sample is not None and voice_sample not in sample_files("voices"):
             raise HTTPException(400, f"no sample voice {voice_sample!r}")
         job_id = uuid.uuid4().hex[:12]
         d = jq.root / job_id
+        pm = sample_meta().get("plates", {}).get(plate_sample, {}) if plate_sample else {}
+        if mode == "scene" and plate_sample:  # a sample plate knows what it shows and which way its source faces
+            subject = subject or pm.get("subject")
+            direction = direction if direction is not None else pm.get("direction")
         if (plate_sample and voice_sample and face is None and timing is None and offset_s is None and scale is None
-                and element is None and x is not None and y is not None):
-            hit = cache.get(cache_key(mode, plate_sample, voice_sample, effect, (x, y), seed))
+                and element is None and x is not None and y is not None and not auto and not stroke_data
+                and not describe):
+            hit = cache.get(cache_key(mode, plate_sample, voice_sample, effect, (x, y), seed,
+                                      direction if mode == "scene" else None))
             if hit:  # this exact sample shot was made ahead of time: answer at once
                 copy_shot(Path(hit["path"]), d)
                 spec = ShotSpec(plate=sample_files("plates")[plate_sample], voice=sample_files("voices")[voice_sample],
-                                effect=effect, point=(float(x), float(y)), seed=seed, **(shot_defaults or {}))
+                                effect=effect, point=(float(x), float(y)), seed=int(hit.get("seed", seed)),
+                                mode="scene" if mode == "scene" else "element", direction=direction, subject=subject,
+                                **(shot_defaults or {}))
                 job = Job(id=job_id, dir=d, spec=spec, mode=mode, status="done", stage="done", progress=1.0,
                           message="Made earlier", cached=True, title=hit["title"])
                 jq.jobs[job_id] = job
@@ -252,7 +322,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         if voice is not None:
             voice_path = await save(voice, d / "in" / f"voice{Path(voice.filename or '.wav').suffix or '.wav'}")
         else:
-            voice_path = sample_files("voices")[voice_sample]
+            voice_path = sample_files("voices")[voice_sample] if voice_sample else None
         face_path = await save(face, d / "in" / f"face{Path(face.filename or '.webm').suffix or '.webm'}") if face else None
         t = {}
         if timing is not None:
@@ -268,7 +338,25 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         spec = ShotSpec(plate=plate_path, voice=voice_path, effect=effect, point=(float(point[0]), float(point[1])),
                         seed=seed, offset_s=offset_s, face=face_path, face_offset_s=t.get("face_offset_s"), label=label,
                         scale=scale, element=element if mode == "instant" else None,
+                        mode="scene" if mode == "scene" else "element", direction=direction, subject=subject,
+                        cue=cue, holds=hold_list, strokes=stroke_data, describe=describe,
                         **(shot_defaults or {}))
+        if auto:  # the noise decides: its gesture, read through the plate's own map
+            from .gestures import effect_for, gesture
+            from .pipeline import shot_cue
+
+            try:
+                c = shot_cue(spec)
+            except Exception as exc:
+                raise HTTPException(400, f"couldn't read the cue: {exc}") from None
+            from .gestures import DEFAULTS
+
+            g = gesture(c.cue, c.samples, source=c.source)
+            spec.extra["gesture"] = g
+            # scene mode reads the plate's own map; elements come from the classic four (the library has those)
+            spec.effect = effect_for(g, pm, voice_sample) if mode == "scene" else DEFAULTS[g]
+            if load_effect(spec.effect).scene is None and mode == "scene":
+                spec.effect = DEFAULTS[g]
         return jq.submit(Job(id=job_id, dir=d, spec=spec, mode=mode)).public()
 
     def get(job_id: str) -> Job:

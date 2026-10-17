@@ -9,5 +9,10 @@
   "r_max": 0.3,
   "rise": 0.25,
   "keyframe_stride": 8,
-  "composite": "over"
+  "composite": "over",
+  "scene": {
+    "prompt": "ainvfxfluid, a puff of grey smoke bursts out of {subject} {towards} and drifts away, slowly thinning, static camera, realistic phone video",
+    "r_min": 0.08,
+    "r_max": 0.3
+  }
 }

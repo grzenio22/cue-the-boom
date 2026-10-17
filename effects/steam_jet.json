@@ -9,5 +9,10 @@
   "r_max": 0.55,
   "rise": 0.5,
   "keyframe_stride": 8,
-  "composite": "over"
+  "composite": "over",
+  "scene": {
+    "prompt": "ainvfxfluid, thin translucent wisps of steam rise and curl up from {subject}, drifting gently in the light and fading as they rise, static camera, realistic phone video",
+    "r_min": 0.1,
+    "r_max": 0.4
+  }
 }

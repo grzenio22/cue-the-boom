@@ -30,6 +30,10 @@ class BoundGraph:
     graph: dict
     load_video_id: str
     output_id: str
+    load_image_id: str | None = None  # the plate frame the render starts from (scene mode)
+
+
+PLATE_IMAGE_NODE = "cuesync_plate"
 
 
 @dataclass
@@ -42,8 +46,11 @@ def _nodes_of(graph: dict, class_type: str) -> list[str]:
     return [k for k, v in graph.items() if isinstance(v, dict) and v.get("class_type") == class_type]
 
 
-def bind_fluid_graph(graph: dict, *, prompt: str, seed: int) -> BoundGraph:
-    """Return a deep-copied graph with prompt and seed set, plus the LoadVideo and SaveVideo node ids."""
+def bind_fluid_graph(graph: dict, *, prompt: str, seed: int, image: bool = False) -> BoundGraph:
+    """Return a deep-copied graph with prompt and seed set, plus the LoadVideo and SaveVideo node ids.
+
+    ``image``: start the render from a plate frame (scene mode): the graph's image-to-video node is switched
+    on at full strength and fed by a new LoadImage node, whose id is returned as ``load_image_id``."""
     if not prompt.startswith("ainvfxfluid, "):
         raise GraphBindError("prompt must start with 'ainvfxfluid, ' (the LoRA's trigger)")
     g = copy.deepcopy(graph)
@@ -66,7 +73,16 @@ def bind_fluid_graph(graph: dict, *, prompt: str, seed: int) -> BoundGraph:
     if unwanted:
         raise GraphBindError(f"graph depends on {unwanted} (partner API / prompt enhancer); "
                              "derive it with `cuesync graph` so it runs on open weights only")
-    return BoundGraph(graph=g, load_video_id=loaders[0], output_id=savers[0])
+    image_id = None
+    if image:
+        i2v = _nodes_of(g, "LTXVImgToVideoInplace")
+        if len(i2v) != 1:
+            raise GraphBindError(f"scene mode needs exactly one LTXVImgToVideoInplace node, found {len(i2v)}")
+        g[PLATE_IMAGE_NODE] = {"class_type": "LoadImage", "inputs": {"image": "plate.png"},
+                               "_meta": {"title": "Plate frame (the render starts from it)"}}
+        g[i2v[0]]["inputs"].update({"image": [PLATE_IMAGE_NODE, 0], "strength": 1.0, "bypass": False})
+        image_id = PLATE_IMAGE_NODE
+    return BoundGraph(graph=g, load_video_id=loaders[0], output_id=savers[0], load_image_id=image_id)
 
 
 def check_render_contract(guide_path: str | Path, element_path: str | Path) -> None:
@@ -88,10 +104,12 @@ def render_element(
     workflow_path: str | Path,
     out_path: str | Path,
     timeout: float = 600.0,
+    image_path: str | Path | None = None,
 ) -> RenderResult:
     """Render one fluid element from ``guide_path`` and download it to ``out_path``.
 
     ``timeout`` bounds the wait for the job (seconds): a server that lost its upstream must not hang a batch.
+    ``image_path``: a plate frame to start from (scene mode: the effect is rendered into the plate).
     """
     try:
         from comfy_sdk import Comfy, InvalidWorkflow, JobFailed
@@ -99,11 +117,13 @@ def render_element(
         raise ImportError("comfy_sdk is not installed: pip install cuesync[comfy]") from exc
 
     graph = json.loads(Path(workflow_path).read_text(encoding="utf-8"))
-    bound = bind_fluid_graph(graph, prompt=prompt, seed=seed)
+    bound = bind_fluid_graph(graph, prompt=prompt, seed=seed, image=image_path is not None)
     client = Comfy()  # COMFY_BASE_URL / COMFY_API_KEY from the environment
     started = time.perf_counter()
     wf = client.workflows.from_json(bound.graph)
     wf.set_input(bound.load_video_id, "file", client.assets.from_file(str(guide_path)))
+    if bound.load_image_id is not None:
+        wf.set_input(bound.load_image_id, "image", client.assets.from_file(str(image_path)))
     try:
         job = client.run(wf, timeout=timeout)
     except TimeoutError as exc:

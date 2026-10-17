@@ -1,0 +1,24 @@
+{
+  "id": "fire_burst",
+  "anchor": "hero",
+  "behaviour": "burst",
+  "fluid": "fire",
+  "secondary": "smoke",
+  "prompt": "ainvfxfluid, a fireball bursting upwards, isolated on a pure black background",
+  "r_min": 0.04,
+  "r_max": 0.42,
+  "rise": 0.35,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "scene": {
+    "prompt": "ainvfxfluid, a fireball bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
+    "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video",
+    "rhythm": " in two small puffs and then one big blast",
+    "single": "",
+    "r_min": 0.12,
+    "r_max": 0.4,
+    "resting": 0.06,
+    "shake": 0.006,
+    "flash": 0.45
+  }
+}

@@ -43,7 +43,8 @@ class Renderer(Protocol):
     name: str
 
     def __call__(self, guide_path: Path, prompt: str, seed: int, out_path: Path) -> float:
-        """Render the element for ``guide_path`` to ``out_path``; returns seconds spent."""
+        """Render the element for ``guide_path`` to ``out_path``; returns seconds spent. A renderer that can
+        render into the scene also takes ``image=`` (a plate frame to start from)."""
 
 
 @dataclass
@@ -54,11 +55,13 @@ class ComfyRenderer:
     timeout: float = 600.0
     name: str = "comfy"
 
-    def __call__(self, guide_path: Path, prompt: str, seed: int, out_path: Path) -> float:
+    scenes: bool = True  # can render into the scene (the graph has the image-to-video node)
+
+    def __call__(self, guide_path: Path, prompt: str, seed: int, out_path: Path, image: Path | None = None) -> float:
         from .runner import render_element
 
         return render_element(guide_path, prompt=prompt, seed=seed, workflow_path=self.workflow,
-                              out_path=out_path, timeout=self.timeout).seconds
+                              out_path=out_path, timeout=self.timeout, image_path=image).seconds
 
     def ready(self) -> bool:
         """Does the Comfy API behind COMFY_BASE_URL answer its health check?"""
@@ -90,7 +93,7 @@ class ComfyRenderer:
 @dataclass
 class ShotSpec:
     plate: Path
-    voice: Path
+    voice: Path | None  # None: the cue is the clip's own sound or a hold (see cue)
     effect: str
     point: tuple[float, float]
     seed: int = 1
@@ -105,6 +108,13 @@ class ShotSpec:
     scale: float | None = None  # effect size multiplier; None: from the object's size
     element: str | None = None  # instant mode: reuse this library element (compare takes fairly)
     multi_hit: bool = True  # "pf, pf, KA-BOOM": one burst per hit (bursts and puffs)
+    mode: str = "element"  # "element": rendered on black, composited; "scene": rendered into the plate
+    direction: float | None = None  # scene mode: degrees clockwise from up (None: the effect's default)
+    subject: str | None = None  # scene mode: what the effect happens to ("the toy dinosaur"), for the prompt
+    cue: str = "voice"  # what times it: "voice" (a performance), "clip" (a sound in the plate), "hold"
+    holds: list | None = None  # cue "hold": [(press_s, release_s), ...] on the plate's timeline
+    strokes: list | None = None  # scene mode: the effect drawn on the plate ([{"points": [[x, y], ...], "width"}])
+    describe: str | None = None  # scene mode: the performer's own words for what happens (replaces the prompt)
     extra: dict = field(default_factory=dict)
 
 
@@ -117,7 +127,17 @@ class ShotResult:
     receipt: dict
 
 
-def _sha(path: Path) -> str:
+def shot_cue(spec: "ShotSpec", duration_s: float | None = None):
+    """The shot's cue (cues.Cue) from its spec: the voice, the plate's own sound, or holds."""
+    from .cues import load_cue
+
+    return load_cue(spec.cue, plate=spec.plate, voice=spec.voice, offset_s=spec.offset_s, holds=spec.holds,
+                    duration_s=duration_s or spec.max_plate_s, fps=FPS, sr=SR)
+
+
+def _sha(path: Path | None) -> str | None:
+    if path is None:
+        return None
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
 
 
@@ -216,7 +236,9 @@ def _finalise(frames: np.ndarray, env: np.ndarray, label: str, faces) -> np.ndar
 
 
 def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: np.ndarray, align, timing,
-               keyframes: list[int] | None = None, guide_label: str = "2 voice-painted guide (last keyframe)") -> np.ndarray:
+               keyframes: list[int] | None = None, guide_label: str = "2 voice-painted guide (last keyframe)",
+               index_of: Callable[[int], int | None] | None = None,
+               labels: tuple[str, str] = ("3 LTX-2.5 element", "4 composite")) -> np.ndarray:
     """2x2 grid at half size: plate | guide / element | composite, each on the plate's timeline. The guide
     only exists at its keyframes, so its tile holds the latest one (the plan's list: after an mp4 round trip
     codec noise makes every frame look non-empty)."""
@@ -245,12 +267,12 @@ def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: 
 
     half = lambda f: np.asarray(Image.fromarray(f).reduce(2)) if f.shape[1] // 2 == hw else np.asarray(Image.fromarray(f).resize((hw, hh)))
     for t in range(n):
-        idx = element_index_for(align, timing, t, element.shape[0])
+        idx = index_of(t) if index_of is not None else element_index_for(align, timing, t, element.shape[0])
         g_idx = latest_key(None if idx is None else min(idx, guide.shape[0] - 1))
         tiles = [(half(plate[t]), "1 plate (untouched)"),
                  (small(guide, g_idx, "g"), guide_label),
-                 (small(element, idx, "e"), "3 LTX-2.5 element"),
-                 (half(comp[t]), "4 composite")]
+                 (small(element, idx, "e"), labels[0]),
+                 (half(comp[t]), labels[1])]
         for k, (tile, text) in enumerate(tiles):
             y0, x0 = (k // 2) * hh, (k % 2) * hw
             img = Image.fromarray(tile.copy())
@@ -338,6 +360,10 @@ def _place(eff, anchor: int, intervals: list, frames: np.ndarray, n: int, next_h
 
 
 def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progress | None = None) -> ShotResult:
+    if spec.mode == "scene":
+        from .scene_shot import make_scene_shot
+
+        return make_scene_shot(spec, renderer, out_dir, progress)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     say = progress or (lambda stage, frac, msg: None)
@@ -348,10 +374,10 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     plate, point, element_size = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size, spec.element_size)
     n = plate.shape[0]
 
-    say("listening", 0.08, "Listening to your performance")
-    samples = read_audio(spec.voice, SR)
-    cue = analyze(samples, SR, offset_s=spec.offset_s, fps=FPS)
-    (out_dir / "cue.json").write_text(json.dumps(cue.to_json(), indent=1))
+    say("listening", 0.08, "Listening to your performance" if spec.cue == "voice" else "Reading the cue")
+    c = shot_cue(spec, n / FPS)
+    samples, cue = c.samples, c.cue
+    (out_dir / "cue.json").write_text(json.dumps(cue.to_json() | {"source": c.source}, indent=1))
 
     say("painting", 0.12, "Painting your voice into a guide")
     matte_fn = spec.matte or getattr(renderer, "matte", None) or grabcut_matte
@@ -408,15 +434,19 @@ def retime_shot(src: Path, spec: ShotSpec, out_dir: Path, hit_shift: int = 0, st
     """Re-time a finished shot without rendering again: move every hit by ``hit_shift`` frames and, for an
     effect that stops with the voice, stop it at plate frame ``stop_frame``. Composites and finishes anew."""
     src, out_dir = Path(src), Path(out_dir)
+    old = json.loads((src / "receipt.json").read_text())
+    if old.get("mode") == "scene":
+        from .scene_shot import retime_scene_shot
+
+        return retime_scene_shot(src, spec, out_dir, hit_shift=hit_shift, progress=progress)
     out_dir.mkdir(parents=True, exist_ok=True)
     say = progress or (lambda stage, frac, msg: None)
     t0 = time.perf_counter()
     eff = load_effect(spec.effect)
-    old = json.loads((src / "receipt.json").read_text())
     say("reading", 0.05, "Reading your plate")
     plate, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size, spec.element_size)
     n = plate.shape[0]
-    samples = read_audio(spec.voice, SR)
+    samples = shot_cue(spec, n / FPS).samples
     cue = CueSheet.from_json(json.loads((src / "cue.json").read_text()))
     occluder = None
     if (src / "matte.png").exists():
@@ -478,7 +508,7 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
         guide_path = out_dir / "guide.mp4"
     elif retimed:
         (out_dir / "guide.json").write_text(json.dumps(plan.to_json(), indent=1))
-    audio = place_audio(samples, spec.offset_s, n)
+    audio = place_audio(samples, spec.offset_s if spec.cue == "voice" else 0.0, n)
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
 
@@ -523,7 +553,7 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
         "cuesync": __version__,
         "effect": eff.to_json(),
         "inputs": {"plate_sha": _sha(spec.plate), "voice_sha": _sha(spec.voice), "point": list(spec.point),
-                   "seed": spec.seed, "offset_s": spec.offset_s, "face": spec.face is not None},
+                   "seed": spec.seed, "offset_s": spec.offset_s, "face": spec.face is not None, "cue": spec.cue},
         "voice": {"onsets_s": [round(t, 3) for t in cue.onsets_s], "hero_onset_s": round(cue.hero_onset_s, 3),
                   "active_intervals": [list(iv) for iv in cue.intervals()], "voice_end_frame": voice_end,
                   "peak_frame": cue.peak_frame},

@@ -1,0 +1,22 @@
+{
+  "id": "wick_flare",
+  "anchor": "first",
+  "behaviour": "plume",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire, isolated on a pure black background",
+  "r_min": 0.03,
+  "r_max": 0.3,
+  "rise": 0.55,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "tail_frames": 40,
+  "release_smoke": 10,
+  "release_fire": 9,
+  "scene": {
+    "prompt": "ainvfxfluid, the small flame of {subject} suddenly flares up into a tall roaring column of orange fire, the fire lights up the glass, the wax and the surroundings with flickering warm light, then it calms back down to a small candle flame, static camera, realistic phone video",
+    "r_min": 0.14,
+    "r_max": 0.45,
+    "resting": 0.09
+  }
+}

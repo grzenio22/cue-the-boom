@@ -120,6 +120,50 @@ def shot_graph(element: dict, *, plate_name: str = "plate.mp4", voice_name: str 
     return g
 
 
+def scene_graph(element: dict, *, plate_name: str = "plate.mp4", voice_name: str = "voice.wav",
+                effect: str = "fire_breath", point: tuple[float, float] = (0.375, 0.485),
+                subject: str = "the small plastic toy dinosaur on the bedside table") -> dict:
+    """The shot in scene mode as ONE ComfyUI workflow (needs the CueSync node pack):
+    voice -> CueSync Analyze Voice -> CueSync Paint Scene (with the plate) -> the element graph, switched to
+    image-to-video from the plate's frame -> CueSync Scene Shot <- plate.
+
+    Built from the element graph: its Load Video input becomes the painted scene guide, its prompt the scene
+    prompt, its image-to-video node gets the plate frame at full strength, and the timed shot sits between
+    the decoded render and Save Video.
+    """
+    g = copy.deepcopy(element)
+    loads = _nodes(g, "LoadVideo")
+    savers = _nodes(g, "SaveVideo")
+    if len(loads) != 1 or len(savers) != 1:
+        raise GraphConvertError("expected the element graph: one Load Video and one Save Video")
+    prompts = [k for k in _nodes(g, "PrimitiveStringMultiline") if "ainvfxfluid" in str(g[k]["inputs"].get("value", ""))]
+    if len(prompts) != 1:
+        raise GraphConvertError("expected one prompt node containing 'ainvfxfluid'")
+    i2v = _nodes(g, "LTXVImgToVideoInplace")
+    if len(i2v) != 1:
+        raise GraphConvertError("expected one LTXVImgToVideoInplace node (the image-to-video branch)")
+    base = int(_new_id(g))
+    voice, cue, paint, plate, shot = (str(base + i) for i in range(5))
+    g[voice] = {"class_type": "LoadAudio", "inputs": {"audio": voice_name}, "_meta": {"title": "Your performance"}}
+    g[plate] = {"class_type": "LoadVideo", "inputs": {"file": plate_name}, "_meta": {"title": "Your plate"}}
+    g[cue] = {"class_type": "CueSyncAnalyzeVoice", "inputs": {"audio": [voice, 0], "offset_s": 0.0}}
+    g[paint] = {"class_type": "CueSyncPaintScene",
+                "inputs": {"cue": [cue, 0], "plate": [plate, 0], "effect": effect, "x": point[0], "y": point[1],
+                           "aim": False, "direction": 0.0, "subject": subject, "max_seconds": 10.0}}
+    _rewire(g, [loads[0], 0], [paint, 0])
+    _rewire(g, [prompts[0], 0], [paint, 2])
+    g[i2v[0]]["inputs"].update({"image": [paint, 1], "strength": 1.0, "bypass": False})
+    rendered = g[savers[0]]["inputs"]["video"]
+    g[shot] = {"class_type": "CueSyncSceneShot",
+               "inputs": {"plate": [plate, 0], "render": rendered, "plan": [paint, 3], "max_seconds": 10.0,
+                          "voice": [voice, 0]}}
+    g[savers[0]]["inputs"]["video"] = [shot, 0]
+    g[savers[0]]["inputs"]["filename_prefix"] = "cue-the-boom/scene"
+    del g[loads[0]], g[prompts[0]]
+    keep = _ancestors(g, savers)  # the old resize and bypass switch no longer feed anything
+    return {k: v for k, v in g.items() if k in keep}
+
+
 def element_graph(sample: dict, *, video_name: str = "guide.mp4") -> dict:
     """Return the sample graph with its in-graph control video replaced by a LoadVideo node."""
     g = copy.deepcopy(sample)

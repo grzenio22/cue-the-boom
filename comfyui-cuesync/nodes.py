@@ -1,7 +1,12 @@
-"""CueSync nodes for ComfyUI: a performed noise -> a voice-painted ainvfx-fluid guide -> a composite.
+"""CueSync nodes for ComfyUI: a performed noise -> a voice-painted ainvfx-fluid guide -> the shot.
 
-    Load Audio ──> CueSync Analyze Voice ──> CueSync Paint Guide ──> (guide video, prompt) ──> LTX-2.5 + ainvfx-fluid
-    Load Video (plate) ─────────────────────────────────────────────> CueSync Composite <── element video
+Scene mode (the effect rendered into the plate, the scene reacts):
+    Load Audio ──> Analyze Voice ──> Paint Scene ──> (guide, start frame, prompt) ──> LTX-2.5 image-to-video + ainvfx-fluid
+    Load Video (plate) ────────────────┘   └──────────────────────────> Scene Shot <── render
+
+Element mode (rendered on black, composited onto the untouched plate):
+    Load Audio ──> Analyze Voice ──> Paint Guide ──> (guide video, prompt) ──> LTX-2.5 + ainvfx-fluid
+    Load Video (plate) ───────────────────────────────────────────────> Composite <── element video
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from cuesync.conform import conform
 from cuesync.effects import _candidate_dirs, load_effect
 from cuesync.guide import paint_guide
 from cuesync.media import VideoClip
+from cuesync.scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
 from cuesync.score import measure_element
 
 FPS = 24
@@ -62,8 +68,9 @@ def _frames(video) -> tuple[np.ndarray, float]:
 
 
 class CueSyncAnalyzeVoice:
-    """A performed noise -> cue sheet: onsets, the hero hit, an absolute loudness envelope per frame, and
-    when the performer is actually making the noise."""
+    """A sound -> cue sheet: onsets, the hero hit, an absolute loudness envelope per frame, and when the
+    sound is actually there. A performed noise, or the plate's own soundtrack (Get Video Components' audio:
+    a finger snap, a lighter's click, a door slam) to lock the effect to a sound already in the clip."""
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -120,6 +127,136 @@ class CueSyncPaintGuide:
         silence = {"waveform": torch.zeros(1, 1, int(round(n / FPS * SR))), "sample_rate": SR}  # the graph expects audio
         meta = plan.to_json() | {"x": x, "y": y}
         return (_video(plan.frames, silence), eff.prompt, meta)
+
+
+def _scene_effect_ids() -> list[str]:
+    ids = []
+    for i in _effect_ids():
+        try:
+            if load_effect(i).scene is not None:
+                ids.append(i)
+        except (FileNotFoundError, ValueError):
+            continue
+    return ids or ["fireball"]
+
+
+def _plate_frames(video, max_seconds: float) -> np.ndarray:
+    frames, fps = _frames(video)
+    clip = VideoClip(frames=frames, times_s=np.arange(len(frames)) / fps, fps_nominal=fps)
+    h, w = frames.shape[1:3]
+    return conform(clip, size=(w - w % 2, h - h % 2), fps=FPS, duration_s=min(max_seconds, len(frames) / fps))
+
+
+class CueSyncPaintScene:
+    """Cue sheet + plate -> an in-scene guide: the plate painted in flat colour zones on every keyframe, the
+    effect painted at its source going its way, timed and sized by the voice. Feed the guide to the fluid
+    graph's Get Video Components and the start frame to LTXVImgToVideoInplace (strength 1.0, not bypassed):
+    LTX-2.5 then renders the effect into the plate itself."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "cue": ("CUESYNC_CUE",),
+            "plate": ("VIDEO",),
+            "effect": (_scene_effect_ids(),),
+            "x": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.005, "tooltip": "Where it comes from (a mouth, a wick)."}),
+            "y": ("FLOAT", {"default": 0.6, "min": 0.0, "max": 1.0, "step": 0.005}),
+            "aim": ("BOOLEAN", {"default": False, "tooltip": "Use the direction below instead of the effect's own."}),
+            "direction": ("FLOAT", {"default": 0.0, "min": -180.0, "max": 180.0, "step": 5.0,
+                                    "tooltip": "Degrees clockwise from straight up: -90 left, 90 right."}),
+            "subject": ("STRING", {"default": "the object", "tooltip": "What it happens to, for the prompt."}),
+            "max_seconds": ("FLOAT", {"default": 10.0, "min": 1.0, "max": 30.0, "step": 0.5}),
+        }, "optional": {
+            "strokes": ("STRING", {"default": "", "multiline": True,
+                                   "tooltip": 'Drawn strokes, JSON: [{"points": [[x, y], ...], "width": 0.05}]. '
+                                              "The drawing is where the effect goes; the cue fills it."}),
+            "describe": ("STRING", {"default": "", "multiline": True,
+                                    "tooltip": "Your own words for what happens (replaces the effect's prompt)."}),
+        }}
+
+    RETURN_TYPES = ("VIDEO", "IMAGE", "STRING", "CUESYNC_SCENE")
+    RETURN_NAMES = ("guide", "start_frame", "prompt", "plan")
+    FUNCTION = "run"
+    CATEGORY = CATEGORY
+
+    def run(self, cue, plate, effect, x, y, aim, direction, subject, max_seconds, strokes="", describe=""):
+        import json as _json
+
+        from cuesync.transfer import is_still
+
+        eff = load_effect(effect)
+        cue_s = CueSheet.from_json(cue)
+        frames = _plate_frames(plate, max_seconds)
+        still = is_still(frames)
+        start, length = plan_window(cue_s, eff, None if still else len(frames))
+        size = scene_size(frames.shape[2], frames.shape[1])
+        drawn = Strokes.parse(_json.loads(strokes)) if strokes and strokes.strip() else None
+        sp = paint_scene_guide(cue_s, eff, (x, y), frames[:1] if still else frames, start=start, length=length,
+                               direction=direction if aim else None, size=size, strokes=drawn)
+        from PIL import Image as _Image
+        first = np.asarray(_Image.fromarray(frames[min(max(start, 0), len(frames) - 1)]).resize(size, _Image.Resampling.LANCZOS))
+        silence = {"waveform": torch.zeros(1, 1, int(round(length / FPS * SR))), "sample_rate": SR}
+        meta = sp.to_json() | {"still": bool(still), "x": x, "y": y}
+        return (_video(sp.guide.frames, silence), torch.from_numpy(first.astype(np.float32) / 255.0)[None],
+                scene_prompt(eff, subject, sp.direction, len(sp.events), max((e.size for e in sp.events), default=1.0),
+                             describe or None), meta)
+
+
+class CueSyncHoldCue:
+    """Press-and-hold timing as a cue sheet, for when there is no sound: each press is a hit, each hold how
+    long it lasts. Write them as "1.0-2.5, 3.2-3.6" (seconds on the plate)."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "holds": ("STRING", {"default": "1.0-3.0", "tooltip": "press-release pairs in seconds, comma separated"}),
+            "duration_s": ("FLOAT", {"default": 5.0, "min": 1.0, "max": 30.0, "step": 0.5}),
+        }}
+
+    RETURN_TYPES = ("CUESYNC_CUE",)
+    RETURN_NAMES = ("cue",)
+    FUNCTION = "run"
+    CATEGORY = CATEGORY
+
+    def run(self, holds, duration_s):
+        from cuesync.cues import cue_from_holds
+
+        pairs = [tuple(float(v) for v in h.strip().split("-", 1)) for h in holds.split(",") if h.strip()]
+        return (cue_from_holds(pairs, duration_s, FPS).to_json(),)
+
+
+class CueSyncSceneShot:
+    """Plate + in-scene render -> the shot: the effect's visible start measured and moved onto the voice; a
+    still plate becomes the render, a moving plate keeps its pixels and gets only what the render changed."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "plate": ("VIDEO",),
+            "render": ("VIDEO",),
+            "plan": ("CUESYNC_SCENE",),
+            "max_seconds": ("FLOAT", {"default": 10.0, "min": 1.0, "max": 30.0, "step": 0.5}),
+        }, "optional": {"voice": ("AUDIO",)}}
+
+    RETURN_TYPES = ("VIDEO",)
+    RETURN_NAMES = ("shot",)
+    FUNCTION = "run"
+    CATEGORY = CATEGORY
+
+    def run(self, plate, render, plan, max_seconds, voice=None):
+        from PIL import Image as _Image
+
+        from cuesync.scene_shot import time_scene
+
+        eff = load_effect(plan["effect"])
+        frames = _plate_frames(plate, max_seconds)
+        rend, _ = _frames(render)
+        h, w = frames.shape[1:3]
+        if rend.shape[1:3] != (h, w):
+            rend = np.stack([np.asarray(_Image.fromarray(f).resize((w, h), _Image.Resampling.LANCZOS)) for f in rend])
+        sp = ScenePlan.from_json(plan, np.zeros((1, 1, 1, 3), np.uint8))
+        st = time_scene(frames, bool(plan.get("still", False)), rend, sp, eff, int(round(max_seconds * FPS)))
+        return (_video(np.ascontiguousarray(st.frames), voice),)
 
 
 _SAM = {}
@@ -243,12 +380,18 @@ class CueSyncComposite:
 
 NODE_CLASS_MAPPINGS = {
     "CueSyncAnalyzeVoice": CueSyncAnalyzeVoice,
+    "CueSyncPaintScene": CueSyncPaintScene,
+    "CueSyncSceneShot": CueSyncSceneShot,
+    "CueSyncHoldCue": CueSyncHoldCue,
     "CueSyncPaintGuide": CueSyncPaintGuide,
     "CueSyncObjectMatte": CueSyncObjectMatte,
     "CueSyncComposite": CueSyncComposite,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "CueSyncAnalyzeVoice": "CueSync Analyze Voice",
+    "CueSyncAnalyzeVoice": "CueSync Analyze Sound (voice or clip)",
+    "CueSyncPaintScene": "CueSync Paint Scene",
+    "CueSyncSceneShot": "CueSync Scene Shot",
+    "CueSyncHoldCue": "CueSync Hold Cue (no sound)",
     "CueSyncPaintGuide": "CueSync Paint Guide",
     "CueSyncObjectMatte": "CueSync Object Matte",
     "CueSyncComposite": "CueSync Composite",

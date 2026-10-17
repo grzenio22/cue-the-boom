@@ -8,11 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from cuesync.graph import GraphConvertError, shot_graph
+from cuesync.graph import GraphConvertError, scene_graph, shot_graph
 
 REPO = Path(__file__).resolve().parents[2]
 ELEMENT = REPO / "workflows" / "fluid_element.api.json"
 SHOT = REPO / "workflows" / "cue_the_boom.api.json"
+SCENE = REPO / "workflows" / "cue_the_boom_scene.api.json"
 
 
 def element() -> dict:
@@ -102,3 +103,36 @@ def test_the_graph_matches_the_node_pack(nodes):
     guide = nodes["CueSyncPaintGuide"]
     assert guide.RETURN_TYPES[:2] == ("VIDEO", "STRING")
     assert nodes["CueSyncComposite"].RETURN_TYPES == ("VIDEO",)
+
+
+def test_the_scene_graph_renders_into_the_plate_and_times_the_shot():
+    g = scene_graph(element(), effect="wick_flare", point=(0.53, 0.52), subject="the candle")
+    (voice,), (cue,), (paint,), (shot,), (i2v,) = (by_class(g, c) for c in ("LoadAudio", "CueSyncAnalyzeVoice",
+                                                   "CueSyncPaintScene", "CueSyncSceneShot", "LTXVImgToVideoInplace"))
+    (plate,) = by_class(g, "LoadVideo")
+    assert g[paint]["inputs"]["plate"] == [plate, 0] and g[paint]["inputs"]["effect"] == "wick_flare"
+    assert g[i2v]["inputs"]["image"] == [paint, 1] and g[i2v]["inputs"]["strength"] == 1.0 and g[i2v]["inputs"]["bypass"] is False
+    comps = [g[k]["inputs"]["video"] for k in by_class(g, "GetVideoComponents")]
+    assert [paint, 0] in comps  # the painted scene guide feeds the model
+    assert [paint, 2] in [g[k]["inputs"]["text"] for k in by_class(g, "CLIPTextEncode")]
+    (save,) = by_class(g, "SaveVideo")
+    assert g[save]["inputs"]["video"] == [shot, 0]
+    assert g[shot]["inputs"]["plan"] == [paint, 3] and g[shot]["inputs"]["voice"] == [voice, 0]
+    assert g[g[shot]["inputs"]["render"][0]]["class_type"] == "CreateVideo"
+    assert not by_class(g, "ComfyNotNode") and not [v for _, _, v in links(g) if v[0] not in g]
+
+
+def test_the_committed_scene_workflow_is_the_generated_one():
+    assert json.loads(SCENE.read_text(encoding="utf-8")) == scene_graph(element())
+
+
+def test_the_scene_graph_matches_the_node_pack(nodes):
+    g = scene_graph(element())
+    for key, node in g.items():
+        cls = nodes.get(node["class_type"])
+        if cls is None:
+            continue
+        spec = cls.INPUT_TYPES()
+        known = set(spec["required"]) | set(spec.get("optional", {}))
+        assert set(node["inputs"]) <= known, (node["class_type"], set(node["inputs"]) - known)
+        assert set(spec["required"]) <= set(node["inputs"]), (node["class_type"], set(spec["required"]) - set(node["inputs"]))

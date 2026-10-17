@@ -197,3 +197,114 @@ def test_a_finished_shot_is_retimed_through_the_api(instant_client):
     assert done["status"] == "done", done
     assert done["receipt"]["retimed"]["hit_shift_frames"] == 4
     assert instant_client.post(f"/api/jobs/{job['id']}/retime", data={"shift": "99"}).status_code == 400
+
+
+# ---------------------------------------------------------------- cues, drawings, the noise deciding
+
+
+class FakeSceneRenderer:
+    """Renders 'into the scene': the start frame held, a warm disc from the painted hit on."""
+
+    name, scenes = "fake-scene", True
+
+    def __init__(self):
+        self.prompts = []
+
+    def __call__(self, guide_path, prompt, seed, out_path, image=None):
+        from PIL import Image
+
+        from cuesync.media import read_video
+
+        self.prompts.append(prompt)
+        n, h, w = read_video(guide_path).frames.shape[:3]
+        start = np.asarray(Image.open(image).convert("RGB"))
+        at = json.loads((Path(guide_path).parent / "guide.json").read_text())["events"][0]["at"]
+        f = np.repeat(start[None], n, 0)
+        f[at:, h // 3: h // 2, w // 3: 2 * w // 3] = (250, 170, 50)
+        write_video(out_path, f, fps=24, audio=np.zeros(int(n / 24 * SR), np.float32))
+        return 0.1
+
+    def ready(self):
+        return True
+
+
+@pytest.fixture
+def scene_client(tmp_path):
+    r = FakeSceneRenderer()
+    app = create_app(r, tmp_path / "jobs", shot_defaults={"plate_size": (128, 256), "max_plate_s": 3.0,
+                                                          "matte": lambda f, p: None})
+    return TestClient(app), r
+
+
+def wait(client, job_id, limit=120):
+    for _ in range(limit * 4):
+        s = client.get(f"/api/jobs/{job_id}").json()
+        if s["status"] in ("done", "error"):
+            return s
+        time.sleep(0.25)
+    raise AssertionError("job did not finish")
+
+
+def test_a_held_drawn_scene_shot_needs_no_voice(scene_client, tmp_path, make_video):
+    client, r = scene_client
+    assert "scene" in client.get("/api/health").json()["modes"]
+    plate = make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))
+    strokes = [{"points": [[0.3, 0.6], [0.6, 0.4]], "width": 0.08}]
+    with open(plate, "rb") as p:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
+                        data={"effect": "smoke_puff", "mode": "scene", "cue": "hold", "holds": json.dumps([[0.8, 1.6]]),
+                              "strokes": json.dumps(strokes), "describe": "smoke pours out of the box"}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    rc = done["receipt"]
+    assert rc["inputs"]["cue"] == "hold" and rc["inputs"]["drawn"] and rc["voice"]["source"] == "hold"
+    assert r.prompts[-1].startswith("ainvfxfluid, smoke pours out of the box,")
+
+
+def test_cue_inputs_are_checked(scene_client, tmp_path, make_video, make_wav):
+    client, _ = scene_client
+    plate = make_video(tmp_path, n=24, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))
+    voice = make_voice(tmp_path, make_wav)
+
+    def post(data, with_voice=False):
+        files = {"plate": ("plate.mp4", open(plate, "rb"), "video/mp4")}
+        if with_voice:
+            files["voice"] = ("mic.wav", open(voice, "rb"), "audio/wav")
+        return client.post("/api/jobs", files=files, data={"effect": "fireball", "mode": "scene"} | data)
+
+    assert post({"cue": "voice"}).status_code == 400  # a voice cue needs a voice
+    assert post({"cue": "hold"}, with_voice=True).status_code == 400  # a hold takes none
+    assert post({"cue": "hold", "holds": "[[2, 1]]"}).status_code == 400  # release before press
+    assert post({"cue": "hold", "holds": "not json"}).status_code == 400
+    assert post({"cue": "tap"}).status_code == 400
+    assert post({"cue": "hold", "strokes": "[]"}).status_code == 400
+    r = client.post("/api/jobs", files={"plate": ("plate.mp4", open(plate, "rb"), "video/mp4")},
+                    data={"effect": "fireball", "mode": "render", "cue": "hold", "describe": "fire"})
+    assert r.status_code == 400  # describing needs scene mode
+
+
+def test_the_noise_decides_the_effect_through_the_plate_s_map(tmp_path, make_wav):
+    from cuesync.gestures import effect_for, gesture
+    from cuesync.audio import analyze
+
+    short = np.zeros(2 * SR, np.float32)
+    short[SR: SR + 2400] = 0.6 * np.sin(np.arange(2400) * 0.05)  # "pf."
+    cue = analyze(short, SR, fps=24)
+    assert gesture(cue, short) == "hit"
+    candle = {"scene": {"hit": "blow_out", "sustained": "wick_flare"}}
+    assert effect_for("hit", candle) == "blow_out" and effect_for("sustained", candle) == "wick_flare"
+    assert effect_for("sustained", {"direction": -90}) == "fire_breath"
+    assert effect_for("hiss", {}) == "steam_jet"
+    long_voiced = np.zeros(3 * SR, np.float32)
+    long_voiced[SR: 2 * SR] = 0.5 * np.sin(np.arange(SR) * 2 * np.pi * 140 / SR)
+    assert gesture(analyze(long_voiced, SR, fps=24), long_voiced) == "sustained"
+    hiss = np.zeros(3 * SR, np.float32)
+    hiss[SR: 2 * SR] = np.random.default_rng(0).normal(0, 0.3, SR)
+    assert gesture(analyze(hiss, SR, fps=24), hiss) == "hiss"
+
+
+def test_an_edited_effect_retires_its_old_sample_shots():
+    from cuesync.precompute import cache_key
+
+    k = cache_key("scene", "a.mp4", "b.wav", "fireball", (0.5, 0.5), 1, None)
+    assert "fireball@" in k and len(k.split("@")[1].split("|")[0]) == 8

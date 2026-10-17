@@ -11,5 +11,10 @@
   "keyframe_stride": 8,
   "composite": "screen",
   "release_smoke": 10,
-  "release_fire": 9
+  "release_fire": 9,
+  "scene": {
+    "prompt": "ainvfxfluid, a tall roaring flame bursts up out of {subject}, the fire lights up the surroundings with flickering warm orange light, then it dies down into a wisp of smoke, static camera, realistic phone video",
+    "r_min": 0.12,
+    "r_max": 0.6
+  }
 }
