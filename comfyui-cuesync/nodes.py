@@ -38,10 +38,29 @@ SR = 48000
 CATEGORY = "CueSync"
 
 
+NO_EFFECTS = "no effects found: reinstall cuesync"
+
+
 def _effect_ids() -> list[str]:
     # every folder counts: your own effects (CUESYNC_EFFECTS) join the ones that ship with cuesync
     ids = {p.stem for d in _candidate_dirs(Path("effects")) if d.is_dir() for p in d.glob("*.json")}
-    return sorted(ids) or ["fireball", "flame_plume", "smoke_puff", "steam_jet"]
+    if not ids:
+        print(f"[CueSync] {NO_EFFECTS} (searched {[str(d) for d in _candidate_dirs(Path('effects'))]})", file=sys.stderr)
+    return sorted(ids) or [NO_EFFECTS]
+
+
+def _effects_with(scene: bool) -> list[str]:
+    """The effects a node can paint: scene mode needs a scene section; element mode can't paint one that only
+    exists in a scene (blowing a flame out)."""
+    ids = []
+    for i in _effect_ids():
+        try:
+            eff = load_effect(i)
+        except (FileNotFoundError, ValueError):
+            continue
+        if (eff.scene is not None) if scene else (eff.behaviour != "extinguish"):
+            ids.append(i)
+    return ids or [NO_EFFECTS]
 
 
 def _mono_48k(audio: dict) -> np.ndarray:
@@ -85,6 +104,9 @@ class CueSyncAnalyzeVoice:
     CATEGORY = CATEGORY
 
     def run(self, audio, offset_s):
+        if audio is None or audio.get("waveform") is None or audio["waveform"].numel() == 0:
+            raise ValueError("Analyze Sound: there is no sound here (a clip without a soundtrack?); "
+                             "use CueSync Hold Cue to time it without one")
         cue = analyze(_mono_48k(audio), SR, offset_s=offset_s, fps=FPS)
         env = np.asarray(cue.envelope)
         w, h = max(256, 4 * env.size), 128
@@ -105,7 +127,7 @@ class CueSyncPaintGuide:
     def INPUT_TYPES(cls):
         return {"required": {
             "cue": ("CUESYNC_CUE",),
-            "effect": (_effect_ids(),),
+            "effect": (_effects_with(scene=False),),
             "x": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.01}),
             "y": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 1.0, "step": 0.01}),
             "width": ("INT", {"default": 576, "min": 256, "max": 1920, "step": 64}),
@@ -128,22 +150,30 @@ class CueSyncPaintGuide:
         return (_video(plan.frames, silence), eff.prompt, meta)
 
 
-def _scene_effect_ids() -> list[str]:
-    ids = []
-    for i in _effect_ids():
-        try:
-            if load_effect(i).scene is not None:
-                ids.append(i)
-        except (FileNotFoundError, ValueError):
-            continue
-    return ids or ["fireball"]
+MAX_SIDE = 1920  # the render is the plate's size: a 4K phone plate would ask LTX-2.5 for 2176x3840
 
 
 def _plate_frames(video, max_seconds: float) -> np.ndarray:
+    """The plate at 24 fps, at most ``max_seconds`` long (never padded), its long side at most MAX_SIDE."""
     frames, fps = _frames(video)
     clip = VideoClip(frames=frames, times_s=np.arange(len(frames)) / fps, fps_nominal=fps)
     h, w = frames.shape[1:3]
-    return conform(clip, size=(w - w % 2, h - h % 2), fps=FPS, duration_s=min(max_seconds, len(frames) / fps))
+    k = min(1.0, MAX_SIDE / max(w, h))
+    size = (max(2, int(w * k) // 2 * 2), max(2, int(h * k) // 2 * 2))
+    return conform(clip, size=size, fps=FPS, duration_s=min(max_seconds, len(frames) / fps))
+
+
+def _strokes(text: str) -> Strokes | None:
+    import json as _json
+
+    if not text or not text.strip():
+        return None
+    try:
+        data = _json.loads(text)
+    except ValueError:
+        raise ValueError('Paint Scene: strokes must be JSON like [{"points": [[0.4, 0.5], [0.6, 0.5]], "width": 0.05}] '
+                         "(x and y from 0 to 1, width a share of the frame)") from None
+    return Strokes.parse(data)
 
 
 class CueSyncPaintScene:
@@ -157,7 +187,7 @@ class CueSyncPaintScene:
         return {"required": {
             "cue": ("CUESYNC_CUE",),
             "plate": ("VIDEO",),
-            "effect": (_scene_effect_ids(),),
+            "effect": (_effects_with(scene=True),),
             "x": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.005, "tooltip": "Where it comes from (a mouth, a wick)."}),
             "y": ("FLOAT", {"default": 0.6, "min": 0.0, "max": 1.0, "step": 0.005}),
             "aim": ("BOOLEAN", {"default": False, "tooltip": "Use the direction below instead of the effect's own."}),
@@ -179,8 +209,6 @@ class CueSyncPaintScene:
     CATEGORY = CATEGORY
 
     def run(self, cue, plate, effect, x, y, aim, direction, subject, max_seconds, strokes="", describe=""):
-        import json as _json
-
         from cuesync.transfer import is_still
 
         eff = load_effect(effect)
@@ -189,7 +217,7 @@ class CueSyncPaintScene:
         still = is_still(frames)
         start, length = plan_window(cue_s, eff, None if still else len(frames))
         size = scene_size(frames.shape[2], frames.shape[1])
-        drawn = Strokes.parse(_json.loads(strokes)) if strokes and strokes.strip() else None
+        drawn = _strokes(strokes)
         sp = paint_scene_guide(cue_s, eff, (x, y), frames[:1] if still else frames, start=start, length=length,
                                direction=direction if aim else None, size=size, strokes=drawn)
         from PIL import Image as _Image
@@ -220,7 +248,12 @@ class CueSyncHoldCue:
     def run(self, holds, duration_s):
         from cuesync.cues import cue_from_holds
 
-        pairs = [tuple(float(v) for v in h.strip().split("-", 1)) for h in holds.split(",") if h.strip()]
+        try:
+            pairs = [tuple(float(v) for v in h.strip().split("-", 1)) for h in holds.split(",") if h.strip()]
+        except ValueError:
+            pairs = []
+        if not pairs or any(len(p) != 2 for p in pairs):
+            raise ValueError(f"Hold Cue: write each press and release in seconds, like 1.0-2.5, 3.2-3.6 (got {holds!r})")
         return (cue_from_holds(pairs, duration_s, FPS).to_json(),)
 
 
@@ -354,11 +387,8 @@ class CueSyncComposite:
     def run(self, plate, element, cue, plan, max_seconds, voice=None, object_mask=None):
         eff = load_effect(plan["effect"])
         cue_s = CueSheet.from_json(cue)
-        frames, fps = _frames(plate)
-        clip = VideoClip(frames=frames, times_s=np.arange(len(frames)) / fps, fps_nominal=fps)
-        h, w = frames.shape[1:3]
-        size = (w - w % 2, h - h % 2)
-        plate_f = conform(clip, size=size, fps=FPS, duration_s=max_seconds)
+        plate_f = _plate_frames(plate, max_seconds)
+        size = (plate_f.shape[2], plate_f.shape[1])
         elem, _ = _frames(element)
         timing = measure_element(elem, kind="fire" if eff.fluid == "fire" else "any")
         align = plan_alignment(int(plan["anchor_frame"]), timing, mode=eff.align, lead=eff.lead_frames)

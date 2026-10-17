@@ -24,6 +24,8 @@ runs/
 *.safetensors
 models/
 
-# setuptools build output (pip install ./cuesync)
+# setuptools build output (pip install ./cuesync); the sdist's copy of effects/
 cuesync/build/
+cuesync/dist/
+cuesync/src/cuesync/effect_files/
 

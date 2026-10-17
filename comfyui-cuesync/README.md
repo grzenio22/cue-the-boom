@@ -16,25 +16,37 @@ Load Video (your plate) ──────────────────�
 
 | Node | In | Out | What it does |
 |---|---|---|---|
-| **CueSync Analyze Sound** | AUDIO, offset_s | CUESYNC_CUE, envelope IMAGE | Onsets, the hit, an absolute loudness envelope per video frame, and when the sound is actually there. Feed it your performance, or the plate's own soundtrack (Get Video Components) to lock the effect to a snap, a click or a slam in the clip. |
-| **CueSync Hold Cue** | holds ("1.0-2.5, 3.2-3.6"), duration | CUESYNC_CUE | Press-and-hold timing when there is no sound: each press is a hit, each hold how long it lasts. |
-| **CueSync Paint Scene** | cue, plate VIDEO, effect, x, y, direction, subject; optional strokes (JSON), describe | VIDEO (guide), IMAGE (start frame), STRING (prompt), CUESYNC_SCENE | Paints the control the way the LoRA was trained: the plate in six flat colour zones on every keyframe, held over its latent until the hit, with the effect painted at its source and direction (or filling your drawing), timed and sized by the cue. The start frame goes to LTXVImgToVideoInplace at full strength. |
-| **CueSync Scene Shot** | plate VIDEO, render VIDEO, plan, (voice AUDIO) | VIDEO | Measures where the render's effect visibly starts and moves it onto the cue. A still plate becomes the render; a moving plate keeps its own pixels and gets only what changed (checked; it falls back to the render if the render drifted). Adds a flash and a camera shake on blasts. |
-| **CueSync Paint Guide** | cue, effect, x, y, size, tail | VIDEO, STRING, CUESYNC_PLAN | Element mode: blobs on black that appear on the hit, grow with the loudness and die away when it stops. |
-| **CueSync Object Matte** | IMAGE, x, y or plan | MASK | Element mode: SAM 2.1 (Apache-2.0) segments the object under the point; it stays in front of the effect. |
-| **CueSync Composite** | plate, element, cue, plan, (voice, mask) | VIDEO | Element mode: aligns, gates and composites in linear light onto the untouched plate. |
+| **CueSync Analyze Sound** | audio, offset_s | CUESYNC_CUE, envelope IMAGE | Onsets, the hit, an absolute loudness envelope per video frame, and when the sound is actually there. Feed it your performance, or the plate's own soundtrack (Get Video Components) to lock the effect to a snap, a click or a slam in the clip. |
+| **CueSync Hold Cue** | holds ("1.0-2.5, 3.2-3.6"), duration_s | CUESYNC_CUE | Press-and-hold timing when there is no sound: each press is a hit, each hold how long it lasts. |
+| **CueSync Paint Scene** | cue, plate, effect, x, y, aim, direction (used only with aim on), subject, max_seconds; optional strokes (JSON), describe | VIDEO (guide), IMAGE (start frame), STRING (prompt), CUESYNC_SCENE | Paints the control the way the LoRA was trained: the plate in six flat colour zones on every keyframe, held over its latent until the hit, with the effect painted at its source and direction (or filling your drawing), timed and sized by the cue. The start frame goes to LTXVImgToVideoInplace at full strength. |
+| **CueSync Scene Shot** | plate, render, plan, max_seconds; optional voice | VIDEO | Measures where the render's effect visibly starts and moves it onto the cue. A still plate becomes the render; a moving plate keeps its own pixels and gets only what changed (checked; it falls back to the render if the render drifted). Adds a flash and a camera shake on blasts. |
+| **CueSync Paint Guide** | cue, effect, x, y, width, height, tail, canvas | VIDEO, STRING, CUESYNC_PLAN | Element mode: blobs on black that appear on the hit, grow with the loudness and die away when it stops. |
+| **CueSync Object Matte** | images, x, y, model; optional plan | MASK | Element mode: SAM 2.1 (Apache-2.0) segments the object under the point; it stays in front of the effect. |
+| **CueSync Composite** | plate, element, cue, plan, max_seconds; optional voice, object_mask | VIDEO | Element mode: aligns, gates and composites in linear light onto the untouched plate. |
 
-Whole-shot workflows: [`workflows/cue_the_boom_scene.api.json`](../workflows/cue_the_boom_scene.api.json) (scene mode) and [`workflows/cue_the_boom.api.json`](../workflows/cue_the_boom.api.json) (element mode). They need the LTX-2.5 models and ainvfx-fluid listed in [`build/model-files.md`](../build/model-files.md).
+Whole-shot workflows: [`workflows/cue_the_boom_scene.json`](../workflows/cue_the_boom_scene.json) (scene mode; drag it onto the ComfyUI canvas) and [`workflows/cue_the_boom.json`](../workflows/cue_the_boom.json) (element mode), each with an `.api.json` twin for the Comfy SDK. Put your noise and your clip in `ComfyUI/input` as `voice.wav` and `plate.mp4`, or pick them in Load Audio and Load Video. Plates are rendered at their own size, long side at most 1920 px (a 1080x1920 phone clip renders at 1088x1920).
+
+**Requires:** ComfyUI v0.41 or later, [ComfyUI-LTXVideo](https://github.com/Lightricks/ComfyUI-LTXVideo), and the LTX-2.5 models and ainvfx-fluid listed in [`build/model-files.md`](../build/model-files.md). A scene render fits a 32 GB card (tested with the GPU held to 31.5 GiB free: about 3 minutes a render, against about 1 minute on a 96 GB card).
 
 ## Install
 
-Copy (or clone) this folder into `ComfyUI/custom_nodes/`, then install its dependencies into ComfyUI's Python:
+Clone the whole repository into `ComfyUI/custom_nodes/` (or paste its URL into ComfyUI-Manager's "Install via Git URL"); the nodes then use the `cuesync` library and the effects right next to them:
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/grzenio22/cue-the-boom
+pip install -r cue-the-boom/requirements.txt
+```
+
+Use the Python that runs ComfyUI: with the Windows portable build that is `..\python_embeded\python.exe -m pip install -r cue-the-boom\requirements.txt`.
+
+To install this folder on its own instead, copy it into `custom_nodes/` and install `cuesync` with it (its `install.py` does this for ComfyUI-Manager):
 
 ```bash
 pip install -r custom_nodes/comfyui-cuesync/requirements.txt
 pip install "git+https://github.com/grzenio22/cue-the-boom#subdirectory=cuesync"
 ```
 
-The effects (fireball, fire breath, fire burst, flame plume, flare-up, blow it out, smoke puff, steam) are the JSON files in the repository's `effects/` folder, and the install above ships them inside `cuesync`. To add your own, put JSON files in a folder and point `CUESYNC_EFFECTS` at it.
+The effects (fireball, fire breath, fire burst, flame plume, flare-up, blow it out, smoke puff, steam) are the JSON files in the repository's `effects/` folder, and the install above ships them inside `cuesync`. To add your own, put JSON files in a folder and point `CUESYNC_EFFECTS` at it; name each file after the `id` inside it (`my_fire.json` holds `"id": "my_fire"`).
 
 Licence: MIT (this node pack), Apache-2.0 (cuesync). Models: LTX-2.5 by Lightricks and ainvfx-fluid by Adrien Toupet / AInVFX (LTX-2.x Community License), SAM 2.1 by Meta (Apache-2.0).

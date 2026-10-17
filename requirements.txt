@@ -1,0 +1,5 @@
+# For ComfyUI, with this repository cloned into ComfyUI/custom_nodes: what the CueSync nodes need on top of
+# ComfyUI's own requirements (torch, numpy, av, Pillow). The studio and the command line install with
+# `pip install "./cuesync[server]"` instead (see README.md).
+opencv-python-headless>=4.10
+transformers>=4.56

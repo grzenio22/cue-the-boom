@@ -45,7 +45,7 @@ cuesync serve --instant-only           # terminal 1: the render API, http://127.
 cd web && npm install && npm run dev   # terminal 2: the studio, http://localhost:3000
 ```
 
-1. Pick a sample shot or your own clip (phone held still, 1-15 s).
+1. Pick a sample shot or your own clip (phone held still, 1-15 s; the shot uses the first 10 s).
 2. Tap where it comes from, or draw it.
 3. Cue it: say it into the microphone (or pick a sample noise), use the clip's own sound, or press and hold while it plays.
 4. Make the shot. **Into the scene** renders it into your shot (GPU); **Instant** places a pre-rendered element (no GPU).
@@ -60,7 +60,7 @@ cuesync shot --instant --plate samples/plates/pumpkin_kitchen.mp4 --voice sample
 
 ## Into the scene (GPU)
 
-The full pipeline needs ComfyUI with LTX-2.5 22B (int8) and ainvfx-fluid (about 45 GB of VRAM at peak). We run it on a rented RTX PRO 6000 (96 GB):
+The full pipeline needs ComfyUI with LTX-2.5 22B (int8) and ainvfx-fluid. A render fits a 32 GB card (tested with the GPU held to 31.5 GiB free: about 3 minutes a render); we run it on a rented RTX PRO 6000 (96 GB), about a minute a render:
 
 ```bash
 python infra/pod/podctl.py up && python infra/pod/podctl.py setup && python infra/pod/podctl.py sync
@@ -88,7 +88,13 @@ cuesync shot --scene --plate samples/plates/pumpkin_kitchen.mp4 --cue hold --hol
 
 ![The scene shot in ComfyUI: your cue, CueSync Paint Scene, LTX-2.5 with ainvfx-fluid from your plate, CueSync Scene Shot](media/comfyui-scene-workflow.png)
 
-Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pip install ./cuesync`) and the models in [build/model-files.md](build/model-files.md). The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
+Install: clone this repository into `ComfyUI/custom_nodes/` (or paste its URL into ComfyUI-Manager's "Install via Git URL"), install its `requirements.txt` into ComfyUI's Python, and get the models in [build/model-files.md](build/model-files.md):
+
+```bash
+cd ComfyUI/custom_nodes && git clone https://github.com/grzenio22/cue-the-boom && pip install -r cue-the-boom/requirements.txt
+```
+
+The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
 
 ## How it works
 

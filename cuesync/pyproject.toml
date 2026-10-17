@@ -28,5 +28,8 @@ cuesync = "cuesync.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+cuesync = ["effect_files/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

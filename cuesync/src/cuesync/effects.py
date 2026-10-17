@@ -154,5 +154,8 @@ def load_effect(id_or_path: str | Path, effects_dir: Path = Path("effects")) -> 
     for d in _candidate_dirs(effects_dir):
         f = d / f"{id_or_path}.json"
         if f.is_file():
-            return _validate(json.loads(f.read_text(encoding="utf-8")), str(f))
+            spec = _validate(json.loads(f.read_text(encoding="utf-8")), str(f))
+            if spec.id != str(id_or_path):  # a shot carries the id, and finds its effect again by file name
+                raise ValueError(f"{f}: its id is {spec.id!r}; an effect's file must be named after its id ({spec.id}.json)")
+            return spec
     raise FileNotFoundError(f"effect {id_or_path!r} not found in {[str(d) for d in _candidate_dirs(effects_dir)]}")
