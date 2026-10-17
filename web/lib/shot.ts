@@ -3,8 +3,11 @@
 export interface EffectInfo {
   id: string;
   fluid: "fire" | "smoke" | "steam";
-  behaviour: "burst" | "plume" | "puff" | "jet";
+  behaviour: "burst" | "plume" | "puff" | "jet" | "extinguish";
   stops_with_voice: boolean;
+  scene?: boolean; // can be rendered into the scene
+  direction?: number | null; // its default direction in the scene, degrees clockwise from up
+  element?: boolean; // can be rendered as an element (false: scene mode only)
 }
 
 export interface JobEvent {
@@ -15,8 +18,12 @@ export interface JobEvent {
 }
 
 export interface Receipt {
+  mode?: "scene";
+  alignment?: { model_onset?: number | null; auto_shift?: number };
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
-  measured: { onset_error_frames: number | null; hit_error_frames: number | null; stop_latency_frames: number | null; stops_with_voice: boolean };
+  warnings?: string[];
+  inputs?: { cue?: CueKind; drawn?: boolean; describe?: string | null };
+  measured: { onset_error_frames?: number | null; hit_error_frames: number | null; stop_latency_frames: number | null; stops_with_voice: boolean; model_early_frames?: number | null };
   voice: { hero_onset_s: number; voice_end_frame: number | null; active_intervals: number[][] };
   guide: { length: number; tail: string; keyframes: number[]; anchor_frame: number };
   matte?: { source: string; found: boolean };
@@ -25,10 +32,18 @@ export interface Receipt {
   seconds_total: number;
 }
 
-export type Mode = "instant" | "render";
+export type Mode = "instant" | "render" | "scene";
+
+/** A drawn stroke: points in normalised video coordinates, brush width as a share of the frame width. */
+export interface Stroke { points: [number, number][]; width: number }
+
+/** What times the shot: a performance, a sound already in the clip, or press-and-hold. */
+export type CueKind = "voice" | "clip" | "hold";
 
 export interface JobStatus {
   id: string;
+  effect?: string | null; // the effect actually used (the noise may have decided it)
+  gesture?: string | null; // how the cue was read: hit, rhythm, sustained, breath, hiss
   mode?: Mode | "compare";
   cached?: boolean;
   title?: string;
@@ -48,7 +63,13 @@ export interface Health {
   queued: number;
 }
 
-export interface SamplePlate { name: string; url: string; title?: string; point?: [number, number]; note?: string }
+/** What each sample noise does to a sample plate in scene mode (an effect id, or {effect, seed}). */
+export type SceneMap = Record<string, string | { effect: string }>;
+export interface SamplePlate {
+  name: string; url: string; title?: string; point?: [number, number]; note?: string;
+  subject?: string; direction?: number; scene?: SceneMap;
+  sound?: boolean; // the sample carries a sound of its own to lock to (a snap)
+}
 export interface SampleVoice { name: string; url: string; title?: string; effect?: string }
 export interface Samples { plates: SamplePlate[]; voices: SampleVoice[] }
 
@@ -60,7 +81,18 @@ export const EFFECT_LABELS: Record<string, { name: string; cue: string }> = {
   flame_plume: { name: "Flame plume", cue: "fwoooOOOM" },
   smoke_puff: { name: "Smoke puff", cue: "pfffff" },
   steam_jet: { name: "Steam", cue: "hissss" },
+  fire_breath: { name: "Fire breath", cue: "fwoooOOOM" },
+  wick_flare: { name: "Flare-up", cue: "fwoooOOOM" },
+  blow_out: { name: "Blow it out", cue: "pf. · pfffff" },
+  fire_burst: { name: "Fire burst", cue: "pf. · KA-BOOM" },
 };
+
+export const AUTO_EFFECT = "auto";
+
+/** Degrees clockwise from straight up for a drag (dx right, dy down), rounded to 5. */
+export function dragDirection(dx: number, dy: number): number {
+  return Math.round((Math.atan2(dx, -dy) * 180) / Math.PI / 5) * 5;
+}
 
 /** Duration of the performance (s, above 15 % of its peak) and its zero-crossing rate (crossings/s). */
 export function describeNoise(pcm: Float32Array, sampleRate: number, onsetS: number): { durationS: number; zcr: number } {
@@ -111,7 +143,7 @@ export const fetchSamples = () => fetch("/api/samples").then((r) => json<Samples
 
 export async function submitShot(args: {
   plate: Source;
-  voice: Source;
+  voice: Source | null;
   face: Blob | null;
   faceExt: string;
   timing: object | null;
@@ -119,12 +151,22 @@ export async function submitShot(args: {
   point: [number, number];
   seed: number;
   mode: Mode;
+  direction?: number | null;
+  subject?: string | null;
+  cue?: CueKind;
+  holds?: [number, number][] | null;
+  strokes?: Stroke[] | null;
+  describe?: string | null;
 }): Promise<JobStatus> {
   const form = new FormData();
   if ("sample" in args.plate) form.append("plate_sample", args.plate.sample);
   else form.append("plate", args.plate.file, args.plate.filename);
-  if ("sample" in args.voice) form.append("voice_sample", args.voice.sample);
-  else form.append("voice", args.voice.file, args.voice.filename);
+  if (args.voice && "sample" in args.voice) form.append("voice_sample", args.voice.sample);
+  else if (args.voice) form.append("voice", args.voice.file, args.voice.filename);
+  form.append("cue", args.cue ?? "voice");
+  if (args.holds && args.holds.length) form.append("holds", JSON.stringify(args.holds));
+  if (args.mode === "scene" && args.strokes && args.strokes.length) form.append("strokes", JSON.stringify(args.strokes));
+  if (args.mode === "scene" && args.describe) form.append("describe", args.describe);
   if (args.face) form.append("face", args.face, `face.${args.faceExt}`);
   if (args.timing) form.append("timing", new Blob([JSON.stringify(args.timing)], { type: "application/json" }), "timing.json");
   form.append("effect", args.effect);
@@ -132,6 +174,8 @@ export async function submitShot(args: {
   form.append("y", String(args.point[1]));
   form.append("seed", String(args.seed));
   form.append("mode", args.mode);
+  if (args.mode === "scene" && args.direction != null) form.append("direction", String(args.direction));
+  if (args.mode === "scene" && args.subject) form.append("subject", args.subject);
   return json<JobStatus>(await fetch("/api/jobs", { method: "POST", body: form }));
 }
 

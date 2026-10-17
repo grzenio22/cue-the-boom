@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { suggestEffect } from "./shot";
+import { dragDirection, suggestEffect } from "./shot";
 
 const SR = 48000;
 
@@ -21,4 +21,14 @@ describe("suggestEffect", () => {
   it("hears a long hiss as steam", () => expect(suggestEffect(noise(1.2, "noisy"), SR, 0.5)).toBe("steam_jet"));
   it("hears a long voiced fwoooom as a flame plume", () => expect(suggestEffect(noise(1.2, "voiced"), SR, 0.5)).toBe("flame_plume"));
   it("falls back to a fireball without an onset", () => expect(suggestEffect(new Float32Array(10), SR, null)).toBe("fireball"));
+});
+
+describe("dragDirection", () => {
+  it("is clockwise from straight up", () => {
+    expect(dragDirection(0, -10)).toBe(0);
+    expect(dragDirection(10, 0)).toBe(90);
+    expect(dragDirection(-10, 0)).toBe(-90);
+    expect(Math.abs(dragDirection(0, 10))).toBe(180);
+  });
+  it("rounds to 5 degrees", () => expect(dragDirection(10, -9)).toBe(50));
 });

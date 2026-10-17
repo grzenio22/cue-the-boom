@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import type { SamplePlate, Source } from "@/lib/shot";
+import type { SamplePlate, SceneMap, Source } from "@/lib/shot";
 
 export interface PickedPlate {
   source: Source;
   url: string; // something a <video> can play
   title: string;
   point: [number, number] | null; // a sample's suggested emission point
+  direction: number | null; // which way its source faces (a mouth), degrees clockwise from up
+  subject: string | null; // what the shot shows, for the scene render's prompt
+  scene?: SceneMap; // what each sample noise does to it
+  sample: boolean;
+  sound: boolean; // may carry a sound to lock to (your own clip, or a sample with one)
 }
 
 const MIN_PLATE_S = 1;
@@ -38,7 +43,8 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
         setError(`Use a clip of ${MIN_PLATE_S}-${MAX_PLATE_S} s (this one is ${Number.isFinite(d) ? d.toFixed(1) : "?"} s). The shot uses up to 10 s.`);
         return;
       }
-      onPick({ source: { file, filename: file.name || "plate.mp4" }, url, title: file.name, point: null });
+      onPick({ source: { file, filename: file.name || "plate.mp4" }, url, title: file.name, point: null, direction: null,
+        subject: null, sample: false, sound: true });
     } catch {
       URL.revokeObjectURL(url);
       setError("Could not read that video. Try an MP4 or MOV from your phone.");
@@ -51,7 +57,9 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
       {samples.length > 0 && (
         <div className="grid">
           {samples.map((s) => (
-            <button key={s.name} className="tile" onClick={() => onPick({ source: { sample: s.name }, url: s.url, title: s.title ?? s.name, point: s.point ?? null })}>
+            <button key={s.name} className="tile" onClick={() => onPick({ source: { sample: s.name }, url: s.url,
+              title: s.title ?? s.name, point: s.point ?? null, direction: s.direction ?? null, subject: s.subject ?? null,
+              scene: s.scene, sample: true, sound: !!s.sound })}>
               <video src={s.url} muted playsInline preload="metadata" />
               <span>{s.title ?? s.name}</span>
               {s.note && <span className="muted note">{s.note}</span>}

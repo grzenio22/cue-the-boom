@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DrawPad from "@/components/DrawPad";
 import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
 import ShotPanel from "@/components/ShotPanel";
 import TapPoint from "@/components/TapPoint";
-import { compareTakes, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples } from "@/lib/shot";
+import { type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
 interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null }
 
@@ -17,11 +18,11 @@ export default function Studio() {
   const [plate, setPlate] = useState<PickedPlate | null>(null);
   const [point, setPoint] = useState<[number, number] | null>(null);
   const [pointSet, setPointSet] = useState(false);
+  const [direction, setDirection] = useState<number | null>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [takes, setTakes] = useState<Take[]>([]);
   const [performing, setPerforming] = useState(true);
-  const [compare, setCompare] = useState<JobStatus | null>(null);
-  const [comparing, setComparing] = useState(false);
-  const [compareError, setCompareError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchEffects(), fetchSamples()]).then(([h, e, s]) => {
@@ -34,28 +35,17 @@ export default function Studio() {
   const pick = (p: PickedPlate) => {
     setPlate(p);
     setPoint(p.point);
+    setDirection(p.direction);
     setPointSet(p.point !== null); // a sample comes with its spot; it can still be moved
+    setDrawing(false);
+    setStrokes([]);
     setTakes([]);
-    setCompare(null);
     setPerforming(true);
   };
 
   const current = takes.at(-1);
-  const done = takes.filter((t) => t.job?.status === "done");
-
-  const runCompare = async () => {
-    const [a, b] = done.slice(-2);
-    if (!a?.job || !b?.job) return;
-    setComparing(true);
-    setCompareError(null);
-    try {
-      setCompare(await compareTakes(a.job.id, b.job.id));
-    } catch (e) {
-      setCompareError((e as Error).message);
-    } finally {
-      setComparing(false);
-    }
-  };
+  // a drawing says where it comes from (its first point), so it stands in for a tapped point
+  const where: [number, number] | null = strokes.length ? strokes[0].points[0] : point;
 
   if (apiError && !health) {
     return (
@@ -79,23 +69,40 @@ export default function Studio() {
           </div>
           {!pointSet ? (
             <>
-              <p className="muted">Tap the spot the effect should erupt from: the top of the pumpkin, the mug&apos;s rim.</p>
-              <TapPoint src={plate.url} value={point} onChange={setPoint} />
-              <div className="row"><button disabled={!point} onClick={() => setPointSet(true)}>That&apos;s the spot</button></div>
+              <div className="row" role="radiogroup" aria-label="Tap or draw">
+                <button role="radio" aria-checked={!drawing} className={drawing ? "secondary" : ""} onClick={() => setDrawing(false)}>Tap the source</button>
+                <button role="radio" aria-checked={drawing} className={drawing ? "" : "secondary"} onClick={() => setDrawing(true)}>Draw it</button>
+              </div>
+              {drawing ? (
+                <>
+                  <p className="muted">Draw where it goes: flames along the top of the pumpkin, smoke pouring out of a lamp. Start where it comes from; your cue fills the drawing.</p>
+                  <DrawPad src={plate.url} strokes={strokes} onChange={setStrokes} />
+                </>
+              ) : (
+                <>
+                  <p className="muted">Tap where it comes from: a toy&apos;s mouth, a candle&apos;s wick, the coffee in a mug. Drag from there to aim it (a breath, a jet).</p>
+                  <TapPoint src={plate.url} value={point} onChange={setPoint} direction={direction} onDirection={setDirection} />
+                </>
+              )}
+              <div className="row"><button disabled={drawing ? strokes.length === 0 : !point} onClick={() => setPointSet(true)}>{drawing ? "That's where it goes" : "That's the spot"}</button></div>
             </>
           ) : (
-            <div className="row"><span className="chip">emission point set</span><button className="secondary" onClick={() => setPointSet(false)}>Move it</button></div>
+            <div className="row">
+              <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
+              <button className="secondary" onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : "Move it"}</button>
+            </div>
           )}
         </section>
       )}
 
-      {plate && point && pointSet && performing && (
-        <Performer plateUrl={plate.url} point={point} voices={samples.voices} takes={takes.length}
+      {plate && where && pointSet && performing && (
+        <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
           onDone={(p) => { setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null }]); setPerforming(false); }} />
       )}
 
-      {plate && point && pointSet && !performing && current && (
-        <ShotPanel key={current.id} plate={plate.source} point={point} performance={current.performance}
+      {plate && where && pointSet && !performing && current && (
+        <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
+          strokes={drawing ? strokes : []}
           effects={effects} modes={health?.modes ?? []}
           onDone={(job, effect) => {
             const id = current.id; // this take, even if the user has moved on to another before it finishes
@@ -103,19 +110,12 @@ export default function Studio() {
           }} />
       )}
 
-      {plate && point && pointSet && !performing && (
+      {plate && where && pointSet && !performing && (
         <section>
           <div className="row">
-            <button className="secondary" onClick={() => { setPerforming(true); setCompare(null); }}>Perform it differently</button>
-            {done.length >= 2 && (
-              <button disabled={comparing} onClick={() => void runCompare()}>{comparing ? "Lining them up…" : "Compare my last two takes"}</button>
-            )}
+            <button className="secondary" onClick={() => setPerforming(true)}>Cue it differently</button>
+            <span className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</span>
           </div>
-          {done.length === 1 && <p className="muted">Same shot, same seed: perform it again (shorter, louder, a different noise) and compare the takes.</p>}
-          {compareError && <p className="chip bad">Couldn&apos;t line the takes up: {compareError}</p>}
-          {compare?.files["compare.mp4"] && (
-            <video src={compare.files["compare.mp4"]} controls autoPlay playsInline className="result wide" />
-          )}
         </section>
       )}
     </>

@@ -7,11 +7,13 @@ import { encodeWav } from "@/lib/audio/wav";
 import { applyAndVerify, AUDIO_CONSTRAINTS, videoConstraints } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
 import { type ClockSample, fitMediaClock, sampleClock } from "@/lib/sync/mediaClock";
-import { EFFECT_LABELS, type SampleVoice, type Source, suggestEffect } from "@/lib/shot";
+import { type CueKind, EFFECT_LABELS, type SampleVoice, type Source, suggestEffect } from "@/lib/shot";
 import { buildTimingJson, estimateOffsetS, type TimingJson } from "@/lib/sync/timing";
 
 export interface Performance {
-  voice: Source;
+  cue: CueKind;
+  voice: Source | null; // a voice cue's recording or sample; none for the clip's own sound or a hold
+  holds?: [number, number][]; // a hold cue: press and release times on the plate (s)
   timing: TimingJson | null;
   face: Blob | null;
   faceExt: string;
@@ -26,14 +28,22 @@ type Step = "idle" | "armed" | "performing";
 
 const MAX_SHOT_S = 10;
 
-/** Step 3: perform the noise over the playing plate (mic, optional face camera), or use a sample noise. */
-export default function Performer({ plateUrl, point, voices, takes, onDone }: {
+/**
+ * Step 3: cue it. Say it (perform the noise over the playing plate: mic, optional face camera, or a sample
+ * noise), use a sound already in the clip (a snap, a click, a slam), or press and hold while it plays.
+ */
+export default function Performer({ plateUrl, point, voices, takes, clipSound, onDone }: {
   plateUrl: string;
   point: [number, number];
   voices: SampleVoice[];
   takes: number;
+  clipSound: boolean; // the plate is the user's own clip (it may carry a sound to lock to)
   onDone: (p: Performance) => void;
 }) {
+  const [kind, setKind] = useState<CueKind>("voice");
+  const [holds, setHolds] = useState<[number, number][]>([]);
+  const [holding, setHolding] = useState(false);
+  const holdStart = useRef<number | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [withFace, setWithFace] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +171,7 @@ export default function Performer({ plateUrl, point, voices, takes, onDone }: {
     setStep("armed");
     finishing.current = false;
     onDone({
-      voice: { file: voice, filename: "mic.wav" }, timing, face, faceExt: mimeRef.current?.includes("mp4") ? "mp4" : "webm",
+      cue: "voice", voice: { file: voice, filename: "mic.wav" }, timing, face, faceExt: mimeRef.current?.includes("mp4") ? "mp4" : "webm",
       suggested: suggestEffect(pcm.pcm, pcm.sampleRate, onsetS), onsetS, warnings, label: `take ${takes + 1}`,
       previewUrl: URL.createObjectURL(voice),
     });
@@ -201,18 +211,84 @@ export default function Performer({ plateUrl, point, voices, takes, onDone }: {
   };
 
   const pickSample = (v: SampleVoice) => {
-    onDone({ voice: { sample: v.name }, timing: null, face: null, faceExt: "webm", suggested: v.effect ?? "fireball",
+    onDone({ cue: "voice", voice: { sample: v.name }, timing: null, face: null, faceExt: "webm", suggested: v.effect ?? "fireball",
       onsetS: null, warnings: [], label: v.title ?? v.name, previewUrl: v.url });
+  };
+
+  const useClipSound = () => {
+    onDone({ cue: "clip", voice: null, timing: null, face: null, faceExt: "webm", suggested: "auto", onsetS: null,
+      warnings: [], label: "the clip's own sound", previewUrl: plateUrl });
+  };
+
+  // press and hold while the clip plays: each press is a hit, each hold how long it lasts
+  const playForHolds = async () => {
+    const plate = plateRef.current;
+    if (!plate) return;
+    setHolds([]);
+    plate.muted = true;
+    plate.currentTime = 0;
+    plate.onended = () => setStep("idle");
+    plate.ontimeupdate = () => { if (plate.currentTime >= MAX_SHOT_S) { plate.pause(); setStep("idle"); } };
+    setStep("performing");
+    try { await plate.play(); } catch { setStep("idle"); }
+  };
+  const press = () => {
+    const plate = plateRef.current;
+    if (!plate || plate.paused) return;
+    holdStart.current = plate.currentTime;
+    setHolding(true);
+  };
+  const lift = () => {
+    const plate = plateRef.current;
+    const t0 = holdStart.current;
+    holdStart.current = null;
+    setHolding(false);
+    if (!plate || t0 === null) return;
+    const t1 = Math.max(plate.currentTime, t0 + 0.1);
+    setHolds((h) => [...h, [Math.round(t0 * 100) / 100, Math.round(t1 * 100) / 100]]);
+  };
+  const useHolds = () => {
+    onDone({ cue: "hold", voice: null, holds, timing: null, face: null, faceExt: "webm",
+      suggested: holds.some(([a, b]) => b - a >= 0.4) ? "flame_plume" : "fireball", onsetS: null, warnings: [],
+      label: `${holds.length} hold${holds.length === 1 ? "" : "s"}`, previewUrl: plateUrl });
   };
 
   return (
     <section>
-      <h2>3. Make the noise</h2>
+      <h2>3. Cue it</h2>
+      <div className="row" role="radiogroup" aria-label="How to cue it">
+        <button role="radio" aria-checked={kind === "voice"} className={kind === "voice" ? "" : "secondary"}
+          disabled={step === "performing"} onClick={() => setKind("voice")}>Say it</button>
+        <button role="radio" aria-checked={kind === "clip"} className={kind === "clip" ? "" : "secondary"}
+          disabled={step === "performing" || !clipSound} onClick={() => setKind("clip")}>The clip&apos;s own sound</button>
+        <button role="radio" aria-checked={kind === "hold"} className={kind === "hold" ? "" : "secondary"}
+          disabled={step === "performing"} onClick={() => setKind("hold")}>Press and hold</button>
+      </div>
       <div className="perform">
         <video ref={plateRef} src={plateUrl} playsInline muted preload="auto" className="plate" />
-        {withFace && step !== "idle" && <video ref={faceRef} autoPlay playsInline muted className="face" />}
+        {withFace && step !== "idle" && kind === "voice" && <video ref={faceRef} autoPlay playsInline muted className="face" />}
       </div>
-      {step === "idle" && (
+      {kind === "clip" && (
+        <>
+          <p className="muted">The effect locks to the sound that&apos;s already in your clip: a finger snap, a lighter&apos;s click, a door slam, a beat. The shot keeps that sound.</p>
+          <div className="row"><button onClick={useClipSound}>Lock it to my clip&apos;s sound</button></div>
+        </>
+      )}
+      {kind === "hold" && (
+        <>
+          <p className="muted">No sound needed: play the clip and hold the button while the effect should be there. Press briefly for a pop, hold for a flame.</p>
+          <div className="row">
+            <button className="secondary" disabled={step === "performing"} onClick={() => void playForHolds()}>{holds.length ? "Play again" : "Play the clip"}</button>
+            <button aria-pressed={holding} disabled={step !== "performing"} onPointerDown={press} onPointerUp={lift}
+              onPointerLeave={() => { if (holding) lift(); }} style={{ minWidth: 160, touchAction: "none" }}>
+              {holding ? "Holding…" : "Hold"}
+            </button>
+            <button disabled={step === "performing" || holds.length === 0} onClick={useHolds}>Use {holds.length || "my"} hold{holds.length === 1 ? "" : "s"}</button>
+          </div>
+          {holds.length > 0 && <p className="muted">{holds.map(([a, b]) => `${a.toFixed(2)}–${b.toFixed(2)} s`).join(" · ")}</p>}
+        </>
+      )}
+      {kind === "voice" && step === "idle" && (
         <>
           <div className="row">
             <button onClick={() => void arm()}>Use my microphone</button>
@@ -221,7 +297,7 @@ export default function Performer({ plateUrl, point, voices, takes, onDone }: {
           <p className="muted">{withFace ? "Your face video is uploaded with your noise and shown as an inset in the final shot." : "Only your noise is uploaded."}</p>
         </>
       )}
-      {step !== "idle" && (
+      {kind === "voice" && step !== "idle" && (
         <>
           <div className="meter" aria-label="microphone level"><span style={{ width: `${Math.round(level * 100)}%` }} /></div>
           {notes.map((n) => <span key={n} className="chip warn">{n}</span>)}
@@ -232,7 +308,7 @@ export default function Performer({ plateUrl, point, voices, takes, onDone }: {
         </>
       )}
       {error && <p className="chip bad">{error}</p>}
-      {voices.length > 0 && (
+      {kind === "voice" && voices.length > 0 && (
         <div className="row">
           <span className="muted">or use a sample noise:</span>
           {voices.map((v) => (
