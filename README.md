@@ -68,7 +68,11 @@ cuesync shot --scene --plate samples/plates/toy_desk.mp4 --cue hold --hold 1.0-3
   --strokes my_strokes.json --describe "thick grey smoke pours out of the desk lamp"
 ```
 
-**In ComfyUI.** [`workflows/cue_the_boom_scene.api.json`](workflows/cue_the_boom_scene.api.json) is the whole scene shot as one workflow: your cue and your plate go in, the finished shot comes out. Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pip install ./cuesync`) and the models in [build/model-files.md](build/model-files.md). The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
+**In ComfyUI.** [`workflows/cue_the_boom_scene.json`](workflows/cue_the_boom_scene.json) (drag it onto the canvas) is the whole scene shot as one workflow: your cue and your plate go in, the finished shot comes out. [`cue_the_boom_scene.api.json`](workflows/cue_the_boom_scene.api.json) is the same graph for the API.
+
+![The scene shot in ComfyUI: your cue, CueSync Paint Scene, LTX-2.5 with ainvfx-fluid from your plate, CueSync Scene Shot](media/comfyui-scene-workflow.png)
+
+Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pip install ./cuesync`) and the models in [build/model-files.md](build/model-files.md). The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
 
 ## How it works
 
