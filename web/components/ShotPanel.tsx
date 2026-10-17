@@ -155,7 +155,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         <label className="row">
           <span className="muted">Say what happens (optional)</span>
           <input value={describe} maxLength={200} disabled={busy} style={{ flex: "1 1 260px" }}
-            placeholder={drawn ? "thick smoke pours out of the lamp" : "a fireball bursts out of the jack-o'-lantern"}
+            placeholder={drawn ? "flames spread along the top of the pumpkin" : "a burst of flame blasts out of the jack-o'-lantern"}
             onChange={(e) => setDescribe(e.target.value)} />
         </label>
       )}

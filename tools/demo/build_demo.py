@@ -9,6 +9,7 @@ Beats (all times in seconds; text may use \\n):
   {"type": "triptych", "srcs": ["a.mp4", "b.mp4", "c.mp4"], "labels": [...], "start": 0, "dur": 5,
    "audio": 0 | 1 | 2 | "mix", "caption": "..."}       three clips side by side, same timeline
   {"type": "image", "src": "path.png", "dur": 3, "caption": "...", "zoom": 1.08}   a still with a slow push-in
+  a clip may add "speed": 8 (silent while sped up) and "note": "sped up x8" (a tag at the top right)
       ("split": [0.4] cuts a wide image at those fractions of its width and stacks the parts as rows)
   {"type": "credits", "dur": 6, "title": "...", "lines": ["...", "..."]}
 Every beat may set "stamp": a small corner label (e.g. "stand-in plate, generated with LTX-2.5").
@@ -88,10 +89,13 @@ def stamp(img: Image.Image, text: str | None) -> None:
 
 
 class Clip:
-    def __init__(self, src: str, start: float, dur: float):
+    """A stretch of a video from ``start`` s, played at ``speed`` (frames by their own timestamps, so a screen
+    recording's uneven frame rate is fine). A sped-up stretch is silent."""
+
+    def __init__(self, src: str, start: float, dur: float, speed: float = 1.0):
         clip = read_video(src)
-        self.frames = clip.frames
-        self.start = int(round(start * FPS))
+        self.frames, self.times = clip.frames, clip.times_s
+        self.start_s, self.speed = start, speed
         try:
             self.audio = read_audio(src, SR)
         except Exception:
@@ -99,11 +103,14 @@ class Clip:
         self.n = int(round(dur * FPS))
 
     def frame(self, i: int) -> np.ndarray:
-        return self.frames[min(len(self.frames) - 1, self.start + i)]
+        k = int(np.searchsorted(self.times, self.start_s + i / FPS * self.speed, side="right")) - 1
+        return self.frames[min(max(k, 0), len(self.frames) - 1)]
 
     def sound(self) -> np.ndarray:
-        a = self.audio[int(self.start / FPS * SR):]
         out = np.zeros(int(self.n / FPS * SR), np.float32)
+        if self.speed != 1.0:
+            return out
+        a = self.audio[int(self.start_s * SR):]
         out[: min(out.size, a.size)] = a[: out.size]
         return out
 
@@ -147,7 +154,7 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             stamp(img, b.get("stamp"))
             frames.append(np.asarray(img))
     elif kind == "clip":
-        c = Clip(b["src"], float(b.get("start", 0)), dur)
+        c = Clip(b["src"], float(b.get("start", 0)), dur, float(b.get("speed", 1.0)))
         audio = c.sound()
         box_h = H - (150 if b.get("caption") else 60)
         for i in range(n):
@@ -165,6 +172,11 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
                 d.text((x0 + 20, 40), b["label"], font=font(40, True), fill=ACCENT)
             if b.get("caption"):
                 text_block(d, (W // 2, H - 64), b["caption"], 42, FG, anchor="mm", max_w=W - 200)
+            if b.get("note"):  # e.g. that a stretch is sped up
+                f = font(30, True)
+                tw = d.textlength(b["note"], font=f)
+                d.rounded_rectangle([W - tw - 70, 24, W - 30, 74], radius=12, fill=ACCENT)
+                d.text((W - 50, 49), b["note"], font=f, fill=BG, anchor="rm")
             stamp(img, b.get("stamp"))
             frames.append(np.asarray(img))
     elif kind == "triptych":
