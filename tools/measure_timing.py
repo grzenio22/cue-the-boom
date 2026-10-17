@@ -1,16 +1,17 @@
-"""How well do scene shots land on their cue? Raw LTX-2.5 render vs the finished, re-timed shot.
+"""How well do scene shots land on their cue? Every hit, as LTX-2.5 rendered it and in the finished shot.
 
-    python tools/measure_timing.py runs/precomputed/scene [more shot folders or parents ...] -o runs/timing
+    python tools/measure_timing.py runs/precomputed/scene runs/extra_takes -o runs/timing
 
-For every scene shot (a folder with receipt.json, guide.json, render.mp4, composite.mp4):
-- the cue frame: where the hit is (the sound's onset; a burst a frame before it, light beats sound);
-- raw error: where the render, used as it came out of LTX-2.5, shows the effect, minus the cue frame
-  (measured on the render, as the pipeline does);
-- final error: where the finished shot shows it, minus the cue frame, measured on the finished shot with a
-  different detector from the pipeline's: the first frame whose frame-to-frame change inside the painted region
-  jumps above a third of its largest jump (a rhythm: the largest jump near its biggest hit; a blow-out: the
-  frame its flame is gone, since flicker would trip a jump detector).
-Writes timing.csv, timing.md (per shot + hit rates within +-1 frame) and timing.png (raw vs final per shot).
+Where each hit shows on the raw render (render.mp4, before re-timing) is read from tools/timing_annotations.json:
+marked by eye, frame by frame (the first frame the effect is clearly there; for a blow-out, the first with no
+flame left; nothing where the model merged a hit into its neighbour). The "calibration" shots set the
+pipeline's onset threshold; the "held_out" shots were marked before it ran on them, and are reported apart.
+A shot with no marks falls back to a detector (the steepest rise of the visibly changed share of its region).
+The raw error is where the render shows the hit, laid on the plate from the render's start, minus its cue frame
+(a burst one frame before its sound: light beats sound). The finished shot is the render moved by the shot's
+re-time, so its error is the same mark moved by the same frames (the flash added to it can't sway this).
+Flames that should stop with the voice: where their flame-coloured area falls below a quarter of its peak.
+Writes timing.csv (one row per hit), timing.md and timing.png.
 """
 
 from __future__ import annotations
@@ -25,33 +26,94 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cuesync" / "src"))
 from cuesync.media import read_video  # noqa: E402
-from cuesync.scene_shot import flame_out  # noqa: E402
 from cuesync.transfer import effect_region  # noqa: E402
 
-JUMP_SHARE = 0.33
+CHANGED = 30  # 8-bit, largest channel: a pixel the effect visibly changed
+WARM = (170, 70)  # a flame's pixel: red above this, red minus blue above this
+SMALL = 4  # measured at a quarter of the render's size
 
 
-def first_jump(frames: np.ndarray, region: np.ndarray, after: int = 1) -> int | None:
-    """First frame whose change from the previous frame (inside the region) exceeds JUMP_SHARE of the largest."""
-    small = frames[:, ::4, ::4].astype(np.float32)
-    reg = region[::4, ::4]
-    d = np.array([0.0] + [float(np.abs(small[i] - small[i - 1]).max(-1)[reg].mean()) for i in range(1, len(small))])
-    peak = float(d[after:].max()) if len(d) > after else 0.0
-    if peak < 1.5:
+def _rise(c: np.ndarray) -> np.ndarray:
+    """Frame-to-frame rise of a curve, lightly smoothed (rise[i]: from frame i-1 to i)."""
+    cs = np.convolve(np.pad(c, 1, mode="edge"), np.ones(3) / 3, mode="valid")
+    return np.concatenate([[0.0], np.diff(cs)])
+
+
+def onset_in(c: np.ndarray, lo: int, hi: int, share: float = 0.35, least: float = 0.004) -> int | None:
+    """First frame in [lo, hi] whose rise is at least ``share`` of the steepest rise there."""
+    r = _rise(c)
+    lo, hi = max(1, lo), min(len(c) - 1, hi)
+    if hi < lo or r[lo:hi + 1].max() < least:
         return None
-    hit = np.nonzero(d[after:] > JUMP_SHARE * peak)[0]
-    return int(after + hit[0]) if hit.size else None
+    return lo + int(np.nonzero(r[lo:hi + 1] >= share * r[lo:hi + 1].max())[0][0])
 
 
-def biggest_jump(frames: np.ndarray, region: np.ndarray, around: int, half: int = 8) -> int | None:
-    """For a rhythm: the frame of the largest frame-to-frame change inside the region near ``around``."""
-    small = frames[:, ::4, ::4].astype(np.float32)
-    reg = region[::4, ::4]
-    lo, hi = max(1, around - half), min(len(small), around + half + 1)
-    if hi <= lo:
+def flame_gone(frames: np.ndarray, point: tuple[float, float], ref_frames: int, hold: int = 3) -> int | None:
+    """The frame a candle's flame goes out: the brightest pixel near the wick falls halfway from lit to out."""
+    h, w = frames.shape[1:3]
+    x, y, r = int(point[0] * w), int(point[1] * h), max(2, int(0.04 * w))
+    luma = frames[:, max(0, y - 2 * r): y + r, max(0, x - r): x + r].astype(np.float32).mean(-1)
+    peak = luma.reshape(len(frames), -1).max(1)
+    lit, out = float(np.median(peak[:ref_frames])), float(np.median(peak[-10:]))
+    if lit - out < 20:
         return None
-    d = [float(np.abs(small[i] - small[i - 1]).max(-1)[reg].mean()) for i in range(lo, hi)]
-    return lo + int(np.argmax(d)) if max(d) >= 1.5 else None
+    below = peak < (lit + out) / 2
+    for i in range(ref_frames, len(peak) - hold):
+        if below[i: i + hold].all():
+            return i
+    return None
+
+
+def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
+    rc = json.loads((d / "receipt.json").read_text())
+    if rc.get("mode") != "scene" or not (d / "render.mp4").exists():
+        return None
+    g = json.loads((d / "guide.json").read_text())
+    al, eff = rc["alignment"], rc["effect"]
+    start, lead, retime = int(g["start"]), int(al["lead"]), int(al.get("retime_frames", 0))
+    shift = int(al["auto_shift"]) + retime  # the finished shot is the render moved by this many frames
+    events = g["events"]
+    gw, gh = g["size"]
+    size = (gw // SMALL, gh // SMALL)
+    render = read_video(d / "render.mp4", size=size).frames.astype(np.int16)
+    region = effect_region(g["blobs"], (gw, gh), size)
+    ref_frames = max(1, events[0]["at"] - 3)
+    ref = np.median(render[:ref_frames], axis=0)
+    diff = np.abs(render - ref).max(-1)
+    changed = np.array([float((f > CHANGED)[region].mean()) for f in diff])
+    warm = (render[..., 0] > WARM[0]) & (render[..., 0] - render[..., 2] > WARM[1])
+    fire = np.array([float(((diff[i] > CHANGED) & warm[i])[region].mean()) for i in range(len(render))])
+    want = [ev["at"] - lead for ev in events]  # render frame each hit should show on
+    if eye is not None:  # marked by eye
+        on = list(eye)
+        want = want[: len(on)]
+    elif eff["behaviour"] == "extinguish":
+        on = [flame_gone(render, tuple(g["point"]), ref_frames)]
+        want = want[:1]
+    else:
+        main = max(range(len(events)), key=lambda k: events[k]["size"])
+        on = [None] * len(events)
+        on[main] = onset_in(changed, want[main] - 16, want[main] + 16)
+        late = 0 if on[main] is None else on[main] - want[main]
+        for k in range(len(events)):
+            if k != main:
+                on[k] = onset_in(changed, want[k] + late - 6, want[k] + late + 6)
+    hits = [{"shot": d.name, "effect": eff["id"], "set": group or "detector", "hit": k + 1, "of": len(want),
+             "cue_frame": start + want[k] + retime,
+             "raw_error": None if o is None else o - want[k] - retime,
+             "final_error": None if o is None else o + shift - want[k] - retime}
+            for k, o in enumerate(on)]
+    stop = None
+    if eff["fluid"] == "fire" and eff["behaviour"] in ("jet", "plume"):
+        v = rc["voice"].get("voice_end_frame")
+        if v is not None and fire.max() > 0.01:
+            pk = int(np.argmax(fire))
+            low = np.nonzero(fire[pk:] < 0.25 * fire[pk])[0]
+            s_ = None if not low.size else pk + int(low[0])
+            stop = {"shot": d.name, "effect": eff["id"], "voice_end": v,
+                    "raw_latency": None if s_ is None else start + s_ - v,
+                    "final_latency": None if s_ is None else start + shift + s_ - v}
+    return {"hits": hits, "stop": stop}
 
 
 def shot_dirs(paths: list[str]) -> list[Path]:
@@ -62,28 +124,6 @@ def shot_dirs(paths: list[str]) -> list[Path]:
         else:
             out += sorted(d for d in p.iterdir() if (d / "receipt.json").exists())
     return out
-
-
-def measure(d: Path) -> dict | None:
-    rc = json.loads((d / "receipt.json").read_text())
-    if rc.get("mode") != "scene":
-        return None
-    g = json.loads((d / "guide.json").read_text())
-    al = rc["alignment"]
-    start, lead, painted = int(g["start"]), int(al["lead"]), int(al["painted_hit"])
-    cue = start + painted - lead + int(al.get("retime_frames", 0))  # where the hit belongs on the shot
-    comp = read_video(d / "composite.mp4").frames
-    h, w = comp.shape[1:3]
-    region = effect_region(g["blobs"], tuple(g["size"]), (w, h))
-    raw = None if al["model_onset"] is None else (start + al["model_onset"]) - cue
-    rhythm = bool(rc.get("hits"))  # a rhythm lines up its biggest hit: measure that one
-    if rc["effect"]["behaviour"] == "extinguish":  # a blow-out: when the flame is gone in the finished shot
-        final_on = flame_out(comp, region, max(1, cue - 8))
-    else:
-        final_on = biggest_jump(comp, region, cue) if rhythm else first_jump(comp, region, after=max(1, cue - 12))
-    return {"shot": d.name, "effect": rc["effect"]["id"], "cue_frame": cue,
-            "raw_error": raw, "final_error": None if final_on is None else final_on - cue,
-            "auto_shift": al["auto_shift"], "clamped": al.get("clamped", False)}
 
 
 def rate(vals: list[int | None], tol: int = 1) -> str:
@@ -152,10 +192,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("paths", nargs="+")
     ap.add_argument("-o", "--out", default="runs/timing")
+    ap.add_argument("--marks", default=str(Path(__file__).with_name("timing_annotations.json")))
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    rows = [r for r in (measure(d) for d in shot_dirs(a.paths)) if r]
+    marks = json.loads(Path(a.marks).read_text(encoding="utf-8")) if Path(a.marks).exists() else {}
+    eye = {name: (group, m) for group in ("calibration", "held_out") for name, m in marks.get(group, {}).items()}
+    found = [r for r in (measure(d, *(eye[d.name][::-1] if d.name in eye else (None, ""))) for d in shot_dirs(a.paths)) if r]
+    rows = [h for r in found for h in r["hits"]]
+    stops = [r["stop"] for r in found if r["stop"]]
     if not rows:
         print("no scene shots found")
         return 1
@@ -166,13 +211,32 @@ def main() -> int:
     raw = [r["raw_error"] for r in rows]
     fin = [r["final_error"] for r in rows]
     mae = lambda v: np.mean([abs(x) for x in v if x is not None]) if any(x is not None for x in v) else float("nan")  # noqa: E731
-    lines = ["| shot | effect | cue frame | raw LTX error | final error |", "|---|---|---|---|---|"]
-    lines += [f"| {r['shot']} | {r['effect']} | {r['cue_frame']} | {r['raw_error']} | {r['final_error']} |" for r in rows]
-    lines += ["", f"Within one frame (42 ms) of the cue: raw render {rate(raw)}, finished shot {rate(fin)}.",
+    later = [r for r in rows if r["of"] > 1]
+    lines = ["| shot | effect | set | hit | cue frame | raw LTX error | finished error |", "|---|---|---|---|---|---|---|"]
+    lines += [f"| {r['shot']} | {r['effect']} | {r['set']} | {r['hit']}/{r['of']} | {r['cue_frame']} | "
+              f"{('merged' if r['of'] > 1 else 'unclear') if r['raw_error'] is None else r['raw_error']} | {'' if r['final_error'] is None else r['final_error']} |"
+              for r in rows]
+    if stops:
+        lines += ["", "| shot | effect | voice ends (frame) | flame stops, raw | flame stops, finished |", "|---|---|---|---|---|"]
+        lines += [f"| {s_['shot']} | {s_['effect']} | {s_['voice_end']} | {s_['raw_latency']} | {s_['final_latency']} |"
+                  for s_ in stops]
+    fl = [s_["final_latency"] for s_ in stops if s_["final_latency"] is not None]
+    by = lambda g, k: [r[k] for r in rows if r["set"] == g]  # noqa: E731
+    merged = sum(r["raw_error"] is None and r["of"] > 1 for r in rows)
+    unclear = sum(r["raw_error"] is None and r["of"] == 1 for r in rows)
+    lines += ["", f"Every hit within one frame (42 ms) of its cue: raw render {rate(raw)}, finished shot {rate(fin)}.",
               f"Mean absolute error: raw {mae(raw):.1f} frames, finished {mae(fin):.1f} frames.",
-              "Final error is measured with a different detector than the one the pipeline re-times with."]
+              f"Held-out takes only: raw {rate(by('held_out', 'raw_error'))}, finished {rate(by('held_out', 'final_error'))}."
+              if by("held_out", "raw_error") else "",
+              f"{merged} rhythm hit(s) the model merged into a neighbour have no onset of their own and are not counted." if merged else "",
+              f"{unclear} take(s) whose start can't be called by eye are not counted." if unclear else "",
+              f"Rhythm hits (each one measured): raw {rate([r['raw_error'] for r in later])}, "
+              f"finished {rate([r['final_error'] for r in later])}." if later else "",
+              f"Flames that should stop with the voice stop {int(np.median(fl))} frames after it (median, finished; "
+              f"range {min(fl)} to {max(fl)})." if fl else "",
+              "Onsets marked by eye on the raw render; the finished error is that mark moved by the shot's re-time."]
     (out / "timing.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("\n".join(lines[-3:]))
+    print("\n".join(x for x in lines[-7:] if x))
     chart(raw, fin, out / "timing.png")
     return 0
 

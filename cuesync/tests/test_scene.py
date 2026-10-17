@@ -722,3 +722,30 @@ def test_the_sample_noises_read_as_what_they_are_at_any_offset():
         x = read_audio(f"samples/voices/{name}.wav", SR)
         for off in (0.0, 1.3):
             assert gesture(analyze(x, SR, offset_s=off, fps=24), x) == g, (name, off)
+
+
+def test_a_rhythm_lines_up_the_hits_it_can_see_and_never_guesses_a_merged_one():
+    from cuesync.transfer import hit_onsets
+
+    flame = np.zeros(70)
+    flame[10:20] = np.linspace(0.005, 0.05, 10)  # "pf": shows at 10, dies back
+    flame[26:40] = np.linspace(0.01, 0.08, 14)  # "pf": shows at 26 (two frames early)
+    flame[40:70] = np.linspace(0.08, 0.3, 30)  # the BOOM grows straight out of it: merged, no onset of its own
+    assert hit_onsets(flame, [12, 28, 50], ref_frames=6) == [10, 26, None]
+
+
+def test_the_onset_is_the_first_frame_you_see_it_not_the_middle_of_its_growth():
+    from cuesync.transfer import first_visible
+
+    share = np.concatenate([np.zeros(12), np.linspace(0.004, 0.4, 12), np.full(10, 0.4)])
+    assert first_visible(share, ref_frames=8) == 13  # 6 % of the way up, not 20 %
+
+
+def test_a_candle_blown_out_early_by_the_model_is_still_found():
+    from cuesync.scene_shot import EARLIEST, flame_out
+
+    frames = np.full((30, 64, 64, 3), 200, np.uint8)
+    frames[:11, 20:40, 28:36] = (255, 190, 90)  # lit until frame 11, out from then on
+    region = np.zeros((64, 64), bool)
+    region[10:50, 20:44] = True
+    assert flame_out(frames, region, ref_frames=max(4, 17 - EARLIEST)) == 11

@@ -32,8 +32,8 @@ from .media import probe_video, read_video, write_video
 from .pipeline import (FINISH_PRESET, FPS, Progress, Renderer, ShotResult, ShotSpec, _breakdown, _face_track,
                        _finalise, _sha, auto_scale, load_plate, place_audio, shot_cue)
 from .scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
-from .transfer import (TransferStats, _ecc, change_energy, effect_region, gam, is_still, lin, steepest_rise, transfer,
-                       visible_onset)
+from .transfer import (TransferStats, _ecc, changed_share, effect_region, first_visible, gam, hit_onsets, is_still, lin,
+                       transfer)
 
 MAX_SHIFT = 16  # the model is trusted to land within this many frames of the painted hit
 MODEL = "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame"
@@ -64,15 +64,18 @@ def _fire_area(frame: np.ndarray, region: np.ndarray) -> float:
     return float((fire & r).sum()) / max(1, int(r.sum()))
 
 
-def flame_out(render: np.ndarray, region: np.ndarray, ref_frames: int, share: float = 0.4) -> int | None:
-    """The render frame where a flame that was burning goes out: its visible area drops below ``share`` of
-    what it was before the cue and stays there for three frames. None if no flame was visible."""
-    area = np.array([_fire_area(f, region) for f in render])
-    base = float(np.median(area[: max(1, ref_frames)]))
-    if base < 1e-3:
+def flame_out(render: np.ndarray, region: np.ndarray, ref_frames: int, share: float = 0.1) -> int | None:
+    """The render frame where a flame that was burning goes out: almost none of its flame-coloured pixels
+    are left (below ``share`` of the lit flame's) for three frames. None if no flame was visible."""
+    small = render[:, ::2, ::2].astype(np.int16)
+    reg = region[::2, ::2]
+    lit_px = (small[..., 0] > 180) & (small[..., 0] - small[..., 2] > 50)
+    count = np.array([float((m & reg).sum()) for m in lit_px])
+    lit = float(np.median(count[1: max(2, min(8, ref_frames))]))  # before the model can have started
+    if lit < 4:
         return None
-    low = area < share * base
-    for f in range(1, len(area) - 2):
+    low = count < share * lit
+    for f in range(1, len(count) - 2):
         if low[f] and low[f + 1] and low[f + 2]:
             return f
     return None
@@ -131,22 +134,27 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     warnings: list[str] = []
     region = effect_region(sp.guide.blobs, sp.guide.size, (plate.shape[2], plate.shape[1]))
     at0 = sp.events[0].at if sp.events else 0
-    ref_frames = max(1, at0 - 3)
+    ref_frames = max(4, at0 - EARLIEST)  # the settled scene: before the model can have started the effect
     steady = registered(render, region, ref_frames)  # camera drift must not read as the effect
-    energy = change_energy(steady, region, ref_frames)
+    share = changed_share(steady, region, ref_frames)
+    painted = at0
     if eff.behaviour == "extinguish":  # what must land on the cue is the flame going out, not the smoke after it
-        painted = at0
         onset = flame_out(steady, region, ref_frames)
         if onset is None:
-            onset = visible_onset(energy, ref_frames)
-    elif len(sp.events) >= 2:  # a rhythm: line up its biggest hit (loudest and longest), where the change jumps most
-        main = max(sp.events, key=lambda ev: ev.size)
-        painted, onset = main.at, steepest_rise(energy, main.at)
+            onset = first_visible(share, ref_frames)
+    elif len(sp.events) >= 2:  # a rhythm: every hit it shows on its own, moved together by their middle error
+        wants = [ev.at - eff.lead_frames for ev in sp.events]
+        curve = changed_share(steady, region, ref_frames, flame=True) if eff.fluid == "fire" else share
+        found = [(w, o) for w, o in zip(wants, hit_onsets(curve, wants, ref_frames)) if o is not None]
+        if found:
+            off = int(round(float(np.median([w - o for w, o in found]))))
+            onset = at0 - eff.lead_frames - off  # where the first hit shows, by that error
+        else:
+            onset = first_visible(share, ref_frames)
+        if len(found) < len(wants):
+            warnings.append(f"the model merged {len(wants) - len(found)} of the {len(wants)} hits into their neighbours")
     else:
-        painted, onset = at0, visible_onset(energy, ref_frames)
-        if onset is None and ref_frames > 4:  # the model started very early: compare with its first frames instead
-            energy = change_energy(steady, region, 4)
-            onset = visible_onset(energy, 4)
+        onset = first_visible(share, ref_frames)
     desired = painted - eff.lead_frames  # light beats sound: a burst shows a frame before its "BOOM"
     raw = None if onset is None else desired - onset
     auto = 0 if raw is None else int(np.clip(raw, -MAX_SHIFT, MAX_SHIFT))
@@ -202,6 +210,7 @@ def registered(render: np.ndarray, region: np.ndarray, ref_frames: int) -> np.nd
     return out
 
 
+EARLIEST = 9  # LTX-2.5 starts an effect up to about 8 frames before its painted keyframe
 SHAKE_FRAMES = 18  # a blast shakes the phone for three quarters of a second
 SHAKE_DECAY = 4.5  # frames for the shake to fall to 1/e
 PEAK_AFTER = 2  # a fireball is at its brightest about this many frames after it shows

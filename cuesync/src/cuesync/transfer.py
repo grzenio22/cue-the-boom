@@ -98,6 +98,71 @@ def visible_onset(energy: np.ndarray, ref_frames: int, share: float = 0.2) -> in
     return int(above[0]) if above.size else None
 
 
+VISIBLE = 30  # 8-bit, largest channel: a pixel the effect has visibly changed
+FIRST_RISE = 0.06  # an effect has started once its changed share rises this far towards its peak (fitted by eye)
+MERGED = 0.15  # a later hit of a rhythm counts only if the change climbs again by this share of the whole
+DIED = 0.3  # ... and only if the hit before it had died back by this much first
+
+
+def changed_share(frames: np.ndarray, region: np.ndarray, ref_frames: int, level: int = VISIBLE,
+                  flame: bool = False) -> np.ndarray:
+    """Per frame: the share of the effect region's pixels that visibly changed against the settled scene
+    (the median of the frames before ``ref_frames``), on a half-size grid. ``flame``: only the changed pixels
+    that are flame-coloured (flame dies back between the bursts of a rhythm; the smoke it leaves doesn't)."""
+    small = frames[:, ::2, ::2].astype(np.int16)
+    reg = region[::2, ::2]
+    if not reg.any():
+        reg = np.ones_like(reg)
+    ref = np.median(small[: max(1, ref_frames)], axis=0)
+    out = []
+    for f in small:
+        m = np.abs(f - ref).max(-1) > level
+        if flame:
+            m &= (f[..., 0] > 170) & (f[..., 0] - f[..., 2] > 70)
+        out.append(float(m[reg].mean()))
+    return np.array(out)
+
+
+def first_visible(share: np.ndarray, ref_frames: int, rise: float = FIRST_RISE) -> int | None:
+    """The first frame where the effect is visibly there: its changed share has risen ``rise`` of the way from
+    the settled scene to its peak (the first frame a viewer sees it, not the middle of its growth)."""
+    base = float(np.median(share[: max(1, ref_frames)]))
+    peak = float(share.max())
+    if peak - base < 0.01:  # nothing visibly happened
+        return None
+    above = np.nonzero(share[1:] > base + rise * (peak - base))[0]
+    return int(above[0]) + 1 if above.size else None
+
+
+def hit_onsets(share: np.ndarray, wants: list[int], ref_frames: int) -> list[int | None]:
+    """Where each hit of a rhythm shows on the render (``wants``: the render frame each should show on). The
+    first: from the settled scene, against its own peak (a small "pf" before a big BOOM). Each later one: the
+    hit before it must have died back, then the change climbs clearly again near its own cue. A hit the model
+    merged into its neighbour has neither, and is None: it is not guessed."""
+    out: list[int | None] = [None] * len(wants)
+    base = float(np.median(share[: max(1, ref_frames)]))
+    span = float(share.max()) - base
+    if span < 0.01 or not wants:
+        return out
+    end = wants[1] - 2 if len(wants) > 1 else len(share) - 1
+    out[0] = first_visible(share[: end + 1], ref_frames)
+    prev = out[0]
+    for k in range(1, len(wants)):
+        lo = max(wants[k - 1] + 2, wants[k] - 10)
+        hi = min(wants[k + 1] - 2 if k + 1 < len(wants) else len(share) - 1, wants[k] + 8)
+        if hi - lo < 3:
+            continue
+        m = lo + int(np.argmin(share[lo: min(hi, wants[k] + 2) + 1]))
+        before = float(share[min(prev if prev is not None else wants[k - 1], m): m + 1].max())
+        top = float(share[m: hi + 1].max())
+        if share[m] > (1 - DIED) * before or top - share[m] < MERGED * span:
+            continue
+        up = np.nonzero(share[m: hi + 1] > share[m] + 2 * FIRST_RISE * (top - share[m]))[0]
+        if up.size:
+            out[k] = prev = m + int(up[0])
+    return out
+
+
 def steepest_rise(energy: np.ndarray, around: int, before: int = 12, after: int = 16) -> int | None:
     """The frame where the change jumps the most within [around - before, around + after]: the hit of the
     loudest event in a rhythm (earlier events' smoke lifts the level, so a share-of-peak threshold would
