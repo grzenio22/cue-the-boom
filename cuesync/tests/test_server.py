@@ -258,6 +258,7 @@ def test_a_held_drawn_scene_shot_needs_no_voice(scene_client, tmp_path, make_vid
     assert done["status"] == "done", done.get("error")
     rc = done["receipt"]
     assert rc["inputs"]["cue"] == "hold" and rc["inputs"]["drawn"] and rc["voice"]["source"] == "hold"
+    assert rc["inputs"]["holds"] == [[0.8, 1.6]]  # so a re-time is cued the same way
     assert r.prompts[-1].startswith("ainvfxfluid, smoke pours out of the box,")
 
 

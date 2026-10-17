@@ -155,8 +155,10 @@ def cmd_retime(args) -> int:
     cue = rc.get("inputs", {}).get("cue", "voice")  # the shot knows what timed it
     if cue == "voice" and not args.voice:
         raise SystemExit("this shot was cued by a voice: pass --voice")
+    holds = rc.get("inputs", {}).get("holds")
     spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice) if args.voice else None, effect=args.effect,
                     point=(args.x, args.y), offset_s=args.offset_s, cue=cue,
+                    holds=[tuple(h) for h in holds] if holds else None,
                     mode="scene" if rc.get("mode") == "scene" else "element")
     r = retime_shot(Path(args.shot), spec, Path(args.output), hit_shift=args.shift, stop_frame=args.stop)
     print(f"re-timed in {r.receipt['seconds_total']:.0f} s -> {r.final}")
