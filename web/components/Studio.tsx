@@ -45,6 +45,11 @@ export default function Studio() {
   };
 
   const current = takes.at(-1);
+  const sceneLive = health?.modes.includes("scene") ?? false;
+  const madeAheadScene = !sceneLive && (health?.made_ahead?.includes("scene") ?? false);
+  // with the GPU offline, the sample noises whose scene shot was made ahead of time (at the sample's own spot)
+  const ready = madeAheadScene && plate?.sample && plate.point && point && plate.point[0] === point[0] && plate.point[1] === point[1]
+    ? Object.keys(plate.scene ?? {}).filter((k) => /\.(wav|mp3|m4a|ogg|webm)$/.test(k)) : [];
   // a drawing says where it comes from (its first point); in tap mode the tapped point wins
   const where: [number, number] | null = drawing && strokes.length ? strokes[0].points[0] : point;
 
@@ -72,8 +77,10 @@ export default function Studio() {
             <>
               <div className="row" role="radiogroup" aria-label="Tap or draw">
                 <button role="radio" aria-checked={!drawing} className={drawing ? "secondary" : ""} onClick={() => setDrawing(false)}>Tap the source</button>
-                <button role="radio" aria-checked={drawing} className={drawing ? "" : "secondary"} onClick={() => setDrawing(true)}>Draw it</button>
+                <button role="radio" aria-checked={drawing} className={drawing ? "" : "secondary"} disabled={!sceneLive}
+                  onClick={() => setDrawing(true)}>Draw it</button>
               </div>
+              {!sceneLive && health && <p className="muted">Drawing renders live on the GPU, which is offline right now: tap the source instead.</p>}
               {drawing ? (
                 <>
                   <p className="muted">Draw where it goes: flames along the top of the pumpkin, smoke pouring out of a lamp. Start where it comes from; your cue fills the drawing.</p>
@@ -98,13 +105,14 @@ export default function Studio() {
 
       {plate && where && pointSet && performing && (
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
+          scene={plate.sample ? plate.scene : undefined} ready={drawing ? [] : ready}
           onDone={(p) => { setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null }]); setPerforming(false); }} />
       )}
 
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
           strokes={drawing ? strokes : []} initialJob={current.job} onBusy={setRendering}
-          effects={effects} modes={health?.modes ?? []}
+          effects={effects} modes={health?.modes ?? []} madeAheadScene={madeAheadScene}
           onDone={(job, effect) => {
             const id = current.id; // this take, even if the user has moved on to another before it finishes
             setTakes((t) => t.map((x) => (x.id === id ? { ...x, job, effect } : x)));

@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Performance } from "@/components/Performer";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, followJob, type JobEvent, type JobStatus, type Mode, type Stroke, submitShot } from "@/lib/shot";
+import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -27,7 +27,7 @@ const pollUntilDone = async (id: string): Promise<JobStatus> => {
 const ms = (frames: number) => Math.round((frames / 24) * 1000);
 
 /** The receipt as plain claims: what rendered it, where the hit landed, when it stopped. */
-function Chips({ job, effect }: { job: JobStatus; effect: EffectInfo | undefined }) {
+function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | undefined; live: boolean }) {
   const r = job.receipt;
   if (!r) return null;
   const lib = r.render.library;
@@ -38,7 +38,7 @@ function Chips({ job, effect }: { job: JobStatus; effect: EffectInfo | undefined
   const cue = r.inputs?.cue ?? "voice";
   return (
     <div className="row">
-      {job.cached && <span className="chip warn">a sample made earlier: perform your own noise to make one live</span>}
+      {job.cached && <span className="chip warn">{live ? "a sample made earlier: perform your own noise to make one live" : "a sample made earlier"}</span>}
       {r.retimed && <span className="chip">re-timed by hand: hit {r.retimed.hit_shift_frames >= 0 ? "+" : ""}{ms(r.retimed.hit_shift_frames)} ms{r.retimed.stop_frame !== null ? `, stop at ${(r.retimed.stop_frame / 24).toFixed(2)} s` : ""}, same element</span>}
       <span className="chip">{scene ? `rendered into your scene in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5, from your plate's frame)`
         : lib ? `instant: a pre-rendered LTX-2.5 element, timed by your voice` : `rendered from your voice in ${r.render.seconds.toFixed(0)} s on open weights`}</span>
@@ -48,35 +48,41 @@ function Chips({ job, effect }: { job: JobStatus; effect: EffectInfo | undefined
       {r.inputs?.drawn && <span className="chip">where you drew it</span>}
       {scene && early !== null && early !== 0 && <span className="chip">the model put it {ms(Math.abs(early))} ms {early > 0 ? "early" : "late"}; moved onto your cue</span>}
       {(r.warnings ?? []).map((w) => <span key={w} className="chip warn">{w}</span>)}
-      {hit !== null && <span className="chip">{hit === 0 ? "the hit lands on your exact frame" : `hit ${hit > 0 ? "+" : ""}${ms(hit)} ms from your noise`}</span>}
+      {hit !== null && <span className="chip">{hit === 0 ? (scene ? "moved onto your cue's frame (as measured on the render)" : "the hit is on your cue's frame")
+        : `the model was too far off to move all the way: ${hit > 0 ? "+" : ""}${ms(hit)} ms from your cue`}</span>}
       {(effect?.stops_with_voice ?? r.measured.stops_with_voice) && stop !== null && (
         <span className="chip">{stop <= 0 ? "stops when you stop" : `stops ${ms(stop)} ms after you do`}</span>
       )}
-      <span className="chip">{job.cached ? `it took ${r.seconds_total.toFixed(0)} s when it was made` : `${r.seconds_total.toFixed(0)} s in total`}</span>
+      {!job.cached && <span className="chip">{r.seconds_total.toFixed(0)} s in total</span>}
     </div>
   );
 }
 
 /** Step 4: pick the effect and how to make it, then the shot. */
-export default function ShotPanel({ plate, point, direction, performance, effects, modes, strokes, initialJob, onBusy, onDone }: {
+export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, initialJob, onBusy, onDone }: {
   plate: PickedPlate;
   point: [number, number];
   direction: number | null;
   performance: Performance;
   effects: EffectInfo[];
   modes: Mode[];
+  madeAheadScene?: boolean; // the GPU is offline, but sample scene shots were made ahead of time
   strokes: Stroke[];
   initialJob?: JobStatus | null; // this take's shot, if it was already made (coming back to it)
   onBusy?: (busy: boolean) => void;
   onDone: (job: JobStatus, effect: string) => void;
 }) {
-  const firstMode: Mode = modes.includes("scene") ? "scene" : modes.includes("instant") ? "instant" : "render";
+  const drawn = strokes.length > 0;
+  const sceneLive = modes.includes("scene");
+  // with the GPU offline, a sample shot that was made into the scene ahead of time still plays
+  const ahead = !sceneLive && !!madeAheadScene && madeAhead(plate, performance.cue, performance.voice, point, drawn);
+  const sceneOk = sceneLive || ahead;
+  const firstMode: Mode = sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
   const [mode, setModeState] = useState<Mode>(firstMode);
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
   const [effect, setEffect] = useState(AUTO_EFFECT);
   const [subject, setSubject] = useState(plate.subject ?? "");
   const [describe, setDescribe] = useState("");
-  const drawn = strokes.length > 0;
   const choices = effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
   const setMode = (m: Mode) => {
     setModeState(m);
@@ -142,7 +148,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           </button>
         ))}
       </div>
-      {mode === "scene" && (
+      {mode === "scene" && !ahead && (
         <label className="row">
           <span className="muted">Say what happens (optional)</span>
           <input value={describe} maxLength={200} disabled={busy} style={{ flex: "1 1 260px" }}
@@ -151,9 +157,10 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         </label>
       )}
       <div className="row" role="radiogroup" aria-label="How to make it">
-        <button role="radio" aria-checked={mode === "scene"} disabled={busy || !modes.includes("scene")}
+        <button role="radio" aria-checked={mode === "scene"} disabled={busy || !sceneOk}
           className={mode === "scene" ? "" : "secondary"} onClick={() => setMode("scene")}>
-          Into the scene <span className="muted">LTX-2.5 renders it into your shot and the scene reacts, ~2 min</span>
+          Into the scene <span className="muted">{ahead ? "made ahead of time for this sample: it plays now"
+            : "LTX-2.5 renders it into your shot and the scene reacts, ~2 min"}</span>
         </button>
         <button role="radio" aria-checked={mode === "instant"} disabled={busy || !modes.includes("instant") || drawn}
           className={mode === "instant" ? "" : "secondary"} onClick={() => setMode("instant")}>
@@ -174,7 +181,11 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           ? "A drawing needs \"Into the scene\"."
           : "A drawing needs \"Into the scene\", and the GPU is offline right now: tap the source instead for an instant shot."}</p>
       )}
-      {!modes.includes("render") && <p className="muted">The GPU is offline right now: instant mode places a pre-rendered element with your timing.</p>}
+      {!sceneLive && (
+        <p className="muted">{ahead ? "The GPU is offline right now, but this sample was rendered into the scene ahead of time."
+          : madeAheadScene ? "The GPU is offline right now: instant mode places a pre-rendered element with your timing. Into the scene still plays for a sample clip at its marked spot with a noise marked ready, or with the clip's own snap."
+            : "The GPU is offline right now: instant mode places a pre-rendered element with your timing."}</p>
+      )}
       {mode === "scene" && !plate.sample && (
         <label className="row">
           <span className="muted">What is it?</span>
@@ -211,7 +222,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
             ))}
           </div>
           <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
-          <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} />
+          <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />
           <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}
             onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />
           <div className="row">

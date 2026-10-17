@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dragDirection, hitAnchor, type Receipt, suggestEffect } from "./shot";
+import { dragDirection, hitAnchor, madeAhead, type Receipt, sceneEffect, suggestEffect } from "./shot";
 
 const SR = 48000;
 
@@ -39,4 +39,22 @@ describe("hitAnchor", () => {
     expect(hitAnchor({ mode: "scene", guide, alignment: { hit_frame: 24 } } as Receipt)).toBe(24));
   it("keeps an element shot's guide anchor", () => expect(hitAnchor({ guide } as Receipt)).toBe(7));
   it("has nothing to anchor without a receipt", () => expect(hitAnchor(null)).toBe(0));
+});
+
+describe("madeAhead", () => {
+  const candle = { sample: true, point: [0.53, 0.52] as [number, number], scene: { "pf.wav": "blow_out", hit: "blow_out" }, sound: true };
+  it("plays a listed sample noise at the marked spot", () =>
+    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], false)).toBe(true));
+  it("plays the clip's own sound", () => expect(madeAhead(candle, "clip", null, [0.53, 0.52], false)).toBe(true));
+  it("not once the spot moves, for a noise it doesn't list, a drawing, or your own clip", () => {
+    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.4, 0.52], false)).toBe(false);
+    expect(madeAhead(candle, "voice", { sample: "hissss.wav" }, [0.53, 0.52], false)).toBe(false);
+    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], true)).toBe(false);
+    expect(madeAhead({ ...candle, sample: false }, "clip", null, [0.53, 0.52], false)).toBe(false);
+  });
+  it("says what a noise does to this plate", () => {
+    expect(sceneEffect(candle.scene, { name: "pf.wav", url: "" })).toBe("blow_out");
+    expect(sceneEffect(candle.scene, { name: "ka-boom.wav", url: "", gesture: "hit" })).toBe("blow_out");
+    expect(sceneEffect(undefined, { name: "pf.wav", url: "" })).toBeUndefined();
+  });
 });

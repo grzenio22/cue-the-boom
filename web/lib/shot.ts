@@ -66,6 +66,7 @@ export interface Health {
   ok: boolean;
   renderer: string | null;
   modes: Mode[];
+  made_ahead?: Mode[]; // modes with sample shots made ahead of time (they play with the GPU offline)
   queued: number;
 }
 
@@ -76,7 +77,24 @@ export interface SamplePlate {
   subject?: string; direction?: number; scene?: SceneMap;
   sound?: boolean; // the sample carries a sound of its own to lock to (a snap)
 }
-export interface SampleVoice { name: string; url: string; title?: string; effect?: string }
+export interface SampleVoice { name: string; url: string; title?: string; effect?: string; gesture?: string }
+
+/** What a sample noise does to a sample plate in scene mode: its own entry in the plate's map, else its gesture's. */
+export function sceneEffect(scene: SceneMap | undefined, v: SampleVoice): string | undefined {
+  const e = scene?.[v.name] ?? (v.gesture ? scene?.[v.gesture] : undefined);
+  return typeof e === "string" ? e : e?.effect;
+}
+
+/** Was this exact sample shot made into the scene ahead of time (so it plays with the GPU offline)? A sample clip
+ * at its marked spot, cued by a sample noise its map lists by name, or by the clip's own sound. */
+export function madeAhead(plate: { sample: boolean; point: [number, number] | null; scene?: SceneMap; sound: boolean },
+  cue: CueKind, voice: Source | null, point: [number, number], drawn: boolean): boolean {
+  if (!plate.sample || !plate.point || drawn) return false;
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.005;
+  if (!near(plate.point[0], point[0]) || !near(plate.point[1], point[1])) return false;
+  if (cue === "clip") return plate.sound;
+  return cue === "voice" && voice !== null && "sample" in voice && !!plate.scene && voice.sample in plate.scene;
+}
 export interface Samples { plates: SamplePlate[]; voices: SampleVoice[] }
 
 /** A plate or a voice: something the browser has (a file or a recording), or a sample the server has. */

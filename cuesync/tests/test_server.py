@@ -337,3 +337,37 @@ def test_auto_with_a_sample_noise_is_answered_from_the_shots_made_ahead(tmp_path
     r = client.post("/api/jobs", data={"effect": "auto", "plate_sample": "mug.mp4", "voice_sample": "pf.wav",
                                        "mode": "instant", "x": "0.5", "y": "0.6", "seed": "1"}).json()
     assert r["cached"] is True and r["effect"] == "fireball" and r["gesture"] == "hit"  # the "pf." decided, at once
+
+
+def test_with_the_gpu_offline_the_sample_scene_shots_made_ahead_still_play(tmp_path, make_video, make_wav):
+    from cuesync.precompute import cache_key
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    make_video(tmp_path, n=24, fps=24, w=90, h=160, color_fn=lambda i: (60, 60, 60)).rename(samples / "plates" / "candle.mp4")
+    make_voice(tmp_path, make_wav).rename(samples / "voices" / "pf.wav")
+    (samples / "samples.json").write_text(json.dumps({
+        "plates": {"candle.mp4": {"point": [0.5, 0.6], "scene": {"pf.wav": "blow_out", "hit": "blow_out"},
+                                  "clip_cue": {"effect": "blow_out"}}},
+        "voices": {"pf.wav": {"gesture": "hit"}}}))
+    index = {}
+    for voice in ("pf.wav", "clip"):
+        name = f"candle__{voice.split('.')[0]}__blow_out"
+        shot = tmp_path / "pre" / "scene" / name
+        shot.mkdir(parents=True)
+        for f in ("final.mp4", "composite.mp4", "receipt.json", "cue.json", "guide.json"):
+            (shot / f).write_bytes(b"{}" if f.endswith(".json") else b"\x00" * 64)
+        index[cache_key("scene", "candle.mp4", voice, "blow_out", (0.5, 0.6))] = {
+            "dir": name, "title": name, "plate": "candle.mp4", "voice": voice, "effect": "blow_out", "mode": "scene"}
+    (tmp_path / "pre" / "scene" / "index.json").write_text(json.dumps(index))
+    client = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), samples_dir=samples,
+                                   precomputed=tmp_path / "pre"))
+    h = client.get("/api/health").json()
+    assert "scene" not in h["modes"] and "scene" in h["made_ahead"]
+    base = {"effect": "auto", "plate_sample": "candle.mp4", "mode": "scene", "x": "0.5", "y": "0.6"}
+    said = client.post("/api/jobs", data=base | {"voice_sample": "pf.wav"}).json()
+    assert said["cached"] is True and said["effect"] == "blow_out"
+    snap = client.post("/api/jobs", data=base | {"cue": "clip"}).json()
+    assert snap["cached"] is True and snap["effect"] == "blow_out"  # the snap in the clip, no GPU
+    moved = client.post("/api/jobs", data=base | {"voice_sample": "pf.wav", "x": "0.3"})
+    assert moved.status_code == 400 and "made ahead" in moved.text  # anything else needs the GPU, and says so

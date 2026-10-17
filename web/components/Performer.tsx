@@ -7,7 +7,7 @@ import { encodeWav } from "@/lib/audio/wav";
 import { applyAndVerify, AUDIO_CONSTRAINTS, videoConstraints } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
 import { type ClockSample, fitMediaClock, sampleClock } from "@/lib/sync/mediaClock";
-import { type CueKind, EFFECT_LABELS, type SampleVoice, type Source, suggestEffect } from "@/lib/shot";
+import { type CueKind, EFFECT_LABELS, type SampleVoice, sceneEffect, type SceneMap, type Source, suggestEffect } from "@/lib/shot";
 import { buildTimingJson, estimateOffsetS, type TimingJson } from "@/lib/sync/timing";
 
 export interface Performance {
@@ -32,12 +32,14 @@ const MAX_SHOT_S = 10;
  * Step 3: cue it. Say it (perform the noise over the playing plate: mic, optional face camera, or a sample
  * noise), use a sound already in the clip (a snap, a click, a slam), or press and hold while it plays.
  */
-export default function Performer({ plateUrl, point, voices, takes, clipSound, onDone }: {
+export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, onDone }: {
   plateUrl: string;
   point: [number, number];
   voices: SampleVoice[];
   takes: number;
   clipSound: boolean; // the plate is the user's own clip (it may carry a sound to lock to)
+  scene?: SceneMap; // a sample plate's map: what each noise does to it
+  ready?: string[]; // sample noises whose scene shot was made ahead of time (the GPU is offline)
   onDone: (p: Performance) => void;
 }) {
   const [kind, setKind] = useState<CueKind>("voice");
@@ -315,7 +317,9 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, o
           <span className="muted">or use a sample noise:</span>
           {voices.map((v) => (
             <button key={v.name} className="secondary" disabled={step === "performing"} onClick={() => pickSample(v)}>
-              {v.title ?? v.name}{v.effect && <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[v.effect]?.name}</span>}
+              {v.title ?? v.name}
+              {(sceneEffect(scene, v) ?? v.effect) && <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[(sceneEffect(scene, v) ?? v.effect)!]?.name}</span>}
+              {ready?.includes(v.name) && <span className="muted" style={{ marginLeft: 6 }}>· ready</span>}
             </button>
           ))}
         </div>

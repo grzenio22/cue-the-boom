@@ -145,7 +145,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     cache = load_cache(precomputed)
     gallery: list[Job] = []
     rank = {"scene": 0, "render": 1}  # one tile per sample pair: the scene render, else the element render
-    for key, entry in sorted(cache.items(), key=lambda kv: (rank.get(kv[1]["mode"], 2), kv[1]["title"])):
+    best = min((rank.get(e["mode"], 2) for e in cache.values()), default=2)
+    shown = {k: e for k, e in cache.items() if rank.get(e["mode"], 2) == best}  # scene shots only, when there are any
+    for key, entry in sorted(shown.items(), key=lambda kv: kv[1]["title"]):
         same = [g for g in gallery if g.title == entry["title"]]
         if same:  # one gallery tile per sample pair: the full render when there is one
             continue
@@ -193,7 +195,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     @app.get("/api/health")
     def health():
         return {"ok": True, "renderer": getattr(renderer, "name", None), "modes": available_modes(),
-                "queued": jq.queued("render")}
+                "made_ahead": sorted({e["mode"] for e in cache.values()}), "queued": jq.queued("render")}
 
     @app.get("/api/samples")
     def samples():
@@ -272,18 +274,24 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             eff = load_effect("fireball" if auto else effect)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(400, f"unknown effect {effect!r}: {exc}") from None
+        if mode not in ("scene", "render", "instant"):
+            raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
         if mode != "scene" and (stroke_data or describe):
             raise HTTPException(400, "drawing and describing the effect need scene mode")
-        if mode == "scene" and not (scenes and "render" in jq.renderers):
-            raise HTTPException(400, "scene mode needs the GPU render API, which this server doesn't have")
-        if mode != "scene" and mode not in jq.renderers:
-            raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
         if mode == "scene" and eff.scene is None:
             raise HTTPException(400, f"{effect!r} has no scene mode")
         if mode != "scene" and not auto and effect not in ELEMENT_EFFECTS:
             raise HTTPException(400, f"{effect!r} only exists in scene mode")
-        if mode in ("render", "scene") and not render_ready():
-            raise HTTPException(503, "the GPU is offline right now; instant mode still works")
+
+        def need_live() -> None:
+            """A shot that wasn't made ahead of time needs its renderer, and the GPU answering."""
+            ahead = " (the sample shots made ahead of time still work: a sample clip at its marked spot, with a sample noise)"
+            if mode == "scene" and not (scenes and "render" in jq.renderers):
+                raise HTTPException(400, "Into the scene needs the GPU render API, which this server doesn't have" + ahead)
+            if mode != "scene" and mode not in jq.renderers:
+                raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
+            if mode in ("render", "scene") and not render_ready():
+                raise HTTPException(503, "the GPU is offline right now; instant mode still works" + ahead)
         if direction is not None and not -180 <= direction <= 180:
             raise HTTPException(400, "direction must be in [-180, 180] degrees")
         subject = (subject or "").strip()[:120] or None
@@ -318,23 +326,28 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 auto_gesture = None
         else:
             auto_gesture = None
-        if (plate_sample and voice_sample and face is None and timing is None and offset_s is None and scale is None
+        if auto and cue == "clip" and mode == "scene" and pm.get("clip_cue"):  # a sample clip knows what its sound does
+            effect, auto = pm["clip_cue"]["effect"], False
+        sample_voice = voice_sample if cue == "voice" else ("clip" if cue == "clip" and pm.get("clip_cue") else None)
+        if (plate_sample and sample_voice and face is None and timing is None and offset_s is None and scale is None
                 and element is None and x is not None and y is not None and not auto and not stroke_data
                 and not describe):
-            hit = cache.get(cache_key(mode, plate_sample, voice_sample, effect, (x, y), seed,
+            hit = cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
                                       direction if mode == "scene" else None))
             if hit:  # this exact sample shot was made ahead of time: answer at once
                 copy_shot(Path(hit["path"]), d)
-                spec = ShotSpec(plate=sample_files("plates")[plate_sample], voice=sample_files("voices")[voice_sample],
+                spec = ShotSpec(plate=sample_files("plates")[plate_sample],
+                                voice=sample_files("voices")[voice_sample] if voice_sample else None,
                                 effect=effect, point=(float(x), float(y)), seed=int(hit.get("seed", seed)),
                                 mode="scene" if mode == "scene" else "element", direction=direction, subject=subject,
-                                **(shot_defaults or {}))
+                                cue=cue, **(shot_defaults or {}))
                 if auto_gesture:
                     spec.extra["gesture"] = auto_gesture
                 job = Job(id=job_id, dir=d, spec=spec, mode=mode, status="done", stage="done", progress=1.0,
                           message="Made earlier", cached=True, title=hit["title"])
                 jq.jobs[job_id] = job
                 return job.public()
+        need_live()
         (d / "in").mkdir(parents=True)
         if plate is not None:
             plate_path = await save(plate, d / "in" / f"plate{Path(plate.filename or '.mp4').suffix or '.mp4'}")
