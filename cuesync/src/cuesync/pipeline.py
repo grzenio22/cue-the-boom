@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
@@ -98,6 +99,7 @@ class ShotSpec:
     matte: Callable[[np.ndarray, tuple[float, float]], np.ndarray | None] | None = None  # None: GrabCut
     scale: float | None = None  # effect size multiplier; None: from the object's size
     element: str | None = None  # instant mode: reuse this library element (compare takes fairly)
+    multi_hit: bool = True  # "pf, pf, KA-BOOM": one burst per hit (bursts and puffs)
     extra: dict = field(default_factory=dict)
 
 
@@ -274,6 +276,16 @@ def object_width(occluder: np.ndarray | None, point: tuple[float, float]) -> flo
     return float(np.median(widths)) / w if widths else None
 
 
+def cut_gates(gates: tuple[np.ndarray, np.ndarray], at: int, release_fire: int, release_smoke: int):
+    """The (fire, smoke) gates released from plate frame ``at``: linear ramps down, never reopened."""
+    gf, gs = gates[0].copy(), gates[1].copy()
+    for g, rel in ((gf, release_fire), (gs, release_smoke)):
+        if at < g.size:
+            ramp = np.clip(1.0 - (np.arange(g.size - at) + 1) / (rel + 1), 0.0, 1.0)
+            g[at:] = np.minimum(g[at:], ramp)
+    return gf, gs
+
+
 def auto_scale(occluder: np.ndarray | None, point: tuple[float, float], behaviour: str) -> float:
     """Effect size for the object it comes from: smaller props get smaller effects (never below 0.55),
     bigger ones a little more (up to 1.2)."""
@@ -326,26 +338,57 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     matte_fn = spec.matte or getattr(renderer, "matte", None) or grabcut_matte
     occluder = matte_fn(plate[0], point)
     scale = spec.scale if spec.scale is not None else auto_scale(occluder, point, eff.behaviour)
-    plan = paint_guide(cue, eff, point, size=element_size, scale=scale)
-    guide_path = out_dir / "guide.mp4"
-    write_guide(plan, guide_path, fps=FPS)
-    (out_dir / "guide.json").write_text(json.dumps(plan.to_json() | ({"element": spec.element} if spec.element else {}),
-                                                   indent=1))
-
+    # One effect per hit for a rhythmic performance ("pf, pf, KA-BOOM"), each from its own sub-performance.
+    hits = cue.hits() if spec.multi_hit and eff.behaviour in ("burst", "puff") else []
+    multi = len(hits) >= 2
+    events = [(cue, out_dir)] if not multi else [(cue.for_hit(h), out_dir / "hits" / str(k + 1)) for k, h in enumerate(hits)]
     instant = getattr(renderer, "name", "") == "library"
-    say("rendering", 0.18, f"Choosing a pre-rendered LTX-2.5 {eff.fluid} element" if instant
-        else f"Rendering the {eff.fluid} from your voice with LTX-2.5")
-    element_path = out_dir / "element.mp4"
-    render_s = renderer(guide_path, eff.prompt, spec.seed, element_path)
+    # In a rhythm, a quick quiet "pf" is a small pop and the long loud "KA-BOOM" the big one: each hit's size
+    # follows its loudness and how long it sounds, relative to the biggest hit.
+    sizes = [1.0] * len(events)
+    if multi:
+        span = [max(1, sum(b - a for a, b in ec.intervals())) for ec, _ in events]
+        weight = [(h.strength / max(x.strength for x in hits)) ** 2 * (d / max(span)) for h, d in zip(hits, span)]
+        sizes = [float(np.clip(0.35 + 0.65 * w ** 0.5, 0.35, 1.0)) for w in weight]
+    rendered = []
+    for k, (ecue, folder) in enumerate(events):
+        folder.mkdir(parents=True, exist_ok=True)
+        if multi:
+            (folder / "cue.json").write_text(json.dumps(ecue.to_json(), indent=1))
+        plan_k = paint_guide(ecue, eff, point, size=element_size, scale=scale * sizes[k])
+        guide_k = folder / "guide.mp4"
+        write_guide(plan_k, guide_k, fps=FPS)
+        (folder / "guide.json").write_text(json.dumps(plan_k.to_json() | ({"element": spec.element} if spec.element else {}),
+                                                      indent=1))
+        which = f" (hit {k + 1} of {len(events)})" if multi else ""
+        say("rendering", 0.18 + 0.5 * k / len(events), (f"Choosing a pre-rendered LTX-2.5 {eff.fluid} element" if instant
+            else f"Rendering the {eff.fluid} from your voice with LTX-2.5") + which)
+        element_k = folder / "element.mp4"
+        seconds = renderer(guide_k, eff.prompt, spec.seed + k, element_k)
+        frames_k = read_video(element_k).frames
+        timing_k = measure_element(frames_k, kind="fire" if eff.fluid == "fire" else "any")
+        align_k = plan_alignment(plan_k.anchor_frame, timing_k, mode=eff.align, lead=eff.lead_frames)
+        gates_k = voice_gates(n, ecue.intervals(), plan_k.anchor_frame, eff.voice_gate, eff.release_fire,
+                              eff.release_smoke, open_from=first_shown_frame(align_k, timing_k))
+        if multi and k + 1 < len(events):  # make way for the next hit: this one is released soon after it lands
+            gates_k = cut_gates(gates_k, hits[k + 1].frame + 4, release_fire=8, release_smoke=18)
+        rendered.append({"cue": ecue, "plan": plan_k, "guide": guide_k, "element_path": element_k, "element": frames_k,
+                         "timing": timing_k, "align": align_k, "gates": gates_k, "seconds": seconds,
+                         "last": dict(getattr(renderer, "last", None) or {}),
+                         "strength": float(np.max(ecue.envelope)) if len(ecue.envelope) else 0.0})
 
     say("compositing", 0.70, "Compositing onto your footage")
-    element = read_video(element_path).frames
-    timing = measure_element(element, kind="fire" if eff.fluid == "fire" else "any")
-    align = plan_alignment(plan.anchor_frame, timing, mode=eff.align, lead=eff.lead_frames)
-    gates = voice_gates(n, cue.intervals(), plan.anchor_frame, eff.voice_gate, eff.release_fire, eff.release_smoke,
-                        open_from=first_shown_frame(align, timing))
-    comp = composite(plate, element, align, timing, gates=gates, emission=emission, occluder=occluder,
-                     **effect_options(eff))
+    comp = plate
+    for r in rendered:  # layered in time order: a later burst goes over an earlier one's smoke
+        comp = composite(comp, r["element"], r["align"], r["timing"], gates=r["gates"], emission=emission,
+                         occluder=occluder, **effect_options(eff))
+    main = max(rendered, key=lambda r: r["strength"])  # the loudest hit stands for the shot
+    plan, guide_path, element, timing = main["plan"], main["guide"], main["element"], main["timing"]
+    align, gates, render_s = main["align"], main["gates"], sum(r["seconds"] for r in rendered)
+    if multi:  # the shot's own guide/element files are the loudest hit's
+        for name in ("guide.json", "guide.mp4", "element.mp4"):
+            shutil.copyfile(main["guide"].parent / name, out_dir / name)
+        guide_path = out_dir / "guide.mp4"
     audio = place_audio(samples, spec.offset_s, n)
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
@@ -366,7 +409,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
         write_video(final_path, _finalise(comp, env, spec.label or eff.id.replace("_", " "), faces), fps=FPS,
                     audio=audio, crf=16, preset=FINISH_PRESET)
 
-    ref_guide = (getattr(renderer, "last", None) or {}).get("guide")  # instant mode: the element's own guide
+    ref_guide = main["last"].get("guide")  # instant mode: the element's own guide
 
     def write_breakdown() -> None:
         if ref_guide:
@@ -397,8 +440,11 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
         "guide": {k: v for k, v in plan.to_json().items() if k != "blobs"},
         "render": {"renderer": renderer.name, "seconds": round(render_s, 2), "prompt": eff.prompt,
                    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA",
-                   **({"library": {k: v for k, v in renderer.last.items() if k != "guide"}}
-                      if getattr(renderer, "last", None) else {})},
+                   **({"library": {k: v for k, v in main["last"].items() if k != "guide"}} if main["last"] else {})},
+        "hits": [{"frame": r["plan"].anchor_frame, "strength": round(r["strength"], 3), "length": r["plan"].frames.shape[0],
+                  "size": round(r["plan"].scale, 3),
+                  **({"library": r["last"].get("entry")} if r["last"] else {"render_s": round(r["seconds"], 1)})}
+                 for r in rendered] if multi else None,
         "scale": round(scale, 3),
         "matte": {"source": "custom" if spec.matte is not None else ("server" if hasattr(renderer, "matte") else "grabcut"),
                   "found": occluder is not None,

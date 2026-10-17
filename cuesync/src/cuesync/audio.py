@@ -31,6 +31,14 @@ class NoOnsetError(ValueError):
     """The recording is silent or contains no detectable onset."""
 
 
+@dataclass(frozen=True)
+class Hit:
+    frame: int  # plate frame of the hit (the loudest onset of its group)
+    strength: float  # absolute envelope peak right after it (0..1, -60..-6 dBFS)
+    start: int  # first onset of its group
+    end: int  # where the next hit starts (or the end of the take)
+
+
 @dataclass
 class CueSheet:
     fps: int
@@ -58,6 +66,43 @@ class CueSheet:
         """First plate frame after the performance (end of the last active interval)."""
         iv = self.intervals()
         return iv[-1][1] if iv else None
+
+    def hits(self, min_gap: int = 6, max_hits: int = 4, range_db: float = 14.0) -> list["Hit"]:
+        """The distinct hits of a rhythmic performance ("pf, pf, KA-BOOM"): onsets closer than ``min_gap``
+        frames are one hit (anchored on its loudest onset), and only hits within ``range_db`` of the loudest
+        count (a breath or a click is not a hit). At most ``max_hits``, the loudest kept, in time order."""
+        env = np.asarray(self.envelope, dtype=np.float64)
+        frames = sorted({self.frame_of(t) for t in self.onsets_s if 0 <= self.frame_of(t) < env.size})
+        if not frames:
+            return []
+        groups: list[list[int]] = [[frames[0]]]
+        for f in frames[1:]:
+            (groups[-1].append(f) if f - groups[-1][-1] < min_gap else groups.append([f]))
+        level = lambda f: float(env[f: f + 6].max()) if f < env.size else 0.0  # noqa: E731
+        hits = []
+        for k, g in enumerate(groups):
+            end = groups[k + 1][0] if k + 1 < len(groups) else env.size
+            peak = g[0] + int(np.argmax(env[g[0]: max(end, g[0] + 1)]))  # "KA-BOOM": the hit is the BOOM
+            anchor = max((f for f in g if f <= peak), default=g[0])
+            hits.append(Hit(frame=anchor, strength=max(level(f) for f in g), start=g[0], end=end))
+        loudest = max(h.strength for h in hits)
+        keep = [h for h in hits if h.strength >= loudest - range_db / 54.0]  # the envelope spans 54 dB
+        keep = sorted(sorted(keep, key=lambda h: -h.strength)[:max_hits], key=lambda h: h.frame)
+        return keep
+
+    def for_hit(self, hit: "Hit") -> "CueSheet":
+        """This performance as if it were only ``hit``: its onset is the hero, the envelope is silent outside
+        it, and it is active from its start for as long as it sounds."""
+        env = np.asarray(self.envelope, dtype=np.float64).copy()
+        lo, hi = max(0, hit.start - 1), min(env.size, hit.end)
+        env[:lo], env[hi:] = 0.0, 0.0
+        sounding = [(a, b) for a, b in active_intervals(env > 0, merge_gap=3, min_len=1) if b > hit.start - 2]
+        active = [(max(sounding[0][0], hit.start), sounding[0][1])] if sounding else [(hit.start, hit.start + 2)]
+        peak = float(env.max()) or 1.0
+        return CueSheet(fps=self.fps, offset_s=self.offset_s, duration_s=self.duration_s,
+                        onsets_s=[hit.frame / self.fps], hero_onset_s=hit.frame / self.fps, envelope=env,
+                        envelope_rel=env / peak, peak_frame=int(np.argmax(env)), extra=dict(self.extra),
+                        active_intervals=active)
 
     def to_json(self) -> dict:
         r = lambda v: round(float(v), 4)  # noqa: E731

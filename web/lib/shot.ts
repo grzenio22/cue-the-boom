@@ -20,6 +20,7 @@ export interface Receipt {
   voice: { hero_onset_s: number; voice_end_frame: number | null; active_intervals: number[][] };
   guide: { length: number; tail: string; keyframes: number[] };
   matte?: { source: string; found: boolean };
+  hits?: { frame: number; strength: number; size: number }[] | null;
   seconds_total: number;
 }
 

@@ -19,6 +19,10 @@
   "hissss.wav": {
    "title": "hissss",
    "effect": "steam_jet"
+  },
+  "pf-pf-ka-boom.wav": {
+   "title": "pf, pf, KA-BOOM",
+   "effect": "fireball"
   }
  },
  "plates": {

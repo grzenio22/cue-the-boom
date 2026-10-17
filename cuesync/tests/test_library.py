@@ -71,3 +71,46 @@ def test_an_instant_shot_end_to_end(tmp_path, make_video, make_wav):
     assert r.receipt["render"]["library"]["entry"].startswith("fireball_")
     assert "guide" not in r.receipt["render"]["library"]  # frames stay out of the receipt
     assert r.receipt["measured"]["hit_error_frames"] == 0
+
+
+def three_hits(make_wav, tmp_path):
+    """'pf . pf . KA-BOOOOM': two short pops, then a long loud boom."""
+    sr = 48000
+    rng = np.random.default_rng(2)
+    x = rng.normal(0, 10 ** (-62 / 20), 4 * sr).astype(np.float32)
+    for start, dur, amp in ((1.0, 0.12, 0.5), (1.6, 0.12, 0.5), (2.2, 0.8, 0.9)):
+        n = int(dur * sr)
+        t = np.arange(n) / sr
+        x[int(start * sr): int(start * sr) + n] += (amp * np.sin(2 * np.pi * 150 * t) * np.minimum((dur - t) / 0.03, 1)).astype(np.float32)
+    return make_wav(tmp_path, x, sr)
+
+
+def test_a_rhythm_is_heard_as_separate_hits(tmp_path, make_wav):
+    from cuesync.audio import analyze
+    from cuesync.media import read_audio
+    cue = analyze(read_audio(three_hits(make_wav, tmp_path)), 48000, fps=24)
+    hits = cue.hits()
+    assert [h.frame for h in hits] == pytest.approx([24, 38, 53], abs=2)
+    assert hits[2].strength > hits[0].strength
+    sub = cue.for_hit(hits[1])
+    assert round(sub.hero_onset_s * 24) == hits[1].frame and sub.intervals()[0][0] >= hits[1].start
+    assert max(sub.envelope[: hits[1].start - 1], default=0) == 0  # the other hits are silent in it
+
+
+def test_cut_gates_releases_and_never_reopens():
+    from cuesync.pipeline import cut_gates
+    gf, gs = cut_gates((np.ones(40), np.ones(40)), 10, release_fire=4, release_smoke=9)
+    assert gf[9] == 1 and gf[14:].max() == 0 and gs[19:].max() == 0
+    assert (np.diff(gf[10:]) <= 0).all() and (np.diff(gs[10:]) <= 0).all()
+
+
+def test_a_three_hit_instant_shot(tmp_path, make_video, make_wav):
+    (tmp_path / "lib").mkdir()
+    lib = LibraryRenderer(fake_library(tmp_path / "lib"))
+    plate = make_video(tmp_path, n=96, fps=24, w=216, h=384, color_fn=lambda i: (50, 50, 50))
+    r = make_shot(ShotSpec(plate=plate, voice=three_hits(make_wav, tmp_path), effect="fireball", point=(0.5, 0.6)),
+                  lib, tmp_path / "shot")
+    hits = r.receipt["hits"]
+    assert hits is not None and len(hits) == 3
+    assert hits[2]["size"] > hits[0]["size"]  # the long loud boom is the big one
+    assert (tmp_path / "shot" / "hits" / "3" / "element.mp4").exists()

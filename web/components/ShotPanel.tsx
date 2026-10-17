@@ -34,6 +34,7 @@ function Chips({ job, effect }: { job: JobStatus; effect: EffectInfo | undefined
   return (
     <div className="row">
       <span className="chip">{lib ? `instant: a pre-rendered LTX-2.5 element, timed by your voice` : `rendered from your voice in ${r.render.seconds.toFixed(0)} s on open weights`}</span>
+      {r.hits && r.hits.length > 1 && <span className="chip">{r.hits.length} hits, each its own burst, sized by how you made it</span>}
       {hit !== null && <span className="chip">{hit === 0 ? "the hit lands on your exact frame" : `hit ${hit > 0 ? "+" : ""}${ms(hit)} ms from your noise`}</span>}
       {(effect?.stops_with_voice ?? r.measured.stops_with_voice) && stop !== null && (
         <span className="chip">{stop <= 0 ? "stops when you stop" : `stops ${ms(stop)} ms after you do`}</span>

@@ -25,6 +25,8 @@ About 20 seconds later, `runs/shot/` holds:
 - `composite.mp4`: the clean shot;
 - `receipt.json`: what was measured (where the hit landed, when it stopped) and what rendered it.
 
+**Perform a rhythm.** `--voice samples/voices/pf-pf-ka-boom.wav`: each hit gets its own burst, a quick "pf" a small pop and the long "KA-BOOM" the big one.
+
 **Use your own.** Swap in your clip (phone held still, 1-15 s) and your noise (any audio file). `--x/--y` is where the effect comes from, from 0 to 1 across and down the frame. `--effect` is `fireball`, `smoke_puff`, `flame_plume` or `steam_jet`.
 
 **Instant mode** picks one of 24 pre-rendered LTX-2.5 elements (`samples/library/`) for your performance; it does not generate new fluid. Then it does everything else from *your* recording:
