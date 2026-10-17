@@ -373,6 +373,40 @@ def test_with_the_gpu_offline_the_sample_scene_shots_made_ahead_still_play(tmp_p
     assert moved.status_code == 400 and "made ahead" in moved.text  # anything else needs the GPU, and says so
 
 
+def test_with_the_gpu_offline_a_samples_own_drawing_replays(tmp_path, make_video, make_wav):
+    from cuesync.precompute import cache_key
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    make_video(tmp_path, n=24, fps=24, w=90, h=160, color_fn=lambda i: (90, 60, 30)).rename(samples / "plates" / "pumpkin.mp4")
+    make_voice(tmp_path, make_wav).rename(samples / "voices" / "fwoooom.wav")
+    strokes = [{"points": [[0.36, 0.53], [0.5, 0.4], [0.7, 0.54]], "width": 0.09}]
+    (samples / "samples.json").write_text(json.dumps({
+        "plates": {"pumpkin.mp4": {"point": [0.53, 0.6], "scene": {"sustained": "flame_plume"},
+                                   "drawn": [{"title": "drawn", "voice": "fwoooom.wav", "effect": "flame_plume",
+                                              "strokes": strokes, "describe": "flames spread along its top"}]}},
+        "voices": {"fwoooom.wav": {"gesture": "sustained"}}}))
+    shot = tmp_path / "pre" / "scene" / "drawn"
+    shot.mkdir(parents=True)
+    for f in ("final.mp4", "composite.mp4", "receipt.json", "cue.json", "guide.json"):
+        (shot / f).write_bytes(b"{}" if f.endswith(".json") else b"\x00" * 64)
+    (tmp_path / "pre" / "scene" / "index.json").write_text(json.dumps({
+        cache_key("scene", "pumpkin.mp4", "fwoooom.wav", "flame_plume", (0.36, 0.53)): {
+            "dir": "drawn", "title": "drawn", "plate": "pumpkin.mp4", "voice": "fwoooom.wav", "effect": "flame_plume",
+            "mode": "scene", "drawn": True}}))
+    client = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), samples_dir=samples,
+                                   precomputed=tmp_path / "pre"))
+    base = {"effect": "auto", "plate_sample": "pumpkin.mp4", "mode": "scene", "voice_sample": "fwoooom.wav",
+            "x": "0.36", "y": "0.53"}
+    same = client.post("/api/jobs", data=base | {"strokes": json.dumps(strokes)}).json()
+    assert same["cached"] is True and same["effect"] == "flame_plume"
+    nudged = [{"points": [[0.362, 0.531], [0.5, 0.4], [0.7, 0.54]], "width": 0.09}]  # the same drawing, a pixel off
+    assert client.post("/api/jobs", data=base | {"strokes": json.dumps(nudged)}).json()["cached"] is True
+    other = [{"points": [[0.36, 0.53], [0.6, 0.3]], "width": 0.09}]
+    r = client.post("/api/jobs", data=base | {"strokes": json.dumps(other)})
+    assert r.status_code == 400 and "made ahead" in r.text  # a drawing of your own needs the GPU, and says so
+
+
 def test_your_own_clip_says_what_it_is_and_the_noise_does_to_it_what_it_would_to_a_sample(scene_client, tmp_path, make_video):
     client, r = scene_client
     assert any(o["id"] == "candle" for o in client.get("/api/objects").json())

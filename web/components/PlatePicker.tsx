@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { SamplePlate, SceneMap, Source } from "@/lib/shot";
+import type { DrawnSample, SamplePlate, SceneMap, Source } from "@/lib/shot";
 
 export interface PickedPlate {
   source: Source;
@@ -13,6 +13,7 @@ export interface PickedPlate {
   scene?: SceneMap; // what each sample noise does to it
   sample: boolean;
   sound: boolean; // may carry a sound to lock to (your own clip, or a sample with one)
+  drawn?: DrawnSample[]; // a sample's own drawings, rendered ahead of time
 }
 
 const MIN_PLATE_S = 1;
@@ -59,7 +60,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
           {samples.map((s) => (
             <button key={s.name} className="tile" onClick={() => onPick({ source: { sample: s.name }, url: s.url,
               title: s.title ?? s.name, point: s.point ?? null, direction: s.direction ?? null, subject: s.subject ?? null,
-              scene: s.scene, sample: true, sound: !!s.sound })}>
+              scene: s.scene, sample: true, sound: !!s.sound, drawn: s.drawn })}>
               <video src={s.url} muted playsInline preload="metadata" />
               <span>{s.title ?? s.name}</span>
               {s.note && <span className="muted note">{s.note}</span>}
@@ -72,7 +73,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
           Use your own clip
           <input type="file" accept="video/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
         </label>
-        <span className="muted">An object (a pumpkin, a mug, a toy) filmed with the phone held still, 1-15 s.</span>
+        <span className="muted">An object (a pumpkin, a mug, a toy) filmed with the phone held still, 1-15 s (the shot uses the first 10 s).</span>
       </div>
       {error && <p className="chip bad">{error}</p>}
     </section>

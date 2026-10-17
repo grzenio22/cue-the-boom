@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark; /* native controls (the noise's audio player, inputs) match the page */
   --bg: #0b0b0f;
   --fg: #f4f1ea;
   --muted: #a39f97;
@@ -33,6 +34,8 @@ button.secondary, .btn.secondary { background: var(--chip); color: var(--fg); }
 .chip.warn { color: var(--warn); }
 .chip.bad { color: var(--bad); }
 .muted { color: var(--muted); }
+/* helper text inside a selected (orange) button: grey on orange can't be read */
+button:not(.secondary) .muted, .btn:not(.secondary) .muted { color: #4a2a00; }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
 
 h2 { font-size: 1.15rem; margin: 1.6em 0 0.4em; }
@@ -56,4 +59,11 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .tile .note { font-size: 0.7rem; line-height: 1.25; }
 .guide { width: 120px; aspect-ratio: 9 / 16; background: #000; border-radius: 10px; }
 .retime { margin-top: 12px; }
-.ribbon { width: 100%; max-width: 600px; height: 90px; background: var(--chip); border-radius: 10px; touch-action: none; display: block; }
+.ribbon { width: 100%; max-width: 600px; height: 90px; background: var(--chip); border-radius: 10px; touch-action: none; display: block;
+  user-select: none; -webkit-user-select: none; cursor: ew-resize; }
+
+.spot { position: relative; height: 64px; border-radius: 6px; overflow: hidden; background: #000; flex: none; }
+.spot video { width: 100%; height: 100%; object-fit: fill; display: block; }
+.spot i { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 2px #000; }
+.cue-audio { height: 36px; max-width: 240px; }

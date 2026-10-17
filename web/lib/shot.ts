@@ -72,10 +72,13 @@ export interface Health {
 
 /** What each sample noise does to a sample plate in scene mode (an effect id, or {effect, seed}). */
 export type SceneMap = Record<string, string | { effect: string }>;
+/** A sample's own drawing, rendered into the scene ahead of time with one of the sample noises. */
+export interface DrawnSample { title: string; voice: string; effect: string; strokes: Stroke[]; describe?: string }
 export interface SamplePlate {
   name: string; url: string; title?: string; point?: [number, number]; note?: string;
   subject?: string; direction?: number; scene?: SceneMap;
   sound?: boolean; // the sample carries a sound of its own to lock to (a snap)
+  drawn?: DrawnSample[];
 }
 /** A kind of thing your own clip can show: what each gesture does to it in scene mode. */
 export interface ObjectKind { id: string; title: string; subject: string | null; scene: SceneMap }
@@ -93,11 +96,25 @@ export function sceneEffect(scene: SceneMap | undefined, v: SampleVoice): string
   return typeof e === "string" ? e : e?.effect;
 }
 
+/** Is drawing `b` the drawing `a`, to within half a percent of the frame (what the server accepts as the same)? */
+export function sameStrokes(a: Stroke[], b: Stroke[], tol = 0.005): boolean {
+  return a.length === b.length && a.every((s, i) => Math.abs(s.width - b[i].width) < tol && s.points.length === b[i].points.length
+    && s.points.every(([x, y], j) => Math.abs(x - b[i].points[j][0]) < tol && Math.abs(y - b[i].points[j][1]) < tol));
+}
+
+/** The sample noises a sample's own drawing was rendered with ahead of time (none for any other drawing). */
+export function drawnReady(plate: { sample: boolean; drawn?: DrawnSample[] }, strokes: Stroke[]): string[] {
+  if (!plate.sample || strokes.length === 0) return [];
+  return (plate.drawn ?? []).filter((d) => sameStrokes(d.strokes, strokes)).map((d) => d.voice);
+}
+
 /** Was this exact sample shot made into the scene ahead of time (so it plays with the GPU offline)? A sample clip
- * at its marked spot, cued by a sample noise its map lists by name, or by the clip's own sound. */
-export function madeAhead(plate: { sample: boolean; point: [number, number] | null; scene?: SceneMap; sound: boolean },
-  cue: CueKind, voice: Source | null, point: [number, number], drawn: boolean): boolean {
-  if (!plate.sample || !plate.point || drawn) return false;
+ * at its marked spot, cued by a sample noise its map lists by name, or by the clip's own sound; or the sample's own
+ * drawing with the noise it was rendered with. */
+export function madeAhead(plate: { sample: boolean; point: [number, number] | null; scene?: SceneMap; sound: boolean; drawn?: DrawnSample[] },
+  cue: CueKind, voice: Source | null, point: [number, number], strokes: Stroke[]): boolean {
+  if (strokes.length) return cue === "voice" && voice !== null && "sample" in voice && drawnReady(plate, strokes).includes(voice.sample);
+  if (!plate.sample || !plate.point) return false;
   const near = (a: number, b: number) => Math.abs(a - b) < 0.005;
   if (!near(plate.point[0], point[0]) || !near(plate.point[1], point[1])) return false;
   if (cue === "clip") return plate.sound;
@@ -164,8 +181,18 @@ export function suggestEffect(pcm: Float32Array, sampleRate: number, onsetS: num
   return durationS >= 0.45 ? "flame_plume" : "fireball";
 }
 
+/** The server's own words for a failed request: its JSON `detail`, else the text, else the status. */
+export async function failure(r: Response): Promise<Error> {
+  const text = await r.text().catch(() => "");
+  try {
+    const detail = (JSON.parse(text) as { detail?: unknown }).detail;
+    if (typeof detail === "string" && detail) return new Error(detail);
+  } catch { /* not JSON */ }
+  return new Error(text || `request failed (${r.status})`);
+}
+
 const json = async <T,>(r: Response): Promise<T> => {
-  if (!r.ok) throw new Error((await r.text()) || `request failed (${r.status})`);
+  if (!r.ok) throw await failure(r);
   return r.json() as Promise<T>;
 };
 

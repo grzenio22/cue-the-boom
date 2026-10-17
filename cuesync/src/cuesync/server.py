@@ -35,8 +35,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json",
                 "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4")
 EARLY_FILES = ("guide_preview.mp4", "cue.json")  # shown while the shot is still being made
-SAMPLES = next((d for d in (Path.cwd() / "samples", Path(__file__).resolve().parents[3] / "samples")
-                if (d / "samples.json").exists()), Path.cwd() / "samples")
+# the checkout's samples/: from the current folder or any folder above it (started from web/), or next to the source
+SAMPLES = next((d / "samples" for d in (Path.cwd(), *Path.cwd().parents, Path(__file__).resolve().parents[3])
+                if (d / "samples" / "samples.json").exists()), Path.cwd() / "samples")
 MAX_UPLOAD_MB = 300
 
 
@@ -65,13 +66,26 @@ class Job:
             receipt = json.loads((self.dir / "receipt.json").read_text())
         spec_extra = getattr(self.spec, "extra", None) or {}
         return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "status": self.status,
-                "effect": getattr(self.spec, "effect", None), "gesture": spec_extra.get("gesture"),
+                "effect": getattr(self.spec, "effect", None) or ((receipt or {}).get("effect") or {}).get("id"),
+                "gesture": spec_extra.get("gesture"),
                 "stage": self.stage,
                 "progress": round(self.progress, 3), "message": self.message, "error": self.error, "files": files,
                 "receipt": receipt}
 
 
 ELEMENT_EFFECTS = ("fireball", "flame_plume", "smoke_puff", "steam_jet")  # tuned for element mode, in the library
+
+
+def same_strokes(a, b, tol: float = 0.005) -> bool:
+    """Is drawing ``b`` the drawing ``a`` (a sample's own, made ahead of time), to within ``tol`` of the frame?"""
+    try:
+        return len(a) == len(b) and all(
+            abs(float(s["width"]) - float(t["width"])) < tol and len(s["points"]) == len(t["points"])
+            and all(abs(float(p[0]) - float(q[0])) < tol and abs(float(p[1]) - float(q[1])) < tol
+                    for p, q in zip(s["points"], t["points"]))
+            for s, t in zip(a, b))
+    except (TypeError, KeyError, ValueError, IndexError):
+        return False
 
 
 class JobQueue:
@@ -147,7 +161,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     rank = {"scene": 0, "render": 1}  # one tile per sample pair: the scene render, else the element render
     best = min((rank.get(e["mode"], 2) for e in cache.values()), default=2)
     shown = {k: e for k, e in cache.items() if rank.get(e["mode"], 2) == best}  # scene shots only, when there are any
-    for key, entry in sorted(shown.items(), key=lambda kv: kv[1]["title"]):
+    for key, entry in sorted(shown.items(), key=lambda kv: (kv[1].get("plate", ""), kv[1]["title"])):  # by plate
         same = [g for g in gallery if g.title == entry["title"]]
         if same:  # one gallery tile per sample pair: the full render when there is one
             continue
@@ -221,7 +235,11 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     def effects():
         out = []
         for i in effect_ids():
-            e = load_effect(i)
+            try:
+                e = load_effect(i)
+            except (FileNotFoundError, ValueError) as exc:  # one broken file of your own doesn't hide the rest
+                print(f"skipping effect {i!r}: {exc}", flush=True)
+                continue
             out.append({"id": e.id, "fluid": e.fluid, "behaviour": e.behaviour, "stops_with_voice": e.voice_gate == "both",
                         "scene": e.scene is not None, "direction": e.scene.direction if e.scene else None,
                         "element": e.id in ELEMENT_EFFECTS})
@@ -340,9 +358,16 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         if auto and cue == "clip" and mode == "scene" and pm.get("clip_cue"):  # a sample clip knows what its sound does
             effect, auto = pm["clip_cue"]["effect"], False
         sample_voice = voice_sample if cue == "voice" else ("clip" if cue == "clip" and pm.get("clip_cue") else None)
+        drawn_sample = None  # the sample's own drawing, made ahead of time: it replays like any other sample shot
+        if plate_sample and stroke_data and mode == "scene" and cue == "voice" and not auto:
+            drawn_sample = next((e for e in pm.get("drawn", []) if e.get("voice") == voice_sample
+                                 and e.get("effect") == effect and same_strokes(e.get("strokes"), stroke_data)
+                                 and describe in (None, e.get("describe"))), None)
+            if drawn_sample:
+                describe = drawn_sample.get("describe")  # rendered live, it says what the sample said
         if (plate_sample and sample_voice and face is None and timing is None and offset_s is None and scale is None
-                and element is None and x is not None and y is not None and not auto and not stroke_data
-                and not describe):
+                and element is None and x is not None and y is not None and not auto
+                and (not stroke_data or drawn_sample) and (not describe or drawn_sample)):
             hit = cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
                                       direction if mode == "scene" else None))
             if hit:  # this exact sample shot was made ahead of time: answer at once
@@ -432,7 +457,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                     return
                 await asyncio.sleep(0.25)
 
-        return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+        # no-transform: the studio's proxy would otherwise gzip the stream and hold every event until the job ends
+        return StreamingResponse(stream(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
 
     @app.post("/api/compare")
     def compare(a: str = Form(...), b: str = Form(...)):

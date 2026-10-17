@@ -16,10 +16,11 @@ interface Dims { boxW: number; boxH: number; videoW: number; videoH: number }
  * Draw where the effect goes, on the plate's first frame: each stroke is a polyline in normalised video
  * coordinates plus a brush width (a share of the frame width). Where you start drawing is where it comes from.
  */
-export default function DrawPad({ src, strokes, onChange }: {
+export default function DrawPad({ src, strokes, onChange, locked = false }: {
   src: string;
   strokes: Stroke[];
   onChange: (s: Stroke[]) => void;
+  locked?: boolean; // shown, not drawn on: a sample's own drawing replaying with the GPU offline
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,6 +92,7 @@ export default function DrawPad({ src, strokes, onChange }: {
   };
 
   const onDown = (ev: React.PointerEvent<HTMLDivElement>) => {
+    if (locked) return;
     const p = at(ev);
     if (!p) return;
     live.current = { points: [p], width: brush };
@@ -118,19 +120,19 @@ export default function DrawPad({ src, strokes, onChange }: {
     <div>
       <div ref={boxRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
         style={{ position: "relative", width: "100%", maxWidth: 360, aspectRatio: "9 / 16", background: "#000",
-          cursor: "crosshair", touchAction: "none" }}>
+          cursor: locked ? "default" : "crosshair", touchAction: locked ? "auto" : "none" }}>
         <video src={src} muted playsInline preload="auto" onLoadedData={onLoaded}
           style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />
         <canvas ref={canvasRef} aria-label="your drawing" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
       </div>
-      <div className="row" role="radiogroup" aria-label="Brush">
+      {!locked && <div className="row" role="radiogroup" aria-label="Brush">
         {BRUSHES.map((b) => (
           <button key={b.label} role="radio" aria-checked={brush === b.width} className={brush === b.width ? "" : "secondary"}
             onClick={() => setBrush(b.width)}>{b.label}</button>
         ))}
         <button className="secondary" disabled={strokes.length === 0} onClick={() => onChange(strokes.slice(0, -1))}>Undo</button>
         <button className="secondary" disabled={strokes.length === 0} onClick={() => onChange([])}>Clear</button>
-      </div>
+      </div>}
     </div>
   );
 }

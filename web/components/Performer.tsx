@@ -32,7 +32,7 @@ const MAX_SHOT_S = 10;
  * Step 3: cue it. Say it (perform the noise over the playing plate: mic, optional face camera, or a sample
  * noise), use a sound already in the clip (a snap, a click, a slam), or press and hold while it plays.
  */
-export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, onDone }: {
+export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, onDone }: {
   plateUrl: string;
   point: [number, number];
   voices: SampleVoice[];
@@ -40,6 +40,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   clipSound: boolean; // the plate is the user's own clip (it may carry a sound to lock to)
   scene?: SceneMap; // a sample plate's map: what each noise does to it
   ready?: string[]; // sample noises whose scene shot was made ahead of time (the GPU is offline)
+  live?: boolean; // the GPU renders into the scene right now
   onDone: (p: Performance) => void;
 }) {
   const [kind, setKind] = useState<CueKind>("voice");
@@ -277,7 +278,8 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         <button role="radio" aria-checked={kind === "voice"} className={kind === "voice" ? "" : "secondary"}
           disabled={step === "performing" || holdPlaying} onClick={() => setKind("voice")}>Say it</button>
         <button role="radio" aria-checked={kind === "clip"} className={kind === "clip" ? "" : "secondary"}
-          disabled={step === "performing" || holdPlaying || !clipSound} onClick={() => setKind("clip")}>The clip&apos;s own sound</button>
+          disabled={step === "performing" || holdPlaying || !clipSound} onClick={() => setKind("clip")}
+          title={clipSound ? undefined : "This sample has no sound of its own to lock to; your own clip may"}>The clip&apos;s own sound</button>
         <button role="radio" aria-checked={kind === "hold"} className={kind === "hold" ? "" : "secondary"}
           disabled={step === "performing" || holdPlaying} onClick={() => setKind("hold")}>Press and hold</button>
       </div>
@@ -325,18 +327,36 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         </>
       )}
       {error && <p className="chip bad">{error}</p>}
-      {kind === "voice" && voices.length > 0 && (
-        <div className="row">
-          <span className="muted">or use a sample noise:</span>
-          {voices.map((v) => (
-            <button key={v.name} className="secondary" disabled={step === "performing"} onClick={() => pickSample(v)}>
-              {v.title ?? v.name}
-              {(sceneEffect(scene, v) ?? v.effect) && <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[(sceneEffect(scene, v) ?? v.effect)!]?.name}</span>}
-              {ready?.includes(v.name) && <span className="muted" style={{ marginLeft: 6 }}>· ready</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      {kind === "voice" && voices.length > 0 && (() => {
+        // what each noise makes right now: with the GPU offline, the real render only where it was made ahead of time
+        const isReady = (v: SampleVoice) => !!ready?.includes(v.name);
+        const makes = (v: SampleVoice): string | undefined => {
+          const inScene = sceneEffect(scene, v) ?? v.effect;
+          if (live || isReady(v)) return inScene && EFFECT_LABELS[inScene]?.name;
+          return v.effect && `${EFFECT_LABELS[v.effect]?.name ?? v.effect}, instant`;
+        };
+        const sample = (v: SampleVoice) => (
+          <button key={v.name} className="secondary" disabled={step === "performing"} onClick={() => pickSample(v)}>
+            {v.title ?? v.name}
+            {makes(v) && <span className="muted" style={{ marginLeft: 6 }}>{makes(v)}</span>}
+          </button>
+        );
+        const real = live ? [] : voices.filter(isReady);
+        return (
+          <>
+            {real.length > 0 && (
+              <div className="row">
+                <span className="muted">plays the real LTX-2.5 render, made ahead of time:</span>
+                {real.map(sample)}
+              </div>
+            )}
+            <div className="row">
+              <span className="muted">{real.length ? "or, as an instant shot (the GPU is offline):" : live ? "or use a sample noise:" : "or use a sample noise (an instant shot: the GPU is offline):"}</span>
+              {voices.filter((v) => !real.includes(v)).map(sample)}
+            </div>
+          </>
+        );
+      })()}
     </section>
   );
 }

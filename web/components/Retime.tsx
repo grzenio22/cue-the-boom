@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { followJob, hitAnchor, type JobEvent, type JobStatus } from "@/lib/shot";
+import { failure, followJob, hitAnchor, type JobEvent, type JobStatus } from "@/lib/shot";
 
 const W = 600, H = 90, FPS = 24;
 
@@ -38,6 +38,10 @@ export default function Retime({ job, stopsWithVoice, onRetimed }: {
     return Math.round(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * (n - 1));
   };
   const moved = hit !== anchor || (stopsWithVoice && stop !== voiceEnd);
+  const moveTo = (which: "hit" | "stop", f: number) => {
+    if (which === "hit") setHit(Math.min(Math.max(f, anchor - 48), anchor + 48));
+    else setStop(Math.max(f, hit + 2));
+  };
 
   const apply = async () => {
     setBusy(true);
@@ -47,7 +51,7 @@ export default function Retime({ job, stopsWithVoice, onRetimed }: {
       form.append("shift", String(hit - anchor));
       if (stopsWithVoice && stop !== null && stop !== voiceEnd) form.append("stop", String(stop));
       const r = await fetch(`/api/jobs/${job.id}/retime`, { method: "POST", body: form });
-      if (!r.ok) throw new Error((await r.text()) || `re-time failed (${r.status})`);
+      if (!r.ok) throw await failure(r);
       const queued: JobStatus = await r.json();
       const done = await followJob(queued.id, setEvent);
       if (done.status === "done") onRetimed(done);
@@ -61,28 +65,32 @@ export default function Retime({ job, stopsWithVoice, onRetimed }: {
 
   return (
     <div className="retime">
-      <p className="muted">Re-time it: drag the <b>hit</b>{stopsWithVoice ? <> or the <b>stop</b></> : null} along your voice.
+      <p className="muted">Re-time it: drag the <b>hit</b>{stopsWithVoice ? <> or the <b>stop</b></> : null} along your voice (or tap where it should be).
         It is composited again from the same element, no new render.</p>
       <svg ref={svg} viewBox={`0 0 ${W} ${H}`} className="ribbon" role="slider" aria-label="hit and stop on your voice"
-        aria-valuenow={hit} onPointerMove={(e) => {
-          if (!drag) return;
+        aria-valuenow={hit} onPointerDown={(e) => {
+          // anywhere on the ribbon: the nearer handle jumps there and follows the finger (a phone can't hit a 20 px handle)
+          if (busy) return;
           const f = frameAt(e.clientX);
-          if (drag === "hit") setHit(Math.min(Math.max(f, anchor - 48), anchor + 48));
-          else setStop(Math.max(f, hit + 2));
-        }} onPointerUp={() => setDrag(null)} onPointerLeave={() => setDrag(null)}>
+          const which = stopsWithVoice && stop !== null && Math.abs(f - stop) < Math.abs(f - hit) ? "stop" : "hit";
+          e.currentTarget.setPointerCapture(e.pointerId);
+          setDrag(which);
+          moveTo(which, f);
+        }} onPointerMove={(e) => { if (drag) moveTo(drag, frameAt(e.clientX)); }}
+        onPointerUp={() => setDrag(null)} onPointerCancel={() => setDrag(null)}>
         {env.map((v, i) => (
           <rect key={i} x={x(i)} y={H - 6 - v * (H - 24)} width={Math.max(1, W / n - 1)} height={v * (H - 24)} fill="#ff8c00" opacity={0.75} />
         ))}
-        <g onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); setDrag("hit"); }} style={{ cursor: "ew-resize" }}>
+        <g style={{ cursor: "ew-resize" }}>
           <line x1={x(hit)} x2={x(hit)} y1={0} y2={H} stroke="#fff" strokeWidth={3} />
-          <rect x={x(hit) - 18} y={0} width={36} height={16} rx={4} fill="#fff" />
-          <text x={x(hit)} y={12} textAnchor="middle" fontSize={11} fill="#000">hit</text>
+          <rect x={x(hit) - 26} y={0} width={52} height={22} rx={5} fill="#fff" />
+          <text x={x(hit)} y={16} textAnchor="middle" fontSize={15} fontWeight={600} fill="#000">hit</text>
         </g>
         {stopsWithVoice && stop !== null && (
-          <g onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); setDrag("stop"); }} style={{ cursor: "ew-resize" }}>
+          <g style={{ cursor: "ew-resize" }}>
             <line x1={x(stop)} x2={x(stop)} y1={0} y2={H} stroke="#5ad1ff" strokeWidth={3} />
-            <rect x={x(stop) - 20} y={H - 16} width={40} height={16} rx={4} fill="#5ad1ff" />
-            <text x={x(stop)} y={H - 4} textAnchor="middle" fontSize={11} fill="#000">stop</text>
+            <rect x={x(stop) - 28} y={H - 22} width={56} height={22} rx={5} fill="#5ad1ff" />
+            <text x={x(stop)} y={H - 6} textAnchor="middle" fontSize={15} fontWeight={600} fill="#000">stop</text>
           </g>
         )}
       </svg>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dragDirection, hitAnchor, madeAhead, type Receipt, sceneEffect, suggestEffect } from "./shot";
+import { dragDirection, failure, hitAnchor, madeAhead, type Receipt, sameStrokes, sceneEffect, suggestEffect } from "./shot";
 
 const SR = 48000;
 
@@ -43,18 +43,35 @@ describe("hitAnchor", () => {
 
 describe("madeAhead", () => {
   const candle = { sample: true, point: [0.53, 0.52] as [number, number], scene: { "pf.wav": "blow_out", hit: "blow_out" }, sound: true };
+  const top = [{ points: [[0.36, 0.53], [0.5, 0.4]] as [number, number][], width: 0.09 }];
+  const pumpkin = { ...candle, drawn: [{ title: "drawn", voice: "fwoooom.wav", effect: "flame_plume", strokes: top }] };
   it("plays a listed sample noise at the marked spot", () =>
-    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], false)).toBe(true));
-  it("plays the clip's own sound", () => expect(madeAhead(candle, "clip", null, [0.53, 0.52], false)).toBe(true));
+    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], [])).toBe(true));
+  it("plays the clip's own sound", () => expect(madeAhead(candle, "clip", null, [0.53, 0.52], [])).toBe(true));
   it("not once the spot moves, for a noise it doesn't list, a drawing, or your own clip", () => {
-    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.4, 0.52], false)).toBe(false);
-    expect(madeAhead(candle, "voice", { sample: "hissss.wav" }, [0.53, 0.52], false)).toBe(false);
-    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], true)).toBe(false);
-    expect(madeAhead({ ...candle, sample: false }, "clip", null, [0.53, 0.52], false)).toBe(false);
+    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.4, 0.52], [])).toBe(false);
+    expect(madeAhead(candle, "voice", { sample: "hissss.wav" }, [0.53, 0.52], [])).toBe(false);
+    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], top)).toBe(false);
+    expect(madeAhead({ ...candle, sample: false }, "clip", null, [0.53, 0.52], [])).toBe(false);
+  });
+  it("plays the sample's own drawing with the noise it was made with", () => {
+    expect(madeAhead(pumpkin, "voice", { sample: "fwoooom.wav" }, [0.36, 0.53], top)).toBe(true);
+    const nudged = [{ points: [[0.362, 0.531], [0.5, 0.4]] as [number, number][], width: 0.09 }];
+    expect(sameStrokes(top, nudged)).toBe(true);
+    expect(madeAhead(pumpkin, "voice", { sample: "ka-boom.wav" }, [0.36, 0.53], top)).toBe(false);
+    expect(madeAhead(pumpkin, "voice", { sample: "fwoooom.wav" }, [0.36, 0.53], [...top, ...top])).toBe(false);
   });
   it("says what a noise does to this plate", () => {
     expect(sceneEffect(candle.scene, { name: "pf.wav", url: "" })).toBe("blow_out");
     expect(sceneEffect(candle.scene, { name: "ka-boom.wav", url: "", gesture: "hit" })).toBe("blow_out");
     expect(sceneEffect(undefined, { name: "pf.wav", url: "" })).toBeUndefined();
+  });
+});
+
+describe("failure", () => {
+  it("shows the server's own words, not its JSON", async () => {
+    expect((await failure(new Response(JSON.stringify({ detail: "the GPU is offline" }), { status: 503 }))).message).toBe("the GPU is offline");
+    expect((await failure(new Response("Internal Server Error", { status: 500 }))).message).toBe("Internal Server Error");
+    expect((await failure(new Response("", { status: 502 }))).message).toBe("request failed (502)");
   });
 });

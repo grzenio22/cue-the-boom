@@ -6,9 +6,21 @@ import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
 import ShotPanel from "@/components/ShotPanel";
 import TapPoint from "@/components/TapPoint";
-import { type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
+import { drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
 interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null }
+
+/** The plate's first frame, small, with where the effect comes from marked on it. */
+function Spot({ src, at }: { src: string; at: [number, number] }) {
+  const [aspect, setAspect] = useState(9 / 16);
+  return (
+    <span className="spot" style={{ aspectRatio: aspect }}>
+      <video src={`${src}#t=0.1`} muted playsInline preload="metadata"
+        onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth) setAspect(v.videoWidth / v.videoHeight); }} />
+      <i style={{ left: `${at[0] * 100}%`, top: `${at[1] * 100}%` }} />
+    </span>
+  );
+}
 
 export default function Studio() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -50,8 +62,15 @@ export default function Studio() {
   // with the GPU offline, the sample noises whose scene shot was made ahead of time (at the sample's own spot)
   const ready = madeAheadScene && plate?.sample && plate.point && point && plate.point[0] === point[0] && plate.point[1] === point[1]
     ? Object.keys(plate.scene ?? {}).filter((k) => /\.(wav|mp3|m4a|ogg|webm)$/.test(k)) : [];
+  // with the GPU offline, a sample's own drawing still plays: it was rendered ahead of time
+  const replay = madeAheadScene && !!plate?.drawn?.length;
+  const startDrawing = () => {
+    setDrawing(true);
+    if (!sceneLive && replay && plate?.drawn) setStrokes(plate.drawn[0].strokes);
+  };
   // a drawing says where it comes from (its first point); in tap mode the tapped point wins
   const where: [number, number] | null = drawing && strokes.length ? strokes[0].points[0] : point;
+  const cue = current?.performance;
 
   if (apiError && !health) {
     return (
@@ -77,14 +96,20 @@ export default function Studio() {
             <>
               <div className="row" role="radiogroup" aria-label="Tap or draw">
                 <button role="radio" aria-checked={!drawing} className={drawing ? "secondary" : ""} onClick={() => setDrawing(false)}>Tap the source</button>
-                <button role="radio" aria-checked={drawing} className={drawing ? "" : "secondary"} disabled={!sceneLive}
-                  onClick={() => setDrawing(true)}>Draw it</button>
+                <button role="radio" aria-checked={drawing} className={drawing ? "" : "secondary"} disabled={!sceneLive && !replay}
+                  onClick={startDrawing}>Draw it</button>
               </div>
-              {!sceneLive && health && <p className="muted">Drawing renders live on the GPU, which is offline right now: tap the source instead.</p>}
+              {!sceneLive && health && (
+                <p className="muted">{replay
+                  ? "The GPU is offline right now: Draw it plays the drawing made ahead of time for this sample (cue it with fwoooOOOM). A drawing of your own needs the GPU."
+                  : "Drawing renders live on the GPU, which is offline right now: tap the source instead."}</p>
+              )}
               {drawing ? (
                 <>
-                  <p className="muted">Draw where it goes: flames along the top of the pumpkin, smoke pouring out of a lamp. Start where it comes from; your cue fills the drawing.</p>
-                  <DrawPad src={plate.url} strokes={strokes} onChange={setStrokes} />
+                  <p className="muted">{sceneLive
+                    ? "Draw where it goes: flames along the top of the pumpkin, smoke pouring out of a lamp. Start where it comes from; your cue fills the drawing."
+                    : "The drawing made ahead of time: flames along the top of the pumpkin. The circle is where they start; the cue fills the rest."}</p>
+                  <DrawPad src={plate.url} strokes={strokes} onChange={setStrokes} locked={!sceneLive} />
                 </>
               ) : (
                 <>
@@ -96,8 +121,9 @@ export default function Studio() {
             </>
           ) : (
             <div className="row">
+              {where && <Spot src={plate.url} at={where} />}
               <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
-              <button className="secondary" disabled={rendering} onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : "Move it"}</button>
+              <button className="secondary" disabled={rendering} onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : plate.drawn?.length ? "Move it, or draw it" : "Move it"}</button>
             </div>
           )}
         </section>
@@ -105,8 +131,20 @@ export default function Studio() {
 
       {plate && where && pointSet && performing && (
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
-          scene={plate.sample ? plate.scene : undefined} ready={drawing ? [] : ready}
+          scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
           onDone={(p) => { setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null }]); setPerforming(false); }} />
+      )}
+
+      {plate && where && pointSet && !performing && cue && (
+        <section>
+          <h2>3. Cue it</h2>
+          <div className="row">
+            <span className="chip">{cue.cue === "clip" ? "the clip's own sound" : cue.cue === "hold" ? cue.label : cue.voice && "sample" in cue.voice ? `sample noise: ${cue.label}` : `your ${cue.label}`}</span>
+            {cue.cue === "voice" && cue.previewUrl && <audio src={cue.previewUrl} controls preload="none" className="cue-audio" />}
+            <button className="secondary" disabled={rendering} onClick={() => setPerforming(true)}>Cue it differently</button>
+          </div>
+          <p className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</p>
+        </section>
       )}
 
       {plate && where && pointSet && !performing && current && (
@@ -117,15 +155,6 @@ export default function Studio() {
             const id = current.id; // this take, even if the user has moved on to another before it finishes
             setTakes((t) => t.map((x) => (x.id === id ? { ...x, job, effect } : x)));
           }} />
-      )}
-
-      {plate && where && pointSet && !performing && (
-        <section>
-          <div className="row">
-            <button className="secondary" disabled={rendering} onClick={() => setPerforming(true)}>Cue it differently</button>
-            <span className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</span>
-          </div>
-        </section>
       )}
     </>
   );

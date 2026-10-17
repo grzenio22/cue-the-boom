@@ -344,6 +344,12 @@ def load_plate(path: Path, point: tuple[float, float], max_s: float, size: tuple
     return frames, (min(max(px, 0.0), 1.0), min(max(py, 0.0), 1.0)), element_size
 
 
+def plate_notes(path: Path, max_s: float) -> list[str]:
+    """What the receipt should say about the plate: a clip longer than the shot uses is cut, not refused."""
+    d = probe_video(path).duration_s
+    return [f"your clip is {d:.1f} s long; the shot uses its first {max_s:g} s"] if d > max_s + 0.05 else []
+
+
 def _place(eff, anchor: int, intervals: list, frames: np.ndarray, n: int, next_hit: int | None = None,
            stop: int | None = None):
     """Measure an element and put it on the plate: (timing, alignment, voice gates). ``next_hit``: a later
@@ -512,7 +518,7 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
 
-    say("finishing", 0.85, "Adding your face and the voice ribbon")
+    say("finishing", 0.85, "Adding your face and the voice ribbon" if spec.face else "Adding the voice ribbon")
     faces = None
     if spec.face is not None:
         try:
@@ -551,6 +557,7 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
     lib = {k: v for k, v in main["last"].items() if k != "guide"}
     receipt = {
         "cuesync": __version__,
+        "mode": "instant" if renderer_name == "library" else "element",
         "effect": eff.to_json(),
         "inputs": {"plate_sha": _sha(spec.plate), "voice_sha": _sha(spec.voice), "point": list(spec.point),
                    "seed": spec.seed, "offset_s": spec.offset_s, "face": spec.face is not None, "cue": spec.cue},
@@ -577,6 +584,7 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
                      "stops_with_voice": eff.voice_gate == "both",
                      "stopped_within_plate": stop is not None and stop < n,
                      "stop_latency_frames": None if stop is None or voice_end is None else stop - voice_end},
+        "warnings": plate_notes(spec.plate, spec.max_plate_s),
         "retimed": retimed,
         "seconds_total": round(time.perf_counter() - t0, 1),
     }

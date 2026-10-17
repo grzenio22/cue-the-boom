@@ -17,7 +17,8 @@ npm run dev -- --experimental-https --hostname 0.0.0.0
 ```
 
 It talks to the render API (`cuesync serve`, see the root README) through this origin: `/api/*` is proxied to
-`CUESYNC_API_URL` (default `http://127.0.0.1:8765`).
+`CUESYNC_API_URL` (default `http://127.0.0.1:8765`). The address is read when `npm run dev` starts and fixed by
+`npm run build`, so set it before either if the API runs elsewhere.
 
 ## Pages
 

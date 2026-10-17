@@ -48,7 +48,7 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
           ? `${r.hits.length} hits; the model kept ${r.hits.length - merged} apart and merged ${merged} into a neighbour`
           : `${r.hits.length} hits, each its own ${scene ? "event" : "burst"}, sized by how you made it`}</span>;
       })()}
-      {job.effect && job.gesture && <span className="chip">your {cue === "hold" ? "timing" : "noise"} read as a {job.gesture}: {EFFECT_LABELS[job.effect]?.name ?? job.effect}</span>}
+      {job.effect && job.gesture && <span className="chip">{job.cached ? "the" : "your"} {cue === "hold" ? "timing" : "noise"} read as a {job.gesture}: {EFFECT_LABELS[job.effect]?.name ?? job.effect}</span>}
       {cue === "clip" && <span className="chip">locked to the sound in your clip</span>}
       {r.inputs?.drawn && <span className="chip">where you drew it</span>}
       {scene && early !== null && early !== 0 && <span className="chip">the model put it {ms(Math.abs(early))} ms {early > 0 ? "early" : "late"}; moved onto your cue</span>}
@@ -80,7 +80,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const drawn = strokes.length > 0;
   const sceneLive = modes.includes("scene");
   // with the GPU offline, a sample shot that was made into the scene ahead of time still plays
-  const ahead = !sceneLive && !!madeAheadScene && madeAhead(plate, performance.cue, performance.voice, point, drawn);
+  const ahead = !sceneLive && !!madeAheadScene && madeAhead(plate, performance.cue, performance.voice, point, strokes);
   const sceneOk = sceneLive || ahead;
   const firstMode: Mode = sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
   const [mode, setModeState] = useState<Mode>(firstMode);
@@ -143,12 +143,14 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       <h2>4. Make the shot</h2>
       {performance.warnings.map((w) => <p key={w} className="chip warn">{w}</p>)}
       <div className="row" role="radiogroup" aria-label="Effect">
+        <span className="muted">Effect</span>
         <button role="radio" aria-checked={effect === AUTO_EFFECT} disabled={busy}
           className={effect === AUTO_EFFECT ? "" : "secondary"} onClick={() => setEffect(AUTO_EFFECT)}>
           Your cue decides <span className="muted" style={{ marginLeft: 6 }}>{performance.cue === "hold" ? "short pops, long flames" : "pf · KA-BOOM · fwoooom · hissss"}</span>
         </button>
         {choices.map((e) => (
-          <button key={e.id} role="radio" aria-checked={effect === e.id} disabled={busy}
+          <button key={e.id} role="radio" aria-checked={effect === e.id} disabled={busy || (ahead && mode === "scene")}
+            title={ahead && mode === "scene" ? "needs the GPU, which is offline: this sample plays the effect it was made with" : undefined}
             className={effect === e.id ? "" : "secondary"} onClick={() => setEffect(e.id)}>
             {EFFECT_LABELS[e.id]?.name ?? e.id}
             <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[e.id]?.cue}</span>
@@ -165,6 +167,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         </label>
       )}
       <div className="row" role="radiogroup" aria-label="How to make it">
+        <span className="muted">How</span>
         <button role="radio" aria-checked={mode === "scene"} disabled={busy || !sceneOk}
           className={mode === "scene" ? "" : "secondary"} onClick={() => setMode("scene")}>
           Into the scene <span className="muted">{ahead ? "made ahead of time for this sample: it plays now"
@@ -172,7 +175,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         </button>
         <button role="radio" aria-checked={mode === "instant"} disabled={busy || !modes.includes("instant") || drawn}
           className={mode === "instant" ? "" : "secondary"} onClick={() => setMode("instant")}>
-          Instant <span className="muted">a pre-rendered element, no GPU, ~15 s</span>
+          Instant <span className="muted">a pre-rendered element, no GPU, 20-30 s</span>
         </button>
       </div>
       <details>
@@ -190,7 +193,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           : "A drawing needs \"Into the scene\", and the GPU is offline right now: tap the source instead for an instant shot."}</p>
       )}
       {!sceneLive && (
-        <p className="muted">{ahead ? "The GPU is offline right now, but this sample was rendered into the scene ahead of time."
+        <p className="muted">{ahead ? (mode === "scene"
+          ? "The GPU is offline right now, but this sample was rendered into the scene ahead of time, so it plays now. The other effects need the GPU."
+          : "The GPU is offline right now: instant mode places a pre-rendered element with your timing; Into the scene plays the one made ahead of time.")
           : madeAheadScene ? "The GPU is offline right now: instant mode places a pre-rendered element with your timing. Into the scene still plays for a sample clip at its marked spot with a noise marked ready, or with the clip's own snap."
             : "The GPU is offline right now: instant mode places a pre-rendered element with your timing."}</p>
       )}
@@ -247,7 +252,13 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}
             onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />
           <div className="row">
-            {Object.entries(job.files).map(([name, url]) => <a key={name} className="btn secondary" href={url} download={name}>{name}</a>)}
+            {job.files["final.mp4"] && <a className="btn secondary" href={job.files["final.mp4"]} download="cue-the-boom.mp4">Download the shot</a>}
+            <details>
+              <summary className="muted">Every file (the render, the guide, the receipt)</summary>
+              <div className="row">
+                {Object.entries(job.files).map(([name, url]) => <a key={name} className="btn secondary" href={url} download={name}>{name}</a>)}
+              </div>
+            </details>
           </div>
         </div>
       )}

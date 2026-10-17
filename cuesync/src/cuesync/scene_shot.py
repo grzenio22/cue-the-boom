@@ -30,7 +30,7 @@ from .guide import write_guide, write_guide_preview
 from .matte import grabcut_matte
 from .media import probe_video, read_video, write_video
 from .pipeline import (FINISH_PRESET, FPS, Progress, Renderer, ShotResult, ShotSpec, _breakdown, _face_track,
-                       _finalise, _sha, auto_scale, load_plate, place_audio, shot_cue)
+                       _finalise, _sha, auto_scale, load_plate, place_audio, plate_notes, shot_cue)
 from .scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
 from .transfer import (TransferStats, _ecc, changed_share, effect_region, first_visible, gam, hit_onsets, is_still, lin,
                        transfer)
@@ -404,7 +404,7 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
 
-    say("finishing", 0.85, "Adding your face and the cue ribbon")
+    say("finishing", 0.85, "Adding your face and the cue ribbon" if spec.face else "Adding the cue ribbon")
     faces = None
     if spec.face is not None:
         try:
@@ -474,7 +474,7 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
             "stopped_within_plate": None if not stops else stop is not None,
         },
         "transfer": None if st.transfer is None else asdict(st.transfer),
-        "warnings": st.warnings,
+        "warnings": st.warnings + plate_notes(spec.plate, spec.max_plate_s),
         "retimed": retimed,
         "seconds_total": round(time.perf_counter() - t0, 1),
     }
