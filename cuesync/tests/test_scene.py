@@ -840,3 +840,38 @@ def test_a_rhythm_pauses_between_its_hits_on_the_guide():
     assert all(is_rest(s) for s in shapes(held, gap))
     assert all(np.array_equal(held.guide.frames[f], held.guide.frames[gap]) for f in range(gap + 1, b))  # held to the hit
     assert held.guide.frames[b].max() > 0 or b not in held.guide.keyframes
+
+
+def test_light_a_render_takes_away_darkens_the_plate_without_a_colour_cast():
+    from cuesync.transfer import gam, lin, relight
+
+    plate = lin(np.full((4, 4, 3), (150, 140, 130), np.uint8))  # a warm-white surface in the real clip
+    ref = lin(np.full((4, 4, 3), (220, 200, 140), np.uint8))  # the render lit it more brightly, and warmer
+    after = lin(np.full((4, 4, 3), (60, 60, 120), np.uint8))  # then the candle went out in the render
+    out = gam(relight(plate, ref, after - ref)).astype(int)[0, 0]
+    old = gam(np.maximum(plate + after - ref, 0.0)).astype(int)[0, 0]
+    assert old[2] > 2 * max(old[0], 1)  # the old additive transfer: red clipped to black, a blue cast
+    assert out.max() < 150 and abs(out[2] / max(out[0], 1) - 130 / 150) < 0.15  # darker, still its own colour
+    glow = gam(relight(plate, ref, lin(np.full((4, 4, 3), (255, 200, 120), np.uint8)) - ref)).astype(int)[0, 0]
+    assert glow[0] > 150  # light the render adds (a fire's glow) is still added
+
+
+def test_a_smooth_fireball_covers_what_is_behind_it_instead_of_ghosting_it():
+    # a flame against a soft, blurred background has almost no structure, and the render's background is not the clip's
+    n = 12
+    yy, xx = np.mgrid[:256, :128]
+
+    def soft_spot(cy, cx):  # something dark and out of focus: no edges for a structure detector to catch
+        return 214 - 170 * np.exp(-((yy - cy) ** 2 + (xx - cx) ** 2) / (2 * 14.0 ** 2))
+
+    plate = np.repeat(np.clip(soft_spot(135, 62), 0, 255).astype(np.uint8)[None, ..., None], n, 0).repeat(3, -1)
+    plate[::2, 5:15, 5:15] = 120  # the clip moves a little elsewhere, so the transfer path runs
+    render = np.repeat(np.clip(soft_spot(143, 70), 0, 255).astype(np.uint8)[None, ..., None], n, 0).repeat(3, -1)
+    region = np.zeros((256, 128), bool)
+    region[90:200, 30:100] = True
+    alpha = np.clip((44 - np.hypot(yy - 140, xx - 64)) / 8.0, 0.0, 1.0)[..., None]  # a soft-edged, smooth flame
+    flame = (render[0] * (1 - alpha) + np.array([250, 160, 60]) * alpha).astype(np.uint8)
+    render[4:] = flame
+    out, st = transfer(plate, render, list(range(n)), region, ref_frames=3, start=0)
+    patch = out[10, 130:140, 57:67].astype(int)  # where the clip's dark spot was (the render had it elsewhere)
+    assert np.abs(patch - np.array([250, 160, 60])).mean() < 6  # the flame, not a ghost of what is behind it (14.8 without)

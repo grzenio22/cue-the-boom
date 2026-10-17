@@ -176,6 +176,7 @@ def steepest_rise(energy: np.ndarray, around: int, before: int = 12, after: int 
 
 
 MAX_WARP = 0.04  # a registration that moves the frame more than this share of its width is not trusted
+COLOUR_MIN, COLOUR_SPAN = 0.08, 0.20  # linear light: near the effect, a change this big replaces the plate
 
 
 def _ecc(src: np.ndarray, ref: np.ndarray, mask: np.ndarray, s: int = 4) -> np.ndarray:
@@ -226,6 +227,21 @@ def _structure(lin_rgb: np.ndarray, sigma: float = 3.0) -> np.ndarray:
     return y - cv2.GaussianBlur(y, (0, 0), sigma)
 
 
+_LUMA = np.array([0.2126, 0.7152, 0.0722], np.float32)
+
+
+def relight(pl: np.ndarray, rl: np.ndarray, delta: np.ndarray) -> np.ndarray:
+    """The plate (linear light) with the render's change of light: light the render added is added (a fire's
+    glow); light it took away scales the plate down by the render's own loss of brightness, never below black
+    and never off its colour (subtracting a brighter render's lost light drove the plate's red channel below zero
+    and left a blue cast where a candle went out)."""
+    gained = np.maximum(delta, 0.0)
+    lost = np.minimum(delta, 0.0)
+    before = rl @ _LUMA
+    ratio = np.clip((np.maximum(rl + lost, 0.0) @ _LUMA + 1e-4) / (before + 1e-4), 0.0, 1.0)
+    return pl * ratio[..., None] + gained
+
+
 def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], region: np.ndarray, ref_frames: int,
              start: int, threads: int = 8) -> tuple[np.ndarray, TransferStats]:
     """Delta-transfer ``render`` (already at the plate's size) onto ``plate``. ``index[f]`` is the render
@@ -249,6 +265,7 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
     # plate, and not where the render's own content moved (else anything moving in the plate would ghost)
     feather = cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.02 * min(w, h)))
     feather = np.clip(feather * 2.0, 0.0, 1.0)
+    near = np.clip(cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.05 * min(w, h))) * 3.0, 0.0, 1.0)
 
     def layers(e: int):
         if e not in reg_cache:
@@ -260,6 +277,10 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         y_g, y_r = gl.max(-1), rl.max(-1)
         sdiff_valid = np.where((y_g < 0.85) & (y_r < 0.85) & (y_r > 2e-3), sdiff, 0.0)  # clipped light is light
         changed = np.clip((cv2.GaussianBlur(sdiff, (0, 0), 2.0) - 0.06) / 0.18, 0.0, 1.0)
+        # near the effect a smooth, bright change (a fireball, a plume of smoke) has little structure, and taken as
+        # light it was added to the plate as a see-through ghost; so there plain change of colour counts too
+        colour = np.clip((cv2.GaussianBlur(np.abs(gl - rl).max(-1), (0, 0), 2.0) - COLOUR_MIN) / COLOUR_SPAN, 0.0, 1.0)
+        changed = np.maximum(changed, colour * near)
         M = cv2.GaussianBlur(changed, (0, 0), 3.0) * feather
         delta = gl - rl
         quiet = 1.0 - cv2.dilate(cv2.GaussianBlur(changed, (0, 0), 4.0), np.ones((9, 9), np.uint8))
@@ -283,7 +304,7 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
             M = cv2.warpAffine(M, A, (w, h), borderMode=cv2.BORDER_CONSTANT)
         pl = lin(plate[f])
         M3 = M[..., None]
-        out[f] = gam(np.maximum(pl + delta, 0.0) * (1.0 - M3) + gl * M3)
+        out[f] = gam(relight(pl, rl, delta) * (1.0 - M3) + gl * M3)
         res_in.append(float(sdiff[region].mean()) if region.any() else 0.0)
         res_out.append(float(sdiff[static].mean()))
 
