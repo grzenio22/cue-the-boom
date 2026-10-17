@@ -73,7 +73,7 @@ A full shot takes about 45 s:
 
 `cuesync shot` without `--instant` does the same from the command line.
 
-**In ComfyUI.** `workflows/cue_the_boom.api.json` is the whole shot as one workflow: your voice and your plate go in, the finished shot comes out.
+**In ComfyUI.** `workflows/cue_the_boom.json` is the whole shot as one workflow (drag it onto the canvas: three labelled groups and a note explain it): your voice and your plate go in, the finished shot comes out. `workflows/cue_the_boom.api.json` is the same graph in API format, for the Comfy SDK.
 1. Install the node pack: put `comfyui-cuesync/` in `ComfyUI/custom_nodes/`, then `pip install ./cuesync`.
 2. Get the models: they're listed in [build/model-files.md](build/model-files.md).
 

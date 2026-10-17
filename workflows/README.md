@@ -30,3 +30,11 @@ Download all of these with `infra/pod/pod-setup.sh`:
 - `ainvfx-fluid.safetensors`, from AInVFX/ainvfx-fluid.
 
 LTX-2.5 by Lightricks; ainvfx-fluid by Adrien Toupet / AInVFX.
+
+## The whole shot
+
+`cue_the_boom.json` (canvas format: open it in ComfyUI) and `cue_the_boom.api.json` (API format: the Comfy SDK) are the
+element graph above with the CueSync node pack around it: Load Audio -> CueSync Analyze Voice -> CueSync Paint Guide
+feed the element graph in place of its Load Video, and CueSync Object Matte + CueSync Composite put the rendered element
+onto the loaded plate before Save Video. `cuesync graph --shot` generates the API version from the element graph.
+
