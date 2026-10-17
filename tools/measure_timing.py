@@ -91,6 +91,63 @@ def rate(vals: list[int | None], tol: int = 1) -> str:
     return f"{sum(abs(x) <= tol for x in v)}/{len(v)}" if v else "n/a"
 
 
+
+BG, FG, MUTED, GREY, ACCENT = (11, 11, 15), (244, 241, 234), (163, 159, 151), (120, 118, 114), (255, 176, 32)
+
+
+def _font(size: int, bold: bool = False):
+    from PIL import ImageFont
+
+    for name in (("arialbd.ttf", "DejaVuSans-Bold.ttf") if bold else ("arial.ttf", "DejaVuSans.ttf")):
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def chart(raw: list, fin: list, path: Path, lo: int = -10, hi: int = 16) -> None:
+    """Every shot as a dot, frames from its cue: the render as LTX-2.5 made it, then the finished shot."""
+    from PIL import Image, ImageDraw
+
+    w, h = 1600, 720
+    left, right = 330, w - 60
+    img = Image.new("RGB", (w, h), BG)
+    d = ImageDraw.Draw(img, "RGBA")
+    xf = lambda v: left + (min(max(v, lo), hi) - lo) / (hi - lo) * (right - left)  # noqa: E731
+    rows = [("LTX-2.5 render,", "as it comes", raw, GREY, 200), ("the finished", "shot", fin, ACCENT, 450)]
+    top, bottom = 90, 600
+    d.rectangle([xf(-1), top, xf(1), bottom], fill=ACCENT + (34,))
+    d.text(((xf(-1) + xf(1)) / 2, top - 14), "within one frame (42 ms)", font=_font(26), fill=ACCENT, anchor="md")
+    for f in range(lo, hi + 1, 2):
+        x = xf(f)
+        d.line([x, bottom, x, bottom + 10], fill=MUTED, width=2)
+        d.text((x, bottom + 16), f"{f:+d}" if f else "0", font=_font(24, bold=f == 0), fill=FG if f == 0 else MUTED,
+               anchor="ma")
+    d.line([left, bottom, right, bottom], fill=MUTED, width=2)
+    d.line([xf(0), top, xf(0), bottom], fill=(244, 241, 234, 90), width=2)
+    d.text((xf(0), bottom + 56), "frames from the cue (24 fps)", font=_font(24), fill=MUTED, anchor="ma")
+    d.text((left, bottom + 56), "early", font=_font(24), fill=MUTED, anchor="la")
+    d.text((right, bottom + 56), "late", font=_font(24), fill=MUTED, anchor="ra")
+    r = 13
+    for a, b, vals, colour, y in rows:
+        d.text((40, y - 34), a, font=_font(30, bold=True), fill=FG)
+        d.text((40, y + 4), b, font=_font(30, bold=True), fill=FG)
+        got = [v for v in vals if v is not None]
+        within = sum(abs(v) <= 1 for v in got)
+        mean = float(np.mean([abs(v) for v in got])) if got else float("nan")
+        d.text((40, y + 50), f"{within}/{len(got)} on the cue · {mean:.1f} frames off", font=_font(24),
+               fill=colour if colour != GREY else MUTED)
+        seen: dict[int, int] = {}
+        for v in sorted(got, key=abs):
+            k = int(round(min(max(v, lo), hi)))
+            n = seen.get(k, 0)
+            seen[k] = n + 1
+            cy = y + (n // 2 + n % 2) * (2 * r + 3) * (-1 if n % 2 else 1)  # stack out from the row's line
+            d.ellipse([xf(k) - r, cy - r, xf(k) + r, cy + r], fill=colour)
+    img.save(path)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("paths", nargs="+")
@@ -116,24 +173,7 @@ def main() -> int:
               "Final error is measured with a different detector than the one the pipeline re-times with."]
     (out / "timing.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[-3:]))
-    try:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-
-        x = np.arange(len(rows))
-        fig, ax = plt.subplots(figsize=(max(6, len(rows) * 0.7), 3.6), dpi=150)
-        ax.bar(x - 0.2, [v if v is not None else 0 for v in raw], 0.4, label="LTX-2.5 render as it comes", color="#888")
-        ax.bar(x + 0.2, [v if v is not None else 0 for v in fin], 0.4, label="finished shot", color="#ff8c00")
-        ax.axhspan(-1, 1, color="#ff8c00", alpha=0.08)
-        ax.axhline(0, color="#333", lw=0.8)
-        ax.set_xticks(x, [r["shot"].replace("__", "\n")[:28] for r in rows], fontsize=6, rotation=0)
-        ax.set_ylabel("frames from the cue (24 fps)")
-        ax.legend(fontsize=7, frameon=False)
-        fig.tight_layout()
-        fig.savefig(out / "timing.png")
-    except ImportError:
-        pass
+    chart(raw, fin, out / "timing.png")
     return 0
 
 
