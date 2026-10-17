@@ -77,6 +77,14 @@ export interface SamplePlate {
   subject?: string; direction?: number; scene?: SceneMap;
   sound?: boolean; // the sample carries a sound of its own to lock to (a snap)
 }
+/** A kind of thing your own clip can show: what each gesture does to it in scene mode. */
+export interface ObjectKind { id: string; title: string; subject: string | null; scene: SceneMap }
+
+export const fetchObjects = async (): Promise<ObjectKind[]> => {
+  const r = await fetch("/api/objects");
+  return r.ok ? r.json() : [];
+};
+
 export interface SampleVoice { name: string; url: string; title?: string; effect?: string; gesture?: string }
 
 /** What a sample noise does to a sample plate in scene mode: its own entry in the plate's map, else its gesture's. */
@@ -177,6 +185,7 @@ export async function submitShot(args: {
   mode: Mode;
   direction?: number | null;
   subject?: string | null;
+  object?: string | null; // your own clip: what it is (a candle, a jack-o'-lantern, ...)
   cue?: CueKind;
   holds?: [number, number][] | null;
   strokes?: Stroke[] | null;
@@ -200,6 +209,7 @@ export async function submitShot(args: {
   form.append("mode", args.mode);
   if (args.mode === "scene" && args.direction != null) form.append("direction", String(args.direction));
   if (args.mode === "scene" && args.subject) form.append("subject", args.subject);
+  if (args.object && !("sample" in args.plate)) form.append("object", args.object);
   return json<JobStatus>(await fetch("/api/jobs", { method: "POST", body: form }));
 }
 

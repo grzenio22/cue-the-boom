@@ -371,3 +371,21 @@ def test_with_the_gpu_offline_the_sample_scene_shots_made_ahead_still_play(tmp_p
     assert snap["cached"] is True and snap["effect"] == "blow_out"  # the snap in the clip, no GPU
     moved = client.post("/api/jobs", data=base | {"voice_sample": "pf.wav", "x": "0.3"})
     assert moved.status_code == 400 and "made ahead" in moved.text  # anything else needs the GPU, and says so
+
+
+def test_your_own_clip_says_what_it_is_and_the_noise_does_to_it_what_it_would_to_a_sample(scene_client, tmp_path, make_video):
+    client, r = scene_client
+    assert any(o["id"] == "candle" for o in client.get("/api/objects").json())
+    plate = make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))
+    with open(plate, "rb") as p:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
+                        data={"effect": "auto", "mode": "scene", "cue": "hold", "holds": json.dumps([[1.0, 1.15]]),
+                              "object": "candle", "x": "0.5", "y": "0.5"}).json()
+    assert s["effect"] == "blow_out" and s["gesture"] == "hit"  # a short press on a candle blows it out
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    assert "the candle" in r.prompts[-1]  # and the model is told what it is
+    with open(plate, "rb") as p:
+        bad = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
+                          data={"effect": "auto", "mode": "scene", "cue": "hold", "object": "volcano"})
+    assert bad.status_code == 400

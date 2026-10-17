@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Performance } from "@/components/Performer";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type Stroke, submitShot } from "@/lib/shot";
+import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -82,6 +82,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
   const [effect, setEffect] = useState(AUTO_EFFECT);
   const [subject, setSubject] = useState(plate.subject ?? "");
+  const [kinds, setKinds] = useState<ObjectKind[]>([]);
+  const [kind, setKind] = useState<string | null>(null); // your own clip: what it is
+  useEffect(() => { if (!plate.sample) fetchObjects().then(setKinds, () => setKinds([])); }, [plate.sample]);
   const [describe, setDescribe] = useState("");
   const choices = effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
   const setMode = (m: Mode) => {
@@ -104,7 +107,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     setEvent({ stage: "uploading", progress: 0.01, message: "Uploading", t: 0 });
     try {
       const queued = await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
-        timing: performance.timing, effect, point, seed, mode, direction, subject: subject.trim() || null,
+        timing: performance.timing, effect, point, seed, mode, direction, subject: subject.trim() || null, object: kind,
         cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
         describe: describe.trim() || null });
       setGuideUrl(null);
@@ -186,9 +189,22 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           : madeAheadScene ? "The GPU is offline right now: instant mode places a pre-rendered element with your timing. Into the scene still plays for a sample clip at its marked spot with a noise marked ready, or with the clip's own snap."
             : "The GPU is offline right now: instant mode places a pre-rendered element with your timing."}</p>
       )}
+      {mode === "scene" && !plate.sample && kinds.length > 0 && (
+        <div className="row" role="radiogroup" aria-label="What is it">
+          <span className="muted">What is it?</span>
+          {kinds.map((k) => (
+            <button key={k.id} role="radio" aria-checked={kind === k.id} disabled={busy}
+              className={kind === k.id ? "" : "secondary"}
+              onClick={() => { setKind(kind === k.id ? null : k.id); if (k.subject && !subject.trim()) setSubject(k.subject); }}>
+              {k.title}
+            </button>
+          ))}
+          {effect === AUTO_EFFECT && kind && <span className="muted">your cue does to it what it would to a {kinds.find((k) => k.id === kind)?.title.replace(/^an? /, "")}</span>}
+        </div>
+      )}
       {mode === "scene" && !plate.sample && (
         <label className="row">
-          <span className="muted">What is it?</span>
+          <span className="muted">{kinds.length ? "In your words (optional)" : "What is it?"}</span>
           <input value={subject} maxLength={120} disabled={busy} placeholder="the toy dinosaur on the desk"
             onChange={(e) => setSubject(e.target.value)} />
         </label>

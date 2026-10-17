@@ -194,6 +194,12 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         return {"ok": True, "renderer": getattr(renderer, "name", None), "modes": available_modes(),
                 "made_ahead": sorted({e["mode"] for e in cache.values()}), "queued": jq.queued("render")}
 
+    @app.get("/api/objects")
+    def objects():
+        from .gestures import OBJECTS
+
+        return [{"id": k, "title": v["title"], "subject": v["subject"], "scene": v["scene"]} for k, v in OBJECTS.items()]
+
     @app.get("/api/samples")
     def samples():
         meta = sample_meta()
@@ -240,7 +246,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      scale: float | None = Form(None), element: str | None = Form(None),
                      direction: float | None = Form(None), subject: str | None = Form(None),
                      cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
-                     describe: str | None = Form(None)):
+                     describe: str | None = Form(None), object: str | None = Form(None)):  # noqa: A002
         from .cues import SOURCES
         from .scene import Strokes
 
@@ -306,6 +312,14 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         d = jq.root / job_id
         meta = sample_meta()
         pm = meta.get("plates", {}).get(plate_sample, {}) if plate_sample else {}
+        if object is not None and not plate_sample:  # your own clip, and what it is
+            from .gestures import OBJECTS
+
+            if object not in OBJECTS:
+                raise HTTPException(400, f"object must be one of {sorted(OBJECTS)}")
+            pm = OBJECTS[object]
+            if mode == "scene":
+                subject = subject or pm.get("subject")
         if mode == "scene" and plate_sample:  # a sample plate knows what it shows and which way its source faces
             subject = subject or pm.get("subject")
             direction = direction if direction is not None else pm.get("direction")

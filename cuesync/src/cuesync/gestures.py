@@ -95,6 +95,25 @@ def gesture(cue: CueSheet, samples: np.ndarray | None = None, sr: int = 48000, s
     return "sustained"
 
 
+OBJECTS = {  # your own clip: say what it is, and the noise does to it what it would do to a sample like it
+    "candle": {"title": "a candle", "subject": "the candle",
+               "scene": {"hit": "blow_out", "breath": "blow_out", "rhythm": "blow_out", "hiss": "blow_out",
+                         "sustained": "wick_flare"}},
+    "jack-o-lantern": {"title": "a jack-o'-lantern", "subject": "the jack-o'-lantern",
+                       "scene": {"hit": "fire_burst", "rhythm": "fire_burst", "sustained": "fire_burst",
+                                 "breath": "fire_burst", "hiss": "fire_burst"}},
+    "mouth": {"title": "a toy's mouth", "subject": "the toy",
+              "scene": {"hit": "fire_breath", "rhythm": "fire_breath", "sustained": "fire_breath",
+                        "breath": "smoke_puff", "hiss": "steam_jet"}},
+    "hot-drink": {"title": "a hot drink", "subject": "the hot drink",
+                  "scene": {"hit": "steam_jet", "rhythm": "steam_jet", "sustained": "steam_jet", "breath": "steam_jet",
+                            "hiss": "steam_jet"}},
+    "flammable": {"title": "something to set alight", "subject": None,
+                  "scene": {"hit": "fireball", "rhythm": "fireball", "sustained": "flame_plume", "breath": "smoke_puff",
+                            "hiss": "steam_jet"}},
+}
+
+
 def effect_for(g: str, plate_meta: dict | None = None, voice_name: str | None = None) -> str:
     """The effect a gesture asks for: the plate's own map (by sample voice name, then by gesture), else the
     defaults (a sustained flame from a source that faces somewhere is a breath)."""
