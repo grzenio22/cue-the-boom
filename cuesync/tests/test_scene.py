@@ -799,3 +799,25 @@ def test_a_take_whose_noise_lands_off_the_clip_is_refused(tmp_path, make_wav):
         load_cue("voice", plate=voice, voice=voice, offset_s=-11.6, duration_s=4.0)  # a misread clock
     with pytest.raises(CueError, match="after the end"):
         load_cue("voice", plate=voice, voice=voice, offset_s=5.0, duration_s=4.0)
+
+
+def test_a_hit_the_model_merged_gets_no_flash_of_its_own():
+    from cuesync.scene_shot import PEAK_AFTER, time_scene
+
+    cue = cue_of([(1.0, 0.2, 0.9), (1.8, 0.2, 0.9)], length_s=5.0)
+    eff = load_effect("fireball")
+    start, length = plan_window(cue, eff, None)
+    plate = np.full((1, 256, 128, 3), 60, np.uint8)
+    sp = paint_scene_guide(cue, eff, (0.5, 0.6), plate, start=start, length=length, size=(128, 256))
+    assert len(sp.events) == 2
+    render = np.full((length, 256, 128, 3), 60, np.uint8)
+    yy, xx = np.mgrid[:256, :128]
+    disc = (yy - 150) ** 2 + (xx - 64) ** 2 < 30 ** 2
+    for e in range(sp.events[0].at - 2, length):  # one fire from the first hit on: the second never shows apart
+        render[e][disc] = (250, 180, 60)
+    st = time_scene(plate, True, render, sp, eff, 240)
+    assert st.merged == [1] and len(st.hits) == 2
+    corner = [int(st.frames[f, 10:40, 10:40].mean()) for f in range(len(st.frames))]
+    assert corner[st.hits[0] + PEAK_AFTER] > corner[0] + 5  # the first hit flashes
+    assert abs(corner[st.hits[1] + PEAK_AFTER] - corner[0]) <= 2  # the merged one doesn't
+

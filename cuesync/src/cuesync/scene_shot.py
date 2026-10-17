@@ -54,6 +54,7 @@ class SceneTiming:
     transfer: TransferStats | None  # delta transfer (moving plates only)
     hits: list[int] = field(default_factory=list)  # shot frames where each event shows
     warnings: list[str] = field(default_factory=list)
+    merged: list[int] = field(default_factory=list)  # events the model merged into a neighbour (no flash, no shake)
 
 
 def _fire_area(frame: np.ndarray, region: np.ndarray) -> float:
@@ -138,6 +139,7 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     steady = registered(render, region, ref_frames)  # camera drift must not read as the effect
     share = changed_share(steady, region, ref_frames)
     painted = at0
+    shown = list(range(len(sp.events)))  # the events the render shows on their own (a blast flashes for these)
     if eff.behaviour == "extinguish":  # what must land on the cue is the flame going out, not the smoke after it
         onset = flame_out(steady, region, ref_frames)
         if onset is None:
@@ -145,7 +147,9 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     elif len(sp.events) >= 2:  # a rhythm: every hit it shows on its own, moved together by their middle error
         wants = [ev.at - eff.lead_frames for ev in sp.events]
         curve = changed_share(steady, region, ref_frames, flame=True) if eff.fluid == "fire" else share
-        found = [(w, o) for w, o in zip(wants, hit_onsets(curve, wants, ref_frames)) if o is not None]
+        onsets = hit_onsets(curve, wants, ref_frames)
+        found = [(w, o) for w, o in zip(wants, onsets) if o is not None]
+        shown = [k for k, o in enumerate(onsets) if o is not None] or [0]
         if found:
             off = int(round(float(np.median([w - o for w, o in found]))))
             onset = at0 - eff.lead_frames - off  # where the first hit shows, by that error
@@ -188,10 +192,12 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
             warnings.append(f"used the render instead of your clip's own pixels: {stats.reason}")
             frames = _render_over_plate(plate, render, idx)
         plate_view, idx_out = plate, idx
-    if onset is not None:  # no flash or shake for a burst that can't be found
-        frames = impact(frames, hits, strengths, sc.shake if sc else 0.0, sc.flash if sc else 0.0)
+    if onset is not None:  # no flash or shake for a burst that can't be found, nor for a hit merged into another
+        frames = impact(frames, [hits[k] for k in shown], [strengths[k] for k in shown],
+                        sc.shake if sc else 0.0, sc.flash if sc else 0.0)
     return SceneTiming(frames=frames, index=idx_out, plate_view=plate_view, onset=onset, painted=painted, raw=raw,
-                       auto_shift=auto, shift=shift, transfer=stats, hits=hits, warnings=warnings + list(sp.notes))
+                       auto_shift=auto, shift=shift, transfer=stats, hits=hits, warnings=warnings + list(sp.notes),
+                       merged=[k for k in range(len(sp.events)) if k not in shown])
 
 
 def registered(render: np.ndarray, region: np.ndarray, ref_frames: int) -> np.ndarray:
@@ -445,8 +451,8 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
         "render": render_receipt,
         "plate": {"still": bool(still), "frames": n, "shot_frames": n_out,
                   "size": [pw, ph], "point": [round(point[0], 4), round(point[1], 4)]},
-        "hits": [{"frame": h, "size": round(ev.size, 3), "strength": round(ev.peak, 3)} for h, ev in zip(st.hits, sp.events)]
-                if len(sp.events) > 1 else None,
+        "hits": [{"frame": h, "size": round(ev.size, 3), "strength": round(ev.peak, 3), "merged": k in st.merged}
+                 for k, (h, ev) in enumerate(zip(st.hits, sp.events))] if len(sp.events) > 1 else None,
         "dropped_hits": sp.dropped,
         "scale": round(scale, 3),
         "matte": {"source": "custom" if spec.matte is not None else "auto", "found": occluder is not None,

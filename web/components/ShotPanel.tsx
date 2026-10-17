@@ -42,7 +42,12 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
       {r.retimed && <span className="chip">re-timed by hand: hit {r.retimed.hit_shift_frames >= 0 ? "+" : ""}{ms(r.retimed.hit_shift_frames)} ms{r.retimed.stop_frame !== null ? `, stop at ${(r.retimed.stop_frame / 24).toFixed(2)} s` : ""}, same element</span>}
       <span className="chip">{scene ? `rendered into your scene in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5, from your plate's frame)`
         : lib ? `instant: a pre-rendered LTX-2.5 element, timed by your voice` : `rendered from your voice in ${r.render.seconds.toFixed(0)} s on open weights`}</span>
-      {r.hits && r.hits.length > 1 && <span className="chip">{r.hits.length} hits, each its own {scene ? "event" : "burst"}, sized by how you made it</span>}
+      {r.hits && r.hits.length > 1 && (() => {
+        const merged = r.hits.filter((h) => h.merged).length;
+        return <span className="chip">{merged
+          ? `${r.hits.length} hits; the model kept ${r.hits.length - merged} apart and merged ${merged} into a neighbour`
+          : `${r.hits.length} hits, each its own ${scene ? "event" : "burst"}, sized by how you made it`}</span>;
+      })()}
       {job.effect && job.gesture && <span className="chip">your {cue === "hold" ? "timing" : "noise"} read as a {job.gesture}: {EFFECT_LABELS[job.effect]?.name ?? job.effect}</span>}
       {cue === "clip" && <span className="chip">locked to the sound in your clip</span>}
       {r.inputs?.drawn && <span className="chip">where you drew it</span>}

@@ -33,7 +33,7 @@ export interface Receipt {
   voice: { hero_onset_s: number; voice_end_frame: number | null; active_intervals: number[][] };
   guide: { length: number; tail: string; keyframes: number[]; anchor_frame: number };
   matte?: { source: string; found: boolean };
-  hits?: { frame: number; strength: number; size: number }[] | null;
+  hits?: { frame: number; strength: number; size: number; merged?: boolean }[] | null;
   retimed?: { hit_shift_frames: number; stop_frame: number | null } | null;
   seconds_total: number;
 }
