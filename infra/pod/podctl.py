@@ -141,8 +141,10 @@ def watchdog_blob() -> str:
 
 
 def create_body(*, name: str, gpu: str, volume_id: str, data_center: str, image: str, public_key: str,
-                idle_minutes: int, max_hours: float, min_ram_gb: int = 96, container_disk_gb: int = 40) -> dict:
-    """POST /v2/pods body: a Secure Cloud GPU pod, SSH as the only exposed port, watchdog armed at boot."""
+                idle_minutes: int, max_hours: float, min_ram_gb: int = 96, container_disk_gb: int = 40,
+                judge: bool = False) -> dict:
+    """POST /v2/pods body: a Secure Cloud GPU pod, SSH as the only exposed port (plus the app's HTTPS port for
+    a judging pod), watchdog armed at boot."""
     return {
         "name": name,
         "image": image,
@@ -150,7 +152,7 @@ def create_body(*, name: str, gpu: str, volume_id: str, data_center: str, image:
         "gpu": {"id": gpu, "count": 1, "minCudaVersion": MIN_CUDA, "minRamPerGpu": min_ram_gb},
         "dataCenterIds": [data_center],
         "disk": container_disk_gb,
-        "ports": ["22/tcp"],
+        "ports": ["22/tcp"] + ([f"{APP_PORT}/http"] if judge else []),
         "mounts": {"network": [{"volumeId": volume_id, "path": "/workspace"}]},
         "cmd": ["bash", "-c", BOOT],
         "env": {
@@ -307,10 +309,16 @@ def cmd_volume(args) -> None:
 
 
 def cmd_up(args) -> None:
-    if not (5 <= args.idle_minutes <= 240):
-        raise PodError("--idle-minutes must be between 5 and 240")
-    if not (math.isfinite(args.max_hours) and 0.25 <= args.max_hours <= 24):
-        raise PodError("--max-hours must be between 0.25 and 24")
+    if args.judge:  # a judging pod serves visitors for days: no idle kill, a hard deadline still applies
+        args.idle_minutes = max(args.idle_minutes, 10080)
+        args.max_hours = args.max_hours if args.max_hours > 24 else 216.0
+        if not (math.isfinite(args.max_hours) and args.max_hours <= 240):
+            raise PodError("--max-hours must be at most 240 for a judging pod")
+    else:
+        if not (5 <= args.idle_minutes <= 240):
+            raise PodError("--idle-minutes must be between 5 and 240")
+        if not (math.isfinite(args.max_hours) and 0.25 <= args.max_hours <= 24):
+            raise PodError("--max-hours must be between 0.25 and 24")
     state = load_state()
     if not state.get("volume_id"):
         raise PodError("no network volume yet; run `podctl.py volume create --dc <DC>` first")
@@ -318,7 +326,7 @@ def cmd_up(args) -> None:
     gpus = args.gpu or GPU_PREFERENCE
     name = f"{POD_NAME}-{secrets.token_hex(3)}"
     common = dict(name=name, volume_id=state["volume_id"], data_center=state["data_center"], image=args.image,
-                  idle_minutes=args.idle_minutes, max_hours=args.max_hours, min_ram_gb=args.min_ram)
+                  idle_minutes=args.idle_minutes, max_hours=args.max_hours, min_ram_gb=args.min_ram, judge=args.judge)
     if args.dry_run:
         body = create_body(gpu=gpus[0], public_key="<public key>", **common)
         body["env"]["CUE_WATCHDOG"] = f"<{len(body['env']['CUE_WATCHDOG'])} chars>"
@@ -461,7 +469,9 @@ def cmd_setup(args) -> None:
 
 
 SYNC_PATHS = ["cuesync/src", "cuesync/pyproject.toml", "cuesync/README.md", "comfyui-cuesync", "effects", "workflows",
-              "infra/pod/pod-setup.sh"]
+              "infra/pod/pod-setup.sh", "infra/pod/serve-app.sh", "samples", "web"]
+SYNC_SKIP = ("__pycache__", "node_modules", "/.next", ".pyc", "AGENTS.md")
+APP_PORT = 3000  # the judge app, exposed through Runpod's HTTPS proxy with --judge
 
 
 def cmd_sync(args) -> None:
@@ -476,7 +486,7 @@ def cmd_sync(args) -> None:
         for rel in SYNC_PATHS:
             if (REPO / rel).exists():
                 tar.add(REPO / rel, arcname=rel,
-                        filter=lambda t: None if "__pycache__" in t.name or t.name.endswith(".pyc") else t)
+                        filter=lambda t: None if any(k in t.name for k in SYNC_SKIP) else t)
     remote = ("rm -rf /workspace/cue-src && mkdir -p /workspace/cue-src && tar -xzf - -C /workspace/cue-src && "
               "/workspace/venv/bin/python -m pip install -q --no-deps -e /workspace/cue-src/cuesync && "
               "ln -sfn /workspace/cue-src/comfyui-cuesync /workspace/ComfyUI/custom_nodes/comfyui-cuesync && "
@@ -488,6 +498,20 @@ def cmd_sync(args) -> None:
         run_ssh(state, "pkill -f 'main[.]py --listen 127.0.0.1 --port 8188'; pkill -f 'comfy-api-prox[y]'; sleep 3; "
                        "bash /workspace/pod-setup.sh > /workspace/logs/restart.log 2>&1; tail -n 3 /workspace/logs/restart.log",
                 timeout=900)
+
+
+def cmd_serve_app(args) -> None:
+    """Start the render API (full + instant) and the studio on the pod; prints the public URL. Needs a pod
+    created with --judge, `setup` done and `sync` run."""
+    state = require_pod(load_state())
+    password = (args.password or os.environ.get("CUE_PASSWORD") or "").strip()
+    if not password:
+        raise PodError("set a password: --password or $CUE_PASSWORD (the app is public)")
+    run_ssh(state, "IFS= read -r CUE_PASSWORD; export CUE_PASSWORD; "
+                   "sed -i 's/\\r$//' /workspace/cue-src/infra/pod/serve-app.sh; "
+                   "bash /workspace/cue-src/infra/pod/serve-app.sh",
+            input=(password + "\n").encode(), timeout=1800)
+    print(f"app: https://{state['pod_id']}-{APP_PORT}.proxy.runpod.net  (user: anything, password: as set)")
 
 
 def cmd_tunnel(args) -> None:
@@ -564,7 +588,13 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--min-ram", type=int, default=96, help="minimum host RAM in GB (placement filter)")
     s.add_argument("--boot-timeout", type=float, default=900, help="seconds to wait for SSH")
     s.add_argument("--dry-run", action="store_true", help="print the request body and exit")
+    s.add_argument("--judge", action="store_true",
+                   help=f"a judging pod: exposes the app on HTTPS port {APP_PORT}, no idle kill, 9-day deadline")
     s.set_defaults(fn=cmd_up)
+
+    s = sub.add_parser("serve-app", help="build and start the studio + render API on the pod (judge mode)")
+    s.add_argument("--password", help="HTTP Basic password for the app (default: $CUE_PASSWORD)")
+    s.set_defaults(fn=cmd_serve_app)
 
     s = sub.add_parser("status", help="pods, cost, watchdog state (does not count as activity)")
     s.set_defaults(fn=cmd_status)
