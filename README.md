@@ -27,9 +27,9 @@ About 20 seconds later, `runs/shot/` holds:
 
 **Use your own.** Swap in your clip (phone held still, 1-15 s) and your noise (any audio file). `--x/--y` is where the effect comes from, from 0 to 1 across and down the frame. `--effect` is `fireball`, `smoke_puff`, `flame_plume` or `steam_jet`.
 
-**Instant mode** picks one of 24 pre-rendered LTX-2.5 elements (`samples/library/`) for your performance. Then it does everything else from *your* recording:
+**Instant mode** picks one of 24 pre-rendered LTX-2.5 elements (`samples/library/`) for your performance; it does not generate new fluid. Then it does everything else from *your* recording:
 - the hit lands on your hit, and a sustained effect follows your onset;
-- the effect stops when you stop;
+- a flame or a jet of steam stops when you stop (a burst leaves its natural tail);
 - it sits where you tapped, and is bigger or smaller with how loud you were.
 
 The full mode below renders a new element from your voice, so the fluid itself takes the shape of your performance.
@@ -55,6 +55,7 @@ The full pipeline needs ComfyUI with LTX-2.5 22B (int8) and ainvfx-fluid; peak V
 ```bash
 python infra/pod/podctl.py up && python infra/pod/podctl.py setup   # Runpod pod: models, ComfyUI, Comfy API
 python infra/pod/podctl.py tunnel                                   # in another terminal
+pip install "./cuesync[server,comfy]"                               # adds the Comfy SDK
 COMFY_BASE_URL=http://127.0.0.1:8189 cuesync serve                   # full renders + instant mode
 ```
 

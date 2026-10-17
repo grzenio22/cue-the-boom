@@ -12,11 +12,14 @@ const VIEWS: { file: View; label: string }[] = [
 ];
 
 const pollUntilDone = async (id: string): Promise<JobStatus> => {
-  for (;;) {
-    const s: JobStatus = await (await fetch(`/api/jobs/${id}`)).json();
+  for (let i = 0; i < 400; i++) { // ~10 minutes
+    const r = await fetch(`/api/jobs/${id}`);
+    if (r.status === 404) throw new Error("the server lost this job (it may have restarted); please make it again");
+    const s: JobStatus = await r.json();
     if (s.status === "done" || s.status === "error") return s;
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise((res) => setTimeout(res, 1500));
   }
+  throw new Error("this is taking too long; please try again");
 };
 
 const ms = (frames: number) => Math.round((frames / 24) * 1000);

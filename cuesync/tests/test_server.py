@@ -145,3 +145,14 @@ def test_a_job_needs_exactly_one_plate_and_one_voice(instant_client):
     r = instant_client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "nope.mp4", "voice_sample": "pf.wav",
                                                "mode": "instant"})
     assert r.status_code == 400
+
+
+def test_an_offline_gpu_is_not_offered(tmp_path):
+    class Offline(FakeRenderer):
+        def ready(self):
+            return False
+
+    client = TestClient(create_app(Offline(), tmp_path / "jobs", instant=FakeRenderer(), samples_dir=tmp_path))
+    assert client.get("/api/health").json()["modes"] == ["instant"]
+    r = client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "x.mp4", "voice_sample": "y.wav", "mode": "render"})
+    assert r.status_code in (400, 503)

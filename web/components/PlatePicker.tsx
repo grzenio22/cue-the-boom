@@ -54,6 +54,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
             <button key={s.name} className="tile" onClick={() => onPick({ source: { sample: s.name }, url: s.url, title: s.title ?? s.name, point: s.point ?? null })}>
               <video src={s.url} muted playsInline preload="metadata" />
               <span>{s.title ?? s.name}</span>
+              {s.note && <span className="muted note">{s.note}</span>}
             </button>
           ))}
         </div>

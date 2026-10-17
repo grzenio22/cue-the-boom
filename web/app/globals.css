@@ -53,3 +53,4 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 
 .result { width: 100%; max-width: 420px; background: #000; border-radius: 12px; display: block; }
 .result.wide { max-width: 720px; }
+.tile .note { font-size: 0.7rem; line-height: 1.25; }

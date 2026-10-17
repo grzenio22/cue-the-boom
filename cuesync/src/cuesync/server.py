@@ -114,6 +114,21 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         app.add_middleware(CORSMiddleware, allow_origins=allow_origins, allow_methods=["*"], allow_headers=["*"])
     jq = JobQueue(jobs_dir, {"render": renderer, "instant": instant})
     samples_dir = Path(samples_dir)
+    ready = {"t": 0.0, "ok": False}
+
+    def render_ready() -> bool:
+        """Is the GPU backend actually answering? (checked at most every 15 s)"""
+        if renderer is None:
+            return False
+        probe = getattr(renderer, "ready", None)
+        if probe is None:
+            return True
+        if time.time() - ready["t"] > 15.0:
+            ready["ok"], ready["t"] = bool(probe()), time.time()
+        return ready["ok"]
+
+    def available_modes() -> list[str]:
+        return sorted(m for m in jq.renderers if m != "render" or render_ready())
 
     def sample_files(kind: str) -> dict[str, Path]:
         exts = {".mp4", ".mov", ".webm"} if kind == "plates" else {".wav", ".m4a", ".mp3", ".webm", ".ogg"}
@@ -128,7 +143,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "renderer": getattr(renderer, "name", None), "modes": sorted(jq.renderers),
+        return {"ok": True, "renderer": getattr(renderer, "name", None), "modes": available_modes(),
                 "queued": jq.queued("render")}
 
     @app.get("/api/samples")
@@ -169,13 +184,16 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      effect: str = Form(...), x: float | None = Form(None), y: float | None = Form(None),
                      seed: int = Form(1), offset_s: float | None = Form(None), timing: UploadFile | None = File(None),
                      face: UploadFile | None = File(None), label: str = Form(""), mode: str = Form("render"),
-                     plate_sample: str | None = Form(None), voice_sample: str | None = Form(None)):
+                     plate_sample: str | None = Form(None), voice_sample: str | None = Form(None),
+                     scale: float | None = Form(None), element: str | None = Form(None)):
         try:
             load_effect(effect)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(400, f"unknown effect {effect!r}: {exc}") from None
         if mode not in jq.renderers:
             raise HTTPException(400, f"mode {mode!r} is not available here (available: {sorted(jq.renderers)})")
+        if mode == "render" and not render_ready():
+            raise HTTPException(503, "the GPU is offline right now; instant mode still works")
         if (plate is None) == (plate_sample is None) or (voice is None) == (voice_sample is None):
             raise HTTPException(400, "send a plate (or plate_sample) and a voice (or voice_sample)")
         if plate_sample is not None and plate_sample not in sample_files("plates"):
@@ -203,8 +221,11 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         point = (x, y) if x is not None and y is not None else tuple(t.get("emission_point") or (0.5, 0.7))
         if not (0 <= point[0] <= 1 and 0 <= point[1] <= 1):
             raise HTTPException(400, "x and y must be in [0, 1]")
+        if scale is not None and not 0.4 <= scale <= 2.0:
+            raise HTTPException(400, "scale must be in [0.4, 2.0]")
         spec = ShotSpec(plate=plate_path, voice=voice_path, effect=effect, point=(float(point[0]), float(point[1])),
                         seed=seed, offset_s=offset_s, face=face_path, face_offset_s=t.get("face_offset_s"), label=label,
+                        scale=scale, element=element if mode == "instant" else None,
                         **(shot_defaults or {}))
         return jq.submit(Job(id=job_id, dir=d, spec=spec, mode=mode)).public()
 
@@ -237,26 +258,52 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
     @app.post("/api/compare")
     def compare(a: str = Form(...), b: str = Form(...)):
-        """Two finished shots side by side, both performances' onsets on the same frame."""
+        """Two finished shots side by side, their performances' onsets on the same frame, played twice: first
+        with take 1's voice (left side marked), then with take 2's (right side marked), so it works on a
+        phone speaker too."""
+
         from .audio import CueSheet
         from .compare import side_by_side
-        from .media import read_video, write_video
+        from .media import read_audio, read_video, write_video
 
         ja, jb = get(a), get(b)
         if ja.status != "done" or jb.status != "done" or ja.spec is None or jb.spec is None:
             raise HTTPException(409, "both shots must be finished")
-        clips, envs, anchors, labels = [], [], [], []
+        clips, envs, anchors, labels, voices = [], [], [], [], []
         for k, j in enumerate((ja, jb), 1):
             clips.append(read_video(j.dir / "composite.mp4").frames)
             envs.append(np.asarray(CueSheet.from_json(json.loads((j.dir / "cue.json").read_text())).envelope))
             guide = json.loads((j.dir / "guide.json").read_text())
             anchors.append(int(guide["anchor_frame"]))
             labels.append(f"take {k}: {guide['effect'].replace('_', ' ')}")
-        out = side_by_side(clips[0], clips[1], anchors[0], anchors[1], envs[0], envs[1], labels)
+            voices.append(read_audio(j.dir / "composite.mp4"))
+        pair = side_by_side(clips[0], clips[1], anchors[0], anchors[1], envs[0], envs[1], labels)
+        n, h, w2 = pair.shape[:3]
+        lead = max(anchors)
+        sr, spf = 48000, 48000 // 24
+
+        def track(v: np.ndarray, pad_frames: int) -> np.ndarray:
+            out = np.zeros(n * spf, np.float32)
+            body = v[: max(0, n * spf - pad_frames * spf)]
+            out[pad_frames * spf: pad_frames * spf + body.size] = body
+            return out
+
+        def marked(side: int) -> np.ndarray:
+            frames = pair.copy()
+            x0, x1 = (0, w2 // 2) if side == 0 else (w2 // 2, w2)
+            t = max(4, w2 // 240)
+            frames[:, :t, x0:x1] = (255, 176, 32)
+            frames[:, -t:, x0:x1] = (255, 176, 32)
+            frames[:, :, x0:x0 + t] = (255, 176, 32)
+            frames[:, :, x1 - t:x1] = (255, 176, 32)
+            return frames
+
+        video = np.concatenate([marked(0), marked(1)])
+        audio = np.concatenate([track(voices[0], lead - anchors[0]), track(voices[1], lead - anchors[1])])
         cid = uuid.uuid4().hex[:12]
         d = jq.root / cid
         d.mkdir(parents=True)
-        write_video(d / "compare.mp4", out, fps=24, crf=18, preset="veryfast")
+        write_video(d / "compare.mp4", video, fps=24, audio=audio, crf=18, preset="veryfast")
         job = Job(id=cid, dir=d, spec=None, mode="compare", status="done", stage="done", progress=1.0, message="Done")
         jq.jobs[cid] = job
         return job.public()

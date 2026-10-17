@@ -147,14 +147,15 @@ class LibraryRenderer:
         guide_path = Path(guide_path)
         plan = json.loads((guide_path.parent / "guide.json").read_text(encoding="utf-8"))
         cue = json.loads((guide_path.parent / "cue.json").read_text(encoding="utf-8"))
-        entry = self.choose(plan["effect"], int(plan["length"]), seed)
+        locked = [e for e in self.manifest["entries"] if e["file"] == plan.get("element") and e["effect"] == plan["effect"]]
+        entry = locked[0] if locked else self.choose(plan["effect"], int(plan["length"]), seed)
         frames = read_video(self.library_dir / entry["file"]).frames
         size = tuple(plan["size"])
         lw, lh = self.manifest["size"]
         src = (self.manifest["point"][0] * lw, self.manifest["point"][1] * lh)
         dst = (plan["point"][0] * size[0], plan["point"][1] * size[1])
         loud = float(np.max(cue["envelope"])) if cue.get("envelope") else entry["peak_level"]
-        scale = float(np.clip((loud / max(entry["peak_level"], 1e-3)) ** 0.5, 0.8, 1.25))
+        scale = float(np.clip((loud / max(entry["peak_level"], 1e-3)) ** 0.5, 0.8, 1.25)) * float(plan.get("scale", 1.0))
         write_video(out_path, place(frames, src, dst, size, scale), fps=24, crf=12)
         # the guide this element was rendered from (deterministic: repainted, not stored), placed the same way
         ref = paint_guide(analyze(reference_performance(entry["performance"]), SR, fps=24), load_effect(plan["effect"]),

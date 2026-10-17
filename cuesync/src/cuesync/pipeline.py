@@ -59,6 +59,20 @@ class ComfyRenderer:
         return render_element(guide_path, prompt=prompt, seed=seed, workflow_path=self.workflow,
                               out_path=out_path, timeout=self.timeout).seconds
 
+    def ready(self) -> bool:
+        """Does the Comfy API behind COMFY_BASE_URL answer its health check?"""
+        import os
+        import urllib.request
+
+        base = os.environ.get("COMFY_BASE_URL", "").rstrip("/")
+        if not base:
+            return True  # Comfy Cloud defaults: trust the SDK
+        try:
+            with urllib.request.urlopen(f"{base}/api/v2/health", timeout=2.0) as r:
+                return r.status == 200
+        except Exception:
+            return False
+
     def matte(self, frame: np.ndarray, point: tuple[float, float]) -> np.ndarray | None:
         """SAM 2.1 on the server (CueSync node pack); GrabCut locally if the server can't."""
         from .runner import object_matte
@@ -82,6 +96,8 @@ class ShotSpec:
     plate_size: tuple[int, int] | None = None  # None: 1080x1920 for portrait plates, 1920x1080 for landscape
     element_size: tuple[int, int] | None = None  # None: 576x1024 or 1024x576 to match
     matte: Callable[[np.ndarray, tuple[float, float]], np.ndarray | None] | None = None  # None: GrabCut
+    scale: float | None = None  # effect size multiplier; None: from the object's size
+    element: str | None = None  # instant mode: reuse this library element (compare takes fairly)
     extra: dict = field(default_factory=dict)
 
 
@@ -236,6 +252,37 @@ def _breakdown(plate: np.ndarray, guide: np.ndarray, element: np.ndarray, comp: 
     return out
 
 
+REF_OBJECT_WIDTH = {"burst": 0.45, "puff": 0.4, "plume": 0.35, "jet": 0.3}  # object width at which an effect
+                                                                          # has its designed size (frame widths)
+
+
+def object_width(occluder: np.ndarray | None, point: tuple[float, float]) -> float | None:
+    """Width (fraction of the frame) of the object right under the emission point: the matte's run through
+    the tapped column, in a band just below the point (so a table the matte leaked into doesn't count)."""
+    if occluder is None:
+        return None
+    h, w = occluder.shape
+    x, y0 = int(min(max(point[0], 0), 1) * (w - 1)), int(point[1] * h)
+    widths = []
+    for row in range(max(0, y0), min(h, y0 + int(0.08 * h))):
+        on = occluder[row] > 0.5
+        if not on[x]:
+            continue
+        left = x - np.argmin(on[x::-1]) if not on[: x + 1].all() else 0
+        right = x + np.argmin(on[x:]) if not on[x:].all() else w
+        widths.append(right - left)
+    return float(np.median(widths)) / w if widths else None
+
+
+def auto_scale(occluder: np.ndarray | None, point: tuple[float, float], behaviour: str) -> float:
+    """Effect size for the object it comes from: smaller props get smaller effects (never below 0.55),
+    bigger ones a little more (up to 1.2)."""
+    width = object_width(occluder, point)
+    if width is None:
+        return 1.0
+    return float(np.clip((width / REF_OBJECT_WIDTH.get(behaviour, 0.4)) ** 0.75, 0.55, 1.2))
+
+
 def load_plate(path: Path, point: tuple[float, float], max_s: float, size: tuple[int, int] | None = None,
                element_size: tuple[int, int] | None = None):
     """The plate at 24 fps, cropped to 9:16 or 16:9 (by its orientation) around the tapped point, at most
@@ -275,12 +322,19 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     (out_dir / "cue.json").write_text(json.dumps(cue.to_json(), indent=1))
 
     say("painting", 0.12, "Painting your voice into a guide")
-    plan = paint_guide(cue, eff, point, size=element_size)
+    emission = (point[0] * plate.shape[2], point[1] * plate.shape[1])
+    matte_fn = spec.matte or getattr(renderer, "matte", None) or grabcut_matte
+    occluder = matte_fn(plate[0], point)
+    scale = spec.scale if spec.scale is not None else auto_scale(occluder, point, eff.behaviour)
+    plan = paint_guide(cue, eff, point, size=element_size, scale=scale)
     guide_path = out_dir / "guide.mp4"
     write_guide(plan, guide_path, fps=FPS)
-    (out_dir / "guide.json").write_text(json.dumps(plan.to_json(), indent=1))
+    (out_dir / "guide.json").write_text(json.dumps(plan.to_json() | ({"element": spec.element} if spec.element else {}),
+                                                   indent=1))
 
-    say("rendering", 0.18, f"Rendering the {eff.fluid} with LTX-2.5")
+    instant = getattr(renderer, "name", "") == "library"
+    say("rendering", 0.18, f"Choosing a pre-rendered LTX-2.5 {eff.fluid} element" if instant
+        else f"Rendering the {eff.fluid} from your voice with LTX-2.5")
     element_path = out_dir / "element.mp4"
     render_s = renderer(guide_path, eff.prompt, spec.seed, element_path)
 
@@ -290,9 +344,6 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     align = plan_alignment(plan.anchor_frame, timing, mode=eff.align, lead=eff.lead_frames)
     gates = voice_gates(n, cue.intervals(), plan.anchor_frame, eff.voice_gate, eff.release_fire, eff.release_smoke,
                         open_from=first_shown_frame(align, timing))
-    emission = (point[0] * plate.shape[2], point[1] * plate.shape[1])
-    matte_fn = spec.matte or getattr(renderer, "matte", None) or grabcut_matte
-    occluder = matte_fn(plate[0], point)
     comp = composite(plate, element, align, timing, gates=gates, emission=emission, occluder=occluder,
                      **effect_options(eff))
     audio = place_audio(samples, spec.offset_s, n)
@@ -348,6 +399,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
                    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA",
                    **({"library": {k: v for k, v in renderer.last.items() if k != "guide"}}
                       if getattr(renderer, "last", None) else {})},
+        "scale": round(scale, 3),
         "matte": {"source": "custom" if spec.matte is not None else ("server" if hasattr(renderer, "matte") else "grabcut"),
                   "found": occluder is not None,
                   "coverage": None if occluder is None else round(float(occluder.mean()), 4)},

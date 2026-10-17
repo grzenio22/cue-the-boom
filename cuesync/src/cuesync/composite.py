@@ -25,6 +25,7 @@ contributes. Pixels nothing touches are copied from the plate exactly.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -56,8 +57,9 @@ class CompositeParams:
     fire_gain: float = 1.0
     fire_lift_frac: float = 0.5  # a sustained flame going out lifts off its base this far (fraction of height)
     fire_darken: float = 0.2  # how much darker than the plate a flame's body may get (0: pure light, never darker)
+    fringe_glow: tuple[float, float, float] = (1.0, 0.45, 0.08)  # a flame's dim skirt glows orange, not deep red
     # smoke and steam: density alpha, relit by the room
-    smoke_opacity: float = 0.97  # dense cores: in linear light even 8 % transmission shows a bright plate
+    smoke_opacity: float = 1.0  # dense cores: in linear light even a few % transmission shows a bright plate
     smoke_alpha_gamma: float = 0.8  # thin smoke is a little denser than its luma says
     smoke_mask_level: float = 0.06  # luma where a pixel starts to belong to the cloud
     interior_blur_frac: float = 0.04
@@ -457,10 +459,16 @@ def composite_frame(
     # dark outline ever traces a flame on a bright wall
     core = _smoothstep(0.45, 0.75, y)
     ratio = e_lin / np.maximum(p_lin, 1e-3)
-    cap = ratio.min(-1) + core * (ratio.max(-1) + params.fire_darken - ratio.min(-1))  # edges: no channel darker
+    lum_cap = (e_lin @ _LUMA) / np.maximum(p_lin @ _LUMA, 1e-3)  # edges: never darker than the wall (in luma)
+    cap = lum_cap + core * (ratio.max(-1) + params.fire_darken - lum_cap)
     a_fire = np.minimum(a_fire, cap)
     af = fire_w * a_fire * kf
-    emit = _blackbody(e_lin, kf) * (fire_w * params.fire_gain)[..., None]
+    # A flame's dim skirt, added over a bright wall, turns deep red into salmon; real skirts glow orange.
+    # Shift the dimmest fire towards an orange glow of the same luminance.
+    glow = np.asarray(params.fringe_glow, np.float32)
+    skirt = (1.0 - _smoothstep(0.1, 0.3, y))[..., None] * fire_w[..., None]
+    e_fire = e_lin + skirt * ((e_lin @ _LUMA)[..., None] * (glow / float(glow @ _LUMA)) - e_lin)
+    emit = _blackbody(e_fire, kf) * (fire_w * params.fire_gain)[..., None]
 
     # smoke and steam: density alpha, relit by the room
     ref = smoke_ref if smoke_ref else max(float(y.max()), 0.3)
@@ -496,7 +504,8 @@ def composite_frame(
     # (luminous fluids, steam, are translucent throughout: no dense regime)
     dens = _smoothstep(0.25, 0.85, a_body)[..., None] if dense_smoke else np.zeros_like(a_body)[..., None]
     thin_col = amb + key * c
-    dense_col = (1.0 - key) * smoke_albedo * amb * shade[..., None] + key * c
+    key_d = key * min(1.0, (smoke_albedo / 0.85) ** 1.5)  # soot shows little of the render's light-grey smoke
+    dense_col = (1.0 - key_d) * smoke_albedo * amb * shade[..., None] + key_d * c
     smoke_col = thin_col + dens * (dense_col - thin_col)
     emit = emit + smoke_col * asm[..., None]
     if dense_smoke:
@@ -555,7 +564,8 @@ def composite_frame(
         lmap = np.zeros(out.shape[:2], np.float32)
         lmap[sl] = L
         gain_lin = 1.0 + 2.2 * lmap[cy_, cx_][..., None] * tint
-    region_lin = p_lin if gain_lin is None else p_lin * gain_lin
+    # the fire's light on the plate, but none of it leaking through an opaque element
+    region_lin = p_lin if gain_lin is None else p_lin * (1.0 + (gain_lin - 1.0) * (1.0 - alpha))
     region = _gam_fast(region_lin * (1.0 - alpha) + emit)
     region = 1.0 - (1.0 - region) * (1.0 - bloom[..., None] * tint)
     if params.grain and grain_sigma > 0:
@@ -598,7 +608,9 @@ def effect_options(effect) -> dict:
     """The composite() options an effect implies (an EffectSpec from cuesync.effects)."""
     return {"holdout_below": effect.holdout_below, "fire_effect": effect.fluid == "fire",
             "dense_smoke": effect.fluid == "smoke" or effect.secondary == "smoke",
-            "smoke_albedo": effect.smoke_albedo, "lift": effect.fluid == "fire" and effect.voice_gate == "both"}
+            "smoke_albedo": effect.smoke_albedo, "lift": effect.fluid == "fire" and effect.voice_gate == "both",
+            # a fireball's pale, half-saturated interior is fire-lit smoke (relit as soot), not flame
+            "fire_sat": (0.4, 0.65) if effect.secondary == "smoke" else None}
 
 
 def composite(
@@ -616,6 +628,7 @@ def composite(
     smoke_albedo: float = 0.85,
     occluder: np.ndarray | None = None,
     lift: bool = False,
+    fire_sat: tuple[float, float] | None = None,
 ) -> np.ndarray:
     """Composite ``element`` onto every plate frame it covers; returns frames with the plate's shape.
 
@@ -628,6 +641,8 @@ def composite(
     n, h, w, _ = plate.shape
     out = plate.copy()
     elen = element.shape[0]
+    if fire_sat is not None:
+        params = dataclasses.replace(params, sat_lo=fire_sat[0], sat_hi=fire_sat[1])
     floor = params.black_floor if params.black_floor is not None else estimate_black_level(element)
     fire_ref = 0.0
     for f in element[:: max(1, elen // 16)]:  # the brightest fire frame normalises the light the fire casts

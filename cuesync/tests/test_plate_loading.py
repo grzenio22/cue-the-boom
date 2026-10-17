@@ -89,3 +89,16 @@ def test_guide_blobs_keep_their_size_in_landscape():
     land = paint_guide(cue, eff, (0.5, 0.7), size=(1024, 576))
     r = lambda plan: max(sh["rx"] for b in plan.blobs for sh in b["shapes"])
     assert r(land) == pytest.approx(r(por), rel=0.05)
+
+
+def test_effects_are_sized_to_the_object_not_to_a_table_the_matte_leaked_into():
+    from cuesync.pipeline import auto_scale, object_width
+    m = np.zeros((400, 400), np.float32)
+    m[200:260, 170:230] = 1.0  # a small toy: 15 % of the frame wide, its top at y = 0.5
+    m[260:400, 0:400] = 1.0  # the desk it stands on, which the matte also took
+    assert object_width(m, (0.5, 0.5)) == pytest.approx(0.15, abs=0.01)
+    assert auto_scale(m, (0.5, 0.5), "burst") < 0.7  # a small prop: a smaller fireball
+    big = np.zeros((400, 400), np.float32)
+    big[150:400, 40:360] = 1.0  # a big jar, 80 % of the frame wide
+    assert auto_scale(big, (0.5, 0.4), "plume") == pytest.approx(1.2)
+    assert auto_scale(None, (0.5, 0.5), "burst") == 1.0

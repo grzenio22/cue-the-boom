@@ -7,7 +7,7 @@ import ShotPanel from "@/components/ShotPanel";
 import TapPoint from "@/components/TapPoint";
 import { compareTakes, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples } from "@/lib/shot";
 
-interface Take { performance: Performance; job: JobStatus | null; effect: string | null }
+interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null }
 
 export default function Studio() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -21,6 +21,7 @@ export default function Studio() {
   const [performing, setPerforming] = useState(true);
   const [compare, setCompare] = useState<JobStatus | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchEffects(), fetchSamples()]).then(([h, e, s]) => {
@@ -46,10 +47,11 @@ export default function Studio() {
     const [a, b] = done.slice(-2);
     if (!a?.job || !b?.job) return;
     setComparing(true);
+    setCompareError(null);
     try {
       setCompare(await compareTakes(a.job.id, b.job.id));
     } catch (e) {
-      setApiError((e as Error).message);
+      setCompareError((e as Error).message);
     } finally {
       setComparing(false);
     }
@@ -89,13 +91,16 @@ export default function Studio() {
 
       {plate && point && pointSet && performing && (
         <Performer plateUrl={plate.url} point={point} voices={samples.voices} takes={takes.length}
-          onDone={(p) => { setTakes((t) => [...t, { performance: p, job: null, effect: null }]); setPerforming(false); }} />
+          onDone={(p) => { setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null }]); setPerforming(false); }} />
       )}
 
       {plate && point && pointSet && !performing && current && (
-        <ShotPanel key={takes.length} plate={plate.source} point={point} performance={current.performance}
+        <ShotPanel key={current.id} plate={plate.source} point={point} performance={current.performance}
           effects={effects} modes={health?.modes ?? []}
-          onDone={(job, effect) => setTakes((t) => t.map((x, i) => (i === t.length - 1 ? { ...x, job, effect } : x)))} />
+          onDone={(job, effect) => {
+            const id = current.id; // this take, even if the user has moved on to another before it finishes
+            setTakes((t) => t.map((x) => (x.id === id ? { ...x, job, effect } : x)));
+          }} />
       )}
 
       {plate && point && pointSet && !performing && (
@@ -107,6 +112,7 @@ export default function Studio() {
             )}
           </div>
           {done.length === 1 && <p className="muted">Same shot, same seed: perform it again (shorter, louder, a different noise) and compare the takes.</p>}
+          {compareError && <p className="chip bad">Couldn&apos;t line the takes up: {compareError}</p>}
           {compare?.files["compare.mp4"] && (
             <video src={compare.files["compare.mp4"]} controls autoPlay playsInline className="result wide" />
           )}

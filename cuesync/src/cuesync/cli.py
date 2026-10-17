@@ -107,7 +107,7 @@ def cmd_shot(args) -> int:
         renderer = ComfyRenderer(Path(args.workflow), timeout=args.timeout)
     spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
                     seed=args.seed, offset_s=args.offset_s, face=Path(args.face) if args.face else None,
-                    label=args.label or "")
+                    label=args.label or "", scale=args.scale)
     last = [""]
 
     def progress(stage: str, frac: float, msg: str) -> None:
@@ -248,6 +248,7 @@ def build_parser() -> argparse.ArgumentParser:
     sh.add_argument("--y", type=float, default=0.7, help="emission point, 0..1 down the plate")
     sh.add_argument("--offset-s", type=float, default=0.0, help="plate time of the recording's first sample")
     sh.add_argument("--seed", type=int, default=1)
+    sh.add_argument("--scale", type=float, help="effect size, e.g. 0.75 or 1.3 (default: from the object's size)")
     sh.add_argument("--face", help="optional face clip for the inset")
     sh.add_argument("--label", help="text on the final video (default: the effect)")
     sh.add_argument("--instant", action="store_true",

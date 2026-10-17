@@ -15,6 +15,8 @@ Two lessons from the real model shape the painting:
 
 from __future__ import annotations
 
+import dataclasses
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -54,12 +56,14 @@ class GuidePlan:
     tail: str = "wisp"
     canvas: bool = False
     point: tuple[float, float] = (0.5, 0.7)  # emission point, normalised to the guide
+    scale: float = 1.0  # size multiplier the effect was painted with
 
     def to_json(self) -> dict:
         return {
             "effect": self.effect_id,
             "size": list(self.size),
             "point": [round(float(self.point[0]), 4), round(float(self.point[1]), 4)],
+            "scale": round(float(self.scale), 3),
             "length": int(self.frames.shape[0]),
             "anchor_frame": self.anchor_frame,
             "voice_end": self.voice_end,
@@ -313,8 +317,10 @@ def paint_guide(
     length: int | None = None,
     tail: Tail = "wisp",
     canvas: bool = False,
+    scale: float = 1.0,
 ) -> GuidePlan:
-    """Paint the control video. ``point`` is the normalised emission point (x, y) in [0, 1].
+    """Paint the control video. ``point`` is the normalised emission point (x, y) in [0, 1]. ``scale``
+    multiplies the effect's sizes (a small prop gets a smaller effect).
 
     ``length`` defaults to the performance (see performance_length). ``tail`` is how the effect ends after
     the voice stops: "wisp" paints the collapse into thinning smoke; "fade" just shrinks it (older guides).
@@ -325,6 +331,8 @@ def paint_guide(
         raise ValueError(f"guide size must be multiples of 64, got {w}x{h}")
     if tail not in ("wisp", "fade"):
         raise ValueError(f"tail must be 'wisp' or 'fade', got {tail!r}")
+    if scale != 1.0:
+        effect = dataclasses.replace(effect, r_min=effect.r_min * scale, r_max=effect.r_max * scale)
     anchor = anchor_frame_of(cue, effect)
     length = performance_length(cue, effect, anchor) if length is None else length
     keys = keyframe_indices(length, effect.keyframe_stride, with_one=effect.behaviour in POP)
@@ -340,7 +348,8 @@ def paint_guide(
         if shapes or canvas:
             frames[e] = _draw(shapes, w, h, background)
     return GuidePlan(frames=frames, anchor_frame=anchor, keyframes=keys, blobs=blobs, effect_id=effect.id,
-                     size=(w, h), voice_end=perf.end, tail=tail, canvas=canvas, point=(float(point[0]), float(point[1])))
+                     size=(w, h), voice_end=perf.end, tail=tail, canvas=canvas, point=(float(point[0]), float(point[1])),
+                     scale=float(scale))
 
 
 def write_guide(plan: GuidePlan, path: str | Path, fps: int = 24) -> None:

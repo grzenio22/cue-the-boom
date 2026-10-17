@@ -24,6 +24,8 @@ export interface Performance {
 
 type Step = "idle" | "armed" | "performing";
 
+const MAX_SHOT_S = 10;
+
 /** Step 3: perform the noise over the playing plate (mic, optional face camera), or use a sample noise. */
 export default function Performer({ plateUrl, point, voices, takes, onDone }: {
   plateUrl: string;
@@ -187,6 +189,9 @@ export default function Performer({ plateUrl, point, voices, takes, onDone }: {
     plate.currentTime = 0;
     stopClock.current = sampleClock(plate, (s) => clockSamples.current.push(s));
     plate.onended = () => { void finish(); };
+    plate.ontimeupdate = () => { // the shot uses the first 10 s of the clip: stop there
+      if (plate.currentTime >= MAX_SHOT_S) { plate.pause(); void finish(); }
+    };
     setStep("performing");
     try {
       await plate.play();

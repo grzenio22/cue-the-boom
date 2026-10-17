@@ -30,3 +30,6 @@ models/
 docs/
 WARPLAN.md
 web/AGENTS.md
+
+# setuptools build output (pip install ./cuesync)
+cuesync/build/
