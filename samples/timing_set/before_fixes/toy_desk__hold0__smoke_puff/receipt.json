@@ -1,0 +1,202 @@
+{
+  "cuesync": "0.1.0",
+  "mode": "scene",
+  "effect": {
+    "id": "smoke_puff",
+    "anchor": "hero",
+    "behaviour": "puff",
+    "fluid": "smoke",
+    "secondary": null,
+    "prompt": "ainvfxfluid, a dense puff of grey smoke dispersing, isolated on a pure black background",
+    "r_min": 0.04,
+    "r_max": 0.3,
+    "rise": 0.25,
+    "keyframe_stride": 8,
+    "composite": "over",
+    "align": "hit",
+    "lead_frames": 0,
+    "voice_gate": "attack",
+    "release_fire": 5,
+    "release_smoke": 24,
+    "holdout_below": 0.06,
+    "tail_frames": 72,
+    "smoke_albedo": 0.85,
+    "scene": {
+      "prompt": "ainvfxfluid, a puff of grey smoke bursts out of {subject} {towards} and drifts away, slowly thinning, static camera, realistic phone video",
+      "r_min": 0.08,
+      "r_max": 0.3,
+      "direction": 0.0,
+      "resting": 0.0,
+      "bend": 0.0,
+      "shake": 0.0,
+      "flash": 0.0,
+      "rhythm": "",
+      "single": "",
+      "small": ""
+    }
+  },
+  "inputs": {
+    "plate_sha": "4759f36243fd394f",
+    "voice_sha": null,
+    "point": [
+      0.55,
+      0.36
+    ],
+    "seed": 1,
+    "offset_s": 0.0,
+    "face": false,
+    "direction": 162.2,
+    "subject": "the small plastic toy dinosaur on the bedside table",
+    "cue": "hold",
+    "drawn": true,
+    "describe": "thick grey smoke pours out of the desk lamp's shade and rolls down onto the bedside table",
+    "holds": [
+      [
+        1.0,
+        3.0
+      ]
+    ]
+  },
+  "voice": {
+    "onsets_s": [
+      1.0
+    ],
+    "hero_onset_s": 1.0,
+    "active_intervals": [
+      [
+        24,
+        72
+      ]
+    ],
+    "voice_end_frame": 72,
+    "peak_frame": 25,
+    "source": "hold"
+  },
+  "guide": {
+    "effect": "smoke_puff",
+    "size": [
+      1088,
+      1920
+    ],
+    "point": [
+      0.5504,
+      0.36
+    ],
+    "scale": 1.0,
+    "length": 121,
+    "anchor_frame": 7,
+    "voice_end": 65,
+    "tail": "scene",
+    "canvas": true,
+    "keyframes": [
+      0,
+      1,
+      9,
+      17,
+      25,
+      33,
+      41,
+      49,
+      57,
+      65,
+      73,
+      81,
+      89,
+      97,
+      105,
+      113,
+      120
+    ],
+    "mode": "scene",
+    "start": 7,
+    "direction": 162.2,
+    "events": [
+      {
+        "at": 17,
+        "end": 65,
+        "peak": 0.85,
+        "size": 1.0,
+        "energy": 40.375
+      }
+    ],
+    "dropped": [],
+    "notes": [],
+    "strokes": [
+      {
+        "points": [
+          [
+            0.5504,
+            0.36
+          ],
+          [
+            0.5,
+            0.42
+          ],
+          [
+            0.4698,
+            0.5
+          ],
+          [
+            0.5201,
+            0.56
+          ],
+          [
+            0.6209,
+            0.58
+          ]
+        ],
+        "width": 0.1007
+      }
+    ]
+  },
+  "render": {
+    "renderer": "comfy",
+    "seconds": 93.44,
+    "prompt": "ainvfxfluid, thick grey smoke pours out of the desk lamp's shade and rolls down onto the bedside table, the light in the scene reacts to it, static camera, realistic phone video",
+    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+    "start_frame": 7,
+    "length": 121
+  },
+  "plate": {
+    "still": true,
+    "frames": 96,
+    "shot_frames": 136,
+    "size": [
+      1080,
+      1920
+    ],
+    "point": [
+      0.5504,
+      0.36
+    ]
+  },
+  "hits": null,
+  "dropped_hits": [],
+  "scale": 1.0,
+  "matte": {
+    "source": "auto",
+    "found": true,
+    "coverage": 0.0457
+  },
+  "alignment": {
+    "mode": "scene",
+    "painted_hit": 17,
+    "model_onset": 9,
+    "auto_shift": 8,
+    "clamped": false,
+    "retime_frames": 0,
+    "offset": 15,
+    "lead": 0,
+    "hit_frame": 24
+  },
+  "measured": {
+    "model_early_frames": 8,
+    "hit_error_frames": 0,
+    "stops_with_voice": false,
+    "stop_latency_frames": null,
+    "stopped_within_plate": null
+  },
+  "transfer": null,
+  "warnings": [],
+  "seconds_total": 10.9
+}

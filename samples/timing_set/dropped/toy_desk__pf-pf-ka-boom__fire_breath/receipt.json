@@ -1,0 +1,207 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "scene",
+ "effect": {
+  "id": "fire_breath",
+  "anchor": "first",
+  "behaviour": "jet",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a jet of roaring orange fire, isolated on a pure black background",
+  "r_min": 0.2,
+  "r_max": 0.5,
+  "rise": 0.3,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 6,
+  "release_smoke": 10,
+  "holdout_below": 0.02,
+  "tail_frames": 40,
+  "smoke_albedo": 0.95,
+  "scene": {
+   "prompt": "ainvfxfluid, {subject} breathes {rhythm} {towards} out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+   "r_min": 0.12,
+   "r_max": 0.46,
+   "direction": -90.0,
+   "resting": 0.0,
+   "bend": 0.2,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "short separate bursts of bright orange fire, with dark pauses between them and the last burst the longest,",
+   "single": "a long roaring jet of bright orange fire",
+   "small": ""
+  }
+ },
+ "inputs": {
+  "plate_sha": "4759f36243fd394f",
+  "voice_sha": "fb42489d940e0a8f",
+  "point": [
+   0.375,
+   0.485
+  ],
+  "seed": 1,
+  "offset_s": 0.0,
+  "face": false,
+  "direction": -90.0,
+  "subject": "the small plastic toy dinosaur on the bedside table",
+  "cue": "voice",
+  "drawn": false,
+  "describe": null,
+  "holds": null
+ },
+ "voice": {
+  "onsets_s": [
+   1.039,
+   1.689,
+   2.389,
+   2.499
+  ],
+  "hero_onset_s": 2.499,
+  "active_intervals": [
+   [
+    57,
+    77
+   ]
+  ],
+  "voice_end_frame": 77,
+  "peak_frame": 61,
+  "source": "voice"
+ },
+ "guide": {
+  "effect": "fire_breath",
+  "size": [
+   1088,
+   1920
+  ],
+  "point": [
+   0.3741,
+   0.485
+  ],
+  "scale": 0.803,
+  "length": 121,
+  "anchor_frame": 8,
+  "voice_end": 69,
+  "tail": "scene",
+  "canvas": true,
+  "keyframes": [
+   0,
+   1,
+   9,
+   17,
+   25,
+   33,
+   41,
+   49,
+   57,
+   65,
+   73,
+   81,
+   89,
+   97,
+   105,
+   113,
+   120
+  ],
+  "mode": "scene",
+  "start": 8,
+  "direction": -90.0,
+  "events": [
+   {
+    "at": 17,
+    "end": 21,
+    "peak": 0.854719934702157,
+    "size": 0.5984575438433666,
+    "energy": 3.165890229574002
+   },
+   {
+    "at": 33,
+    "end": 37,
+    "peak": 0.8393205046370819,
+    "size": 0.5939811014261325,
+    "energy": 2.062485168468064
+   },
+   {
+    "at": 52,
+    "end": 69,
+    "peak": 1.0,
+    "size": 1.0,
+    "energy": 16.719474352976867
+   }
+  ],
+  "dropped": [],
+  "notes": [],
+  "strokes": null
+ },
+ "render": {
+  "renderer": "comfy",
+  "seconds": 83.84,
+  "prompt": "ainvfxfluid, the small plastic toy dinosaur on the bedside table breathes short separate bursts of bright orange fire, with dark pauses between them and the last burst the longest, to the left out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+  "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+  "start_frame": 8,
+  "length": 121
+ },
+ "plate": {
+  "still": true,
+  "frames": 96,
+  "shot_frames": 133,
+  "size": [
+   1080,
+   1920
+  ],
+  "point": [
+   0.3741,
+   0.485
+  ]
+ },
+ "hits": [
+  {
+   "frame": 25,
+   "size": 0.598,
+   "strength": 0.855
+  },
+  {
+   "frame": 41,
+   "size": 0.594,
+   "strength": 0.839
+  },
+  {
+   "frame": 60,
+   "size": 1.0,
+   "strength": 1.0
+  }
+ ],
+ "dropped_hits": [],
+ "scale": 0.803,
+ "matte": {
+  "source": "auto",
+  "found": true,
+  "coverage": 0.048
+ },
+ "alignment": {
+  "mode": "scene",
+  "painted_hit": 17,
+  "model_onset": 13,
+  "auto_shift": 4,
+  "clamped": false,
+  "retime_frames": 0,
+  "offset": 12,
+  "lead": 0,
+  "hit_frame": 25
+ },
+ "measured": {
+  "model_early_frames": 4,
+  "hit_error_frames": 0,
+  "stops_with_voice": true,
+  "stop_latency_frames": 12,
+  "stopped_within_plate": true
+ },
+ "transfer": null,
+ "warnings": [
+  "the model merged 2 of the 3 hits into their neighbours"
+ ],
+ "retimed": null,
+ "seconds_total": 101.7
+}

@@ -1,0 +1,166 @@
+{
+  "cuesync": "0.1.0",
+  "mode": "scene",
+  "effect": {
+    "id": "steam_jet",
+    "anchor": "first",
+    "behaviour": "jet",
+    "fluid": "steam",
+    "secondary": null,
+    "prompt": "ainvfxfluid, a wisp of white steam rising, isolated on a pure black background",
+    "r_min": 0.25,
+    "r_max": 0.55,
+    "rise": 0.5,
+    "keyframe_stride": 8,
+    "composite": "over",
+    "align": "guide",
+    "lead_frames": 0,
+    "voice_gate": "both",
+    "release_fire": 5,
+    "release_smoke": 24,
+    "holdout_below": 0.02,
+    "tail_frames": 16,
+    "smoke_albedo": 0.95,
+    "scene": {
+      "prompt": "ainvfxfluid, thin translucent wisps of steam rise and curl up from {subject}, drifting gently in the light and fading as they rise, static camera, realistic phone video",
+      "r_min": 0.1,
+      "r_max": 0.4,
+      "direction": 0.0,
+      "resting": 0.0,
+      "bend": 0.0,
+      "shake": 0.0,
+      "flash": 0.0,
+      "rhythm": "",
+      "single": "",
+      "small": ""
+    }
+  },
+  "inputs": {
+    "plate_sha": "5fe71ca5f1d0f8b4",
+    "voice_sha": "2b67a3f1dcf71d79",
+    "point": [
+      0.47,
+      0.45
+    ],
+    "seed": 3,
+    "offset_s": 0.0,
+    "face": false,
+    "direction": 0.0,
+    "subject": "the hot coffee in the white mug",
+    "cue": "voice",
+    "drawn": false,
+    "describe": null,
+    "holds": null
+  },
+  "voice": {
+    "onsets_s": [
+      0.999
+    ],
+    "hero_onset_s": 0.999,
+    "active_intervals": [
+      [
+        23,
+        62
+      ]
+    ],
+    "voice_end_frame": 62,
+    "peak_frame": 39,
+    "source": "voice"
+  },
+  "guide": {
+    "effect": "steam_jet",
+    "size": [
+      1088,
+      1920
+    ],
+    "point": [
+      0.4698,
+      0.45
+    ],
+    "scale": 1.15,
+    "length": 81,
+    "anchor_frame": 7,
+    "voice_end": 55,
+    "tail": "scene",
+    "canvas": true,
+    "keyframes": [
+      0,
+      1,
+      9,
+      17,
+      25,
+      33,
+      41,
+      49,
+      57,
+      65,
+      73,
+      80
+    ],
+    "mode": "scene",
+    "start": 7,
+    "direction": 0.0,
+    "events": [
+      {
+        "at": 17,
+        "end": 55,
+        "peak": 0.9360166652075106,
+        "size": 1.0,
+        "energy": 35.466069659528856
+      }
+    ],
+    "dropped": [],
+    "notes": [],
+    "strokes": null
+  },
+  "render": {
+    "renderer": "comfy",
+    "seconds": 57.47,
+    "prompt": "ainvfxfluid, thin translucent wisps of steam rise and curl up from the hot coffee in the white mug, drifting gently in the light and fading as they rise, static camera, realistic phone video",
+    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+    "start_frame": 7,
+    "length": 81
+  },
+  "plate": {
+    "still": true,
+    "frames": 96,
+    "shot_frames": 96,
+    "size": [
+      1080,
+      1920
+    ],
+    "point": [
+      0.4698,
+      0.45
+    ]
+  },
+  "hits": null,
+  "dropped_hits": [],
+  "scale": 1.15,
+  "matte": {
+    "source": "auto",
+    "found": true,
+    "coverage": 0.0164
+  },
+  "alignment": {
+    "mode": "scene",
+    "painted_hit": 17,
+    "model_onset": 9,
+    "auto_shift": 8,
+    "clamped": false,
+    "retime_frames": 0,
+    "offset": 15,
+    "lead": 0,
+    "hit_frame": 24
+  },
+  "measured": {
+    "model_early_frames": 8,
+    "hit_error_frames": 0,
+    "stops_with_voice": true,
+    "stop_latency_frames": null,
+    "stopped_within_plate": false
+  },
+  "transfer": null,
+  "warnings": [],
+  "seconds_total": 8.0
+}

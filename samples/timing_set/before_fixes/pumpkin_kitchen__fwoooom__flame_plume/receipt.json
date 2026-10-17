@@ -1,0 +1,201 @@
+{
+  "cuesync": "0.1.0",
+  "mode": "scene",
+  "effect": {
+    "id": "flame_plume",
+    "anchor": "first",
+    "behaviour": "plume",
+    "fluid": "fire",
+    "secondary": null,
+    "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire, isolated on a pure black background",
+    "r_min": 0.03,
+    "r_max": 0.3,
+    "rise": 0.55,
+    "keyframe_stride": 8,
+    "composite": "screen",
+    "align": "guide",
+    "lead_frames": 0,
+    "voice_gate": "both",
+    "release_fire": 9,
+    "release_smoke": 10,
+    "holdout_below": 0.02,
+    "tail_frames": 24,
+    "smoke_albedo": 0.4,
+    "scene": {
+      "prompt": "ainvfxfluid, a tall roaring flame bursts up out of {subject}, the fire lights up the surroundings with flickering warm orange light, then it dies down into a wisp of smoke, static camera, realistic phone video",
+      "r_min": 0.12,
+      "r_max": 0.6,
+      "direction": 0.0,
+      "resting": 0.0,
+      "bend": 0.0,
+      "shake": 0.0,
+      "flash": 0.0,
+      "rhythm": "",
+      "single": "",
+      "small": ""
+    }
+  },
+  "inputs": {
+    "plate_sha": "71ab49dec547ce98",
+    "voice_sha": "53f32c41c37db383",
+    "point": [
+      0.36,
+      0.53
+    ],
+    "seed": 1,
+    "offset_s": 0.0,
+    "face": false,
+    "direction": 91.7,
+    "subject": "the small pumpkin on the kitchen table",
+    "cue": "voice",
+    "drawn": true,
+    "describe": "the small pumpkin on the kitchen table catches fire, flames spread along its top and burn",
+    "holds": null
+  },
+  "voice": {
+    "onsets_s": [
+      0.999
+    ],
+    "hero_onset_s": 0.999,
+    "active_intervals": [
+      [
+        23,
+        63
+      ]
+    ],
+    "voice_end_frame": 63,
+    "peak_frame": 59,
+    "source": "voice"
+  },
+  "guide": {
+    "effect": "flame_plume",
+    "size": [
+      1088,
+      1920
+    ],
+    "point": [
+      0.359,
+      0.53
+    ],
+    "scale": 1.0,
+    "length": 89,
+    "anchor_frame": 7,
+    "voice_end": 56,
+    "tail": "scene",
+    "canvas": true,
+    "keyframes": [
+      0,
+      1,
+      9,
+      17,
+      25,
+      33,
+      41,
+      49,
+      57,
+      65,
+      73,
+      81,
+      88
+    ],
+    "mode": "scene",
+    "start": 7,
+    "direction": 91.7,
+    "events": [
+      {
+        "at": 17,
+        "end": 56,
+        "peak": 0.8790362244414653,
+        "size": 1.0,
+        "energy": 36.06783136326859
+      }
+    ],
+    "dropped": [],
+    "notes": [],
+    "strokes": [
+      {
+        "points": [
+          [
+            0.359,
+            0.53
+          ],
+          [
+            0.4194,
+            0.42
+          ],
+          [
+            0.4698,
+            0.5
+          ],
+          [
+            0.5302,
+            0.36
+          ],
+          [
+            0.5806,
+            0.49
+          ],
+          [
+            0.641,
+            0.41
+          ],
+          [
+            0.7015,
+            0.54
+          ]
+        ],
+        "width": 0.0907
+      }
+    ]
+  },
+  "render": {
+    "renderer": "comfy",
+    "seconds": 94.71,
+    "prompt": "ainvfxfluid, the small pumpkin on the kitchen table catches fire, flames spread along its top and burn, the light in the scene reacts to it, static camera, realistic phone video",
+    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+    "start_frame": 7,
+    "length": 89
+  },
+  "plate": {
+    "still": true,
+    "frames": 96,
+    "shot_frames": 101,
+    "size": [
+      1080,
+      1920
+    ],
+    "point": [
+      0.359,
+      0.53
+    ]
+  },
+  "hits": null,
+  "dropped_hits": [],
+  "scale": 1.0,
+  "matte": {
+    "source": "auto",
+    "found": true,
+    "coverage": 0.0764
+  },
+  "alignment": {
+    "mode": "scene",
+    "painted_hit": 17,
+    "model_onset": 12,
+    "auto_shift": 5,
+    "clamped": false,
+    "retime_frames": 0,
+    "offset": 12,
+    "lead": 0,
+    "hit_frame": 24
+  },
+  "measured": {
+    "model_early_frames": 5,
+    "hit_error_frames": 0,
+    "stops_with_voice": true,
+    "stop_latency_frames": null,
+    "stopped_within_plate": false
+  },
+  "transfer": null,
+  "warnings": [],
+  "seconds_total": 8.8
+}

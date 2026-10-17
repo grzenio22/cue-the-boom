@@ -1,0 +1,164 @@
+{
+  "cuesync": "0.1.0",
+  "mode": "scene",
+  "effect": {
+    "id": "blow_out",
+    "anchor": "hero",
+    "behaviour": "extinguish",
+    "fluid": "smoke",
+    "secondary": null,
+    "prompt": "ainvfxfluid, a thin curl of grey smoke rising, isolated on a pure black background",
+    "r_min": 0.02,
+    "r_max": 0.1,
+    "rise": 0.4,
+    "keyframe_stride": 8,
+    "composite": "over",
+    "align": "hit",
+    "lead_frames": 0,
+    "voice_gate": "attack",
+    "release_fire": 5,
+    "release_smoke": 24,
+    "holdout_below": 0.02,
+    "tail_frames": 32,
+    "smoke_albedo": 0.85,
+    "scene": {
+      "prompt": "ainvfxfluid, the flame of {subject} is blown out, a thin curl of grey smoke rises from the wick and drifts away, the light in the scene dims a little, static camera, realistic phone video",
+      "r_min": 0.0,
+      "r_max": 0.1,
+      "direction": 0.0,
+      "resting": 0.09,
+      "bend": 0.0,
+      "shake": 0.0,
+      "flash": 0.0,
+      "rhythm": "",
+      "single": "",
+      "small": ""
+    }
+  },
+  "inputs": {
+    "plate_sha": "cc2200a8005e3f11",
+    "voice_sha": "e3585fc587572ad2",
+    "point": [
+      0.53,
+      0.52
+    ],
+    "seed": 2,
+    "offset_s": 0.0,
+    "face": false,
+    "direction": 0.0,
+    "subject": "the candle in the glass jar",
+    "cue": "voice",
+    "drawn": false,
+    "describe": null,
+    "holds": null
+  },
+  "voice": {
+    "onsets_s": [
+      0.989
+    ],
+    "hero_onset_s": 0.989,
+    "active_intervals": [
+      [
+        23,
+        27
+      ]
+    ],
+    "voice_end_frame": 27,
+    "peak_frame": 24,
+    "source": "voice"
+  },
+  "guide": {
+    "effect": "blow_out",
+    "size": [
+      1088,
+      1920
+    ],
+    "point": [
+      0.5302,
+      0.52
+    ],
+    "scale": 1.15,
+    "length": 65,
+    "anchor_frame": 7,
+    "voice_end": 20,
+    "tail": "scene",
+    "canvas": true,
+    "keyframes": [
+      0,
+      1,
+      9,
+      17,
+      25,
+      33,
+      41,
+      49,
+      57,
+      64
+    ],
+    "mode": "scene",
+    "start": 7,
+    "direction": 0.0,
+    "events": [
+      {
+        "at": 17,
+        "end": 20,
+        "peak": 0.8892565016288905,
+        "size": 1.0,
+        "energy": 2.881414971705188
+      }
+    ],
+    "dropped": [],
+    "notes": [],
+    "strokes": null
+  },
+  "render": {
+    "renderer": "comfy",
+    "seconds": 42.45,
+    "prompt": "ainvfxfluid, the flame of the candle in the glass jar is blown out, a thin curl of grey smoke rises from the wick and drifts away, the light in the scene dims a little, static camera, realistic phone video",
+    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+    "start_frame": 7,
+    "length": 65
+  },
+  "plate": {
+    "still": true,
+    "frames": 96,
+    "shot_frames": 96,
+    "size": [
+      1080,
+      1920
+    ],
+    "point": [
+      0.5302,
+      0.52
+    ]
+  },
+  "hits": null,
+  "dropped_hits": [],
+  "scale": 1.15,
+  "matte": {
+    "source": "auto",
+    "found": true,
+    "coverage": 0.0788
+  },
+  "alignment": {
+    "mode": "scene",
+    "painted_hit": 17,
+    "model_onset": 14,
+    "auto_shift": 3,
+    "clamped": false,
+    "retime_frames": 0,
+    "offset": 10,
+    "lead": 0,
+    "hit_frame": 24
+  },
+  "measured": {
+    "model_early_frames": 3,
+    "hit_error_frames": 0,
+    "stops_with_voice": false,
+    "stop_latency_frames": null,
+    "stopped_within_plate": null
+  },
+  "transfer": null,
+  "warnings": [],
+  "seconds_total": 7.1
+}

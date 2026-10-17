@@ -1,0 +1,165 @@
+{
+  "cuesync": "0.1.0",
+  "mode": "scene",
+  "effect": {
+    "id": "fire_breath",
+    "anchor": "first",
+    "behaviour": "jet",
+    "fluid": "fire",
+    "secondary": null,
+    "prompt": "ainvfxfluid, a jet of roaring orange fire, isolated on a pure black background",
+    "r_min": 0.2,
+    "r_max": 0.5,
+    "rise": 0.3,
+    "keyframe_stride": 8,
+    "composite": "screen",
+    "align": "guide",
+    "lead_frames": 0,
+    "voice_gate": "both",
+    "release_fire": 6,
+    "release_smoke": 10,
+    "holdout_below": 0.02,
+    "tail_frames": 40,
+    "smoke_albedo": 0.95,
+    "scene": {
+      "prompt": "ainvfxfluid, {subject} breathes {rhythm} {towards} out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+      "r_min": 0.12,
+      "r_max": 0.46,
+      "direction": -90.0,
+      "resting": 0.0,
+      "bend": 0.2,
+      "shake": 0.0,
+      "flash": 0.0,
+      "rhythm": "short separate bursts of bright orange fire, with dark pauses between them and the last burst the longest,",
+      "single": "a long roaring jet of bright orange fire",
+      "small": ""
+    }
+  },
+  "inputs": {
+    "plate_sha": "4759f36243fd394f",
+    "voice_sha": "e3585fc587572ad2",
+    "point": [
+      0.375,
+      0.485
+    ],
+    "seed": 1,
+    "offset_s": 0.0,
+    "face": false,
+    "direction": -90.0,
+    "subject": "the small plastic toy dinosaur on the bedside table",
+    "cue": "voice",
+    "drawn": false,
+    "describe": null,
+    "holds": null
+  },
+  "voice": {
+    "onsets_s": [
+      0.989
+    ],
+    "hero_onset_s": 0.989,
+    "active_intervals": [
+      [
+        23,
+        27
+      ]
+    ],
+    "voice_end_frame": 27,
+    "peak_frame": 24,
+    "source": "voice"
+  },
+  "guide": {
+    "effect": "fire_breath",
+    "size": [
+      1088,
+      1920
+    ],
+    "point": [
+      0.3741,
+      0.485
+    ],
+    "scale": 0.803,
+    "length": 73,
+    "anchor_frame": 7,
+    "voice_end": 20,
+    "tail": "scene",
+    "canvas": true,
+    "keyframes": [
+      0,
+      1,
+      9,
+      17,
+      25,
+      33,
+      41,
+      49,
+      57,
+      65,
+      72
+    ],
+    "mode": "scene",
+    "start": 7,
+    "direction": -90.0,
+    "events": [
+      {
+        "at": 17,
+        "end": 20,
+        "peak": 0.8892565016288905,
+        "size": 1.0,
+        "energy": 2.881414971705188
+      }
+    ],
+    "dropped": [],
+    "notes": [],
+    "strokes": null
+  },
+  "render": {
+    "renderer": "comfy",
+    "seconds": 52.52,
+    "prompt": "ainvfxfluid, the small plastic toy dinosaur on the bedside table breathes a long roaring jet of bright orange fire to the left out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+    "start_frame": 7,
+    "length": 73
+  },
+  "plate": {
+    "still": true,
+    "frames": 96,
+    "shot_frames": 96,
+    "size": [
+      1080,
+      1920
+    ],
+    "point": [
+      0.3741,
+      0.485
+    ]
+  },
+  "hits": null,
+  "dropped_hits": [],
+  "scale": 0.803,
+  "matte": {
+    "source": "auto",
+    "found": true,
+    "coverage": 0.048
+  },
+  "alignment": {
+    "mode": "scene",
+    "painted_hit": 17,
+    "model_onset": 12,
+    "auto_shift": 5,
+    "clamped": false,
+    "retime_frames": 0,
+    "offset": 12,
+    "lead": 0,
+    "hit_frame": 24
+  },
+  "measured": {
+    "model_early_frames": 5,
+    "hit_error_frames": 0,
+    "stops_with_voice": true,
+    "stop_latency_frames": 17,
+    "stopped_within_plate": true
+  },
+  "transfer": null,
+  "warnings": [],
+  "seconds_total": 7.6
+}
