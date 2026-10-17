@@ -20,7 +20,7 @@ The effect is rendered into the scene, so it lights and changes what is around i
 
 ## Try it
 
-**The studio, with no GPU** (instant mode places pre-rendered LTX-2.5 elements, timed by your cue):
+**The studio, with no GPU.** The sample scene shots in `samples/made_ahead` play straight away (and you can drag their hit to re-time them, in seconds); on your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue:
 
 ```bash
 git clone https://github.com/grzenio22/cue-the-boom && cd cue-the-boom

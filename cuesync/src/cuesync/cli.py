@@ -195,13 +195,15 @@ def cmd_compare(args) -> int:
 
 
 def cmd_serve(args) -> int:
-    from .server import serve
+    from .server import SAMPLES, serve
+
+    made_ahead = SAMPLES / "made_ahead"  # the scene shots that ship with the repository
 
     origins = [o.strip() for o in args.allow_origin.split(",")] if args.allow_origin else None
     serve(workflow=None if args.instant_only else Path(args.workflow), jobs_dir=Path(args.jobs), host=args.host,
           port=args.port, allow_origins=origins, timeout=args.timeout,
           library=Path(args.library) if args.library else None,
-          precomputed=Path(args.precomputed) if args.precomputed else None)
+          precomputed=Path(args.precomputed) if args.precomputed else (made_ahead if made_ahead.is_dir() else None))
     return 0
 
 
@@ -339,7 +341,8 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--timeout", type=float, default=600.0, help="seconds to wait for one render")
     sv.add_argument("--library", help="instant-mode element library (default: samples/library)")
     sv.add_argument("--instant-only", action="store_true", help="no GPU backend: serve instant mode only")
-    sv.add_argument("--precomputed", help="sample shots made ahead of time (cuesync precompute) for the gallery")
+    sv.add_argument("--precomputed", help="sample shots made ahead of time (cuesync precompute) for the gallery; "
+                                          "default: the ones in samples/made_ahead")
 
     pc = sub.add_parser("precompute", help="make every sample shot ahead of time (gallery + instant first clicks)")
     pc.add_argument("--mode", choices=["instant", "render", "scene"], default="instant")
