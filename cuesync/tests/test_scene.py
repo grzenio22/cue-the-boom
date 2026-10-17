@@ -749,3 +749,53 @@ def test_a_candle_blown_out_early_by_the_model_is_still_found():
     region = np.zeros((64, 64), bool)
     region[10:50, 20:44] = True
     assert flame_out(frames, region, ref_frames=max(4, 17 - EARLIEST)) == 11
+
+
+def _fire_px(frame):
+    return int((np.all(frame == FIRE_OUTER, -1) | np.all(frame == FIRE_INNER, -1)).sum())
+
+
+def test_a_flame_goes_within_a_few_frames_of_the_voice():
+    from cuesync.scene import DIE_DOWN, Strokes
+
+    cue = cue_of([(1.0, 1.2, 0.8)], length_s=5.0)
+    drawn = Strokes.parse([{"points": [[0.5, 0.6], [0.5, 0.35]], "width": 0.08}])
+    for eid, point, strokes in (("flame_plume", (0.5, 0.6), None), ("fire_breath", (0.6, 0.6), None),
+                                ("flame_plume", (0.5, 0.6), drawn)):
+        eff = load_effect(eid)
+        start, length = plan_window(cue, eff, None)
+        sp = paint_scene_guide(cue, eff, point, two_tone_plate()[None], start=start, length=length, strokes=strokes)
+        end = sp.events[0].end
+        later = [k for k in sp.guide.keyframes if k >= end + DIE_DOWN]
+        assert later and all(_fire_px(sp.guide.frames[k]) == 0 for k in later), (eid, strokes is not None)
+
+
+def test_a_burst_is_a_ragged_blast_not_a_disc():
+    cue = cue_of([(1.0, 0.4, 0.9)], length_s=4.0)
+    eff = load_effect("fire_burst")
+    start, length = plan_window(cue, eff, None)
+    sp = paint_scene_guide(cue, eff, (0.5, 0.6), two_tone_plate()[None], start=start, length=length)
+    k = sp.events[0].at + 8
+    k = min(sp.guide.keyframes, key=lambda x: abs(x - k))
+    m = (np.all(sp.guide.frames[k] == FIRE_OUTER, -1) | np.all(sp.guide.frames[k] == FIRE_INNER, -1)).astype(np.uint8)
+    import cv2
+    cs, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    big = max(cs, key=cv2.contourArea)
+    hull = cv2.convexHull(big)
+    assert cv2.contourArea(big) / cv2.contourArea(hull) < 0.95  # tongues and notches, not a filled ellipse
+    mo = cv2.moments(big)
+    cy, ys = mo["m01"] / mo["m00"], big[:, 0, 1]
+    assert cy - ys.min() > ys.max() - cy  # it licks upward more than it hangs down
+
+
+def test_a_take_whose_noise_lands_off_the_clip_is_refused(tmp_path, make_wav):
+    from cuesync.cues import CueError, load_cue
+
+    x = np.zeros(3 * SR, np.float32)
+    x[SR: SR + 4800] = 0.6 * np.sin(np.arange(4800) * 0.05)  # "pf." 1 s into the recording
+    voice = make_wav(tmp_path, x, SR)
+    assert load_cue("voice", plate=voice, voice=voice, offset_s=-0.3, duration_s=4.0).cue.hero_onset_s == pytest.approx(0.7, abs=0.05)
+    with pytest.raises(CueError, match="before the clip starts"):
+        load_cue("voice", plate=voice, voice=voice, offset_s=-11.6, duration_s=4.0)  # a misread clock
+    with pytest.raises(CueError, match="after the end"):
+        load_cue("voice", plate=voice, voice=voice, offset_s=5.0, duration_s=4.0)

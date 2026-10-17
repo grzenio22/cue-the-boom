@@ -132,47 +132,7 @@
     "hit": "fire_breath",
     "rhythm": "fire_breath",
     "sustained": "fire_breath"
-   },
-   "drawn": [
-    {
-     "title": "press and hold · drawn smoke out of the lamp",
-     "effect": "smoke_puff",
-     "holds": [
-      [
-       1.0,
-       3.0
-      ]
-     ],
-     "strokes": [
-      {
-       "points": [
-        [
-         0.55,
-         0.36
-        ],
-        [
-         0.5,
-         0.42
-        ],
-        [
-         0.47,
-         0.5
-        ],
-        [
-         0.52,
-         0.56
-        ],
-        [
-         0.62,
-         0.58
-        ]
-       ],
-       "width": 0.1
-      }
-     ],
-     "describe": "thick grey smoke pours out of the desk lamp's shade and rolls down onto the bedside table"
-    }
-   ]
+   }
   },
   "candle_shelf.mp4": {
    "title": "Candle jar",

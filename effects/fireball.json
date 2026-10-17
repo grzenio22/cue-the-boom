@@ -11,7 +11,7 @@
   "keyframe_stride": 8,
   "composite": "screen",
   "scene": {
-    "prompt": "ainvfxfluid, {subject} explodes in a bright orange fireball{rhythm}, chunks fly out, the blast lights up the whole room with flickering orange light that reflects on the surfaces, then thick dark smoke rolls up and debris is left scattered around, static camera, realistic phone video",
+    "prompt": "ainvfxfluid, {subject} explodes in a sudden ragged blast of orange flame{rhythm}, chunks fly out, the blast lights up the whole room with flickering orange light that reflects on the surfaces, then thick dark smoke rolls up and debris is left scattered around, static camera, realistic phone video",
     "r_min": 0.1,
     "r_max": 0.36,
     "shake": 0.006,

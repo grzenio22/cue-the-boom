@@ -11,7 +11,7 @@
   "keyframe_stride": 8,
   "composite": "screen",
   "scene": {
-    "prompt": "ainvfxfluid, a fireball bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
+    "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
     "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video",
     "rhythm": " in two small puffs and then one big blast",
     "single": "",

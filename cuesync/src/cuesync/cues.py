@@ -68,7 +68,8 @@ def load_cue(source: str, *, plate: Path, voice: Path | None = None, offset_s: f
         if voice is None:
             raise CueError("a voice cue needs a recording")
         samples = read_audio(voice, sr)
-        return Cue("voice", analyze(samples, sr, offset_s=offset_s, fps=fps), samples, offset_s)
+        cue = analyze(samples, sr, offset_s=offset_s, fps=fps)
+        return Cue("voice", _within(cue, duration_s, "your noise"), samples, offset_s)
     if source == "clip":
         try:
             samples = read_audio(plate, sr)
@@ -81,7 +82,7 @@ def load_cue(source: str, *, plate: Path, voice: Path | None = None, offset_s: f
             cue = analyze(samples, sr, offset_s=0.0, fps=fps)
         except NoOnsetError as exc:
             raise CueError("no clear sound in your clip to lock to (a snap, a click, a slam)") from exc
-        return Cue("clip", _within(cue, duration_s), samples, 0.0)
+        return Cue("clip", _within(cue, duration_s, "the sound to lock to"), samples, 0.0)
     clean = [(a, b) for a, b in (holds or [DEFAULT_HOLD]) if 0 <= a < duration_s]
     if not clean:
         raise CueError(f"every press is after the end of the shot ({duration_s:.1f} s)")
@@ -89,8 +90,9 @@ def load_cue(source: str, *, plate: Path, voice: Path | None = None, offset_s: f
     return Cue("hold", cue, np.zeros(int(round(cue.duration_s * sr)), np.float32), 0.0)
 
 
-def _within(cue: CueSheet, duration_s: float) -> CueSheet:
-    """Refuse a cue whose hit falls outside the shot."""
+def _within(cue: CueSheet, duration_s: float, what: str) -> CueSheet:
+    """Refuse a cue whose hit falls outside the shot (a mistimed take would paint the effect off the clip)."""
     if not 0 <= cue.hero_onset_s < duration_s:
-        raise CueError(f"the sound to lock to is after the end of the shot ({duration_s:.1f} s)")
+        where = "before the clip starts" if cue.hero_onset_s < 0 else f"after the end of the shot ({duration_s:.1f} s)"
+        raise CueError(f"{what} falls {where}: make it while the clip plays")
     return cue

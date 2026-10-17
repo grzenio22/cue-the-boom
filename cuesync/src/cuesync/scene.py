@@ -361,7 +361,7 @@ class _Drawn:
         # carry on from the fill it had when the sound stopped (a small "pf" stays small, then recedes)
         last = max(on(i) for i in range(max(ev.at, end - 8), max(ev.at + 1, end)))
         if fire:
-            return max(0.0, last * (1 - since / 14)), 0.0
+            return max(0.0, last * (1 - since / DIE_DOWN)), 0.0
         k = since / max(8, c.length - 1 - end)
         return (last, min(1.0, 0.2 + 0.8 * k)) if k < 0.85 else (0.0, 1.0)
 
@@ -375,6 +375,15 @@ class _Drawn:
             k = max(0.0, (t - held) / max(1, c.length - ev.at - held))
             smoke = self.mask & (self.dist <= max(0.5, amount) * self.reach * 1.1 + 1.0)
             out += [_gas(sh, "smoke", 0.8 - 0.7 * k) for sh in _mask_shapes(smoke, SMOKE)]
+        end = c.length if ev.end is None else ev.end
+        if c.eff.fluid == "fire" and c.eff.behaviour not in ("burst", "puff") and 0 <= e - end < 30:
+            # a drawn flame that went out leaves a wisp of smoke rising from where it was
+            k = (e - end) / 30
+            ys, xs = np.nonzero(self.mask)
+            if ys.size:
+                top, cx_ = float(ys.min()), float(xs.mean())
+                w_ = max(float(xs.max() - xs.min()) * 0.25, MIN_RADIUS_PX)
+                out.append(_gas(_ellipse(cx_, top - w_ - 0.15 * c.h * k, w_, w_ * 1.8, SMOKE), "smoke", 0.6 - 0.45 * k))
         if amount <= 0.02:
             return out + _rest(c)  # a lit candle burns before the effect and again once it is gone
         m = self.mask & (self.dist <= amount * self.reach + 1.0)
@@ -446,6 +455,24 @@ def _rest(c: _Ctx) -> list[dict]:
     return [dict(_flame(c.s, c.u, height, max(height * 0.42, MIN_RADIUS_PX * 0.9), FIRE_OUTER), fire=True, rest=True)]
 
 
+DIE_DOWN = 6  # frames for a flame to go once the voice stops (the model follows the guide, then the re-time
+#                moves it later by the model's lead; a longer die-down read as a flame that outlives the voice)
+
+
+def _blast(cx: float, cy: float, r: float, e: int, col) -> dict:
+    """A ragged burst of flame: an irregular outline that licks upward and changes every keyframe (a painted
+    disc renders as a round, cotton-like ball)."""
+    pts = []
+    for i in range(28):
+        a = 2 * math.pi * i / 28
+        n = 0.18 * math.sin(3 * a + 0.9 * e) + 0.12 * math.sin(5 * a - 1.3 * e + 1.0) + 0.08 * math.sin(9 * a + 2.1 * e)
+        k = 0.82 + n
+        dx, dy = math.sin(a), -math.cos(a)  # clockwise from up
+        up = 1.25 if dy < 0 else 0.9  # flame climbs, the base stays low
+        pts.append((cx + dx * r * k, cy + dy * r * k * up))
+    return _poly(pts, col)
+
+
 def _burst(c: _Ctx, ev: Event, e: int) -> list[dict]:
     """A fireball at the source: it pops on the hit, holds while the voice lasts (bounded), collapses into
     rising smoke that stays attached to it at first. A resting flame (the candle in a jack-o'-lantern) burns
@@ -473,7 +500,7 @@ def _burst(c: _Ctx, ev: Event, e: int) -> list[dict]:
             jy = oy + 0.05 * math.cos(0.9 * e + 1.3 * j)
             shapes.append(_gas(_ellipse(cx + jx * sr, sy + jy * sr, sr * k, sr * k * 0.85, SMOKE), "smoke", density))
     if r >= MIN_RADIUS_PX:
-        shapes += _fire(lambda k, col: _ellipse(cx, cy, r * k, r * k * 0.92, col))
+        shapes += _fire(lambda k, col: _blast(cx, cy, r * k, e + int(7 * k), col))
     else:
         shapes += _rest(c)
     return shapes
@@ -503,7 +530,7 @@ def _plume(c: _Ctx, ev: Event, e: int) -> list[dict]:
         return flame(MIN_RADIUS_PX * 2 + (hgt - MIN_RADIUS_PX * 2) * grow)
     since = e - ev.end
     last = max(height(i) for i in range(max(0, ev.end - 8), max(1, ev.end)))
-    settle = 16
+    settle = DIE_DOWN
     if since < settle:
         hgt = last * (1 - since / settle) + (sc.resting * min(c.w, c.h)) * since / settle
         tip = (c.s[0] + c.u[0] * last * 0.9, c.s[1] + c.u[1] * last * 0.9)
@@ -563,8 +590,8 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
     if fire:
         out: list[dict] = []
         short = ev.end - ev.at <= 10  # a "pf": its next keyframe must be fire-free, or the breaths merge into one
-        if since < 12 and not short:  # the flame lets go of the mouth and burns out downstream
-            out += jet(last, start=min(0.85, since / 12), fade=0.15 + 0.5 * since / 12)
+        if since < DIE_DOWN and not short:  # the flame lets go of the mouth and burns out downstream
+            out += jet(last, start=min(0.85, since / DIE_DOWN), fade=0.15 + 0.5 * since / DIE_DOWN)
         if since < 40:  # its smoke, where the flame was: a dark wisp rising and thinning (a round blob reads as cotton)
             k = since / 40
             mid = _path(c.s, c.u, min(last, 0.8 * reach), sc.bend * abs(c.u[0]))[9]
@@ -878,6 +905,18 @@ def _resolve(shape: dict, zones: np.ndarray, smoke_k: float) -> dict:
     return dict(shape, color=[int(round(v)) for v in col])
 
 
+def _ending(eff: EffectSpec, words: str) -> str:
+    """How a sustained flame ends, for the performer's own words: without it the model keeps a thing that
+    caught fire burning to the end of the shot, whatever the guide shows."""
+    if eff.fluid != "fire" or eff.behaviour not in ("plume", "jet"):
+        return ""
+    if any(w in words.lower() for w in ("die", "dies", "out", "calm", "smoulder", "stops")):
+        return ""  # they said how it ends
+    if eff.scene and eff.scene.resting > 0:
+        return ", then it calms back down to a small flame"
+    return ", then the flames die down and go out, leaving a wisp of smoke"
+
+
 def scene_prompt(eff: EffectSpec, subject: str | None, direction: float, hits: int = 1, size: float = 1.0,
                  describe: str | None = None) -> str:
     """The prompt for a scene render. ``describe``: the performer's own words for what happens (drawn
@@ -886,7 +925,7 @@ def scene_prompt(eff: EffectSpec, subject: str | None, direction: float, hits: i
     tail = "the light in the scene reacts to it, static camera, realistic phone video"
     if describe and describe.strip():
         words = " ".join(describe.strip().rstrip(".").split())[:200]
-        return f"ainvfxfluid, {words}, {tail}"
+        return f"ainvfxfluid, {words}{_ending(eff, words)}, {tail}"
     ux, uy = unit(direction)
     towards = ("upwards" if uy < -0.7 else "downwards" if uy > 0.7
                else "to the left" if ux < 0 else "to the right")
