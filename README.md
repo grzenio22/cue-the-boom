@@ -94,7 +94,7 @@ How well it works, marked by eye frame by frame on the raw renders of 29 shots (
 | the finished shot | 26 of 31 hits | 0.8 frames |
 | the finished shot, renders the onset threshold was not fitted on | 15 of 18 | |
 
-Of the 37 hits painted, 31 have an onset that can be marked; the other 6 are 5 rhythm hits the model merged into a neighbour and 1 start too faint to call.
+Of the 37 hits painted, 31 have an onset that can be marked; the other 6 are 5 rhythm hits the model merged into a neighbour and 1 start too faint to call. The renders the marks refer to are not in the repository (they are large); `measure_timing.py` runs on any set of scene shots, and all of these are LTX-2.5 stand-in plates: real phone footage is still untested.
 
 ![Timing: raw render vs finished shot](media/timing.png)
 
