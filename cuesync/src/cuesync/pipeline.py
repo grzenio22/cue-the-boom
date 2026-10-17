@@ -75,11 +75,16 @@ class ComfyRenderer:
             return False
 
     def matte(self, frame: np.ndarray, point: tuple[float, float]) -> np.ndarray | None:
-        """SAM 2.1 on the server (CueSync node pack); GrabCut locally if the server can't."""
+        """SAM 2.1 on the server (CueSync node pack) checked against GrabCut: a single point can make SAM
+        return a part of the object (one pumpkin rib, the coffee inside a mug), so its matte is used only
+        when it is at least 60 % as wide under the point as GrabCut's; otherwise GrabCut's."""
         from .runner import object_matte
 
-        m = object_matte(frame, point)
-        return m if m is not None else grabcut_matte(frame, point)
+        sam, cut = object_matte(frame, point), grabcut_matte(frame, point)
+        if sam is None or cut is None:
+            return sam if cut is None else cut
+        ws, wc = object_width(sam, point), object_width(cut, point)
+        return sam if ws is not None and (wc is None or ws >= 0.6 * wc) else cut
 
 
 @dataclass

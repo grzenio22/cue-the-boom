@@ -4,7 +4,7 @@
   "behaviour": "burst",
   "fluid": "fire",
   "secondary": "smoke",
-  "prompt": "ainvfxfluid, fireball explosion rolling into smoke, isolated on a pure black background",
+  "prompt": "ainvfxfluid, fireball explosion rolling into thick black smoke, isolated on a pure black background",
   "r_min": 0.04,
   "r_max": 0.42,
   "rise": 0.35,
