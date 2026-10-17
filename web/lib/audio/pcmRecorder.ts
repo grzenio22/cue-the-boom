@@ -8,7 +8,9 @@ export interface PcmRecording {
 
 export interface PcmRecorder {
   ctx: AudioContext;
-  /** performance.now() ms of context time 0 *at processing time* (output-timestamp mapping minus output-side latency). */
+  /** performance.now() ms of context time 0 *at processing time*: the earliest any block arrived on this thread,
+   * less its own context time (a block can't arrive before it was processed; the fastest one arrived within a
+   * millisecond or two). The output timestamp, the fallback, depends on the output device and can be far off. */
   ctxToPerfOffsetMs: () => number;
   stop(): Promise<PcmRecording>;
 }
@@ -23,9 +25,11 @@ export async function startPcmRecorder(stream: MediaStream): Promise<PcmRecorder
   mute.gain.value = 0; // keep the graph pulled without monitoring the mic
   const chunks: Float32Array[] = [];
   let firstFrame = -1;
+  let offsetMs = Infinity;
   node.port.onmessage = (ev: MessageEvent<{ frame: number; samples: Float32Array }>) => {
     if (firstFrame < 0) firstFrame = ev.data.frame;
     chunks.push(ev.data.samples);
+    offsetMs = Math.min(offsetMs, performance.now() - ((ev.data.frame + ev.data.samples.length) / ctx.sampleRate) * 1000);
   };
   source.connect(node);
   node.connect(mute);
@@ -34,6 +38,7 @@ export async function startPcmRecorder(stream: MediaStream): Promise<PcmRecorder
   return {
     ctx,
     ctxToPerfOffsetMs: () => {
+      if (Number.isFinite(offsetMs)) return offsetMs;
       const ts = ctx.getOutputTimestamp();
       // both are 0 until the context has rendered its first output: then the timestamp means nothing
       if (!(ts.performanceTime && ts.contextTime)) return performance.now() - ctx.currentTime * 1000;

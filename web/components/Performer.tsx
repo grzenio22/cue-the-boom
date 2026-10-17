@@ -6,7 +6,7 @@ import { type PcmRecorder, startPcmRecorder } from "@/lib/audio/pcmRecorder";
 import { encodeWav } from "@/lib/audio/wav";
 import { applyAndVerify, AUDIO_CONSTRAINTS, videoConstraints } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
-import { type ClockSample, fitMediaClock, sampleClock } from "@/lib/sync/mediaClock";
+import { type ClockSample, fitMediaClock, fitMediaClockNear, perfMsOfSample, sampleClock } from "@/lib/sync/mediaClock";
 import { type CueKind, EFFECT_LABELS, type SampleVoice, sceneEffect, type SceneMap, type Source, suggestEffect } from "@/lib/shot";
 import { buildTimingJson, estimateOffsetS, plausibleOffset, type TimingJson } from "@/lib/sync/timing";
 
@@ -165,7 +165,10 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
     let timing: TimingJson | null = null;
     if (clockSamples.current.length >= 2) {
       timing = buildTimingJson({
-        clock: fitMediaClock(clockSamples.current), firstFrame: pcm.firstFrame, sampleRate: pcm.sampleRate,
+        // the plate's clock where the noise is (the whole-take fit is the fallback when no onset was heard)
+        clock: onsetS === null ? fitMediaClock(clockSamples.current)
+          : fitMediaClockNear(clockSamples.current, perfMsOfSample(pcm.firstFrame, onsetS * pcm.sampleRate, pcm.sampleRate, ctxOffsetMs.current)),
+        firstFrame: pcm.firstFrame, sampleRate: pcm.sampleRate,
         ctxToPerfOffsetMs: ctxOffsetMs.current, inputLatencyS: inputLatencyS.current, onsetSInNoise: onsetS,
         faceOffsetS, emissionPoint: point,
       });

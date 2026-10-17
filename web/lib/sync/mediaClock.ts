@@ -29,6 +29,26 @@ export function fitMediaClock(samples: ClockSample[]): MediaClock {
   };
 }
 
+/** The plate's clock near one moment (the noise): media time = performance time + c, with c the median over the
+ * frames presented within ``halfWindowMs`` of it (playback runs at rate 1). A line fitted to the whole take is
+ * thrown off by a stall when playback starts, and extrapolating it back to the noise put takes up to 0.9 s off. */
+export function fitMediaClockNear(samples: ClockSample[], perfMs: number, halfWindowMs = 400): MediaClock {
+  if (samples.length === 0) throw new Error("need clock samples");
+  let near = samples.filter((s) => Math.abs(s.perfMs - perfMs) <= halfWindowMs);
+  if (near.length < 3) near = [...samples].sort((a, b) => Math.abs(a.perfMs - perfMs) - Math.abs(b.perfMs - perfMs)).slice(0, 8);
+  const c = median(near.map((s) => s.mediaTime - s.perfMs / 1000));
+  return {
+    mediaTimeAt: (p: number) => p / 1000 + c,
+    residualMs: median(near.map((s) => Math.abs(s.mediaTime - s.perfMs / 1000 - c))) * 1000,
+  };
+}
+
+function median(v: number[]): number {
+  const s = [...v].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
 export function perfMsOfSample(firstFrame: number, sampleIndex: number, sampleRate: number, ctxToPerfOffsetMs: number): number {
   return ((firstFrame + sampleIndex) / sampleRate) * 1000 + ctxToPerfOffsetMs;
 }

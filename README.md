@@ -96,6 +96,8 @@ How well it works, marked by eye frame by frame on the raw renders of 30 shots (
 
 ![Timing: raw render vs finished shot](media/timing.png)
 
+Before any of that, the take itself has to land where it was performed: [`tools/check_take_timing.py`](tools/check_take_timing.py) replaces the studio's microphone with a synthetic one that makes a noise at the moment the clip shows a chosen frame; in 8 takes the noise was found within 45 ms of it (6 within 20 ms).
+
 The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (5 of 12 here); those are reported, not faked, and the rest move together. A flame dies down 0.4 to 0.9 s after the voice stops.
 
 **Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate, with a SAM 2.1 object matte and a linear-light compositor ([`composite.py`](cuesync/src/cuesync/composite.py)).
