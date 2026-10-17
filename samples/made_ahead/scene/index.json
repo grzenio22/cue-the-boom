@@ -1,0 +1,92 @@
+{
+ "scene|mug_counter.mp4|hissss.wav|steam_jet@646db50a|0.47,0.45|1": {
+  "dir": "mug_counter__hissss__steam_jet",
+  "title": "hissss · Mug, bright counter",
+  "plate": "mug_counter.mp4",
+  "voice": "hissss.wav",
+  "effect": "steam_jet",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|candle_shelf.mp4|pf.wav|blow_out@2bfda6bb|0.53,0.52|1": {
+  "dir": "candle_shelf__pf__blow_out",
+  "title": "pf. · Candle jar",
+  "plate": "candle_shelf.mp4",
+  "voice": "pf.wav",
+  "effect": "blow_out",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|candle_snap.mp4|clip|blow_out@2bfda6bb|0.53,0.52|1": {
+  "dir": "candle_snap__clip__blow_out",
+  "title": "a snap in the clip · Candle jar",
+  "plate": "candle_snap.mp4",
+  "voice": "clip",
+  "effect": "blow_out",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|toy_desk.mp4|fwoooom.wav|fire_breath@829e0743|0.38,0.48|1|-90": {
+  "dir": "toy_desk__fwoooom__fire_breath",
+  "title": "fwoooOOOM · Toy dinosaur, night",
+  "plate": "toy_desk.mp4",
+  "voice": "fwoooom.wav",
+  "effect": "fire_breath",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|candle_shelf.mp4|fwoooom.wav|wick_flare@5ceaf5a5|0.53,0.52|1": {
+  "dir": "candle_shelf__fwoooom__wick_flare",
+  "title": "fwoooOOOM · Candle jar",
+  "plate": "candle_shelf.mp4",
+  "voice": "fwoooom.wav",
+  "effect": "wick_flare",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|jackolantern_kitchen.mp4|ka-boom.wav|fire_burst@a735a743|0.48,0.39|1": {
+  "dir": "jackolantern_kitchen__ka-boom__fire_burst",
+  "title": "KA-BOOM · Jack-o'-lantern, kitchen",
+  "plate": "jackolantern_kitchen.mp4",
+  "voice": "ka-boom.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|jackolantern_kitchen.mp4|pf-pf-ka-boom.wav|fire_burst@a735a743|0.48,0.39|1": {
+  "dir": "jackolantern_kitchen__pf-pf-ka-boom__fire_burst",
+  "title": "pf, pf, KA-BOOM · Jack-o'-lantern, kitchen",
+  "plate": "jackolantern_kitchen.mp4",
+  "voice": "pf-pf-ka-boom.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|jackolantern_kitchen.mp4|pf.wav|fire_burst@a735a743|0.48,0.39|1": {
+  "dir": "jackolantern_kitchen__pf__fire_burst",
+  "title": "pf. · Jack-o'-lantern, kitchen",
+  "plate": "jackolantern_kitchen.mp4",
+  "voice": "pf.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false
+ },
+ "scene|pumpkin_kitchen.mp4|fwoooom.wav|flame_plume@5ce2d86e|0.36,0.53|1": {
+  "dir": "pumpkin_kitchen__fwoooom__flame_plume",
+  "title": "fwoooOOOM · drawn flames on the pumpkin",
+  "plate": "pumpkin_kitchen.mp4",
+  "voice": "fwoooom.wav",
+  "effect": "flame_plume",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": true
+ }
+}
