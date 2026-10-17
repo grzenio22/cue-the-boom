@@ -2,7 +2,7 @@
 
 **Draw where. Cue it with a sound. The scene reacts.**
 
-Put fire, smoke or steam into your own shot exactly where it should come from (tap it, or draw it) and exactly when it should happen: say it ("pf.", "KA-BOOM", "fwoooOOOM", "hissss"), lock it to a sound that is already in your clip (a finger snap, a lighter's click, a door slam), or press and hold. No timestamps to type: the sound sets the hit frame, and how you made it sets how big it gets and how long it lasts. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into your scene, so the generated fire lights the room and the scene changes with it: a blown-out candle stays out. Then CueSync measures where the effect actually landed and moves it onto your cue, and every shot says by how much.
+Put fire, smoke or steam into your own shot exactly where it should come from (tap it, or draw it) and when it should happen: say it ("pf.", "KA-BOOM", "fwoooOOOM", "hissss"), lock it to a sound that is already in your clip (a finger snap, a lighter's click, a door slam), or press and hold. No timestamps to type: the sound sets the hit frame, and how you made it sets how big it gets and how long it lasts. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into your scene, so the generated fire lights the room and the scene changes with it: a blown-out candle stays out. Then CueSync measures where the effect actually landed and moves it onto your cue, and every shot says by how much.
 
 ![The scene reacts](media/hero.jpg)
 <sub>Scene-mode shots. The plates are stand-ins generated with LTX-2.5 and the noises are synthetic, until real phone footage is added; the effects are rendered into each plate by LTX-2.5 + ainvfx-fluid, from the cue, and timed by CueSync.</sub>
@@ -78,7 +78,7 @@ Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pi
 
 ![How it was made](media/how-it-was-made.jpg)
 
-1. **Read the cue** ([`cues.py`](cuesync/src/cuesync/cues.py), [`audio.py`](cuesync/src/cuesync/audio.py)). Onsets, the hits of a rhythm ("pf, pf, KA-BOOM"), an absolute loudness envelope per video frame, and when the sound is actually there. From your voice, from the clip's own soundtrack, or from press-and-hold. Its shape (a hit, a rhythm, a sustained sound, a breath, a hiss) picks the effect when you let it ([`gestures.py`](cuesync/src/cuesync/gestures.py)).
+1. **Read the cue** ([`cues.py`](cuesync/src/cuesync/cues.py), [`audio.py`](cuesync/src/cuesync/audio.py)). Onsets, the hits of a rhythm ("pf, pf, KA-BOOM"), an absolute loudness envelope per video frame, and when the sound is actually there. From your voice, from the clip's own soundtrack, or from press-and-hold. Its shape (a hit, a rhythm, a sustained sound, a breath, a hiss) picks the effect when you let it ([`gestures.py`](cuesync/src/cuesync/gestures.py)): a sample plate knows what it shows; on your own clip you say what it is (a candle, a jack-o'-lantern, a toy's mouth, a hot drink), since nothing here recognises objects.
 2. **Paint the scene** ([`scene.py`](cuesync/src/cuesync/scene.py)). ainvfx-fluid was trained on controls that paint the whole frame in six flat colour zones, with the real first frame as conditioning. So CueSync paints your plate in its own zones on every keyframe and paints the effect over them: at its source, going its way (a jet out of a mouth that curls up as hot gas rises; a flare that grows out of the candle's own flame and settles back), or filling your drawing as far as your cue says. The scene is held over each 8-frame latent until the hit (a blank latent lets the model start the effect early), and every hit lands on a keyframe.
 3. **Render into the scene.** LTX-2.5 image-to-video starts from your plate's frame at full strength, with the painted guide, through the Comfy SDK ([`runner.py`](cuesync/src/cuesync/runner.py)). The model lights the room, the table and the prop itself, and leaves what the effect leaves behind.
 4. **Time it** ([`scene_shot.py`](cuesync/src/cuesync/scene_shot.py)). The first frame where the effect is visible is measured on the render and moved onto your cue (a burst shows a frame before its "BOOM": light beats sound). A rhythm moves by the middle error of the hits the model kept apart. A blast adds a warm flash at its peak and a camera shake just after it.
@@ -86,7 +86,7 @@ Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pi
 
 Every shot writes a receipt: the cue, where the hits were painted, how early or late the model put them, how far they were moved, whether the transfer passed its check. LTX-2.5 can only take the guide on an 8-frame grid (a third of a second at 24 fps), and it nearly always starts the effect a few frames early, so this measure-and-move step is what puts the hit on your cue.
 
-How well it works, marked by eye frame by frame on the raw renders of 30 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
+How well it works, marked by eye frame by frame on the raw renders of 29 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
 
 | | within one frame (42 ms) of the cue | mean error |
 |---|---|---|
@@ -94,11 +94,13 @@ How well it works, marked by eye frame by frame on the raw renders of 30 shots (
 | the finished shot | 26 of 31 hits | 0.8 frames |
 | the finished shot, renders the onset threshold was not fitted on | 15 of 18 | |
 
+Of the 37 hits painted, 31 have an onset that can be marked; the other 6 are 5 rhythm hits the model merged into a neighbour and 1 start too faint to call.
+
 ![Timing: raw render vs finished shot](media/timing.png)
 
-Before any of that, the take itself has to land where it was performed: [`tools/check_take_timing.py`](tools/check_take_timing.py) replaces the studio's microphone with a synthetic one that makes a noise at the moment the clip shows a chosen frame; in 8 takes the noise was found within 45 ms of it (6 within 20 ms).
+Before any of that, the take itself has to land where it was performed: [`tools/check_take_timing.py`](tools/check_take_timing.py) replaces the studio's microphone with a synthetic one that makes a noise at the moment the clip shows a chosen frame; in 8 takes the noise was found within 45 ms of it (6 within 20 ms). A synthetic microphone has no input latency; a real one reports its own, and the studio subtracts it.
 
-The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (5 of 12 here); those are reported, not faked, and the rest move together. A flame dies down 0.4 to 0.9 s after the voice stops.
+The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (5 of 12 here); those are reported, not faked, and the rest move together. A flame dies down about half a second after the voice stops (0.4 to 1.0 s).
 
 **Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate, with a SAM 2.1 object matte and a linear-light compositor ([`composite.py`](cuesync/src/cuesync/composite.py)).
 
