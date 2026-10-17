@@ -81,3 +81,9 @@ export function estimateOffsetS(ref: Float32Array, other: Float32Array, sampleRa
   if (fine < 0.3) return null;
   return fineLag / sampleRate;
 }
+
+/** The recording starts just before the clip plays, so where its first sample falls on the clip is within a
+ * second or so of 0. A fitted offset far outside that means a clock was misread: use the stopwatch estimate. */
+export function plausibleOffset(fittedS: number, stopwatchS: number): { offsetS: number; fitted: boolean } {
+  return fittedS >= -2 && fittedS <= 1 ? { offsetS: fittedS, fitted: true } : { offsetS: stopwatchS, fitted: false };
+}

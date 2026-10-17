@@ -1,6 +1,6 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fitMediaClock } from "./mediaClock";
-import { buildTimingJson, estimateOffsetS } from "./timing";
+import { buildTimingJson, estimateOffsetS, plausibleOffset } from "./timing";
 
 it("timing json places sample 0 on the plate timeline", () => {
   const clock = fitMediaClock([{ perfMs: 5000, mediaTime: 1 }, { perfMs: 6000, mediaTime: 2 }]);
@@ -27,4 +27,10 @@ it("finds a negative lag when the face recording started earlier", () => {
   for (let i = sr; i < sr + 6000; i++) other[i] = 0.6 * Math.sin(i * 0.09) * Math.exp(-(i - sr) / 2000);
   const ref = new Float32Array(sr * 3); ref.set(other.subarray(0, sr * 3 - 4800), 4800); // ref is 100 ms later
   expect(Math.abs(estimateOffsetS(ref, other, sr)! + 0.1)).toBeLessThan(0.001);
+});
+
+describe("plausibleOffset", () => {
+  it("keeps a fitted offset that makes sense", () => expect(plausibleOffset(-0.31, -0.25)).toEqual({ offsetS: -0.31, fitted: true }));
+  it("falls back to the stopwatch when a clock was misread", () =>
+    expect(plausibleOffset(-11.6, -0.4)).toEqual({ offsetS: -0.4, fitted: false }));
 });

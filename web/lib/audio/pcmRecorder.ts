@@ -35,8 +35,10 @@ export async function startPcmRecorder(stream: MediaStream): Promise<PcmRecorder
     ctx,
     ctxToPerfOffsetMs: () => {
       const ts = ctx.getOutputTimestamp();
+      // both are 0 until the context has rendered its first output: then the timestamp means nothing
+      if (!(ts.performanceTime && ts.contextTime)) return performance.now() - ctx.currentTime * 1000;
       const outputSide = ((ctx.baseLatency || 0) + ((ctx as AudioContext & { outputLatency?: number }).outputLatency || 0)) * 1000;
-      return (ts.performanceTime ?? performance.now()) - (ts.contextTime ?? ctx.currentTime) * 1000 - outputSide;
+      return ts.performanceTime - ts.contextTime * 1000 - outputSide;
     },
     async stop() {
       source.disconnect();

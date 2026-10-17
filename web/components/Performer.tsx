@@ -8,7 +8,7 @@ import { applyAndVerify, AUDIO_CONSTRAINTS, videoConstraints } from "@/lib/captu
 import { pickMime } from "@/lib/capture/pickMime";
 import { type ClockSample, fitMediaClock, sampleClock } from "@/lib/sync/mediaClock";
 import { type CueKind, EFFECT_LABELS, type SampleVoice, sceneEffect, type SceneMap, type Source, suggestEffect } from "@/lib/shot";
-import { buildTimingJson, estimateOffsetS, type TimingJson } from "@/lib/sync/timing";
+import { buildTimingJson, estimateOffsetS, plausibleOffset, type TimingJson } from "@/lib/sync/timing";
 
 export interface Performance {
   cue: CueKind;
@@ -63,6 +63,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   const clockSamples = useRef<ClockSample[]>([]);
   const stopClock = useRef<(() => void) | null>(null);
   const ctxOffsetMs = useRef(0);
+  const stopwatch = useRef<{ pcm: number; play: number | null }>({ pcm: 0, play: null }); // performance.now() stamps
   const inputLatencyS = useRef(0.02);
   const finishing = useRef(false);
   const meter = useRef<{ ctx: AudioContext; raf: number } | null>(null);
@@ -146,6 +147,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
       await new Promise<void>((resolve) => { rec.onstop = () => resolve(); rec.stop(); });
       faceBlob = new Blob(faceChunks.current, { type: mimeRef.current ?? undefined });
     }
+    if (pcmRef.current) ctxOffsetMs.current = pcmRef.current.ctxToPerfOffsetMs(); // now the context is surely running
     const pcm = pcmRef.current ? await pcmRef.current.stop() : { pcm: new Float32Array(0), sampleRate: 48000, firstFrame: 0 };
     pcmRef.current = null;
     const onsetS = detectOnsetPCM(pcm.pcm, pcm.sampleRate);
@@ -167,6 +169,12 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         ctxToPerfOffsetMs: ctxOffsetMs.current, inputLatencyS: inputLatencyS.current, onsetSInNoise: onsetS,
         faceOffsetS, emissionPoint: point,
       });
+      const sw = stopwatch.current;
+      const guard = plausibleOffset(timing.noise_offset_s, sw.play === null ? 0 : -(sw.play - sw.pcm) / 1000);
+      if (!guard.fitted) {
+        timing = { ...timing, noise_offset_s: guard.offsetS };
+        warnings.push("The clip's clock couldn't be read exactly; your noise is placed by a stopwatch (within about 50 ms).");
+      }
     } else {
       warnings.push("The clip's timing wasn't captured; the noise is placed from the start of the clip.");
     }
@@ -189,6 +197,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
     faceChunks.current = [];
     const pcm = await startPcmRecorder(stream); // the anchors start BEFORE the plate, so they cover all of it
     pcmRef.current = pcm;
+    stopwatch.current = { pcm: performance.now(), play: null };
     ctxOffsetMs.current = pcm.ctxToPerfOffsetMs();
     mimeRef.current = withFace && typeof MediaRecorder !== "undefined" ? pickMime((t) => MediaRecorder.isTypeSupported(t)) : null;
     if (mimeRef.current) {
@@ -209,6 +218,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
     setStep("performing");
     try {
       await plate.play();
+      stopwatch.current.play = performance.now();
     } catch {
       void finish();
     }
