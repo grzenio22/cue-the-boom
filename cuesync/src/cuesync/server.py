@@ -29,7 +29,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
 RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json",
-                "compare.mp4")
+                "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4")
+EARLY_FILES = ("guide_preview.mp4", "cue.json")  # shown while the shot is still being made
 SAMPLES = next((d for d in (Path.cwd() / "samples", Path(__file__).resolve().parents[3] / "samples")
                 if (d / "samples.json").exists()), Path.cwd() / "samples")
 MAX_UPLOAD_MB = 300
@@ -50,7 +51,8 @@ class Job:
     events: list = field(default_factory=list)
 
     def public(self) -> dict:
-        files = {n: f"/api/jobs/{self.id}/files/{n}" for n in RESULT_FILES if (self.dir / n).exists()} if self.status == "done" else {}
+        names = RESULT_FILES if self.status == "done" else EARLY_FILES
+        files = {n: f"/api/jobs/{self.id}/files/{n}" for n in names if (self.dir / n).exists()}
         receipt = None
         if self.status == "done" and (self.dir / "receipt.json").exists():
             receipt = json.loads((self.dir / "receipt.json").read_text())
@@ -313,6 +315,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         job = get(job_id)
         if name not in RESULT_FILES or not (job.dir / name).exists():
             raise HTTPException(404, "no such file")
+        if job.status != "done" and name not in EARLY_FILES:
+            raise HTTPException(404, "not ready yet")
         return FileResponse(job.dir / name, media_type="application/json" if name.endswith(".json") else "video/mp4")
 
     return app

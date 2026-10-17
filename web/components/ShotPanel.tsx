@@ -60,6 +60,7 @@ export default function ShotPanel({ plate, point, performance, effects, modes, o
   const [event, setEvent] = useState<JobEvent | null>(null);
   const [job, setJob] = useState<JobStatus | null>(null);
   const [view, setView] = useState<View>("final.mp4");
+  const [guideUrl, setGuideUrl] = useState<string | null>(null);
 
   const make = async () => {
     setBusy(true);
@@ -68,7 +69,18 @@ export default function ShotPanel({ plate, point, performance, effects, modes, o
     try {
       const queued = await submitShot({ plate, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
         timing: performance.timing, effect, point, seed, mode });
-      let done = await followJob(queued.id, setEvent);
+      setGuideUrl(null);
+      const peek = setInterval(() => { // the guide exists a second in: show it while the element is made
+        fetch(`/api/jobs/${queued.id}`).then((r) => r.json()).then((s: JobStatus) => {
+          if (s.files["guide_preview.mp4"]) { setGuideUrl(s.files["guide_preview.mp4"]); clearInterval(peek); }
+        }).catch(() => undefined);
+      }, 1500);
+      let done: JobStatus;
+      try {
+        done = await followJob(queued.id, setEvent);
+      } finally {
+        clearInterval(peek);
+      }
       if (done.status !== "done" && done.status !== "error") done = await pollUntilDone(queued.id);
       setJob(done);
       setView("final.mp4");
@@ -113,6 +125,12 @@ export default function ShotPanel({ plate, point, performance, effects, modes, o
         <div aria-live="polite">
           <progress value={event.progress} max={1} style={{ width: "100%" }} />
           <p className="muted">{event.message}…</p>
+          {guideUrl && (
+            <div className="row">
+              <video src={guideUrl} autoPlay loop muted playsInline className="guide" />
+              <span className="muted">Your noise, painted into the guide the model follows: the blobs appear on your hit and grow with your voice.</span>
+            </div>
+          )}
         </div>
       )}
       {job?.status === "error" && <p className="chip bad">The shot failed: {job.error}</p>}

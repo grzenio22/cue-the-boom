@@ -28,7 +28,7 @@ from .compare import PLAYHEAD, RIBBON_BG, RIBBON_FILL, RIBBON_FUTURE, RIBBON_H, 
 from .composite import composite, effect_options, first_shown_frame, voice_gates
 from .conform import _crop_box, clip_duration, conform, crop_point
 from .effects import load_effect
-from .guide import paint_guide, write_guide
+from .guide import paint_guide, write_guide, write_guide_preview
 from .matte import grabcut_matte
 from .media import probe_video, read_audio, read_video, write_video
 from .score import measure_composite_end, measure_composite_onset, measure_element
@@ -358,6 +358,8 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
         plan_k = paint_guide(ecue, eff, point, size=element_size, scale=scale * sizes[k])
         guide_k = folder / "guide.mp4"
         write_guide(plan_k, guide_k, fps=FPS)
+        if k == 0:  # something to watch while the elements are made
+            write_guide_preview(plan_k, out_dir / "guide_preview.mp4", fps=FPS)
         (folder / "guide.json").write_text(json.dumps(plan_k.to_json() | ({"element": spec.element} if spec.element else {}),
                                                       indent=1))
         which = f" (hit {k + 1} of {len(events)})" if multi else ""

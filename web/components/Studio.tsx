@@ -34,7 +34,7 @@ export default function Studio() {
   const pick = (p: PickedPlate) => {
     setPlate(p);
     setPoint(p.point);
-    setPointSet(false);
+    setPointSet(p.point !== null); // a sample comes with its spot; it can still be moved
     setTakes([]);
     setCompare(null);
     setPerforming(true);

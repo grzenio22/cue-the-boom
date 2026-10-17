@@ -352,6 +352,19 @@ def paint_guide(
                      scale=float(scale))
 
 
+def write_guide_preview(plan: GuidePlan, path: str | Path, fps: int = 24) -> None:
+    """A small, watchable version of the guide: each keyframe held until the next (the guide itself is black
+    between keyframes, which only the model wants)."""
+    keys = sorted(plan.keyframes)
+    held = np.empty((plan.frames.shape[0], plan.frames.shape[1] // 2, plan.frames.shape[2] // 2, 3), np.uint8)
+    current = np.zeros_like(held[0])
+    for i in range(plan.frames.shape[0]):
+        if i in keys:
+            current = plan.frames[i, ::2, ::2]
+        held[i] = current
+    write_video(path, held, fps=fps, crf=20, preset="veryfast")
+
+
 def write_guide(plan: GuidePlan, path: str | Path, fps: int = 24) -> None:
     """Write the guide MP4 with a silent mono AAC track (the fluid graph decodes audio from it)."""
     n = plan.frames.shape[0]
