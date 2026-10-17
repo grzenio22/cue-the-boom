@@ -39,10 +39,9 @@ CATEGORY = "CueSync"
 
 
 def _effect_ids() -> list[str]:
-    for d in _candidate_dirs(Path("effects")):
-        if d.is_dir() and any(d.glob("*.json")):
-            return sorted(p.stem for p in d.glob("*.json"))
-    return ["fireball", "flame_plume", "smoke_puff", "steam_jet"]
+    # every folder counts: your own effects (CUESYNC_EFFECTS) join the ones that ship with cuesync
+    ids = {p.stem for d in _candidate_dirs(Path("effects")) if d.is_dir() for p in d.glob("*.json")}
+    return sorted(ids) or ["fireball", "flame_plume", "smoke_puff", "steam_jet"]
 
 
 def _mono_48k(audio: dict) -> np.ndarray:

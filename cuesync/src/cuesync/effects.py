@@ -80,6 +80,7 @@ def _candidate_dirs(effects_dir: Path) -> list[Path]:
     if os.environ.get("CUESYNC_EFFECTS"):
         dirs.append(Path(os.environ["CUESYNC_EFFECTS"]))
     dirs.append(Path(__file__).resolve().parents[3] / "effects")  # repo checkout: <repo>/effects
+    dirs.append(Path(__file__).resolve().parent / "effect_files")  # installed: copied in by setup.py
     return dirs
 
 

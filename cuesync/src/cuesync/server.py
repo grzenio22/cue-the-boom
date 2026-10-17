@@ -187,10 +187,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         return {p.name: p for p in sorted(d.glob("*")) if p.suffix.lower() in exts} if d.is_dir() else {}
 
     def effect_ids() -> list[str]:
-        for d in _candidate_dirs(Path("effects")):
-            if d.is_dir() and any(d.glob("*.json")):
-                return sorted(p.stem for p in d.glob("*.json"))
-        return []
+        return sorted({p.stem for d in _candidate_dirs(Path("effects")) if d.is_dir() for p in d.glob("*.json")})
 
     @app.get("/api/health")
     def health():

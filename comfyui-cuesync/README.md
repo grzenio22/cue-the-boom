@@ -35,6 +35,6 @@ pip install -r custom_nodes/comfyui-cuesync/requirements.txt
 pip install "git+https://github.com/grzenio22/cue-the-boom#subdirectory=cuesync"
 ```
 
-The effects (fireball, fire breath, fire burst, flame plume, flare-up, blow it out, smoke puff, steam) are JSON files in the repository's `effects/` folder; set `CUESYNC_EFFECTS` to use your own.
+The effects (fireball, fire breath, fire burst, flame plume, flare-up, blow it out, smoke puff, steam) are the JSON files in the repository's `effects/` folder, and the install above ships them inside `cuesync`. To add your own, put JSON files in a folder and point `CUESYNC_EFFECTS` at it.
 
 Licence: MIT (this node pack), Apache-2.0 (cuesync). Models: LTX-2.5 by Lightricks and ainvfx-fluid by Adrien Toupet / AInVFX (LTX-2.x Community License), SAM 2.1 by Meta (Apache-2.0).
