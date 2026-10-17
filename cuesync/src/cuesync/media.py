@@ -21,23 +21,64 @@ class VideoClip:
     start_s: float = 0.0  # absolute container time of the first frame
 
 
-_HDR_TRC = {16, 18}  # SMPTE ST 2084 (PQ), ARIB STD-B67 (HLG)
+_PQ, _HLG = 16, 18  # transfer characteristics: SMPTE ST 2084, ARIB STD-B67
 _BT2020_SPACES = {9, 10}  # BT.2020 non-constant / constant luminance
 
 
 class HDRVideoError(ValueError):
-    """The plate is HDR (HLG/PQ/BT.2020); converting it without tone mapping would look dim and washed out."""
+    """Kept for compatibility: HDR plates are now tone-mapped to SDR instead of rejected."""
 
 
-def _check_sdr(frame: av.VideoFrame, stream: av.video.stream.VideoStream, path) -> None:
+def _hdr_kind(frame: av.VideoFrame, stream: av.video.stream.VideoStream) -> str | None:
+    """'hlg' or 'pq' for HDR video, 'bt2020' for wide-gamut primaries with an SDR transfer, else None.
+    (A BT.2020 *matrix* alone is undone by the YUV->RGB conversion and needs nothing more.)"""
     ctx = stream.codec_context
     trc = getattr(frame, "color_trc", None) or getattr(ctx, "color_trc", None)
-    space = getattr(frame, "colorspace", None) or getattr(ctx, "colorspace", None)
-    if (trc is not None and int(trc) in _HDR_TRC) or (space is not None and int(space) in _BT2020_SPACES):
-        raise HDRVideoError(
-            f"{path} is HDR video (transfer {trc}, colorspace {space}). Turn off HDR Video on the phone "
-            "(iPhone: Settings > Camera > Record Video > HDR Video), or convert it to SDR BT.709 first."
-        )
+    prim = getattr(frame, "color_primaries", None) or getattr(ctx, "color_primaries", None)
+    if trc is not None and int(trc) == _HLG:
+        return "hlg"
+    if trc is not None and int(trc) == _PQ:
+        return "pq"
+    if prim is not None and int(prim) == 9:
+        return "bt2020"
+    return None
+
+
+# linear BT.2020 -> linear BT.709 (ITU-R BT.2087)
+_M2020_709 = np.array([[1.6605, -0.5876, -0.0728],
+                       [-0.1246, 1.1329, -0.0083],
+                       [-0.0182, -0.1006, 1.1187]], dtype=np.float32)
+
+
+def hdr_to_sdr(rgb16: np.ndarray, kind: str) -> np.ndarray:
+    """HDR or wide-gamut RGB (uint16, as decoded: non-linear, BT.2020 primaries) -> SDR BT.709 uint8.
+
+    Undo the transfer to linear light (HLG: inverse OETF plus the reference 1.2 system gamma; PQ: absolute
+    nits), convert the primaries, put diffuse white (HLG 75 %, PQ 203 nits) at 0.8, roll the highlights off
+    softly instead of clipping, and re-encode with the same gamma the rest of CueSync uses.
+    """
+    e = rgb16.astype(np.float32) / 65535.0
+    if kind == "hlg":
+        a, b, c = 0.17883277, 0.28466892, 0.55991073
+        lin = np.where(e <= 0.5, e * e / 3.0, (np.exp((e - c) / a) + b) / 12.0)
+        y = lin @ np.array([0.2627, 0.6780, 0.0593], np.float32)
+        lin = lin * np.power(np.maximum(y, 1e-6), 0.2)[..., None]  # OOTF, system gamma 1.2
+        white = 0.2647 ** 1.2  # HLG reference white (75 % signal) after the OOTF
+    elif kind == "pq":
+        m1, m2, c1, c2, c3 = 0.1593017578125, 78.84375, 0.8359375, 18.8515625, 18.6875
+        ep = np.power(e, 1.0 / m2)
+        lin = np.power(np.maximum(ep - c1, 0.0) / (c2 - c3 * ep), 1.0 / m1) * 10000.0  # nits
+        white = 203.0
+    else:  # wide gamut with an SDR transfer: only the primaries change (same gamma as the rest of CueSync)
+        lin = np.power(e, 2.2)
+        white = 0.8
+    lin = (lin @ _M2020_709.T) * (0.8 / white)
+    lin = np.maximum(lin, 0.0)
+    m = lin.max(-1, keepdims=True)  # soft shoulder above 0.8, hue kept (compress the max channel)
+    over = np.maximum(m - 0.8, 0.0)
+    target = np.where(m > 0.8, 0.8 + 0.2 * (1.0 - np.exp(-over / 0.2)), m)
+    lin = lin * (target / np.maximum(m, 1e-6))
+    return np.clip(np.power(lin, 1.0 / 2.2) * 255.0 + 0.5, 0, 255).astype(np.uint8)
 
 
 def _rotation_k(frame: av.VideoFrame) -> int:
@@ -81,7 +122,8 @@ def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: flo
 
     Sorted by timestamp (VFR- and out-of-order-safe). ``size`` = (W, H) of the displayed frame scales
     during decode (keeps memory bounded for previews/compares). ``max_s`` stops decoding once frames are more
-    than that many seconds after the first. HDR plates raise HDRVideoError.
+    than that many seconds after the first. HDR plates (an iPhone's default HLG, or PQ) are tone-mapped
+    to SDR BT.709.
     """
     frames: list[np.ndarray] = []
     times: list[float] = []
@@ -92,17 +134,21 @@ def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: flo
         stream.thread_type = "AUTO"
         rate = stream.average_rate or stream.guessed_rate
         fps = float(rate) if rate else 0.0
+        hdr = None
         for frame in container.decode(stream):
             if not frames:
-                _check_sdr(frame, stream, path)
+                hdr = _hdr_kind(frame, stream)
             elif max_s is not None and frame.time is not None and frame.time - times[0] > max_s + 0.5:
                 break  # a margin past max_s: out-of-order frames near the cut still land in order
             k = _rotation_k(frame)
+            fmt = "rgb48le" if hdr else "rgb24"
             if size is not None:
                 w, h = (size[1], size[0]) if k % 2 else size  # decode in stored orientation, then rotate
-                arr = frame.to_ndarray(format="rgb24", width=w, height=h)
+                arr = frame.to_ndarray(format=fmt, width=w, height=h)
             else:
-                arr = frame.to_ndarray(format="rgb24")
+                arr = frame.to_ndarray(format=fmt)
+            if hdr:
+                arr = hdr_to_sdr(arr, hdr)
             frames.append(np.ascontiguousarray(np.rot90(arr, k)) if k else arr)
             if frame.time is not None:
                 times.append(float(frame.time))

@@ -51,13 +51,30 @@ def test_phone_rotation_matches_ffmpeg_display(tmp_path, rot):
 
 
 @needs_ffmpeg
-def test_hdr_plate_is_rejected_loudly(tmp_path):
-    write_video(tmp_path / "sdr.mp4", np.zeros((6, 64, 64, 3), np.uint8), fps=24)
+def test_an_hlg_plate_is_tone_mapped_not_rejected(tmp_path):
+    """iPhones record HLG by default: it decodes to SDR with sensible brightness."""
+    frames = np.full((6, 64, 64, 3), 191, np.uint8)  # ~75 % signal: HLG reference white
+    write_video(tmp_path / "sdr.mp4", frames, fps=24)
     subprocess.run([FFMPEG, "-loglevel", "error", "-y", "-i", str(tmp_path / "sdr.mp4"), "-c:v", "libx264",
-                    "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc",
+                    "-vf", "setparams=color_trc=arib-std-b67:colorspace=bt2020nc:color_primaries=bt2020",
                     str(tmp_path / "hlg.mp4")], check=True)
-    with pytest.raises(HDRVideoError):
-        read_video(tmp_path / "hlg.mp4")
+    import av
+    with av.open(str(tmp_path / "hlg.mp4")) as c:
+        assert c.streams.video[0].codec_context.color_trc == 18  # really tagged HLG
+    out = read_video(tmp_path / "hlg.mp4").frames
+    assert out.shape == (6, 64, 64, 3) and 215 <= out[2].mean() <= 240  # reference white near 230
+
+
+def test_hdr_to_sdr_maps_reference_white_and_keeps_highlights_below_clip():
+    from cuesync.media import hdr_to_sdr
+    sig = np.zeros((1, 3, 3), np.uint16)
+    sig[0, 0] = int(0.75 * 65535)  # HLG reference white
+    sig[0, 1] = 65535  # HLG peak
+    sig[0, 2] = 0
+    out = hdr_to_sdr(sig, "hlg").astype(int)
+    assert 225 <= out[0, 0].mean() <= 235  # diffuse white at 0.8 linear: 0.8 ** (1 / 2.2) * 255 = 230
+    assert out[0, 1].min() >= out[0, 0].max() and out[0, 1].max() <= 255
+    assert out[0, 2].max() == 0
 
 
 def test_stereo_identical_channels_match_mono_loudness(tmp_path, make_wav):
