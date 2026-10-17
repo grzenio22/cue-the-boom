@@ -111,7 +111,9 @@ def main() -> int:
         r.mark("cue")
         if a.say:
             r.click(page.get_by_role("button", name="Use my microphone"), pause=1.5)
-            r.click(page.get_by_role("button", name="Perform"), pause=0.5)
+            r.click(page.get_by_role("button", name="Perform"), pause=0.0)
+            # keep the playing clip and the level meter in view while the take is made
+            page.locator("video.plate").evaluate("el => el.scrollIntoView({block: 'center', behavior: 'smooth'})")
             r.mark("performing")
             page.get_by_role("heading", name="4. Make the shot").wait_for(timeout=60000)
         elif a.clip:

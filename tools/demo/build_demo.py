@@ -9,7 +9,9 @@ Beats (all times in seconds; text may use \\n):
   {"type": "triptych", "srcs": ["a.mp4", "b.mp4", "c.mp4"], "labels": [...], "start": 0, "dur": 5,
    "audio": 0 | 1 | 2 | "mix", "caption": "..."}       three clips side by side, same timeline
   {"type": "image", "src": "path.png", "dur": 3, "caption": "...", "zoom": 1.08}   a still with a slow push-in
-  a clip may add "speed": 8 (silent while sped up) and "note": "sped up x8" (a tag at the top right)
+  a clip may add "speed": 8 (silent while sped up) and "note": "sped up x8" (a tag at the top right),
+  "crop": [x0, y0, x1, y1] (fractions, to zoom in), and "audio_src" + "audio_from" + "audio_at" (another file's
+  sound, from audio_from s in it, starting audio_at s into the beat)
       ("split": [0.4] cuts a wide image at those fractions of its width and stacks the parts as rows)
   {"type": "credits", "dur": 6, "title": "...", "lines": ["...", "..."]}
 Every beat may set "stamp": a small corner label (e.g. "stand-in plate, generated with LTX-2.5").
@@ -92,9 +94,13 @@ class Clip:
     """A stretch of a video from ``start`` s, played at ``speed`` (frames by their own timestamps, so a screen
     recording's uneven frame rate is fine). A sped-up stretch is silent."""
 
-    def __init__(self, src: str, start: float, dur: float, speed: float = 1.0):
+    def __init__(self, src: str, start: float, dur: float, speed: float = 1.0, crop: list[float] | None = None):
         clip = read_video(src)
         self.frames, self.times = clip.frames, clip.times_s
+        if crop:  # [x0, y0, x1, y1] as fractions: zoom in on part of a screen recording
+            h, w = self.frames.shape[1:3]
+            x0, y0, x1, y1 = int(crop[0] * w) // 2 * 2, int(crop[1] * h) // 2 * 2, int(crop[2] * w) // 2 * 2, int(crop[3] * h) // 2 * 2
+            self.frames = self.frames[:, y0:y1, x0:x1]
         self.start_s, self.speed = start, speed
         try:
             self.audio = read_audio(src, SR)
@@ -154,8 +160,14 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             stamp(img, b.get("stamp"))
             frames.append(np.asarray(img))
     elif kind == "clip":
-        c = Clip(b["src"], float(b.get("start", 0)), dur, float(b.get("speed", 1.0)))
+        c = Clip(b["src"], float(b.get("start", 0)), dur, float(b.get("speed", 1.0)), b.get("crop"))
         audio = c.sound()
+        if b.get("audio_src"):  # another file's sound under this stretch (a screen recording has none)
+            a = read_audio(b["audio_src"], SR)[int(float(b.get("audio_from", 0)) * SR):]
+            at = int(float(b.get("audio_at", 0)) * SR)
+            if at < audio.size:
+                n_ = min(audio.size - at, a.size)
+                audio[at: at + n_] += a[:n_]
         box_h = H - (150 if b.get("caption") else 60)
         for i in range(n):
             img = Image.new("RGB", (W, H), BG)
