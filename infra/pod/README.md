@@ -1,6 +1,6 @@
-# GPU pod: setup and Day-1 smoke test
+# GPU pod: setup, renders and the judge app
 
-Heavy rendering (LTX-2.5, 22B) runs on a rented Runpod GPU; an RTX 4070 (12 GB) can't hold it. `podctl.py` drives the whole thing from your laptop through the Runpod API:
+Rendering into the scene (LTX-2.5, 22B, with ainvfx-fluid) needs a large GPU, so it runs on a rented Runpod pod. `podctl.py` drives the whole thing from your laptop through the Runpod API:
 
 - **The models live on a network volume** (about 120 GB, roughly $8/month), so a pod is disposable. It's rented when there's rendering to do and terminated afterwards.
 - **A watchdog on the pod terminates it** after 30 idle minutes, or at a hard deadline (4 h by default), so a forgotten pod can't run up a bill. The pod's start command arms it before anything else, it survives container restarts, and `up` won't leave a pod running until it has confirmed the watchdog is armed.
@@ -54,6 +54,13 @@ The first run downloads the models (~45 GB, plus ~42 GB with Alpha-Gen) and inst
 python infra/pod/podctl.py setup --with-alphagen
 ```
 
+Ship this checkout's code (cuesync, the node pack, effects, workflows, samples, the studio) to the pod; `--restart`
+also restarts ComfyUI so it loads new nodes:
+
+```bash
+python infra/pod/podctl.py sync --restart
+```
+
 Then open the tunnel and keep it running:
 
 ```bash
@@ -77,6 +84,8 @@ Other commands:
 | `push` / `pull` | Copy files to or from the pod. |
 | `extend <hours>` | Moves the hard deadline. `extend 0` terminates the pod within a minute, which also tests the watchdog. |
 | `down --all` | Also terminates stray `cue-the-boom*` pods. |
+| `up --judge` | Rents a pod for a judging period: port 3000 goes through Runpod's HTTPS proxy, there is no idle kill, the hard deadline still applies. |
+| `serve-app` | On a `--judge` pod (after `setup` and `sync`): builds the studio and starts it with the render API behind HTTP Basic auth; prints the public URL. The password comes from `--password` or `$CUE_PASSWORD` and reaches the pod over SSH stdin. |
 
 ## 4. The element graph
 

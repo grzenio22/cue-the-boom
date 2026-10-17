@@ -1,4 +1,4 @@
-"""Regression tests for the round-1 review findings (rotation, HDR, room tone, compositing, resume...)."""
+"""Regressions: rotation, HDR, room tone, compositing, resume, and other things that once went wrong."""
 
 import json
 import shutil

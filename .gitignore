@@ -24,14 +24,6 @@ runs/
 *.safetensors
 models/
 
-# Local brainstorm/tooling state and internal planning notes (kept out of the public repo)
-.superpowers/
-.claude/
-docs/
-WARPLAN.md
-web/AGENTS.md
-
 # setuptools build output (pip install ./cuesync)
 cuesync/build/
 
-# sample shots made ahead of time (cuesync precompute)

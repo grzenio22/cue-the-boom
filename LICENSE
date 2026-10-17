@@ -21,6 +21,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ---
-The `cuesync/` package (the CueSync node pack core) is licensed under the
-Apache License 2.0; see cuesync/LICENSE. Model weights are not part of this
-repository and carry their own licences; see build/model-files.md.
+Exceptions:
+- `cuesync/` is licensed under the Apache License 2.0 (cuesync/LICENSE).
+- `workflows/` is derived from the AInVFX ainvfx-fluid sample workflow and is
+  licensed under the LTX-2.x Community License Agreement
+  (workflows/LICENSE-LTX-2.x).
+- The videos and images in `samples/` and `media/` were made with LTX-2.5 and
+  ainvfx-fluid; see the LTX-2.x Community License for the terms that apply to
+  outputs of those models.
+Model weights are not part of this repository and carry their own licences;
+see build/model-files.md.

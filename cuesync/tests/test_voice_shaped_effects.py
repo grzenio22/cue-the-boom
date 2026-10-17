@@ -1,4 +1,4 @@
-"""Round 2: the effect ends when the voice ends, voice-shaped bursts, hit alignment, the new compositor."""
+"""Element mode: the effect ends when the voice ends, voice-shaped bursts, hit alignment, the compositor."""
 
 import json
 

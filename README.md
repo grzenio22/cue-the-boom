@@ -2,7 +2,11 @@
 
 **Draw where. Cue it with a sound. The scene reacts.**
 
-Put fire, smoke or steam into your own shot exactly where it should come from (tap it, or draw it) and when it should happen: say it ("pf.", "KA-BOOM", "fwoooOOOM", "hissss"), lock it to a sound that is already in your clip (a finger snap, a lighter's click, a door slam), or press and hold. No timestamps to type: the sound sets the hit frame, and how you made it sets how big it gets and how long it lasts. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into your scene, so the generated fire lights the room and the scene changes with it: a blown-out candle stays out. Then CueSync measures where the effect actually landed and moves it onto your cue, and every shot says by how much.
+[Try it without a GPU](#try-it) · [How it works](#how-it-works) · [How well it lands](#how-well-it-lands)
+
+Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or point at a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 29 test shots, 26 of 31 hits land within a frame, against 2 of 31 straight from the model.
+
+**New here:** a performed sound becomes the hit frame and growth curve of a generated effect, painted in the control format the LoRA was trained on; the render's real onset is then measured and corrected, with the error written into every shot's receipt.
 
 ![The scene reacts](media/hero.jpg)
 <sub>Scene-mode shots. The plates are stand-ins generated with LTX-2.5 and the noises are synthetic, until real phone footage is added; the effects are rendered into each plate by LTX-2.5 + ainvfx-fluid, from the cue, and timed by CueSync.</sub>
@@ -13,20 +17,32 @@ An entry for Comfy's **Open Source Higgsfield** contest, built on the Comfy Deve
 
 Preset effects decide for you where and when the effect happens; prompt-based video edits make you type the timing ("at about 2.2 seconds, on his finger snap"). Cue the Boom keeps you in charge of the two things a shot is made of:
 
-- **Where.** Tap the thing it comes from (a toy's mouth, a candle's wick), drag to aim it, or draw it (flames along the top of a pumpkin, smoke pouring out of a lamp).
+- **Where.** Tap the thing it comes from (a toy's mouth, a candle's wick), drag to aim it, or draw it (flames along the top of a pumpkin).
 - **When, and how much.** A sound pins the frame, and its loudness and length shape the effect. Your voice is the fun way to do it; the sound already in your clip is the editor's way (hits are cut to sound anyway); press-and-hold works in a quiet room.
 
 The effect is rendered into the scene, so it lights and changes what is around it. On a moving clip CueSync adds only what the effect changed and checks the result (if the check fails, the shot says so and uses the render); the sample plates so far are still.
 
 ## Try it
 
-**The studio, with no GPU.** The sample scene shots in `samples/made_ahead` play straight away (and you can drag their hit to re-time them, in seconds); on your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue:
+Python 3.10+ (CI runs 3.12); Node 24 for the studio.
+
+**In a minute, no GPU, no npm:** re-time a shipped scene shot, and re-measure the timing of the shipped shots.
 
 ```bash
 git clone https://github.com/grzenio22/cue-the-boom && cd cue-the-boom
 pip install "./cuesync[server]"
-cuesync serve --instant-only           # the render API, http://127.0.0.1:8765
-cd web && npm install && npm run dev   # the studio, http://localhost:3000
+cuesync retime --shot samples/made_ahead/scene/jackolantern_kitchen__ka-boom__fire_burst --plate samples/plates/jackolantern_kitchen.mp4 \
+  --voice samples/voices/ka-boom.wav --effect fire_burst --x 0.48 --y 0.39 --shift 6 -o runs/retimed
+python tools/measure_timing.py samples/made_ahead/scene -o runs/timing
+```
+
+`runs/retimed/final.mp4` is the shot moved a quarter of a second later, composited again from the same render; `runs/timing/timing.md` is the timing table for those shots.
+
+**The studio, with no GPU.** The sample scene shots in `samples/made_ahead` play straight away (and you can drag their hit to re-time them, in seconds); on your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue. In two terminals:
+
+```bash
+cuesync serve --instant-only           # terminal 1: the render API, http://127.0.0.1:8765
+cd web && npm install && npm run dev   # terminal 2: the studio, http://localhost:3000
 ```
 
 1. Pick a sample shot or your own clip (phone held still, 1-15 s).
@@ -50,7 +66,7 @@ The full pipeline needs ComfyUI with LTX-2.5 22B (int8) and ainvfx-fluid (about 
 python infra/pod/podctl.py up && python infra/pod/podctl.py setup && python infra/pod/podctl.py sync
 python infra/pod/podctl.py tunnel                                   # in another terminal
 pip install "./cuesync[server,comfy]"
-COMFY_BASE_URL=http://127.0.0.1:8189 cuesync serve --precomputed runs/precomputed
+COMFY_BASE_URL=http://127.0.0.1:8189 cuesync serve
 ```
 
 `podctl` creates, sets up and terminates a disposable pod through the Runpod API; a watchdog terminates it when idle ([infra/pod/README.md](infra/pod/README.md)). A scene shot takes about two minutes, most of it the LTX-2.5 render.
@@ -64,8 +80,8 @@ cuesync shot --scene --plate samples/plates/toy_desk.mp4 --voice samples/voices/
 # lock it to the snap that is already in the clip
 cuesync shot --scene --plate samples/plates/candle_snap.mp4 --cue clip --effect blow_out --x 0.53 --y 0.52
 # draw it, time it with a hold, say what happens
-cuesync shot --scene --plate samples/plates/toy_desk.mp4 --cue hold --hold 1.0-3.0 --effect smoke_puff \
-  --strokes my_strokes.json --describe "thick grey smoke pours out of the desk lamp"
+cuesync shot --scene --plate samples/plates/pumpkin_kitchen.mp4 --cue hold --hold 1.0-2.5 --effect flame_plume \
+  --strokes samples/strokes/pumpkin_top.json --describe "the small pumpkin catches fire and flames spread along its top"
 ```
 
 **In ComfyUI.** [`workflows/cue_the_boom_scene.json`](workflows/cue_the_boom_scene.json) (drag it onto the canvas) is the whole scene shot as one workflow: your cue and your plate go in, the finished shot comes out. [`cue_the_boom_scene.api.json`](workflows/cue_the_boom_scene.api.json) is the same graph for the API.
@@ -86,15 +102,23 @@ Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pi
 
 Every shot writes a receipt: the cue, where the hits were painted, how early or late the model put them, how far they were moved, whether the transfer passed its check. LTX-2.5 can only take the guide on an 8-frame grid (a third of a second at 24 fps), and it nearly always starts the effect a few frames early, so this measure-and-move step is what puts the hit on your cue.
 
-How well it works, marked by eye frame by frame on the raw renders of 29 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
+### How well it lands
+
+Marked by eye frame by frame on the raw renders of 29 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
 
 | | within one frame (42 ms) of the cue | mean error |
 |---|---|---|
 | LTX-2.5 render, as it comes | 2 of 31 hits | 4.9 frames |
 | the finished shot | 26 of 31 hits | 0.8 frames |
-| the finished shot, renders the onset threshold was not fitted on | 15 of 18 | |
+| the finished shot, renders the onset threshold was not fitted on | 15 of 18 hits | 0.9 frames |
 
-Of the 37 hits painted, 31 have an onset that can be marked; the other 6 are 5 rhythm hits the model merged into a neighbour and 1 start too faint to call. The renders the marks refer to are not in the repository (they are large); `measure_timing.py` runs on any set of scene shots, and all of these are LTX-2.5 stand-in plates: real phone footage is still untested.
+Of the 37 hits painted, 31 have an onset that can be marked; the other 6 are 5 rhythm hits the model merged into a neighbour and 1 start too faint to call. Every render the marks refer to ships with the repository (`samples/made_ahead/scene` and `samples/timing_set/`), so the whole table re-measures in under a minute:
+
+```bash
+python tools/measure_timing.py samples/made_ahead/scene samples/timing_set/before_fixes samples/timing_set/other_seeds samples/timing_set/dropped
+```
+
+All of these are LTX-2.5 stand-in plates: real phone footage is still untested.
 
 ![Timing: raw render vs finished shot](media/timing.png)
 
@@ -102,7 +126,7 @@ Before any of that, the take itself has to land where it was performed: [`tools/
 
 The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (5 of 12 here); those are reported, not faked, and the rest move together. A flame dies down about half a second after the voice stops (0.4 to 1.0 s).
 
-**Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate, with a SAM 2.1 object matte and a linear-light compositor ([`composite.py`](cuesync/src/cuesync/composite.py)).
+**Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate in linear light ([`composite.py`](cuesync/src/cuesync/composite.py)); the object stays in front through a GrabCut matte in the studio and the command line ([`matte.py`](cuesync/src/cuesync/matte.py)), or SAM 2.1 in the ComfyUI node.
 
 ## What is new, and what it builds on
 
@@ -118,12 +142,13 @@ What we found nobody else doing is the loop: a performed or in-clip sound become
 |---|---|
 | `cuesync/` | The Python core and CLI: cues, scene guides, the Comfy SDK runner, timing and transfer, the element compositor, the render API (Apache-2.0) |
 | `comfyui-cuesync/` | ComfyUI node pack: Analyze Sound, Hold Cue, Paint Scene, Scene Shot, plus the element-mode nodes |
-| `workflows/` | ComfyUI API graphs (LTX-2.x Community License, derived from the ainvfx-fluid sample) |
+| `workflows/` | ComfyUI workflows, canvas (`*.json`) and API (`*.api.json`) format (LTX-2.x Community License, derived from the ainvfx-fluid sample) |
 | `web/` | The studio (Next.js) |
 | `effects/` | The effects, as JSON |
-| `samples/` | Sample plates (stand-ins), noises (synthetic) and the instant-mode element library |
+| `samples/` | Sample plates (stand-ins), noises (synthetic), the scene shots made ahead of time, the timing evaluation renders and the instant-mode element library |
+| `tools/` | Timing measurement, the take-timing check, the demo tools ([tools/README.md](tools/README.md)) |
 | `infra/pod/` | Disposable Runpod GPU pods with a self-terminating watchdog |
-| `build/model-files.md` | Exact models, licences and pinned revisions |
+| `build/model-files.md` | Exact models, licences and versions |
 
 Tests: `pip install "./cuesync[server,dev]" && pytest cuesync/tests` (CPU only), plus `cd web && npm test`.
 

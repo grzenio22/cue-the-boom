@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cuesync"
 version = "0.1.0"
-description = "Voice-shaped VFX for LTX-2.5: turn a performed noise into a timed, sized fluid element composited onto real footage."
+description = "Sound-cued VFX for LTX-2.5 + ainvfx-fluid: a performed or in-clip sound sets when and how big fire, smoke or steam gets; it is rendered into the scene and re-timed onto the cue."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"

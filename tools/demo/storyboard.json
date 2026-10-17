@@ -152,9 +152,6 @@
   {
    "type": "image",
    "src": "media/comfyui-scene-workflow.png",
-   "split": [
-    0.3985
-   ],
    "dur": 4.5,
    "zoom": 1.03,
    "caption": "One ComfyUI workflow, the CueSync node pack, the Comfy SDK. Open source."

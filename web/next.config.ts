@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 const api = process.env.CUESYNC_API_URL ?? "http://127.0.0.1:8765";
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   cacheComponents: true,
   partialPrefetching: true,
   async rewrites() {

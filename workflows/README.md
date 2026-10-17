@@ -1,6 +1,10 @@
 # Workflows
 
-`fluid_element.api.json` is the ComfyUI API graph that renders one fire, smoke or steam element from a CueSync guide video.
+| File | What |
+|---|---|
+| `cue_the_boom_scene.json` / `.api.json` | The whole scene shot, canvas and API format: your cue and plate in, the finished shot out. |
+| `cue_the_boom.json` / `.api.json` | The whole element-mode shot: the effect rendered on black and composited onto the plate. |
+| `fluid_element.api.json` | The render on its own: one fire, smoke or steam element (or a scene render) from a CueSync guide video. |
 
 ## Origin and modifications
 
@@ -33,8 +37,15 @@ LTX-2.5 by Lightricks; ainvfx-fluid by Adrien Toupet / AInVFX.
 
 ## The whole shot
 
-`cue_the_boom.json` (canvas format: open it in ComfyUI) and `cue_the_boom.api.json` (API format: the Comfy SDK) are the
-element graph above with the CueSync node pack around it: Load Audio -> CueSync Analyze Voice -> CueSync Paint Guide
-feed the element graph in place of its Load Video, and CueSync Object Matte + CueSync Composite put the rendered element
-onto the loaded plate before Save Video. `cuesync graph --shot` generates the API version from the element graph.
+**Scene mode.** `cue_the_boom_scene.json` (canvas format: open it in ComfyUI) and `cue_the_boom_scene.api.json` (API
+format: the Comfy SDK) are the render graph with the CueSync node pack around it: Load Audio -> CueSync Analyze Sound
+-> CueSync Paint Scene (with the plate from Load Video) feed the guide, the plate's first frame and the prompt into
+LTX-2.5 image-to-video with ainvfx-fluid, and CueSync Scene Shot measures the render's onset, moves it onto the cue and
+writes the shot for Save Video. `cuesync graph --scene` generates the API version.
+
+**Element mode.** `cue_the_boom.json` and `cue_the_boom.api.json` are the element graph with Load Audio -> CueSync Analyze
+Sound -> CueSync Paint Guide in place of its Load Video, and CueSync Object Matte + CueSync Composite putting the rendered
+element onto the plate. `cuesync graph --shot` generates the API version.
+
+All of these are modified from the ainvfx-fluid sample workflow as described above, and carry the same licence.
 

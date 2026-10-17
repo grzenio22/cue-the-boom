@@ -16,15 +16,17 @@ Open http://localhost:3000. Camera and microphone access need a **secure context
 npm run dev -- --experimental-https --hostname 0.0.0.0
 ```
 
+It talks to the render API (`cuesync serve`, see the root README) through this origin: `/api/*` is proxied to
+`CUESYNC_API_URL` (default `http://127.0.0.1:8765`).
+
 ## Pages
 
-- `/dub`, **Dub Mode**:
-  1. Choose a 1–15 s plate and tap the emission point.
-  2. Arm the camera and mic. Every voice-processing option is switched off and the result is verified.
-  3. Perform over the muted playback.
-
-  You download `mic.wav`, `face.<mp4|webm>` and `timing.json`. Nothing is uploaded.
-- `/take`, one-take: coming next.
+- `/` is the studio:
+  1. Pick a sample shot or your own clip.
+  2. Tap or draw where the effect comes from.
+  3. Cue it: the microphone, the clip's own sound, or press-and-hold.
+  4. Make it **Instant** (no GPU) or **Into the scene** (GPU), then drag the hit to re-time it.
+- `/dub` is the older recorder. You download `mic.wav`, `face.<mp4|webm>` and `timing.json`; nothing is uploaded.
 
 ## `timing.json` (v1)
 
