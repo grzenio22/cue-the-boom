@@ -9,6 +9,7 @@ Beats (all times in seconds; text may use \\n):
   {"type": "triptych", "srcs": ["a.mp4", "b.mp4", "c.mp4"], "labels": [...], "start": 0, "dur": 5,
    "audio": 0 | 1 | 2 | "mix", "caption": "..."}       three clips side by side, same timeline
   {"type": "image", "src": "path.png", "dur": 3, "caption": "...", "zoom": 1.08}   a still with a slow push-in
+      ("split": [0.4] cuts a wide image at those fractions of its width and stacks the parts as rows)
   {"type": "credits", "dur": 6, "title": "...", "lines": ["...", "..."]}
 Every beat may set "stamp": a small corner label (e.g. "stand-in plate, generated with LTX-2.5").
 """
@@ -66,6 +67,21 @@ def fit(frame: np.ndarray, box_w: int, box_h: int) -> Image.Image:
     return im.resize((max(1, int(im.width * s)), max(1, int(im.height * s))), Image.Resampling.LANCZOS)
 
 
+def stacked(src: Image.Image, split: list[float] | None) -> Image.Image:
+    """A wide image cut at fractions of its width, the parts stacked as left-aligned rows."""
+    if not split:
+        return src
+    xs = [0] + [int(f * src.width) for f in split] + [src.width]
+    parts = [src.crop((a, 0, b_, src.height)) for a, b_ in zip(xs, xs[1:])]
+    gap = 24
+    out = Image.new("RGB", (max(p.width for p in parts), sum(p.height for p in parts) + gap * (len(parts) - 1)), BG)
+    y = 0
+    for p in parts:
+        out.paste(p, (0, y))
+        y += p.height + gap
+    return out
+
+
 def stamp(img: Image.Image, text: str | None) -> None:
     if text:
         ImageDraw.Draw(img).text((W - 24, H - 20), text, font=font(22), fill=MUTED, anchor="rd")
@@ -117,7 +133,7 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
         stamp(img, b.get("stamp"))
         frames = [np.asarray(img)] * n
     elif kind == "image":
-        src = Image.open(b["src"]).convert("RGB")
+        src = stacked(Image.open(b["src"]).convert("RGB"), b.get("split"))
         zoom = float(b.get("zoom", 1.06))
         for i in range(n):
             z = 1.0 + (zoom - 1.0) * i / max(1, n - 1)
@@ -140,9 +156,12 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             x0 = (W - im.width) // 2 + (220 if b.get("side") else 0)
             img.paste(im, (x0, (box_h - im.height) // 2 + 20))
             d = ImageDraw.Draw(img)
-            if b.get("side"):
-                text_block(d, (90, H // 2 - 120), b["side"], 46, FG, max_w=x0 - 160, spacing=16)
-            if b.get("label"):
+            if b.get("side"):  # the label heads the side text (the shot carries its own effect label)
+                y = H // 2 - 120
+                if b.get("label"):
+                    text_block(d, (90, y - 110), b["label"], 60, ACCENT, bold=True, max_w=x0 - 160)
+                text_block(d, (90, y), b["side"], 46, FG, max_w=x0 - 160, spacing=16)
+            elif b.get("label"):
                 d.text((x0 + 20, 40), b["label"], font=font(40, True), fill=ACCENT)
             if b.get("caption"):
                 text_block(d, (W // 2, H - 64), b["caption"], 42, FG, anchor="mm", max_w=W - 200)
