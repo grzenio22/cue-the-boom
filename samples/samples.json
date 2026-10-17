@@ -32,7 +32,11 @@
     0.5,
     0.56
    ],
-   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
+   "effects": [
+    "fireball",
+    "flame_plume"
+   ]
   },
   "mug_counter.mp4": {
    "title": "Mug, bright counter",
@@ -40,7 +44,11 @@
     0.48,
     0.45
    ],
-   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
+   "effects": [
+    "steam_jet",
+    "smoke_puff"
+   ]
   },
   "toy_desk.mp4": {
    "title": "Toy dinosaur, night",
@@ -48,7 +56,11 @@
     0.4,
     0.475
    ],
-   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
+   "effects": [
+    "fireball",
+    "flame_plume"
+   ]
   },
   "candle_shelf.mp4": {
    "title": "Candle jar",
@@ -56,7 +68,10 @@
     0.53,
     0.5
    ],
-   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added"
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
+   "effects": [
+    "flame_plume"
+   ]
   }
  }
 }

@@ -156,3 +156,31 @@ def test_an_offline_gpu_is_not_offered(tmp_path):
     assert client.get("/api/health").json()["modes"] == ["instant"]
     r = client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "x.mp4", "voice_sample": "y.wav", "mode": "render"})
     assert r.status_code in (400, 503)
+
+
+def test_a_sample_made_ahead_of_time_is_answered_at_once_and_shown_in_the_gallery(tmp_path, make_video, make_wav):
+    from cuesync.precompute import cache_key
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    make_video(tmp_path, n=24, fps=24, w=90, h=160, color_fn=lambda i: (60, 60, 60)).rename(samples / "plates" / "mug.mp4")
+    make_voice(tmp_path, make_wav).rename(samples / "voices" / "pf.wav")
+    (samples / "samples.json").write_text(json.dumps({"plates": {"mug.mp4": {"point": [0.5, 0.6]}}, "voices": {"pf.wav": {}}}))
+    shot = tmp_path / "pre" / "instant" / "mug__pf__fireball"
+    shot.mkdir(parents=True)
+    for name in ("final.mp4", "composite.mp4", "receipt.json", "cue.json", "guide.json"):
+        (shot / name).write_bytes(b"{}" if name.endswith(".json") else b"\x00" * 64)
+    key = cache_key("instant", "mug.mp4", "pf.wav", "fireball", (0.5, 0.6))
+    (tmp_path / "pre" / "instant" / "index.json").write_text(json.dumps(
+        {key: {"dir": "mug__pf__fireball", "title": "pf. · Mug", "plate": "mug.mp4", "voice": "pf.wav",
+               "effect": "fireball", "mode": "instant"}}))
+    client = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), samples_dir=samples,
+                                   precomputed=tmp_path / "pre"))
+    g = client.get("/api/gallery").json()
+    assert len(g) == 1 and g[0]["title"] == "pf. · Mug" and "final.mp4" in g[0]["files"]
+    r = client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "mug.mp4", "voice_sample": "pf.wav",
+                                       "mode": "instant", "x": "0.5", "y": "0.6", "seed": "1"}).json()
+    assert r["status"] == "done" and r["cached"] is True and "final.mp4" in r["files"]
+    other = client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "mug.mp4", "voice_sample": "pf.wav",
+                                           "mode": "instant", "x": "0.3", "y": "0.6"}).json()
+    assert other["cached"] is False  # a different spot is made fresh

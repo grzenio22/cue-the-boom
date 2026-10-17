@@ -9,11 +9,13 @@ GET  /api/jobs/{id}         status, stage, progress, result URLs
 GET  /api/jobs/{id}/events  the same as server-sent events
 GET  /api/jobs/{id}/files/{name}   final.mp4, composite.mp4, breakdown.mp4, guide.mp4, element.mp4, receipt.json
 GET  /api/samples           sample plates and noises (try it without a camera or a microphone)
+GET  /api/gallery           sample shots made ahead of time (cuesync precompute); a matching request is answered at once
 POST /api/compare           two finished shots side by side, synced on the voice
 Full renders go through one worker in order (one GPU); instant shots have their own worker (CPU).
 """
 
 import asyncio
+import hashlib
 import json
 import queue
 import threading
@@ -42,6 +44,8 @@ class Job:
     dir: Path
     spec: object
     mode: str = "render"  # render | instant | compare
+    cached: bool = False  # answered from the shots made ahead of time
+    title: str = ""
     status: str = "queued"  # queued | running | done | error
     stage: str = "queued"
     progress: float = 0.0
@@ -56,7 +60,8 @@ class Job:
         receipt = None
         if self.status == "done" and (self.dir / "receipt.json").exists():
             receipt = json.loads((self.dir / "receipt.json").read_text())
-        return {"id": self.id, "mode": self.mode, "status": self.status, "stage": self.stage,
+        return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "status": self.status,
+                "stage": self.stage,
                 "progress": round(self.progress, 3), "message": self.message, "error": self.error, "files": files,
                 "receipt": receipt}
 
@@ -106,7 +111,7 @@ class JobQueue:
 
 
 def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None, shot_defaults: dict | None = None,
-               instant=None, samples_dir: Path = SAMPLES):
+               instant=None, samples_dir: Path = SAMPLES, precomputed: Path | None = None):
     """``renderer``: full renders (None: an instant-only server). ``instant``: the library renderer, if any."""
     from .effects import _candidate_dirs, load_effect
     from .pipeline import ShotSpec
@@ -116,6 +121,19 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         app.add_middleware(CORSMiddleware, allow_origins=allow_origins, allow_methods=["*"], allow_headers=["*"])
     jq = JobQueue(jobs_dir, {"render": renderer, "instant": instant})
     samples_dir = Path(samples_dir)
+    from .precompute import cache_key, copy_shot, load_cache
+
+    cache = load_cache(precomputed)
+    gallery: list[Job] = []
+    for key, entry in sorted(cache.items(), key=lambda kv: (kv[1]["mode"] != "render", kv[1]["title"])):
+        same = [g for g in gallery if g.title == entry["title"]]
+        if same:  # one gallery tile per sample pair: the full render when there is one
+            continue
+        gid = "g" + hashlib.sha1(key.encode()).hexdigest()[:11]
+        job = Job(id=gid, dir=Path(entry["path"]), spec=None, mode=entry["mode"], status="done", stage="done",
+                  progress=1.0, message="Made earlier", cached=True, title=entry["title"])
+        jq.jobs[gid] = job
+        gallery.append(job)
     ready = {"t": 0.0, "ok": False}
 
     def render_ready() -> bool:
@@ -155,6 +173,10 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             meta = json.loads((samples_dir / "samples.json").read_text(encoding="utf-8"))
         return {kind: [{"name": n, "url": f"/api/samples/{kind}/{n}", **meta.get(kind, {}).get(n, {})}
                        for n in sample_files(kind)] for kind in ("plates", "voices")}
+
+    @app.get("/api/gallery")
+    def gallery_list():
+        return [g.public() for g in gallery]
 
     @app.get("/api/samples/{kind}/{name}")
     def sample_file(kind: str, name: str):
@@ -204,6 +226,15 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             raise HTTPException(400, f"no sample voice {voice_sample!r}")
         job_id = uuid.uuid4().hex[:12]
         d = jq.root / job_id
+        if (plate_sample and voice_sample and face is None and timing is None and offset_s is None and scale is None
+                and element is None and x is not None and y is not None):
+            hit = cache.get(cache_key(mode, plate_sample, voice_sample, effect, (x, y), seed))
+            if hit:  # this exact sample shot was made ahead of time: answer at once
+                copy_shot(Path(hit["path"]), d)
+                job = Job(id=job_id, dir=d, spec=hit, mode=mode, status="done", stage="done", progress=1.0,
+                          message="Made earlier", cached=True, title=hit["title"])
+                jq.jobs[job_id] = job
+                return job.public()
         (d / "in").mkdir(parents=True)
         if plate is not None:
             plate_path = await save(plate, d / "in" / f"plate{Path(plate.filename or '.mp4').suffix or '.mp4'}")
@@ -323,7 +354,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
 
 def serve(*, workflow: Path | None, jobs_dir: Path, host: str = "127.0.0.1", port: int = 8765,
-          allow_origins: list[str] | None = None, timeout: float = 600.0, library: Path | None = None) -> None:
+          allow_origins: list[str] | None = None, timeout: float = 600.0, library: Path | None = None,
+          precomputed: Path | None = None) -> None:
     import uvicorn
 
     from .library import DEFAULT_DIR, LibraryRenderer
@@ -334,5 +366,5 @@ def serve(*, workflow: Path | None, jobs_dir: Path, host: str = "127.0.0.1", por
     full = ComfyRenderer(Path(workflow), timeout=timeout) if workflow else None
     if full is None and instant is None:
         raise SystemExit(f"nothing to serve: no --workflow and no element library at {lib}")
-    app = create_app(full, jobs_dir, allow_origins, instant=instant)
+    app = create_app(full, jobs_dir, allow_origins, instant=instant, precomputed=precomputed)
     uvicorn.run(app, host=host, port=port, log_level="info")

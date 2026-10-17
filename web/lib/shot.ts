@@ -29,6 +29,8 @@ export type Mode = "instant" | "render";
 export interface JobStatus {
   id: string;
   mode?: Mode | "compare";
+  cached?: boolean;
+  title?: string;
   status: "queued" | "running" | "done" | "error";
   stage: string;
   progress: number;

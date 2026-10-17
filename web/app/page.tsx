@@ -1,3 +1,4 @@
+import Gallery from "@/components/Gallery";
 import Studio from "@/components/Studio";
 
 export default function Home() {
@@ -12,6 +13,7 @@ export default function Home() {
         stops. Your footage is never regenerated; the effect is rendered on its own and composited onto it.
       </p>
       <Studio />
+      <Gallery />
     </main>
   );
 }

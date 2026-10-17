@@ -121,6 +121,20 @@ def cmd_shot(args) -> int:
     return 0
 
 
+def cmd_precompute(args) -> int:
+    from .precompute import precompute
+
+    if args.mode == "instant":
+        from .library import DEFAULT_DIR, LibraryRenderer
+        renderer = LibraryRenderer(DEFAULT_DIR)
+    else:
+        from .pipeline import ComfyRenderer
+        renderer = ComfyRenderer(Path(args.workflow), timeout=args.timeout)
+    index = precompute(renderer, args.mode, Path(args.samples), Path(args.out))
+    print(f"{len(index)} {args.mode} sample shots in {args.out}/{args.mode}")
+    return 0
+
+
 def cmd_compare(args) -> int:
     from .audio import CueSheet
     from .compare import side_by_side
@@ -156,7 +170,8 @@ def cmd_serve(args) -> int:
     origins = [o.strip() for o in args.allow_origin.split(",")] if args.allow_origin else None
     serve(workflow=None if args.instant_only else Path(args.workflow), jobs_dir=Path(args.jobs), host=args.host,
           port=args.port, allow_origins=origins, timeout=args.timeout,
-          library=Path(args.library) if args.library else None)
+          library=Path(args.library) if args.library else None,
+          precomputed=Path(args.precomputed) if args.precomputed else None)
     return 0
 
 
@@ -268,6 +283,15 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--timeout", type=float, default=600.0, help="seconds to wait for one render")
     sv.add_argument("--library", help="instant-mode element library (default: samples/library)")
     sv.add_argument("--instant-only", action="store_true", help="no GPU backend: serve instant mode only")
+    sv.add_argument("--precomputed", help="sample shots made ahead of time (cuesync precompute) for the gallery")
+
+    pc = sub.add_parser("precompute", help="make every sample shot ahead of time (gallery + instant first clicks)")
+    pc.add_argument("--mode", choices=["instant", "render"], default="instant")
+    pc.add_argument("--out", default="runs/precomputed")
+    pc.add_argument("--samples", default="samples")
+    pc.add_argument("--workflow", default="workflows/fluid_element.api.json")
+    pc.add_argument("--timeout", type=float, default=600.0)
+    pc.set_defaults(func=cmd_precompute)
     sv.set_defaults(func=cmd_serve)
 
     e = sub.add_parser("experiment", help="performances x seeds -> composites on every plate + metrics + compares")

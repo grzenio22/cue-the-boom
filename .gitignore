@@ -33,3 +33,5 @@ web/AGENTS.md
 
 # setuptools build output (pip install ./cuesync)
 cuesync/build/
+
+# sample shots made ahead of time (cuesync precompute)
