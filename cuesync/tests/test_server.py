@@ -184,3 +184,16 @@ def test_a_sample_made_ahead_of_time_is_answered_at_once_and_shown_in_the_galler
     other = client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "mug.mp4", "voice_sample": "pf.wav",
                                            "mode": "instant", "x": "0.3", "y": "0.6"}).json()
     assert other["cached"] is False  # a different spot is made fresh
+
+
+def test_a_finished_shot_is_retimed_through_the_api(instant_client):
+    r = instant_client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "mug.mp4", "voice_sample": "pf.wav",
+                                               "mode": "instant", "x": "0.5", "y": "0.6"})
+    job = wait(instant_client, r.json()["id"])
+    assert job["status"] == "done", job
+    rt = instant_client.post(f"/api/jobs/{job['id']}/retime", data={"shift": "4"})
+    assert rt.status_code == 200, rt.text
+    done = wait(instant_client, rt.json()["id"])
+    assert done["status"] == "done", done
+    assert done["receipt"]["retimed"]["hit_shift_frames"] == 4
+    assert instant_client.post(f"/api/jobs/{job['id']}/retime", data={"shift": "99"}).status_code == 400

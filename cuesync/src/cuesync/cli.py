@@ -135,6 +135,16 @@ def cmd_precompute(args) -> int:
     return 0
 
 
+def cmd_retime(args) -> int:
+    from .pipeline import ShotSpec, retime_shot
+
+    spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
+                    offset_s=args.offset_s)
+    r = retime_shot(Path(args.shot), spec, Path(args.output), hit_shift=args.shift, stop_frame=args.stop)
+    print(f"re-timed in {r.receipt['seconds_total']:.0f} s -> {r.final}")
+    return 0
+
+
 def cmd_compare(args) -> int:
     from .audio import CueSheet
     from .compare import side_by_side
@@ -273,6 +283,19 @@ def build_parser() -> argparse.ArgumentParser:
     sh.add_argument("--timeout", type=float, default=600.0)
     sh.add_argument("-o", "--output", default="runs/shot")
     sh.set_defaults(func=cmd_shot)
+
+    rt = sub.add_parser("retime", help="move the hit / the stop of a finished shot, no new render")
+    rt.add_argument("--shot", required=True, help="the finished shot's folder")
+    rt.add_argument("--plate", required=True)
+    rt.add_argument("--voice", required=True)
+    rt.add_argument("--effect", required=True)
+    rt.add_argument("--x", type=float, default=0.5)
+    rt.add_argument("--y", type=float, default=0.7)
+    rt.add_argument("--offset-s", type=float, default=0.0)
+    rt.add_argument("--shift", type=int, default=0, help="frames to move every hit (+ later, - earlier)")
+    rt.add_argument("--stop", type=int, help="plate frame where a flame or steam jet stops")
+    rt.add_argument("-o", "--output", default="runs/retimed")
+    rt.set_defaults(func=cmd_retime)
 
     sv = sub.add_parser("serve", help="HTTP API for the web app (renders through COMFY_BASE_URL)")
     sv.add_argument("--workflow", default="workflows/fluid_element.api.json")

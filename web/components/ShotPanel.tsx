@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Performance } from "@/components/Performer";
+import Retime from "@/components/Retime";
 import { EFFECT_LABELS, type EffectInfo, followJob, type JobEvent, type JobStatus, type Mode, type Source, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
@@ -34,6 +35,7 @@ function Chips({ job, effect }: { job: JobStatus; effect: EffectInfo | undefined
   return (
     <div className="row">
       {job.cached && <span className="chip warn">a sample made earlier: perform your own noise to make one live</span>}
+      {r.retimed && <span className="chip">re-timed by hand: hit {r.retimed.hit_shift_frames >= 0 ? "+" : ""}{ms(r.retimed.hit_shift_frames)} ms{r.retimed.stop_frame !== null ? `, stop at ${(r.retimed.stop_frame / 24).toFixed(2)} s` : ""}, same element</span>}
       <span className="chip">{lib ? `instant: a pre-rendered LTX-2.5 element, timed by your voice` : `rendered from your voice in ${r.render.seconds.toFixed(0)} s on open weights`}</span>
       {r.hits && r.hits.length > 1 && <span className="chip">{r.hits.length} hits, each its own burst, sized by how you made it</span>}
       {hit !== null && <span className="chip">{hit === 0 ? "the hit lands on your exact frame" : `hit ${hit > 0 ? "+" : ""}${ms(hit)} ms from your noise`}</span>}
@@ -145,6 +147,8 @@ export default function ShotPanel({ plate, point, performance, effects, modes, o
           </div>
           <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
           <Chips job={job} effect={effects.find((e) => e.id === effect)} />
+          <Retime key={job.id} job={job} stopsWithVoice={effects.find((e) => e.id === effect)?.stops_with_voice ?? false}
+            onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />
           <div className="row">
             {Object.entries(job.files).map(([name, url]) => <a key={name} className="btn secondary" href={url} download={name}>{name}</a>)}
           </div>

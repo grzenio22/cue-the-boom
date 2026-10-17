@@ -18,9 +18,10 @@ export interface Receipt {
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
   measured: { onset_error_frames: number | null; hit_error_frames: number | null; stop_latency_frames: number | null; stops_with_voice: boolean };
   voice: { hero_onset_s: number; voice_end_frame: number | null; active_intervals: number[][] };
-  guide: { length: number; tail: string; keyframes: number[] };
+  guide: { length: number; tail: string; keyframes: number[]; anchor_frame: number };
   matte?: { source: string; found: boolean };
   hits?: { frame: number; strength: number; size: number }[] | null;
+  retimed?: { hit_shift_frames: number; stop_frame: number | null } | null;
   seconds_total: number;
 }
 

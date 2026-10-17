@@ -55,3 +55,5 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .result.wide { max-width: 720px; }
 .tile .note { font-size: 0.7rem; line-height: 1.25; }
 .guide { width: 120px; aspect-ratio: 9 / 16; background: #000; border-radius: 10px; }
+.retime { margin-top: 12px; }
+.ribbon { width: 100%; max-width: 600px; height: 90px; background: var(--chip); border-radius: 10px; touch-action: none; display: block; }

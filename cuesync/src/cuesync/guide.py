@@ -58,6 +58,14 @@ class GuidePlan:
     point: tuple[float, float] = (0.5, 0.7)  # emission point, normalised to the guide
     scale: float = 1.0  # size multiplier the effect was painted with
 
+    @classmethod
+    def from_json(cls, d: dict, frames: np.ndarray) -> "GuidePlan":
+        """A plan back from its guide.json and its guide video (for re-timing a finished shot)."""
+        return cls(frames=frames, anchor_frame=int(d["anchor_frame"]), keyframes=[int(k) for k in d["keyframes"]],
+                   blobs=d.get("blobs", []), effect_id=d.get("effect", ""), size=tuple(d.get("size", (576, 1024))),
+                   voice_end=d.get("voice_end"), tail=d.get("tail", "wisp"), canvas=bool(d.get("canvas", False)),
+                   point=tuple(d.get("point", (0.5, 0.7))), scale=float(d.get("scale", 1.0)))
+
     def to_json(self) -> dict:
         return {
             "effect": self.effect_id,

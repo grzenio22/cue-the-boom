@@ -11,6 +11,7 @@ GET  /api/jobs/{id}/files/{name}   final.mp4, composite.mp4, breakdown.mp4, guid
 GET  /api/samples           sample plates and noises (try it without a camera or a microphone)
 GET  /api/gallery           sample shots made ahead of time (cuesync precompute); a matching request is answered at once
 POST /api/compare           two finished shots side by side, synced on the voice
+POST /api/jobs/{id}/retime  move the hit / the stop of a finished shot and composite it again (no new render)
 Full renders go through one worker in order (one GPU); instant shots have their own worker (CPU).
 """
 
@@ -46,6 +47,7 @@ class Job:
     mode: str = "render"  # render | instant | compare
     cached: bool = False  # answered from the shots made ahead of time
     title: str = ""
+    retime: dict | None = None  # {"src": Path, "hit_shift": int, "stop": int | None}: re-time a finished shot
     status: str = "queued"  # queued | running | done | error
     stage: str = "queued"
     progress: float = 0.0
@@ -74,9 +76,10 @@ class JobQueue:
         self.root.mkdir(parents=True, exist_ok=True)
         self.renderers = {k: v for k, v in renderers.items() if v is not None}
         self.jobs: dict[str, Job] = {}
-        self._qs: dict[str, queue.Queue[str]] = {m: queue.Queue() for m in self.renderers}
+        modes = list(self.renderers) + ["retime"]  # re-times are compositing only: their own CPU worker
+        self._qs: dict[str, queue.Queue[str]] = {m: queue.Queue() for m in modes}
         self._lock = threading.Lock()
-        for mode in self.renderers:
+        for mode in modes:
             threading.Thread(target=self._work, args=(mode,), daemon=True).start()
 
     def queued(self, mode: str = "render") -> int:
@@ -96,13 +99,17 @@ class JobQueue:
         job.events.append({"stage": stage, "progress": round(frac, 3), "message": msg, "t": round(time.time() - job.created, 2)})
 
     def _work(self, mode: str) -> None:
-        from .pipeline import make_shot
+        from .pipeline import make_shot, retime_shot
 
         while True:
             job = self.jobs[self._qs[mode].get()]
             job.status = "running"
             try:
-                make_shot(job.spec, self.renderers[mode], job.dir, progress=lambda s, f, m: self._emit(job, s, f, m))
+                say = lambda s, f, m: self._emit(job, s, f, m)  # noqa: E731
+                if job.retime:
+                    retime_shot(job.retime["src"], job.spec, job.dir, job.retime["hit_shift"], job.retime["stop"], say)
+                else:
+                    make_shot(job.spec, self.renderers[mode], job.dir, progress=say)
                 job.status = "done"
             except Exception as exc:  # report, keep serving
                 job.status, job.error = "error", f"{type(exc).__name__}: {exc}"
@@ -231,7 +238,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             hit = cache.get(cache_key(mode, plate_sample, voice_sample, effect, (x, y), seed))
             if hit:  # this exact sample shot was made ahead of time: answer at once
                 copy_shot(Path(hit["path"]), d)
-                job = Job(id=job_id, dir=d, spec=hit, mode=mode, status="done", stage="done", progress=1.0,
+                spec = ShotSpec(plate=sample_files("plates")[plate_sample], voice=sample_files("voices")[voice_sample],
+                                effect=effect, point=(float(x), float(y)), seed=seed, **(shot_defaults or {}))
+                job = Job(id=job_id, dir=d, spec=spec, mode=mode, status="done", stage="done", progress=1.0,
                           message="Made earlier", cached=True, title=hit["title"])
                 jq.jobs[job_id] = job
                 return job.public()
@@ -340,6 +349,21 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         job = Job(id=cid, dir=d, spec=None, mode="compare", status="done", stage="done", progress=1.0, message="Done")
         jq.jobs[cid] = job
         return job.public()
+
+    @app.post("/api/jobs/{job_id}/retime")
+    def retime(job_id: str, shift: int = Form(0), stop: int | None = Form(None)):
+        """Move every hit by ``shift`` frames and/or stop a stop-with-the-voice effect at plate frame ``stop``,
+        then composite again from the same rendered elements."""
+        src = get(job_id)
+        if src.status != "done" or not isinstance(src.spec, ShotSpec) or src.mode == "compare":
+            raise HTTPException(409, "only a finished shot can be re-timed")
+        if not -48 <= shift <= 48:
+            raise HTTPException(400, "shift must be within two seconds (48 frames)")
+        rid = uuid.uuid4().hex[:12]
+        job = Job(id=rid, dir=jq.root / rid, spec=src.spec, mode="retime", title=src.title,
+                  retime={"src": src.dir, "hit_shift": int(shift), "stop": stop})
+        job.dir.mkdir(parents=True)
+        return jq.submit(job).public()
 
     @app.get("/api/jobs/{job_id}/files/{name}")
     def files(job_id: str, name: str):

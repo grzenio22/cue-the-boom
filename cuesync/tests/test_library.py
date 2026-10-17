@@ -114,3 +114,19 @@ def test_a_three_hit_instant_shot(tmp_path, make_video, make_wav):
     assert hits is not None and len(hits) == 3
     assert hits[2]["size"] > hits[0]["size"]  # the long loud boom is the big one
     assert (tmp_path / "shot" / "hits" / "3" / "element.mp4").exists()
+
+
+def test_a_shot_is_retimed_without_rendering_again(tmp_path, make_video, make_wav):
+    from cuesync.pipeline import retime_shot
+    (tmp_path / "lib").mkdir()
+    lib = LibraryRenderer(fake_library(tmp_path / "lib"))
+    plate = make_video(tmp_path, n=72, fps=24, w=216, h=384, color_fn=lambda i: (50, 50, 50))
+    x = np.random.default_rng(1).normal(0, 0.001, 3 * 48000).astype(np.float32)
+    x[48000: 48000 + 4800] += (0.6 * np.sin(np.arange(4800) * 0.05)).astype(np.float32)
+    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, 48000), effect="fireball", point=(0.4, 0.6))
+    first = make_shot(spec, lib, tmp_path / "shot")
+    again = retime_shot(tmp_path / "shot", spec, tmp_path / "later", hit_shift=5)
+    assert again.receipt["guide"]["anchor_frame"] == first.receipt["guide"]["anchor_frame"] + 5
+    assert again.receipt["measured"]["hit_error_frames"] == 0  # the element moved with the hit
+    assert again.receipt["retimed"]["hit_shift_frames"] == 5 and again.final.exists()
+    assert again.receipt["render"] == first.receipt["render"]  # nothing rendered again

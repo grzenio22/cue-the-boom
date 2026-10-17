@@ -23,12 +23,12 @@ from PIL import Image, ImageDraw
 
 from . import __version__
 from .align import element_index_for, plan_alignment
-from .audio import analyze
+from .audio import CueSheet, analyze
 from .compare import PLAYHEAD, RIBBON_BG, RIBBON_FILL, RIBBON_FUTURE, RIBBON_H, _font
 from .composite import composite, effect_options, first_shown_frame, voice_gates
 from .conform import _crop_box, clip_duration, conform, crop_point
 from .effects import load_effect
-from .guide import paint_guide, write_guide, write_guide_preview
+from .guide import GuidePlan, paint_guide, write_guide, write_guide_preview
 from .matte import grabcut_matte
 from .media import probe_video, read_audio, read_video, write_video
 from .score import measure_composite_end, measure_composite_onset, measure_element
@@ -322,6 +322,21 @@ def load_plate(path: Path, point: tuple[float, float], max_s: float, size: tuple
     return frames, (min(max(px, 0.0), 1.0), min(max(py, 0.0), 1.0)), element_size
 
 
+def _place(eff, anchor: int, intervals: list, frames: np.ndarray, n: int, next_hit: int | None = None,
+           stop: int | None = None):
+    """Measure an element and put it on the plate: (timing, alignment, voice gates). ``next_hit``: a later
+    hit lands then, so this one makes way; ``stop``: a stop the user moved by hand."""
+    timing = measure_element(frames, kind="fire" if eff.fluid == "fire" else "any")
+    align = plan_alignment(anchor, timing, mode=eff.align, lead=eff.lead_frames)
+    gates = voice_gates(n, intervals, anchor, eff.voice_gate, eff.release_fire, eff.release_smoke,
+                        open_from=first_shown_frame(align, timing))
+    if next_hit is not None:
+        gates = cut_gates(gates, next_hit + 4, release_fire=8, release_smoke=18)
+    if stop is not None:
+        gates = cut_gates(gates, stop, release_fire=eff.release_fire, release_smoke=eff.release_smoke)
+    return timing, align, gates
+
+
 def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progress | None = None) -> ShotResult:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -339,9 +354,10 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     (out_dir / "cue.json").write_text(json.dumps(cue.to_json(), indent=1))
 
     say("painting", 0.12, "Painting your voice into a guide")
-    emission = (point[0] * plate.shape[2], point[1] * plate.shape[1])
     matte_fn = spec.matte or getattr(renderer, "matte", None) or grabcut_matte
     occluder = matte_fn(plate[0], point)
+    if occluder is not None:  # kept, so a re-time doesn't segment again
+        Image.fromarray((np.clip(occluder, 0, 1) * 255 + 0.5).astype(np.uint8)).save(out_dir / "matte.png")
     scale = spec.scale if spec.scale is not None else auto_scale(occluder, point, eff.behaviour)
     # One effect per hit for a rhythmic performance ("pf, pf, KA-BOOM"), each from its own sub-performance.
     hits = cue.hits() if spec.multi_hit and eff.behaviour in ("burst", "puff") else []
@@ -372,18 +388,81 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
             else f"Rendering the {eff.fluid} from your voice with LTX-2.5") + which)
         element_k = folder / "element.mp4"
         seconds = renderer(guide_k, eff.prompt, spec.seed + k, element_k)
+        last = dict(getattr(renderer, "last", None) or {})
+        if last.get("guide"):  # instant mode: keep the element's own guide for the breakdown (and re-times)
+            write_video(folder / "element_guide.mp4", last["guide"]["frames"], fps=FPS, crf=18, preset=FINISH_PRESET)
+            (folder / "element_guide.json").write_text(json.dumps({"keyframes": last["guide"]["keyframes"]}))
         frames_k = read_video(element_k).frames
-        timing_k = measure_element(frames_k, kind="fire" if eff.fluid == "fire" else "any")
-        align_k = plan_alignment(plan_k.anchor_frame, timing_k, mode=eff.align, lead=eff.lead_frames)
-        gates_k = voice_gates(n, ecue.intervals(), plan_k.anchor_frame, eff.voice_gate, eff.release_fire,
-                              eff.release_smoke, open_from=first_shown_frame(align_k, timing_k))
-        if multi and k + 1 < len(events):  # make way for the next hit: this one is released soon after it lands
-            gates_k = cut_gates(gates_k, hits[k + 1].frame + 4, release_fire=8, release_smoke=18)
-        rendered.append({"cue": ecue, "plan": plan_k, "guide": guide_k, "element_path": element_k, "element": frames_k,
-                         "timing": timing_k, "align": align_k, "gates": gates_k, "seconds": seconds,
-                         "last": dict(getattr(renderer, "last", None) or {}),
+        timing_k, align_k, gates_k = _place(eff, plan_k.anchor_frame, ecue.intervals(), frames_k, n,
+                                            next_hit=hits[k + 1].frame if multi and k + 1 < len(events) else None)
+        rendered.append({"cue": ecue, "plan": plan_k, "guide": guide_k, "element": frames_k, "timing": timing_k,
+                         "align": align_k, "gates": gates_k, "seconds": seconds, "last": last,
                          "strength": float(np.max(ecue.envelope)) if len(ecue.envelope) else 0.0})
+    matte_source = "custom" if spec.matte is not None else ("server" if hasattr(renderer, "matte") else "grabcut")
+    return _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, renderer.name, matte_source,
+                   out_dir, say, t0)
 
+
+def retime_shot(src: Path, spec: ShotSpec, out_dir: Path, hit_shift: int = 0, stop_frame: int | None = None,
+                progress: Progress | None = None) -> ShotResult:
+    """Re-time a finished shot without rendering again: move every hit by ``hit_shift`` frames and, for an
+    effect that stops with the voice, stop it at plate frame ``stop_frame``. Composites and finishes anew."""
+    src, out_dir = Path(src), Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    say = progress or (lambda stage, frac, msg: None)
+    t0 = time.perf_counter()
+    eff = load_effect(spec.effect)
+    old = json.loads((src / "receipt.json").read_text())
+    say("reading", 0.05, "Reading your plate")
+    plate, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size, spec.element_size)
+    n = plate.shape[0]
+    samples = read_audio(spec.voice, SR)
+    cue = CueSheet.from_json(json.loads((src / "cue.json").read_text()))
+    occluder = None
+    if (src / "matte.png").exists():
+        occluder = np.asarray(Image.open(src / "matte.png").convert("L"), dtype=np.float32) / 255.0
+        shutil.copyfile(src / "matte.png", out_dir / "matte.png")
+    for name in ("cue.json", "guide_preview.mp4"):
+        if (src / name).exists():
+            shutil.copyfile(src / name, out_dir / name)
+    folders = sorted((src / "hits").iterdir(), key=lambda d: int(d.name)) if (src / "hits").is_dir() else [src]
+    multi = len(folders) > 1
+    say("compositing", 0.2, "Re-timing: no new render needed")
+    anchors = [int(json.loads((f / "guide.json").read_text())["anchor_frame"]) + hit_shift for f in folders]
+    rendered = []
+    for k, folder in enumerate(folders):
+        dst = out_dir / "hits" / folder.name if multi else out_dir
+        dst.mkdir(parents=True, exist_ok=True)
+        for name in ("guide.json", "guide.mp4", "element.mp4", "element_guide.mp4", "element_guide.json", "cue.json"):
+            if (folder / name).exists() and folder != dst:
+                shutil.copyfile(folder / name, dst / name)
+        ecue = CueSheet.from_json(json.loads((folder / "cue.json").read_text())) if multi else cue
+        plan_k = GuidePlan.from_json(json.loads((folder / "guide.json").read_text()), read_video(folder / "guide.mp4").frames)
+        plan_k.anchor_frame = anchors[k]
+        frames_k = read_video(folder / "element.mp4").frames
+        intervals = [(a + hit_shift, b + hit_shift) for a, b in ecue.intervals()]
+        last_one = k == len(folders) - 1
+        timing_k, align_k, gates_k = _place(
+            eff, anchors[k], intervals, frames_k, n, next_hit=None if last_one else anchors[k + 1],
+            stop=stop_frame if (last_one and stop_frame is not None and eff.voice_gate == "both") else None)
+        last = {}
+        if (folder / "element_guide.mp4").exists():
+            last = {"guide": {"frames": read_video(folder / "element_guide.mp4").frames,
+                              "keyframes": json.loads((folder / "element_guide.json").read_text())["keyframes"]}}
+        rendered.append({"cue": ecue, "plan": plan_k, "guide": dst / "guide.mp4", "element": frames_k,
+                         "timing": timing_k, "align": align_k, "gates": gates_k, "seconds": 0.0, "last": last,
+                         "strength": float(np.max(ecue.envelope)) if len(ecue.envelope) else 0.0})
+    retimed = {"from": src.name, "hit_shift_frames": hit_shift, "stop_frame": stop_frame}
+    return _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, float(old.get("scale", 1.0)),
+                   old["render"]["renderer"], old.get("matte", {}).get("source", "grabcut"), out_dir, say, t0,
+                   retimed=retimed, render_receipt=old["render"])
+
+
+def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, renderer_name, matte_source, out_dir,
+            say, t0, retimed=None, render_receipt=None) -> ShotResult:
+    """Composite the placed elements in time order, write the deliverables, measure, write the receipt."""
+    n = plate.shape[0]
+    emission = (rendered[0]["plan"].point[0] * plate.shape[2], rendered[0]["plan"].point[1] * plate.shape[1])
     say("compositing", 0.70, "Compositing onto your footage")
     comp = plate
     for r in rendered:  # layered in time order: a later burst goes over an earlier one's smoke
@@ -393,9 +472,12 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
     plan, guide_path, element, timing = main["plan"], main["guide"], main["element"], main["timing"]
     align, gates, render_s = main["align"], main["gates"], sum(r["seconds"] for r in rendered)
     if multi:  # the shot's own guide/element files are the loudest hit's
-        for name in ("guide.json", "guide.mp4", "element.mp4"):
+        for name in ("guide.mp4", "element.mp4"):
             shutil.copyfile(main["guide"].parent / name, out_dir / name)
+        (out_dir / "guide.json").write_text(json.dumps(plan.to_json(), indent=1))
         guide_path = out_dir / "guide.mp4"
+    elif retimed:
+        (out_dir / "guide.json").write_text(json.dumps(plan.to_json(), indent=1))
     audio = place_audio(samples, spec.offset_s, n)
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
@@ -436,6 +518,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
                       and element_index_for(align, timing, f, element.shape[0]) == timing.hit_frame), None)
     stop = measure_composite_end(small_plate, small_comp)
     voice_end = cue.voice_end_frame
+    lib = {k: v for k, v in main["last"].items() if k != "guide"}
     receipt = {
         "cuesync": __version__,
         "effect": eff.to_json(),
@@ -445,16 +528,15 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
                   "active_intervals": [list(iv) for iv in cue.intervals()], "voice_end_frame": voice_end,
                   "peak_frame": cue.peak_frame},
         "guide": {k: v for k, v in plan.to_json().items() if k != "blobs"},
-        "render": {"renderer": renderer.name, "seconds": round(render_s, 2), "prompt": eff.prompt,
-                   "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA",
-                   **({"library": {k: v for k, v in main["last"].items() if k != "guide"}} if main["last"] else {})},
+        "render": render_receipt or {"renderer": renderer_name, "seconds": round(render_s, 2), "prompt": eff.prompt,
+                                     "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA",
+                                     **({"library": lib} if lib else {})},
         "hits": [{"frame": r["plan"].anchor_frame, "strength": round(r["strength"], 3), "length": r["plan"].frames.shape[0],
                   "size": round(r["plan"].scale, 3),
-                  **({"library": r["last"].get("entry")} if r["last"] else {"render_s": round(r["seconds"], 1)})}
+                  **({"library": r["last"].get("entry")} if r["last"].get("entry") else {"render_s": round(r["seconds"], 1)})}
                  for r in rendered] if multi else None,
         "scale": round(scale, 3),
-        "matte": {"source": "custom" if spec.matte is not None else ("server" if hasattr(renderer, "matte") else "grabcut"),
-                  "found": occluder is not None,
+        "matte": {"source": matte_source, "found": occluder is not None,
                   "coverage": None if occluder is None else round(float(occluder.mean()), 4)},
         "alignment": {"mode": eff.align, "offset": align.offset, "first_element_frame": align.first,
                       "visible_onset": timing.visible_onset, "hit": timing.hit_frame, "peak": timing.peak},
@@ -465,6 +547,7 @@ def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progr
                      "stops_with_voice": eff.voice_gate == "both",
                      "stopped_within_plate": stop is not None and stop < n,
                      "stop_latency_frames": None if stop is None or voice_end is None else stop - voice_end},
+        "retimed": retimed,
         "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
