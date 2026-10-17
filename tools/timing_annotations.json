@@ -1,29 +1,102 @@
 {
-  "about": "Marked by eye, frame by frame, on each shot's raw render (render.mp4, before any re-timing): the first frame where the effect is clearly there, or for a blow-out the first frame with no flame left. One number per painted hit; null where the model merged the hit into its neighbour (no onset of its own) or the start can't be called. The 'calibration' shots set the pipeline's onset threshold; the 'held_out' shots were marked before the detector was run on them.",
+  "about": "Marked by eye, frame by frame, on each shot's raw render (render.mp4, before any re-timing): the first frame where the effect is clearly there, or for a blow-out the first frame with no flame left. One number per painted hit; null where the model merged the hit into its neighbour (no onset of its own) or the start can't be called. Keys are <folder>/<shot> under runs/ (scene and scene.r5 under runs/precomputed). 'calibration': the renders the pipeline's onset threshold was fitted on. 'held_out': renders it was not fitted on (extra takes with other seeds, and the shots re-rendered after it was set).",
   "calibration": {
-    "jackolantern_kitchen__ka-boom__fire_burst": [9],
-    "toy_desk__fwoooom__fire_breath": [12],
-    "mug_counter__hissss__steam_jet": [10],
-    "candle_shelf__pf__blow_out": [11],
-    "candle_shelf__fwoooom__wick_flare": [13],
-    "candle_snap__clip__blow_out": [12],
-    "jackolantern_kitchen__pf__fire_burst": [11],
-    "pumpkin_kitchen__fwoooom__flame_plume": [12],
-    "toy_desk__hold0__smoke_puff": [9],
-    "toy_desk__pf-pf-ka-boom__fire_breath": [13, 31, null],
-    "jackolantern_kitchen__pf-pf-ka-boom__fire_burst": [11, null, 50]
+    "scene.r5/jackolantern_kitchen__ka-boom__fire_burst": [
+      9
+    ],
+    "scene.r5/toy_desk__fwoooom__fire_breath": [
+      12
+    ],
+    "scene/mug_counter__hissss__steam_jet": [
+      10
+    ],
+    "scene/candle_shelf__pf__blow_out": [
+      11
+    ],
+    "scene.r5/candle_shelf__fwoooom__wick_flare": [
+      13
+    ],
+    "scene/candle_snap__clip__blow_out": [
+      12
+    ],
+    "scene.r5/jackolantern_kitchen__pf__fire_burst": [
+      11
+    ],
+    "scene.r5/pumpkin_kitchen__fwoooom__flame_plume": [
+      12
+    ],
+    "scene.r5/toy_desk__hold0__smoke_puff": [
+      9
+    ],
+    "scene.r5/toy_desk__pf-pf-ka-boom__fire_breath": [
+      13,
+      31,
+      null
+    ],
+    "scene.r5/jackolantern_kitchen__pf-pf-ka-boom__fire_burst": [
+      11,
+      null,
+      50
+    ]
   },
   "held_out": {
-    "candle_shelf__fwoooom__wick_flare__s2": [12],
-    "candle_shelf__fwoooom__wick_flare__s3": [10],
-    "candle_shelf__pf__blow_out__s2": [14],
-    "candle_shelf__pf__blow_out__s3": [15],
-    "jackolantern_kitchen__ka-boom__fire_burst__s2": [8],
-    "jackolantern_kitchen__ka-boom__fire_burst__s3": [8],
-    "mug_counter__hissss__steam_jet__s2": [null],
-    "mug_counter__hissss__steam_jet__s3": [10],
-    "toy_desk__fwoooom__fire_breath__s2": [13],
-    "toy_desk__fwoooom__fire_breath__s3": [11],
-    "toy_desk__pf__fire_breath__s1": [12]
+    "extra_takes/candle_shelf__fwoooom__wick_flare__s2": [
+      12
+    ],
+    "extra_takes/candle_shelf__fwoooom__wick_flare__s3": [
+      10
+    ],
+    "extra_takes/candle_shelf__pf__blow_out__s2": [
+      14
+    ],
+    "extra_takes/candle_shelf__pf__blow_out__s3": [
+      15
+    ],
+    "extra_takes/jackolantern_kitchen__ka-boom__fire_burst__s2": [
+      8
+    ],
+    "extra_takes/jackolantern_kitchen__ka-boom__fire_burst__s3": [
+      8
+    ],
+    "extra_takes/mug_counter__hissss__steam_jet__s2": [
+      null
+    ],
+    "extra_takes/mug_counter__hissss__steam_jet__s3": [
+      10
+    ],
+    "extra_takes/toy_desk__fwoooom__fire_breath__s2": [
+      13
+    ],
+    "extra_takes/toy_desk__fwoooom__fire_breath__s3": [
+      11
+    ],
+    "extra_takes/toy_desk__pf__fire_breath__s1": [
+      12
+    ],
+    "scene/toy_desk__fwoooom__fire_breath": [
+      12
+    ],
+    "scene/toy_desk__pf-pf-ka-boom__fire_breath": [
+      13,
+      null,
+      null
+    ],
+    "scene/candle_shelf__fwoooom__wick_flare": [
+      14
+    ],
+    "scene/jackolantern_kitchen__ka-boom__fire_burst": [
+      11
+    ],
+    "scene/jackolantern_kitchen__pf-pf-ka-boom__fire_burst": [
+      12,
+      null,
+      52
+    ],
+    "scene/jackolantern_kitchen__pf__fire_burst": [
+      11
+    ],
+    "scene/pumpkin_kitchen__fwoooom__flame_plume": [
+      10
+    ]
   }
 }

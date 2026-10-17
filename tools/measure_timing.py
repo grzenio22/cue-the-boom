@@ -1,6 +1,6 @@
 """How well do scene shots land on their cue? Every hit, as LTX-2.5 rendered it and in the finished shot.
 
-    python tools/measure_timing.py runs/precomputed/scene runs/extra_takes -o runs/timing
+    python tools/measure_timing.py runs/precomputed/scene runs/precomputed/scene.r5 runs/extra_takes -o runs/timing
 
 Where each hit shows on the raw render (render.mp4, before re-timing) is read from tools/timing_annotations.json:
 marked by eye, frame by frame (the first frame the effect is clearly there; for a blow-out, the first with no
@@ -98,7 +98,7 @@ def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
         for k in range(len(events)):
             if k != main:
                 on[k] = onset_in(changed, want[k] + late - 6, want[k] + late + 6)
-    hits = [{"shot": d.name, "effect": eff["id"], "set": group or "detector", "hit": k + 1, "of": len(want),
+    hits = [{"shot": f"{d.parent.name}/{d.name}", "effect": eff["id"], "set": group or "detector", "hit": k + 1, "of": len(want),
              "cue_frame": start + want[k] + retime,
              "raw_error": None if o is None else o - want[k] - retime,
              "final_error": None if o is None else o + shift - want[k] - retime}
@@ -110,7 +110,7 @@ def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
             pk = int(np.argmax(fire))
             low = np.nonzero(fire[pk:] < 0.25 * fire[pk])[0]
             s_ = None if not low.size else pk + int(low[0])
-            stop = {"shot": d.name, "effect": eff["id"], "voice_end": v,
+            stop = {"shot": f"{d.parent.name}/{d.name}", "effect": eff["id"], "voice_end": v,
                     "raw_latency": None if s_ is None else start + s_ - v,
                     "final_latency": None if s_ is None else start + shift + s_ - v}
     return {"hits": hits, "stop": stop}
@@ -202,7 +202,8 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     marks = json.loads(Path(a.marks).read_text(encoding="utf-8")) if Path(a.marks).exists() else {}
     eye = {name: (group, m) for group in ("calibration", "held_out") for name, m in marks.get(group, {}).items()}
-    found = [r for r in (measure(d, *(eye[d.name][::-1] if d.name in eye else (None, ""))) for d in shot_dirs(a.paths)) if r]
+    key = lambda d: f"{d.parent.name}/{d.name}"  # noqa: E731
+    found = [r for r in (measure(d, *(eye[key(d)][::-1] if key(d) in eye else (None, ""))) for d in shot_dirs(a.paths)) if r]
     rows = [h for r in found for h in r["hits"]]
     stops = [r["stop"] for r in found if r["stop"]]
     if not rows:

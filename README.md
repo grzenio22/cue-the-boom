@@ -86,17 +86,17 @@ Install the node pack (`comfyui-cuesync/` into `ComfyUI/custom_nodes/`, then `pi
 
 Every shot writes a receipt: the cue, where the hits were painted, how early or late the model put them, how far they were moved, whether the transfer passed its check. LTX-2.5 can only take the guide on an 8-frame grid (a third of a second at 24 fps), and it nearly always starts the effect a few frames early, so this measure-and-move step is what puts the hit on your cue.
 
-How well it works, marked by eye frame by frame on the raw renders of 22 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
+How well it works, marked by eye frame by frame on the raw renders of 30 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
 
 | | within one frame (42 ms) of the cue | mean error |
 |---|---|---|
-| LTX-2.5 render, as it comes | 1 of 23 hits | 5.2 frames |
-| the finished shot | 19 of 23 hits | 0.7 frames |
-| the finished shot, takes marked before the detector was tuned | 8 of 10 | |
+| LTX-2.5 render, as it comes | 2 of 31 hits | 4.9 frames |
+| the finished shot | 26 of 31 hits | 0.8 frames |
+| the finished shot, renders the onset threshold was not fitted on | 15 of 18 | |
 
 ![Timing: raw render vs finished shot](media/timing.png)
 
-The limits, measured the same way: in a rhythm LTX-2.5 sometimes merges two close hits into one (2 of 6 here); those are reported, not faked, and the rest move together. A flame dies down about half a second after the voice stops (median 14 frames), and one drawn flame plume kept burning to the end of the shot.
+The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (5 of 12 here); those are reported, not faked, and the rest move together. A flame dies down 0.4 to 0.9 s after the voice stops.
 
 **Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate, with a SAM 2.1 object matte and a linear-light compositor ([`composite.py`](cuesync/src/cuesync/composite.py)).
 
