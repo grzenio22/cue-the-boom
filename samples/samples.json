@@ -2,76 +2,241 @@
  "voices": {
   "pf.wav": {
    "title": "pf.",
-   "effect": "fireball"
+   "effect": "fireball",
+   "gesture": "hit"
   },
   "ka-boom.wav": {
    "title": "KA-BOOM",
-   "effect": "fireball"
+   "effect": "fireball",
+   "gesture": "hit"
   },
   "fwoooom.wav": {
    "title": "fwoooOOOM",
-   "effect": "flame_plume"
+   "effect": "flame_plume",
+   "gesture": "sustained"
   },
   "pfffff.wav": {
    "title": "pfffff",
-   "effect": "smoke_puff"
+   "effect": "smoke_puff",
+   "gesture": "breath"
   },
   "hissss.wav": {
    "title": "hissss",
-   "effect": "steam_jet"
+   "effect": "steam_jet",
+   "gesture": "hiss"
   },
   "pf-pf-ka-boom.wav": {
    "title": "pf, pf, KA-BOOM",
-   "effect": "fireball"
+   "effect": "fireball",
+   "gesture": "rhythm"
   }
  },
  "plates": {
   "pumpkin_kitchen.mp4": {
    "title": "Pumpkin, kitchen",
    "point": [
-    0.5,
-    0.56
+    0.53,
+    0.6
    ],
-   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added; draw fire on it",
    "effects": [
     "fireball",
     "flame_plume"
+   ],
+   "subject": "the small pumpkin on the kitchen table",
+   "scene": {
+    "hit": "flame_plume",
+    "sustained": "flame_plume",
+    "rhythm": "flame_plume"
+   },
+   "drawn": [
+    {
+     "title": "fwoooOOOM · drawn flames on the pumpkin",
+     "voice": "fwoooom.wav",
+     "effect": "flame_plume",
+     "strokes": [
+      {
+       "points": [
+        [
+         0.36,
+         0.53
+        ],
+        [
+         0.42,
+         0.42
+        ],
+        [
+         0.47,
+         0.5
+        ],
+        [
+         0.53,
+         0.36
+        ],
+        [
+         0.58,
+         0.49
+        ],
+        [
+         0.64,
+         0.41
+        ],
+        [
+         0.7,
+         0.54
+        ]
+       ],
+       "width": 0.09
+      }
+     ],
+     "describe": "the small pumpkin on the kitchen table catches fire, flames spread along its top and burn"
+    }
    ]
   },
   "mug_counter.mp4": {
    "title": "Mug, bright counter",
    "point": [
-    0.48,
+    0.47,
     0.45
    ],
    "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
    "effects": [
     "steam_jet",
     "smoke_puff"
-   ]
+   ],
+   "subject": "the hot coffee in the white mug",
+   "scene": {
+    "hissss.wav": "steam_jet",
+    "hiss": "steam_jet",
+    "breath": "steam_jet",
+    "sustained": "steam_jet",
+    "hit": "steam_jet"
+   }
   },
   "toy_desk.mp4": {
    "title": "Toy dinosaur, night",
    "point": [
-    0.4,
-    0.475
+    0.375,
+    0.485
    ],
-   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added; tap its mouth",
    "effects": [
     "fireball",
     "flame_plume"
+   ],
+   "direction": -90,
+   "subject": "the small plastic toy dinosaur on the bedside table",
+   "scene": {
+    "fwoooom.wav": "fire_breath",
+    "pf-pf-ka-boom.wav": "fire_breath",
+    "hit": "fire_breath",
+    "rhythm": "fire_breath",
+    "sustained": "fire_breath"
+   },
+   "drawn": [
+    {
+     "title": "press and hold · drawn smoke out of the lamp",
+     "effect": "smoke_puff",
+     "holds": [
+      [
+       1.0,
+       3.0
+      ]
+     ],
+     "strokes": [
+      {
+       "points": [
+        [
+         0.55,
+         0.36
+        ],
+        [
+         0.5,
+         0.42
+        ],
+        [
+         0.47,
+         0.5
+        ],
+        [
+         0.52,
+         0.56
+        ],
+        [
+         0.62,
+         0.58
+        ]
+       ],
+       "width": 0.1
+      }
+     ],
+     "describe": "thick grey smoke pours out of the desk lamp's shade and rolls down onto the bedside table"
+    }
    ]
   },
   "candle_shelf.mp4": {
    "title": "Candle jar",
    "point": [
     0.53,
-    0.5
+    0.52
    ],
-   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added",
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added; tap the wick",
    "effects": [
     "flame_plume"
-   ]
+   ],
+   "subject": "the candle in the glass jar",
+   "scene": {
+    "fwoooom.wav": "wick_flare",
+    "pf.wav": "blow_out",
+    "hit": "blow_out",
+    "breath": "blow_out",
+    "sustained": "wick_flare",
+    "rhythm": "blow_out"
+   }
+  },
+  "jackolantern_kitchen.mp4": {
+   "title": "Jack-o'-lantern, kitchen",
+   "point": [
+    0.48,
+    0.39
+   ],
+   "subject": "the carved jack-o'-lantern on the kitchen table",
+   "note": "generated with LTX-2.5 as a stand-in until real phone footage is added; tap the candle inside",
+   "effects": [
+    "fireball",
+    "flame_plume"
+   ],
+   "scene": {
+    "ka-boom.wav": "fire_burst",
+    "pf-pf-ka-boom.wav": "fire_burst",
+    "pf.wav": "fire_burst",
+    "hit": "fire_burst",
+    "rhythm": "fire_burst",
+    "sustained": "fire_burst"
+   }
+  },
+  "candle_snap.mp4": {
+   "title": "Candle jar, with a snap",
+   "point": [
+    0.53,
+    0.52
+   ],
+   "subject": "the candle in the glass jar",
+   "sound": true,
+   "note": "stand-in: the candle plate with a synthetic finger snap in its soundtrack (lock the effect to the clip's own sound)",
+   "effects": [
+    "fireball"
+   ],
+   "scene": {
+    "hit": "blow_out",
+    "sustained": "wick_flare",
+    "breath": "blow_out",
+    "rhythm": "blow_out"
+   },
+   "clip_cue": {
+    "effect": "blow_out",
+    "title": "a snap in the clip · Candle jar"
+   }
   }
  }
 }
