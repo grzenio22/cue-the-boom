@@ -1,0 +1,228 @@
+{
+ "clip": "C_palm_push",
+ "video": "runs/bending/plates/C_palm_push.mp4",
+ "W": 1920,
+ "H": 1080,
+ "fps": 24.0,
+ "provisional": true,
+ "labeller": "Claude (side agent A), by eye from coordinate-gridded crops (runs/bending/track_lab/gt_crops.py), not clicked",
+ "emitter": "palm",
+ "hand": "right",
+ "landmark": 4,
+ "target": "the thumb tip (MediaPipe landmark 4): the centre of the thumb's rounded end, about half its width in from the end. The palm centre this clip's emitter uses is not a point anyone can see, and the fingers are edge-on here, so the provisional labels take the one tip that is unambiguous on every frame; the error is that landmark's, through the same track.",
+ "points": {
+  "8": null,
+  "12": [
+   767,
+   1006
+  ],
+  "16": [
+   759,
+   829
+  ],
+  "20": [
+   745,
+   652
+  ],
+  "24": [
+   726,
+   460
+  ],
+  "28": [
+   704,
+   362
+  ],
+  "32": [
+   685,
+   310
+  ],
+  "36": [
+   672,
+   287
+  ],
+  "40": [
+   665,
+   295
+  ],
+  "44": [
+   657,
+   308
+  ],
+  "48": [
+   659,
+   337
+  ],
+  "52": [
+   661,
+   357
+  ],
+  "56": [
+   661,
+   395
+  ],
+  "60": [
+   656,
+   417
+  ],
+  "64": [
+   656,
+   448
+  ],
+  "68": [
+   656,
+   472
+  ],
+  "72": [
+   656,
+   467
+  ],
+  "76": [
+   648,
+   481
+  ],
+  "80": [
+   632,
+   484
+  ],
+  "84": [
+   616,
+   474
+  ],
+  "88": [
+   592,
+   498
+  ],
+  "92": [
+   560,
+   529
+  ],
+  "96": [
+   532,
+   551
+  ],
+  "100": [
+   526,
+   563
+  ],
+  "104": [
+   529,
+   581
+  ],
+  "108": [
+   530,
+   596
+  ],
+  "112": [
+   536,
+   609
+  ],
+  "116": [
+   525,
+   620
+  ],
+  "120": [
+   526,
+   629
+  ],
+  "124": [
+   515,
+   637
+  ],
+  "128": [
+   505,
+   626
+  ],
+  "132": [
+   502,
+   618
+  ],
+  "136": [
+   500,
+   588
+  ],
+  "140": [
+   497,
+   565
+  ],
+  "144": [
+   498,
+   539
+  ],
+  "148": [
+   496,
+   517
+  ],
+  "152": [
+   499,
+   494
+  ],
+  "156": [
+   500,
+   471
+  ],
+  "160": [
+   498,
+   453
+  ],
+  "164": [
+   507,
+   438
+  ],
+  "168": [
+   511,
+   445
+  ],
+  "172": [
+   511,
+   464
+  ],
+  "176": [
+   499,
+   485
+  ],
+  "180": [
+   477,
+   513
+  ],
+  "184": [
+   451,
+   554
+  ],
+  "188": [
+   425,
+   599
+  ],
+  "192": [
+   394,
+   688
+  ],
+  "196": [
+   389,
+   777
+  ],
+  "200": [
+   356,
+   877
+  ],
+  "204": [
+   359,
+   986
+  ]
+ },
+ "held": [
+  [
+   100,
+   176
+  ]
+ ],
+ "in_frame": [
+  [
+   8,
+   204
+  ]
+ ],
+ "events": [],
+ "masks": {},
+ "blurry": [],
+ "notes": "Hand enters bottom right (frames 6-60, back of the hand, fingers curled), pushes left and holds the palm out (about 96-176, drifting slowly), leaves bottom left (from ~190, motion-blurred). No strike: the push peaks near 200 px/s, a drift by the tracker's measure."
+}

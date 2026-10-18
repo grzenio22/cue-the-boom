@@ -1,0 +1,131 @@
+{
+ "clip": "cupped_palm",
+ "video": "runs/bending/plates/cupped_palm.mp4",
+ "W": 1920,
+ "H": 1080,
+ "fps": 24.0,
+ "provisional": true,
+ "labeller": "Claude (side agent A), by eye from coordinate-gridded crops (runs/bending/track_lab/gt_crops.py), not clicked",
+ "emitter": "palm",
+ "hand": "right",
+ "landmark": 4,
+ "target": "the tip of the separate digit along the far (top) edge of the cupped hand, which MediaPipe takes for the thumb (landmark 4): the centre of its rounded end. Every 8th frame: the hand holds still all clip long and the camera drifts slowly right.",
+ "points": {
+  "0": [
+   651,
+   605
+  ],
+  "8": [
+   647,
+   609
+  ],
+  "16": [
+   661,
+   616
+  ],
+  "24": [
+   674,
+   615
+  ],
+  "32": [
+   680,
+   594
+  ],
+  "40": [
+   695,
+   580
+  ],
+  "48": [
+   712,
+   588
+  ],
+  "56": [
+   729,
+   592
+  ],
+  "64": [
+   767,
+   600
+  ],
+  "72": [
+   785,
+   605
+  ],
+  "80": [
+   814,
+   595
+  ],
+  "88": [
+   849,
+   598
+  ],
+  "96": [
+   870,
+   604
+  ],
+  "104": [
+   897,
+   604
+  ],
+  "112": [
+   916,
+   607
+  ],
+  "120": [
+   939,
+   603
+  ],
+  "128": [
+   974,
+   613
+  ],
+  "136": [
+   995,
+   606
+  ],
+  "144": [
+   1018,
+   608
+  ],
+  "152": [
+   1039,
+   593
+  ],
+  "160": [
+   1061,
+   607
+  ],
+  "168": [
+   1079,
+   615
+  ],
+  "176": [
+   1084,
+   606
+  ],
+  "184": [
+   1092,
+   605
+  ],
+  "192": [
+   1105,
+   623
+  ]
+ },
+ "held": [
+  [
+   0,
+   197
+  ]
+ ],
+ "in_frame": [
+  [
+   0,
+   197
+  ]
+ ],
+ "events": [],
+ "masks": {},
+ "blurry": [],
+ "notes": "One hand, palm up and cupped, fingers pointing left, still for the whole 8 s; the camera drifts about 2.4 px a frame to the right. Which digit is the thumb is hard to tell from this side view; the labels follow the one MediaPipe calls the thumb, since it is the crispest point in view."
+}

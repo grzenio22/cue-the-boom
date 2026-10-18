@@ -1,0 +1,149 @@
+{
+ "clip": "two_palms",
+ "video": "runs/bending/plates/two_palms.mp4",
+ "W": 1920,
+ "H": 1080,
+ "fps": 24.0,
+ "provisional": true,
+ "labeller": "Claude (side agent A), by eye from coordinate-gridded crops (runs/bending/track_lab/gt_crops.py), not clicked",
+ "emitter": "palm",
+ "hand": "right",
+ "landmark": 4,
+ "target": "the thumb tip (MediaPipe landmark 4) of the performer's right hand (screen left): the centre of its rounded end",
+ "points": {
+  "12": null,
+  "16": [
+   384,
+   535
+  ],
+  "20": [
+   390,
+   548
+  ],
+  "24": [
+   408,
+   575
+  ],
+  "28": [
+   418,
+   588
+  ],
+  "32": [
+   421,
+   601
+  ],
+  "36": [
+   419,
+   606
+  ],
+  "40": [
+   408,
+   613
+  ],
+  "44": [
+   402,
+   619
+  ],
+  "48": [
+   409,
+   626
+  ],
+  "52": [
+   406,
+   633
+  ],
+  "56": [
+   399,
+   633
+  ],
+  "60": [
+   392,
+   636
+  ],
+  "64": [
+   389,
+   636
+  ],
+  "68": [
+   403,
+   636
+  ],
+  "72": [
+   450,
+   638
+  ],
+  "76": [
+   524,
+   643
+  ],
+  "80": [
+   584,
+   644
+  ],
+  "84": [
+   599,
+   644
+  ],
+  "88": [
+   600,
+   651
+  ],
+  "92": [
+   600,
+   648
+  ],
+  "96": [
+   595,
+   652
+  ],
+  "100": [
+   596,
+   649
+  ],
+  "104": [
+   592,
+   652
+  ],
+  "108": [
+   595,
+   652
+  ],
+  "112": [
+   595,
+   651
+  ],
+  "116": [
+   600,
+   651
+  ],
+  "120": [
+   603,
+   652
+  ],
+  "124": null,
+  "128": null,
+  "132": null,
+  "136": null,
+  "140": null
+ },
+ "held": [
+  [
+   44,
+   68
+  ],
+  [
+   84,
+   120
+  ]
+ ],
+ "in_frame": [
+  [
+   12,
+   140
+  ]
+ ],
+ "events": [],
+ "masks": {},
+ "blurry": [],
+ "notes": "Both palms up. The labelled hand rises into frame (12-40), holds (44-68), moves in toward the other (72-84), holds (84-120), then closes and drops out of frame (124-140, the thumb hidden or blurred, unlabelled)."
+}

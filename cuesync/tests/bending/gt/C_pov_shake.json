@@ -1,0 +1,217 @@
+{
+ "clip": "C_pov_shake",
+ "video": "runs/bending/track_lab/pov/C_pov_shake.mp4",
+ "W": 1920,
+ "H": 1080,
+ "fps": 24.0,
+ "provisional": true,
+ "labeller": "Claude (side agent A), by eye from coordinate-gridded crops (runs/bending/track_lab/gt_crops.py), not clicked; carried through the synthetic camera by runs/bending/track_lab/make_pov.py",
+ "emitter": "palm",
+ "hand": "right",
+ "landmark": 4,
+ "target": "the thumb tip (MediaPipe landmark 4): the centre of the thumb's rounded end, about half its width in from the end. The palm centre this clip's emitter uses is not a point anyone can see, and the fingers are edge-on here, so the provisional labels take the one tip that is unambiguous on every frame; the error is that landmark's, through the same track.",
+ "points": {
+  "8": null,
+  "12": null,
+  "16": null,
+  "20": [
+   770.4,
+   859.4
+  ],
+  "24": [
+   745.3,
+   604.8
+  ],
+  "28": [
+   717.4,
+   462.3
+  ],
+  "32": [
+   680.2,
+   389.0
+  ],
+  "36": [
+   654.9,
+   373.4
+  ],
+  "40": [
+   653.0,
+   388.9
+  ],
+  "44": [
+   660.6,
+   400.3
+  ],
+  "48": [
+   672.2,
+   444.3
+  ],
+  "52": [
+   671.5,
+   485.2
+  ],
+  "56": [
+   676.0,
+   528.3
+  ],
+  "60": [
+   683.5,
+   545.4
+  ],
+  "64": [
+   695.7,
+   593.5
+  ],
+  "68": [
+   695.7,
+   622.3
+  ],
+  "72": [
+   684.0,
+   602.4
+  ],
+  "76": [
+   673.1,
+   622.0
+  ],
+  "80": [
+   656.6,
+   636.9
+  ],
+  "84": [
+   632.1,
+   622.4
+  ],
+  "88": [
+   582.2,
+   651.8
+  ],
+  "92": [
+   524.2,
+   706.8
+  ],
+  "96": [
+   486.5,
+   743.7
+  ],
+  "100": [
+   481.3,
+   746.8
+  ],
+  "104": [
+   478.9,
+   765.3
+  ],
+  "108": [
+   466.5,
+   791.9
+  ],
+  "112": [
+   474.3,
+   799.8
+  ],
+  "116": [
+   476.1,
+   799.4
+  ],
+  "120": [
+   494.3,
+   816.4
+  ],
+  "124": [
+   485.8,
+   835.3
+  ],
+  "128": [
+   470.5,
+   813.8
+  ],
+  "132": [
+   475.6,
+   809.9
+  ],
+  "136": [
+   489.7,
+   789.9
+  ],
+  "140": [
+   488.8,
+   763.5
+  ],
+  "144": [
+   476.0,
+   725.5
+  ],
+  "148": [
+   459.0,
+   702.4
+  ],
+  "152": [
+   465.2,
+   672.7
+  ],
+  "156": [
+   470.9,
+   626.1
+  ],
+  "160": [
+   456.7,
+   589.4
+  ],
+  "164": [
+   452.5,
+   570.7
+  ],
+  "168": [
+   454.5,
+   567.2
+  ],
+  "172": [
+   464.8,
+   578.5
+  ],
+  "176": [
+   455.4,
+   614.6
+  ],
+  "180": [
+   422.5,
+   664.1
+  ],
+  "184": [
+   385.3,
+   720.0
+  ],
+  "188": [
+   363.4,
+   788.3
+  ],
+  "192": [
+   343.8,
+   929.4
+  ],
+  "196": [
+   344.7,
+   1053.5
+  ],
+  "200": null,
+  "204": null
+ },
+ "held": [
+  [
+   100,
+   176
+  ]
+ ],
+ "in_frame": [
+  [
+   20,
+   196
+  ]
+ ],
+ "events": [],
+ "masks": {},
+ "blurry": [],
+ "notes": "First-person stand-in (runs/bending/track_lab/make_pov.py): C framed close, the wrist and forearm below the bottom edge, shaken by a known handheld camera (C_pov_shake.camera.json; wander up to ~30 px, tremor, +-1.2 deg roll, +-1.5% zoom) over C's plain wall, so the shake can't be measured and stays in the hand's path. Labels are C's, through that camera. The palm faces left, not the camera: a POV framing, not a POV pose.",
+ "derived_from": "C_palm_push"
+}

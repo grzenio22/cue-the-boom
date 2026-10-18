@@ -1,0 +1,85 @@
+{
+ "clip": "A_point_left",
+ "video": "runs/bending/plates/A_point_left.mp4",
+ "W": 1920,
+ "H": 1080,
+ "fps": 24.0,
+ "provisional": true,
+ "labeller": "Claude (side agent A), by eye from coordinate-gridded crops (runs/bending/track_lab/gt_crops.py), not clicked",
+ "emitter": "index_tip",
+ "hand": "right",
+ "landmark": 8,
+ "target": "the index fingertip (MediaPipe landmark 8): the centre of the fingertip's rounded end, about half its width in from the end",
+ "seed": [
+  84,
+  380,
+  704
+ ],
+ "points": {
+  "24": null,
+  "28": null,
+  "32": null,
+  "36": null,
+  "40": [
+   490,
+   600
+  ],
+  "44": null,
+  "48": null,
+  "52": null,
+  "56": null,
+  "60": null,
+  "64": null,
+  "68": null,
+  "72": [
+   408,
+   665
+  ],
+  "76": [
+   356,
+   697
+  ],
+  "80": [
+   375,
+   700
+  ],
+  "84": [
+   380,
+   704
+  ],
+  "88": [
+   388,
+   703
+  ],
+  "92": [
+   389,
+   703
+  ],
+  "96": [
+   370,
+   710
+  ],
+  "100": null,
+  "104": null,
+  "108": null,
+  "112": null,
+  "116": null,
+  "120": null
+ },
+ "held": [
+  [
+   78,
+   95
+  ]
+ ],
+ "in_frame": [
+  [
+   24,
+   121
+  ]
+ ],
+ "events": [],
+ "masks": {},
+ "blurry": [],
+ "notes": "Two hands; the labelled one is the performer's right (screen left), index pointing left, thumb up. It enters bottom left (24-36, the fingers can't be told apart, unlabelled), turns (40-68), points left and holds (72-100), then closes into a fist (104+, the index tip hidden, unlabelled) and leaves. The other hand (screen right) is only found by MediaPipe from frame 68. Frames 44-68 and 100 are unlabelled: two digit ends lie close together there (a rounded pad and a nailed tip), and which is the index can't be told by eye; MediaPipe and RTMPose both pick the nailed one, 60-75 px from the pad first read here. The hold is 78-95: from 96 the hand starts to close (MediaPipe's gesture flips from Thumb_Up)."
+}
