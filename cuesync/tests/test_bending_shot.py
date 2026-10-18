@@ -25,12 +25,12 @@ def test_the_element_follows_the_emitter_base_first_tip_late():
     el = np.zeros((h, w, 3), np.float32)
     el[48:53, 48:53] = 1.0  # at the emitter (as rendered on frame 10)
     el[48:53, 48 + 120:53 + 120] = 1.0  # at the far end of the element (6 hand sizes along it)
-    out = warp_element(el, tr, 10, 20, lag=4)
+    out = warp_element(el, tr, emitter_at(tr, 10), 20, lag=4)
     base = np.argwhere(out[:, :120, 0] > 0.5)[:, 1].mean()
     tip = np.argwhere(out[:, 120:, 0] > 0.5)[:, 1].mean() + 120
     assert abs(base - (50 + 40)) < 2  # the base is where the emitter is now
     assert abs(tip - (170 + 4 * (20 - 4 - 10))) < 3  # the tip is where the emitter was four frames ago
-    assert np.allclose(warp_element(el, tr, 10, 10, lag=4), el, atol=1e-3)  # on the strike frame it is as rendered
+    assert np.allclose(warp_element(el, tr, emitter_at(tr, 10), 10, lag=4), el, atol=1e-3)  # as rendered on the strike
 
 
 def test_ignition_is_where_the_light_comes_up():
@@ -87,3 +87,32 @@ def test_a_bending_shot_carries_the_element_and_says_how(tmp_path, make_video, m
     assert ahead.max() > 150  # the fire, carried to where the emitter is on frame 40, in front of it
     assert out[40, :, : max(0, x0 - 60)].astype(int).max() < 120  # and not left behind where it was rendered
     assert Path(res.final).exists() and (tmp_path / "shot" / "receipt.json").exists()
+
+
+def test_a_bending_shot_is_performed_again_with_no_new_render(tmp_path, make_video, make_wav):
+    w, h, n = 256, 128, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30 + (i % 2)))
+    sr = 48000
+    t = np.arange(int(0.25 * sr)) / sr
+    boom = (0.6 * np.sin(2 * np.pi * 120 * t) * np.exp(-6 * t)).astype(np.float32)
+
+    def take(at_s):
+        x = np.random.default_rng(3).normal(0, 0.001, 3 * sr).astype(np.float32)
+        for a, g in at_s:
+            x[int(a * sr): int(a * sr) + t.size] += g * boom
+        return make_wav(tmp_path, x, sr)
+
+    tr = track_of(n, w, h, lambda t: (90.0, 64.0))
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(tr))
+    r = GuideAsElement()
+    spec = ShotSpec(plate=plate, voice=take([(1.0, 1.0)]), effect="fire_burst", point=(0.35, 0.5), mode="scene",
+                    plate_size=(w, h), max_plate_s=3.0)
+    first = make_bending_shot(spec, r, tmp_path / "one", track_path)
+    again = ShotSpec(plate=plate, voice=take([(0.6, 0.5), (1.3, 1.0), (2.0, 0.5)]), effect="auto", point=(0.35, 0.5),
+                     mode="scene", plate_size=(w, h), max_plate_s=3.0)
+    res = make_bending_shot(again, r, tmp_path / "again", track_path, element_from=first.out_dir)
+    rc = res.receipt["bending"]
+    assert len(r.prompts) == 1 and rc["performed_again"]["no_new_render"]  # rendered once, played twice
+    assert len(rc["hits"]) == 3 and rc["hits"][1]["gain"] == 1.0 and rc["hits"][0]["gain"] < 1.0  # quieter, smaller
+    assert res.receipt["effect"]["id"] == "fire_burst"  # the element's own effect, whatever the new take sounds like

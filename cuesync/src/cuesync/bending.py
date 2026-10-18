@@ -39,8 +39,8 @@ SNAP_BEFORE, SNAP_AFTER = 4, 1  # frames at 24 fps the strike may come before / 
 COMBO_S = 1.5  # booms closer together than this are one combo: a burst per strike
 
 BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording ("ainvfxfluid, ... isolated on ...")
-    "fire_breath": "ainvfxfluid, a narrow jet of bright orange-yellow flame shooting {towards}, a white-hot core near the "
-                   "source, licking turbulent edges and embers, isolated on a pure black background",
+    "fire_breath": "ainvfxfluid, a roaring jet of ragged orange fire shooting {towards}, turbulent from its very start, "
+                   "licking edges and embers, isolated on a pure black background",
     "fire_burst": "ainvfxfluid, a short explosive ball of clean bright flame bursting {towards} from a point, a white-hot "
                   "core, quickly dissipating into embers, isolated on a pure black background",
     "flame_plume": "ainvfxfluid, a tall clean flame rising from a point, a bright core and licking edges, isolated on a "
@@ -54,6 +54,8 @@ LAG_FRAMES = {"fire_breath": 4, "fire_burst": 2, "flame_plume": 3, "smoke_puff":
 LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a jet of about six hands
 IGNITION = 0.15  # an element has ignited once its light is this share of its brightest frame's
 LOST_FADE = 4  # frames over which an element fades out once the hand has been lost for more than 8
+ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
+# a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
 PREGLOW = 4  # frames of the render's build-up shown before its ignition (a spark-up, not an element that pops on);
@@ -148,29 +150,31 @@ def ignition_frame(element: np.ndarray, floor: int) -> int | None:
     return int(np.argmax(lum >= IGNITION * lum.max()))
 
 
-def pose_inverse(track: dict, k_hit: int, t: int) -> np.ndarray:
-    """2x3: plate frame ``t``'s pixel -> the rendered element's pixel. The element was rendered with the emitter as it
-    was at ``k_hit``; at ``t`` it is moved, turned and scaled with the emitter (a similarity transform)."""
-    p0, u0, s0 = emitter_at(track, k_hit)
+def pose_inverse(ref: tuple, track: dict, t: int, size: float = 1.0) -> np.ndarray:
+    """2x3: plate frame ``t``'s pixel -> the rendered element's pixel. The element was rendered with the emitter at
+    ``ref`` (position, unit direction, hand size); at ``t`` it is moved, turned and scaled with the emitter (a similarity
+    transform), and ``size`` times bigger (a quieter hit plays it smaller)."""
+    p0, u0, s0 = ref
     p1, u1, s1 = emitter_at(track, t)
     turn = math.atan2(u1[1], u1[0]) - math.atan2(u0[1], u0[0])
-    k = s1 / max(s0, 1e-6)
+    k = size * s1 / max(s0, 1e-6)
     c, s = math.cos(turn) * k, math.sin(turn) * k
     fwd = np.array([[c, -s, p1[0] - (c * p0[0] - s * p0[1])], [s, c, p1[1] - (s * p0[0] + c * p0[1])]], np.float64)
     return cv2.invertAffineTransform(fwd)
 
 
-def warp_element(frame: np.ndarray, track: dict, k_hit: int, t: int, lag: int) -> np.ndarray:
-    """An element frame (float32, over black, at the plate's size) carried onto plate frame ``t``: its base follows the
-    emitter now, a point further along it follows where the emitter was up to ``lag`` frames before (a flame's tip
-    trails the hand). One remap, each pixel taking the lag level of how far along the element it lies."""
+def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, size: float = 1.0) -> np.ndarray:
+    """An element frame (float32, over black, at the plate's size, rendered with the emitter at ``ref``) carried onto
+    plate frame ``t``: its base follows the emitter now, a point further along it follows where the emitter was up to
+    ``lag`` frames before (a flame's tip trails the hand). One remap, each pixel taking the lag level of how far along
+    the element it lies."""
     h, w = frame.shape[:2]
-    p0, u0, s0 = emitter_at(track, k_hit)
+    p0, u0, s0 = ref
     reach = max(LENGTH * s0, 1.0)
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
     maps = []
     for k in range(lag + 1):
-        A = pose_inverse(track, k_hit, t - k).astype(np.float32)
+        A = pose_inverse(ref, track, t - k, size).astype(np.float32)
         maps.append((A[0, 0] * xx + A[0, 1] * yy + A[0, 2], A[1, 0] * xx + A[1, 1] * yy + A[1, 2]))
     mx, my = maps[0]
     along = (mx - p0[0]) * u0[0] + (my - p0[1]) * u0[1]  # how far along the element (in its own frame) this pixel is
@@ -180,6 +184,15 @@ def warp_element(frame: np.ndarray, track: dict, k_hit: int, t: int, lag: int) -
         mx = np.where(sel, maps[k][0], mx)
         my = np.where(sel, maps[k][1], my)
     return cv2.remap(frame, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+
+def root_fade(h: int, w: int, ref: tuple) -> np.ndarray:
+    """(h, w) float32 in the element's own frame: 0 at and behind the emitter, rising to 1 ROOT_FADE of the reach along
+    it, so the element comes up from nothing just past the fingertips."""
+    p0, u0, s0 = ref
+    yy, xx = np.mgrid[:h, :w].astype(np.float32)
+    along = (xx - p0[0]) * u0[0] + (yy - p0[1]) * u0[1]
+    return np.clip(along / max(ROOT_FADE * LENGTH * s0, 1.0), 0, 1).astype(np.float32)
 
 
 def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None) -> np.ndarray:
@@ -227,11 +240,13 @@ def point_light(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, t: 
 
 
 def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mask_path: str | Path | None = None,
-                      progress=None):
+                      progress=None, element_from: str | Path | None = None):
     """A bending shot: the plate (``spec.plate``, as cuesync.pipeline loads it), the take (``spec.voice``), the hand's
     track (``track_path``, made on that loaded plate) and optionally its matte (hand_mask.npz); ``spec.effect`` may be
-    "auto" (the sound and the hand's gesture pick it). Renders one element over black at the strike and carries it on
-    the hand."""
+    "auto" (the sound and the hand's gesture pick it). Renders one element over black at the loudest hit's strike and
+    fires it on every hit of the take, carried on the hand, each as big and as bright as that hit is loud.
+    ``element_from``: an earlier bending shot's folder whose element plays this take instead (perform it again: a new
+    rhythm or another voice on the same hand take, no new render)."""
     import dataclasses
     import time
 
@@ -260,12 +275,16 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     cue = c.cue
     env_all = np.asarray(cue.envelope, np.float64)
     hits = [hh.frame for hh in cue.hits()] or [cue.frame_of(cue.hero_onset_s)]
-    hero = max(hits, key=lambda f: float(env_all[f: f + 8].max()) if 0 <= f < env_all.size else 0.0)
-    snap = snap_launch(hero, track.get("events", []))
+    loud = [float(env_all[f: f + 8].max()) if 0 <= f < env_all.size else 0.0 for f in hits]
+    hero = hits[int(np.argmax(loud))]
+    snaps = [snap_launch(f, track.get("events", [])) for f in hits]  # each hit on its own strike, when close
+    snap = snaps[hits.index(hero)]
     k_launch = snap["frame"]
+    gains = [float(np.clip((v / max(max(loud), 1e-6)) ** 0.5, 0.35, 1.0)) for v in loud]
 
     auto = None
-    effect = spec.effect
+    old = json.loads((Path(element_from) / "receipt.json").read_text()) if element_from is not None else None
+    effect = old["effect"]["id"] if old else spec.effect
     if effect == "auto":  # the sound and the hand's gesture at the strike
         h_ = heard(cue, c.samples, SR, c.source)
         g = gesture_at(track, k_launch)
@@ -276,29 +295,38 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         auto = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
     eff = load_effect(effect)
 
-    say("painting", 0.12, "Painting the element where your hand is on the strike")
-    p_hit, u_hit, s_hit = emitter_at(track, k_launch)
-    aim = angle_of(u_hit)
-    at = (float(p_hit[0] / w), float(p_hit[1] / h))
-    black = np.full((1, h, w, 3), CANVAS, np.uint8)
-    eff = suited_effect(eff, "the open hand", aim, black[0], at)
-    eff = dataclasses.replace(eff, scene=dataclasses.replace(eff.scene, clean=True, resting=0.0))
-    start, length = plan_window(cue, eff, None)
-    scale = float(np.clip(LENGTH * s_hit / (eff.scene.r_max * min(w, h)), 0.5, 1.6))
-    sp = paint_scene_guide(cue, eff, at, black, start=start, length=length, direction=aim, scale=scale, size=scene_size(w, h))
-    write_guide(sp.guide, out_dir / "guide.mp4", fps=FPS)
-    prompt = BENDING_PROMPTS.get(effect, eff.prompt).replace("{towards}", towards_words(aim))
-
-    say("rendering", 0.2, f"Rendering the {eff.fluid} over black with LTX-2.5")
-    seconds = renderer(out_dir / "guide.mp4", prompt, spec.seed, out_dir / "element.mp4")
-    element = read_video(out_dir / "element.mp4").frames
+    if old:  # perform it again: the element as rendered for the earlier take, where its hand was then
+        ref = (np.asarray(old["bending"]["ref"]["xy"], np.float64), np.asarray(old["bending"]["ref"]["dir"], np.float64),
+               float(old["bending"]["ref"]["scale"]))
+        aim, prompt, scale, seconds = angle_of(ref[1]), old["render"]["prompt"], old["render"]["guide_scale"], 0.0
+        element = read_video(Path(element_from) / "element.mp4").frames
+    else:
+        say("painting", 0.12, "Painting the element where your hand is on the strike")
+        p_hit, u_hit, s_hit = emitter_at(track, k_launch)
+        ref = (p_hit, u_hit, s_hit)
+        aim = angle_of(u_hit)
+        at = (float(p_hit[0] / w), float(p_hit[1] / h))
+        black = np.full((1, h, w, 3), CANVAS, np.uint8)
+        eff = suited_effect(eff, "the open hand", aim, black[0], at)
+        eff = dataclasses.replace(eff, scene=dataclasses.replace(eff.scene, clean=True, resting=0.0))
+        start, length = plan_window(cue, eff, None, multi_hit=False)  # one element, the loudest hit's: it plays them all
+        scale = float(np.clip(LENGTH * s_hit / (eff.scene.r_max * min(w, h)), 0.5, 1.6))
+        sp = paint_scene_guide(cue, eff, at, black, start=start, length=length, direction=aim, scale=scale,
+                               size=scene_size(w, h), multi_hit=False)
+        write_guide(sp.guide, out_dir / "guide.mp4", fps=FPS)
+        prompt = BENDING_PROMPTS.get(effect, eff.prompt).replace("{towards}", towards_words(aim))
+        say("rendering", 0.2, f"Rendering the {eff.fluid} over black with LTX-2.5")
+        seconds = renderer(out_dir / "guide.mp4", prompt, spec.seed, out_dir / "element.mp4")
+        element = read_video(out_dir / "element.mp4").frames
     if element.shape[1:3] != (h, w):
         element = np.stack([cv2.resize(f, (w, h), interpolation=cv2.INTER_AREA) for f in element])
     floor = estimate_black_level(element)
     ign = ignition_frame(element, floor)
     if ign is None:
         raise ValueError("the render shows no element to carry")
-    offset = k_launch - ign  # element frame e shows on plate frame e + offset: its ignition on the strike
+    # each hit fires the element: its ignition on that hit's strike, as big and as bright as the hit is loud
+    plays = [(s_["frame"] - ign, g, float(np.clip(g ** 0.5, 0.6, 1.0))) for s_, g in zip(snaps, gains)]
+    offset = k_launch - ign
 
     say("compositing", 0.7, "Carrying the element on your hand")
     from . import fx_light as fx
@@ -311,17 +339,25 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         run = run + 1 if src[t] == "lost" else 0
         lost[t] = run
 
+    fade = root_fade(h, w, ref)[..., None]
+
     def element_at(t: int) -> np.ndarray | None:
-        """The element on plate frame t (linear, over black), carried on the hand, its root held out; None when
-        it isn't on (before its build-up, after it ends)."""
-        e = t - offset
-        if not ign - PREGLOW <= e < len(element):
+        """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
+        held out; None when none is on (before its build-up, after it ends)."""
+        acc = None
+        for off, gain, size in plays:
+            e = t - off
+            if not ign - PREGLOW <= e < len(element):
+                continue
+            E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None) * fade, track, ref, t, lag, size) * gain
+            if e < ign:  # the build-up, coming up to the ignition
+                E *= (e - (ign - PREGLOW) + 1) / (PREGLOW + 1)
+            elif ign < PREGLOW and e < PREGLOW:  # a render lit from its first frame: bring it up rather than pop it on
+                E *= (e + 1) / (PREGLOW + 1)
+            acc = E if acc is None else np.maximum(acc, E)  # two plays overlapping: the brighter shows, not both added
+        if acc is None:
             return None
-        E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None), track, k_launch, t, lag)
-        if e < ign:  # the build-up, coming up to the ignition
-            E *= (e - (ign - PREGLOW) + 1) / (PREGLOW + 1)
-        elif ign < PREGLOW and e < PREGLOW:  # a render lit from its first frame: bring it up rather than pop it on
-            E *= (e + 1) / (PREGLOW + 1)
+        E = acc
         if lost[t] > 8:  # the hand is gone: let the element go rather than freeze it
             E *= max(0.0, 1.0 - (lost[t] - 8) / LOST_FADE)
         m_t = None if mask is None else mask[min(t, len(mask) - 1)].astype(np.float32) / 255.0
@@ -360,21 +396,24 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers
             alpha = np.stack([cv2.resize(np.clip(fx._lum(small[i]) * 4.0, 0, 1), (w, h)) for i in range(a0, b1)])
             fx.heat_haze(P, alpha, seed=spec.seed, out=P, frame0=a0)
-        fx.flash(P, [k_launch - a0], [1.0], out=P)
+        fx.flash(P, [off + ign - a0 for off, _, _ in plays], [g for _, g, _ in plays], out=P)
         out[a:b] = gam(P[a - a0: b - a0])
     plate = element = small = None  # (a 10 s 1080p plate and its render are 2 GB: let them go before the finishing copies)
     if effect == "smoke_puff":  # the air blast: a pressure front out of the palm
         lo, hi = k_launch, min(n, k_launch + fx.AIR_FRAMES + 2)
         W_ = np.stack([lin(out[i]) for i in range(lo, hi)])
-        fx.air_wave(W_, tuple(p_hit), tuple(u_hit), start_frame=0, seed=spec.seed, out=W_)
+        pa, ua, _ = emitter_at(track, k_launch)
+        fx.air_wave(W_, tuple(pa), tuple(ua), start_frame=0, seed=spec.seed, out=W_)
         out[lo:hi] = gam(W_)
-    frames = fx.shake(out, [k_launch + 2], [1.0], px=4.0 * h / 1080, seed=spec.seed)
+    frames = fx.shake(out, [off + ign + 2 for off, _, _ in plays], [g for _, g, _ in plays], px=4.0 * h / 1080,
+                      seed=spec.seed)
 
     say("finishing", 0.85, "Adding the sound and the cue ribbon")
     env = np.zeros(n)
     m = min(n, env_all.size)
     env[:m] = env_all[:m]
-    audio = soundtrack(place_audio(c.samples, c.offset_s, n), eff, n, env, [k_launch], [1.0], cue.voice_end_frame, spec.seed)
+    audio = soundtrack(place_audio(c.samples, c.offset_s, n), eff, n, env, [off + ign for off, _, _ in plays],
+                       [g for _, g, _ in plays], cue.voice_end_frame, spec.seed)
     comp_path, final_path = out_dir / "composite.mp4", out_dir / "final.mp4"
     write_video(comp_path, frames, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
     write_video(final_path, _finalise(frames, env, spec.label or effect.replace("_", " "), None), fps=FPS, audio=audio,
@@ -385,8 +424,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         "render": {"seconds": round(seconds, 1), "prompt": prompt, "guide_scale": round(scale, 3)},
         "bending": {"track": str(track_path), "mask": None if mask is None else str(mask_path), "k_hit": int(k_launch),
                     "k_launch": int(k_launch), "ignition": int(ign), "offset": int(offset), "lag_frames": lag,
-                    "snap": snap, "emitter": {"xy": [round(float(v), 1) for v in p_hit], "direction": round(aim, 1),
-                                              "scale": round(s_hit, 1)}},
+                    "snap": snap, "hits": [{"frame": int(off + ign), "gain": round(g, 3), "size": round(sz, 3),
+                                            "snap": sn} for (off, g, sz), sn in zip(plays, snaps)],
+                    "ref": {"xy": [round(float(v), 2) for v in ref[0]], "dir": [round(float(v), 5) for v in ref[1]],
+                            "scale": round(float(ref[2]), 2)},
+                    "performed_again": None if old is None else {"from": str(element_from), "no_new_render": True}},
         "auto": auto, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
