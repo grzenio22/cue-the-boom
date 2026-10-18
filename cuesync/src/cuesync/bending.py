@@ -47,8 +47,8 @@ BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording 
                    "pure black background",
     "smoke_puff": "ainvfxfluid, a fast puff of pale grey smoke pushed {towards} from a point, wispy edges, dissipating, "
                   "isolated on a pure black background",
-    "steam_jet": "ainvfxfluid, a pressurized jet of white steam and mist shooting {towards}, billowing and thinning, "
-                 "isolated on a pure black background",
+    "steam_jet": "ainvfxfluid, a thin hissing jet of white steam streaming fast {towards} from a small point, narrow at "
+                 "its source and fanning out into translucent curling wisps, isolated on a pure black background",
 }
 LAG_FRAMES = {"fire_breath": 4, "fire_burst": 2, "flame_plume": 3, "smoke_puff": 6, "steam_jet": 5}  # the tip's delay
 LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a jet of about six hands
@@ -58,6 +58,7 @@ IGNITION = 0.15  # an element has ignited once its light is this share of its br
 LOST_FADE = 4  # frames over which an element fades out once the hand has been lost for more than 8
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
 # a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
+ROOT_FADE_HANDS = {"steam_jet": 0.3}  # steam has no nozzle to hide: over the full fade it started a hand from the palm
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
 PREGLOW = 4  # frames of the render's build-up shown before its ignition (a spark-up, not an element that pops on);
@@ -214,13 +215,13 @@ def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, s
     return out
 
 
-def root_fade(h: int, w: int, ref: tuple) -> np.ndarray:
+def root_fade(h: int, w: int, ref: tuple, hands: float = ROOT_FADE * LENGTH) -> np.ndarray:
     """(h, w) float32 in the element's own frame: 0 at and behind the emitter, rising to 1 ROOT_FADE of the reach along
     it, so the element comes up from nothing just past the fingertips."""
     p0, u0, s0 = ref
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
     along = (xx - p0[0]) * u0[0] + (yy - p0[1]) * u0[1]
-    return np.clip(along / max(ROOT_FADE * LENGTH * s0, 1.0), 0, 1).astype(np.float32)
+    return np.clip(along / max(hands * s0, 1.0), 0, 1).astype(np.float32)
 
 
 def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None) -> np.ndarray:
@@ -406,7 +407,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         run = run + 1 if src[t] == "lost" else 0
         lost[t] = run
 
-    fade = root_fade(h, w, ref)[..., None]
+    fade = root_fade(h, w, ref, ROOT_FADE_HANDS.get(effect, ROOT_FADE * LENGTH))[..., None]
 
     def element_at(t: int) -> np.ndarray | None:
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
@@ -457,7 +458,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 al = np.clip(E.max(-1) / 0.35, 0.0, 0.9)[..., None]
                 P[j] = P[j] * (1.0 - al) + np.clip(E / np.maximum(al, 1e-3), 0, 1) * al
             elif eff.fluid == "steam":  # steam scatters the room's light: laid over, never brighter than its white
-                al = np.clip(fx._lum(E) / 0.35, 0.0, 0.85)[..., None]
+                al = np.clip(fx._lum(E) / 0.5, 0.0, 0.7)[..., None]  # translucent: a dense render read as cotton wool
                 P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), max(0.9 * white, 0.45)) * al
             else:
                 P[j] = P[j] + E
