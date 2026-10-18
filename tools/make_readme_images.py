@@ -1,5 +1,6 @@
-"""The README's images from the sample scene shots: media/hero.jpg (six shots, a frame each, labelled) and
-media/how-it-was-made.jpg (a frame of one shot's breakdown: plate, guide, render, shot).
+"""The README's images from the sample scene shots: media/hero.jpg (six shots on real footage, a frame each,
+labelled with their cue), media/stand-ins.jpg (six shots on the stand-in plates) and media/how-it-was-made.jpg (a
+frame of one shot's breakdown: plate, guide, render, shot).
 
     python tools/make_readme_images.py samples/made_ahead/scene
 """
@@ -16,7 +17,15 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cuesync" / "src"))
 from cuesync.media import read_video  # noqa: E402
 
-HERO = [  # shot, frames after its hit, label
+REAL = [  # shot on real footage, frames after its hit, label
+    ("real_dragon__fwoooom", 14, "“fwoooOOOM”"),
+    ("real_lanterns__kaboom", 10, "“KA-BOOM”"),
+    ("real_candle_stool__pf", 12, "“pf.”"),
+    ("real_trex_photo__fwoooom", 24, "“fwoooOOOM”"),
+    ("real_firepit__fwoooom", 24, "“fwoooOOOM”"),
+    ("real_jack_photo__kaboom", 12, "“KA-BOOM”"),
+]
+STAND_INS = [  # shot, frames after its hit, label
     ("jackolantern_kitchen__ka-boom__fire_burst", 12, "“KA-BOOM”"),
     ("toy_desk__fwoooom__fire_breath", 12, "“fwoooOOOM”"),
     ("pumpkin_kitchen__fwoooom__flame_plume", 22, "drawn + “fwoooom”"),
@@ -48,20 +57,30 @@ def main() -> int:
     ap.add_argument("-o", "--out", default="media")
     a = ap.parse_args()
     root, out = Path(a.shots), Path(a.out)
-    w, h = 360, 640
-    hero = Image.new("RGB", (w * len(HERO), h))
-    d = ImageDraw.Draw(hero)
     f = font(30)
-    for i, (shot, after, label) in enumerate(HERO):
+    tw, th = 480, 270
+    real = Image.new("RGB", (tw * 3, th * 2))
+    d = ImageDraw.Draw(real)
+    for i, (shot, after, label) in enumerate(REAL):
+        im = frame_after_hit(root / shot, "final.mp4", after)
+        im = im.crop((0, 0, im.width, int(im.width * 9 / 16)))  # the shot, without the cue ribbon under it
+        x, y = (i % 3) * tw, (i // 3) * th
+        real.paste(im.resize((tw, th), Image.Resampling.LANCZOS), (x, y))
+        d.text((x + 14, y + th - 16), label, font=f, fill=(255, 255, 255), anchor="ls", stroke_width=3, stroke_fill=(0, 0, 0))
+    real.save(out / "hero.jpg", quality=88)
+    w, h = 360, 640
+    hero = Image.new("RGB", (w * len(STAND_INS), h))
+    d = ImageDraw.Draw(hero)
+    for i, (shot, after, label) in enumerate(STAND_INS):
         im = frame_after_hit(root / shot, "final.mp4", after)
         im = im.crop((0, 0, im.width, int(im.width * 16 / 9)))  # the shot, without the cue ribbon under it
         hero.paste(im.resize((w, h), Image.Resampling.LANCZOS), (i * w, 0))
         d.text((i * w + 14, h - 30), label, font=f, fill=(255, 255, 255), anchor="ls", stroke_width=3, stroke_fill=(0, 0, 0))
-    hero.save(out / "hero.jpg", quality=88)
+    hero.save(out / "stand-ins.jpg", quality=88)
     shot, after = BREAKDOWN
     bd = frame_after_hit(root / shot, "breakdown.mp4", after)
     bd.resize((540, int(540 * bd.height / bd.width)), Image.Resampling.LANCZOS).save(out / "how-it-was-made.jpg", quality=88)
-    print(f"{out / 'hero.jpg'}, {out / 'how-it-was-made.jpg'}")
+    print(f"{out / 'hero.jpg'}, {out / 'stand-ins.jpg'}, {out / 'how-it-was-made.jpg'}")
     return 0
 
 

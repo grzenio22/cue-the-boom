@@ -1,0 +1,185 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "scene",
+ "effect": {
+  "id": "wick_flare",
+  "anchor": "first",
+  "behaviour": "plume",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire, isolated on a pure black background",
+  "r_min": 0.03,
+  "r_max": 0.3,
+  "rise": 0.55,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 9,
+  "release_smoke": 10,
+  "holdout_below": 0.02,
+  "tail_frames": 40,
+  "smoke_albedo": 0.4,
+  "scene": {
+   "prompt": "ainvfxfluid, the small flame of {subject} suddenly flares up into a tall roaring column of orange fire, the fire lights up the glass, the wax and the surroundings with flickering warm light, then it calms back down to a small candle flame, static camera, realistic phone video",
+   "r_min": 0.14,
+   "r_max": 0.45,
+   "direction": 0.0,
+   "resting": 0.09,
+   "bend": 0.0,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "",
+   "single": "",
+   "small": ""
+  }
+ },
+ "inputs": {
+  "plate_sha": "0121f538101e1e0d",
+  "voice_sha": "53f32c41c37db383",
+  "point": [
+   0.615,
+   0.33
+  ],
+  "seed": 1,
+  "offset_s": 0.0,
+  "face": false,
+  "direction": 0.0,
+  "subject": "the candle in the tall glass jar",
+  "cue": "voice",
+  "drawn": false,
+  "describe": null,
+  "holds": null
+ },
+ "voice": {
+  "onsets_s": [
+   0.999
+  ],
+  "hero_onset_s": 0.999,
+  "active_intervals": [
+   [
+    23,
+    63
+   ]
+  ],
+  "voice_end_frame": 63,
+  "peak_frame": 59,
+  "source": "voice"
+ },
+ "guide": {
+  "effect": "wick_flare",
+  "size": [
+   1920,
+   1088
+  ],
+  "point": [
+   0.623,
+   0.33
+  ],
+  "scale": 0.8,
+  "length": 105,
+  "anchor_frame": 7,
+  "voice_end": 56,
+  "tail": "scene",
+  "canvas": true,
+  "keyframes": [
+   0,
+   1,
+   9,
+   17,
+   25,
+   33,
+   41,
+   49,
+   57,
+   65,
+   73,
+   81,
+   89,
+   97,
+   104
+  ],
+  "mode": "scene",
+  "start": 7,
+  "direction": 0.0,
+  "events": [
+   {
+    "at": 17,
+    "end": 56,
+    "peak": 0.8790362244414653,
+    "size": 1.0,
+    "energy": 36.06783136326859
+   }
+  ],
+  "dropped": [],
+  "notes": [],
+  "strokes": null
+ },
+ "render": {
+  "renderer": "comfy",
+  "seconds": 73.62,
+  "prompt": "ainvfxfluid, the small flame of the candle in the tall glass jar suddenly flares up into a tall roaring column of orange fire, the fire lights up the glass, the wax and the surroundings with flickering warm light, then it calms back down to a small candle flame, static camera, realistic phone video",
+  "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+  "start_frame": 7,
+  "length": 105
+ },
+ "plate": {
+  "still": false,
+  "frames": 205,
+  "shot_frames": 205,
+  "size": [
+   1920,
+   1080
+  ],
+  "point": [
+   0.623,
+   0.33
+  ]
+ },
+ "hits": null,
+ "dropped_hits": [],
+ "scale": 0.8,
+ "matte": {
+  "source": "auto",
+  "found": true,
+  "coverage": 0.0089
+ },
+ "alignment": {
+  "mode": "scene",
+  "painted_hit": 17,
+  "model_onset": 7,
+  "auto_shift": 10,
+  "clamped": false,
+  "retime_frames": 0,
+  "offset": 17,
+  "lead": 0,
+  "hit_frame": 24
+ },
+ "measured": {
+  "model_early_frames": 10,
+  "hit_error_frames": 0,
+  "stops_with_voice": true,
+  "stop_latency_frames": 35,
+  "stopped_within_plate": true
+ },
+ "transfer": {
+  "residual": 0.0135,
+  "inside": 0.0083,
+  "gain": [
+   1.0,
+   1.022,
+   1.024
+  ],
+  "plate_moves": true,
+  "accepted": true,
+  "reason": ""
+ },
+ "warnings": [],
+ "retimed": {
+  "from": "candles_glasses__fwoooom",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 37.3
+}

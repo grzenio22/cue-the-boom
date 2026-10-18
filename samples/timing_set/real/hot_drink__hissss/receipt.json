@@ -1,0 +1,178 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "scene",
+ "effect": {
+  "id": "steam_jet",
+  "anchor": "first",
+  "behaviour": "jet",
+  "fluid": "steam",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a wisp of white steam rising, isolated on a pure black background",
+  "r_min": 0.25,
+  "r_max": 0.55,
+  "rise": 0.5,
+  "keyframe_stride": 8,
+  "composite": "over",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.02,
+  "tail_frames": 16,
+  "smoke_albedo": 0.95,
+  "scene": {
+   "prompt": "ainvfxfluid, thin translucent wisps of steam rise and curl up from {subject}, drifting gently in the light and fading as they rise, static camera, realistic phone video",
+   "r_min": 0.1,
+   "r_max": 0.4,
+   "direction": 0.0,
+   "resting": 0.0,
+   "bend": 0.0,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "",
+   "single": "",
+   "small": ""
+  }
+ },
+ "inputs": {
+  "plate_sha": "b31644d5a6bc310d",
+  "voice_sha": "2b67a3f1dcf71d79",
+  "point": [
+   0.5,
+   0.4
+  ],
+  "seed": 1,
+  "offset_s": 0.0,
+  "face": false,
+  "direction": 0.0,
+  "subject": "the hot drink in the white cup",
+  "cue": "voice",
+  "drawn": false,
+  "describe": null,
+  "holds": null
+ },
+ "voice": {
+  "onsets_s": [
+   0.999
+  ],
+  "hero_onset_s": 0.999,
+  "active_intervals": [
+   [
+    23,
+    62
+   ]
+  ],
+  "voice_end_frame": 62,
+  "peak_frame": 39,
+  "source": "voice"
+ },
+ "guide": {
+  "effect": "steam_jet",
+  "size": [
+   1920,
+   1088
+  ],
+  "point": [
+   0.5003,
+   0.4
+  ],
+  "scale": 0.8,
+  "length": 81,
+  "anchor_frame": 7,
+  "voice_end": 55,
+  "tail": "scene",
+  "canvas": true,
+  "keyframes": [
+   0,
+   1,
+   9,
+   17,
+   25,
+   33,
+   41,
+   49,
+   57,
+   65,
+   73,
+   80
+  ],
+  "mode": "scene",
+  "start": 7,
+  "direction": 0.0,
+  "events": [
+   {
+    "at": 17,
+    "end": 55,
+    "peak": 0.9360166652075106,
+    "size": 1.0,
+    "energy": 35.466069659528856
+   }
+  ],
+  "dropped": [],
+  "notes": [],
+  "strokes": null
+ },
+ "render": {
+  "renderer": "comfy",
+  "seconds": 58.48,
+  "prompt": "ainvfxfluid, thin translucent wisps of steam rise and curl up from the hot drink in the white cup, drifting gently in the light and fading as they rise, static camera, realistic phone video",
+  "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+  "start_frame": 7,
+  "length": 81
+ },
+ "plate": {
+  "still": false,
+  "frames": 204,
+  "shot_frames": 204,
+  "size": [
+   1920,
+   1080
+  ],
+  "point": [
+   0.5003,
+   0.4
+  ]
+ },
+ "hits": null,
+ "dropped_hits": [],
+ "scale": 0.8,
+ "matte": {
+  "source": "auto",
+  "found": true,
+  "coverage": 0.0069
+ },
+ "alignment": {
+  "mode": "scene",
+  "painted_hit": 17,
+  "model_onset": 8,
+  "auto_shift": 9,
+  "clamped": false,
+  "retime_frames": 0,
+  "offset": 16,
+  "lead": 0,
+  "hit_frame": 24
+ },
+ "measured": {
+  "model_early_frames": 9,
+  "hit_error_frames": 0,
+  "stops_with_voice": true,
+  "stop_latency_frames": null,
+  "stopped_within_plate": false
+ },
+ "transfer": {
+  "residual": 0.0136,
+  "inside": 0.0133,
+  "gain": [
+   1.041,
+   1.044,
+   1.047
+  ],
+  "plate_moves": true,
+  "accepted": true,
+  "reason": ""
+ },
+ "warnings": [],
+ "retimed": null,
+ "seconds_total": 104.0
+}

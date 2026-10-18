@@ -1,0 +1,1742 @@
+{
+ "effect": "steam_jet",
+ "size": [
+  1920,
+  1088
+ ],
+ "point": [
+  0.46,
+  0.3547
+ ],
+ "scale": 0.85,
+ "length": 81,
+ "anchor_frame": 7,
+ "voice_end": 55,
+ "tail": "scene",
+ "canvas": true,
+ "keyframes": [
+  0,
+  1,
+  9,
+  17,
+  25,
+  33,
+  41,
+  49,
+  57,
+  65,
+  73,
+  80
+ ],
+ "blobs": [
+  {
+   "e": 0,
+   "shapes": []
+  },
+  {
+   "e": 1,
+   "shapes": []
+  },
+  {
+   "e": 9,
+   "shapes": []
+  },
+  {
+   "e": 17,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 844.4,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 843.6,
+     "cy": 362.6,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 850.8,
+     "cy": 339.3,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 863.1,
+     "cy": 316.0,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 873.7,
+     "cy": 292.7,
+     "rx": 16.5,
+     "ry": 31.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 875.2,
+     "cy": 269.4,
+     "rx": 19.3,
+     "ry": 36.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 883.2,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 889.2,
+     "cy": 345.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 888.7,
+     "cy": 304.4,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 879.3,
+     "cy": 263.7,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 863.4,
+     "cy": 223.0,
+     "rx": 16.5,
+     "ry": 31.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 847.8,
+     "cy": 182.3,
+     "rx": 19.3,
+     "ry": 36.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 922.0,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 914.9,
+     "cy": 344.5,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 908.2,
+     "cy": 303.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 908.4,
+     "cy": 261.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 919.0,
+     "cy": 220.5,
+     "rx": 16.5,
+     "ry": 31.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 938.4,
+     "cy": 179.2,
+     "rx": 19.3,
+     "ry": 36.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    }
+   ]
+  },
+  {
+   "e": 25,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 844.4,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 848.9,
+     "cy": 345.5,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 845.1,
+     "cy": 305.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 832.7,
+     "cy": 264.8,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 816.6,
+     "cy": 224.5,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 805.2,
+     "cy": 184.2,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 883.2,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 875.4,
+     "cy": 339.0,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 871.0,
+     "cy": 292.1,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 875.7,
+     "cy": 245.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 890.6,
+     "cy": 198.4,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 911.5,
+     "cy": 151.5,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 922.0,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 927.9,
+     "cy": 359.0,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 937.5,
+     "cy": 332.1,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 943.7,
+     "cy": 305.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 939.9,
+     "cy": 278.3,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 923.6,
+     "cy": 251.4,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    }
+   ]
+  },
+  {
+   "e": 33,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 844.4,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 837.3,
+     "cy": 337.3,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 836.2,
+     "cy": 288.8,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 844.7,
+     "cy": 240.3,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 861.6,
+     "cy": 191.7,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 880.1,
+     "cy": 143.2,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 883.2,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 890.5,
+     "cy": 356.4,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 898.7,
+     "cy": 327.0,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 900.6,
+     "cy": 297.5,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 891.4,
+     "cy": 268.0,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 871.6,
+     "cy": 238.6,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 922.0,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 919.4,
+     "cy": 355.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 909.6,
+     "cy": 325.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 898.5,
+     "cy": 296.0,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 893.9,
+     "cy": 266.0,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 901.8,
+     "cy": 236.0,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    }
+   ]
+  },
+  {
+   "e": 41,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 844.4,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 852.2,
+     "cy": 353.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 858.0,
+     "cy": 320.5,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 855.4,
+     "cy": 287.8,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 842.0,
+     "cy": 255.1,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 820.9,
+     "cy": 222.4,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 883.2,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 878.2,
+     "cy": 358.6,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 868.3,
+     "cy": 331.3,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 860.3,
+     "cy": 304.1,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 861.4,
+     "cy": 276.8,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 875.3,
+     "cy": 249.5,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 922.0,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 920.8,
+     "cy": 338.7,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 928.3,
+     "cy": 291.4,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 941.5,
+     "cy": 244.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 953.5,
+     "cy": 197.0,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 956.0,
+     "cy": 149.7,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    }
+   ]
+  },
+  {
+   "e": 49,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 844.4,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 837.7,
+     "cy": 360.4,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 828.7,
+     "cy": 335.0,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 824.7,
+     "cy": 309.6,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 831.4,
+     "cy": 284.2,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 849.8,
+     "cy": 258.7,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 883.2,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 884.6,
+     "cy": 341.1,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 893.9,
+     "cy": 296.2,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 906.0,
+     "cy": 251.4,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 913.2,
+     "cy": 206.6,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 908.6,
+     "cy": 161.8,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    },
+    {
+     "kind": "ellipse",
+     "cx": 922.0,
+     "cy": 385.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.8
+    },
+    {
+     "kind": "ellipse",
+     "cx": 926.8,
+     "cy": 342.7,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.749
+    },
+    {
+     "kind": "ellipse",
+     "cx": 923.5,
+     "cy": 299.6,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.698
+    },
+    {
+     "kind": "ellipse",
+     "cx": 911.3,
+     "cy": 256.4,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.647
+    },
+    {
+     "kind": "ellipse",
+     "cx": 895.0,
+     "cy": 213.3,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.596
+    },
+    {
+     "kind": "ellipse",
+     "cx": 882.7,
+     "cy": 170.1,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.545
+    }
+   ]
+  },
+  {
+   "e": 57,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 858.3,
+     "cy": 302.5,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.492
+    },
+    {
+     "kind": "ellipse",
+     "cx": 867.9,
+     "cy": 260.8,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.456
+    },
+    {
+     "kind": "ellipse",
+     "cx": 869.5,
+     "cy": 219.1,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.42
+    },
+    {
+     "kind": "ellipse",
+     "cx": 858.3,
+     "cy": 177.4,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.384
+    },
+    {
+     "kind": "ellipse",
+     "cx": 879.4,
+     "cy": 293.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.492
+    },
+    {
+     "kind": "ellipse",
+     "cx": 866.1,
+     "cy": 247.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.456
+    },
+    {
+     "kind": "ellipse",
+     "cx": 852.4,
+     "cy": 201.9,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.42
+    },
+    {
+     "kind": "ellipse",
+     "cx": 846.5,
+     "cy": 156.0,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.384
+    },
+    {
+     "kind": "ellipse",
+     "cx": 913.2,
+     "cy": 333.6,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.492
+    },
+    {
+     "kind": "ellipse",
+     "cx": 921.3,
+     "cy": 307.5,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.456
+    },
+    {
+     "kind": "ellipse",
+     "cx": 938.0,
+     "cy": 281.4,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.42
+    },
+    {
+     "kind": "ellipse",
+     "cx": 957.0,
+     "cy": 255.3,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.384
+    }
+   ]
+  },
+  {
+   "e": 65,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 822.8,
+     "cy": 241.9,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.35
+    },
+    {
+     "kind": "ellipse",
+     "cx": 813.2,
+     "cy": 193.8,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.323
+    },
+    {
+     "kind": "ellipse",
+     "cx": 814.5,
+     "cy": 145.8,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.295
+    },
+    {
+     "kind": "ellipse",
+     "cx": 890.4,
+     "cy": 300.8,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.35
+    },
+    {
+     "kind": "ellipse",
+     "cx": 907.3,
+     "cy": 272.4,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.323
+    },
+    {
+     "kind": "ellipse",
+     "cx": 922.2,
+     "cy": 244.0,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.295
+    },
+    {
+     "kind": "ellipse",
+     "cx": 934.0,
+     "cy": 292.3,
+     "rx": 16.0,
+     "ry": 30.4,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.35
+    },
+    {
+     "kind": "ellipse",
+     "cx": 921.1,
+     "cy": 261.1,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.323
+    },
+    {
+     "kind": "ellipse",
+     "cx": 900.0,
+     "cy": 229.9,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.295
+    }
+   ]
+  },
+  {
+   "e": 73,
+   "shapes": [
+    {
+     "kind": "ellipse",
+     "cx": 873.8,
+     "cy": 260.4,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.225
+    },
+    {
+     "kind": "ellipse",
+     "cx": 882.9,
+     "cy": 229.0,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.206
+    },
+    {
+     "kind": "ellipse",
+     "cx": 871.8,
+     "cy": 273.0,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.225
+    },
+    {
+     "kind": "ellipse",
+     "cx": 851.6,
+     "cy": 244.7,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.206
+    },
+    {
+     "kind": "ellipse",
+     "cx": 907.7,
+     "cy": 194.2,
+     "rx": 17.7,
+     "ry": 33.7,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.225
+    },
+    {
+     "kind": "ellipse",
+     "cx": 925.6,
+     "cy": 146.3,
+     "rx": 20.7,
+     "ry": 39.3,
+     "color": [
+      255,
+      255,
+      255
+     ],
+     "fluid": "steam",
+     "density": 0.206
+    }
+   ]
+  },
+  {
+   "e": 80,
+   "shapes": []
+  }
+ ],
+ "mode": "scene",
+ "start": 7,
+ "direction": 0.0,
+ "events": [
+  {
+   "at": 17,
+   "end": 55,
+   "peak": 0.9360166652075106,
+   "size": 1.0,
+   "energy": 35.466069659528856
+  }
+ ],
+ "dropped": [],
+ "notes": [],
+ "strokes": null
+}

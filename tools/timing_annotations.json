@@ -1,5 +1,5 @@
 {
-  "about": "Marked by eye, frame by frame, on each shot's raw render (render.mp4, before any re-timing): the first frame where the effect is clearly there, or for a blow-out the first frame with no flame left. One number per painted hit; null where the model merged the hit into its neighbour (no onset of its own) or the start can't be called. Keys are <folder>/<shot>: scene = samples/made_ahead/scene (the gallery shots); before_fixes, other_seeds and dropped = samples/timing_set/ (renders from before the burst and die-down fixes, takes with other seeds, and a rhythm the model merged that was dropped from the gallery). 'calibration': the renders the pipeline's onset threshold was fitted on. 'held_out': renders it was not fitted on (extra takes with other seeds, and the shots re-rendered after it was set).",
+  "about": "Marked by eye, frame by frame, on each shot's raw render (render.mp4, before any re-timing): the first frame where the effect is clearly there, or for a blow-out the first frame with no flame left. One number per painted hit; null where the model merged the hit into its neighbour (no onset of its own) or the start can't be called. Keys are <folder>/<shot>: scene = samples/made_ahead/scene (the gallery shots, real_* on real stock footage); before_fixes, other_seeds, dropped and real = samples/timing_set/ (renders from before the burst and die-down fixes, takes with other seeds, a rhythm the model merged that was dropped from the gallery, and real-footage renders not in the gallery). 'calibration': the renders the pipeline's onset threshold was fitted on. 'held_out': renders it was not fitted on (extra takes with other seeds, the shots re-rendered after it was set, and a second batch of real footage rendered after the real-footage fixes). The first seven real shots are calibration: the flame-out and scene-step fixes were made on them. Real-footage nulls: steam added over a cup's or a mug's own steam too faint to call, and a candle the model never blew out.",
   "calibration": {
     "before_fixes/jackolantern_kitchen__ka-boom__fire_burst": [
       9
@@ -37,6 +37,27 @@
       11,
       null,
       50
+    ],
+    "scene/real_candle_stool__pf": [
+      15
+    ],
+    "scene/real_candles_glasses__fwoooom": [
+      4
+    ],
+    "scene/real_cake_candle__pf": [
+      19
+    ],
+    "scene/real_dino_books__fwoooom": [
+      13
+    ],
+    "scene/real_dragon__fwoooom": [
+      11
+    ],
+    "scene/real_pumpkins_tap__fwoooom": [
+      7
+    ],
+    "scene/real_jack_stacked__kaboom": [
+      12
     ]
   },
   "held_out": {
@@ -107,6 +128,44 @@
       12,
       31,
       54
+    ],
+    "scene/real_lanterns__kaboom": [
+      11
+    ],
+    "scene/real_firepit__fwoooom": [
+      6
+    ],
+    "scene/real_trex_photo__fwoooom": [
+      11
+    ],
+    "scene/real_kuri_photo__fwoooom": [
+      12
+    ],
+    "scene/real_jack_photo__kaboom": [
+      5
+    ],
+    "real/kettle__hissss": [
+      8
+    ],
+    "real/table_pumpkin__fwoooom": [
+      5
+    ],
+    "real/cacti_pumpkin__fwoooom": [
+      12
+    ],
+    "real/hot_drink__hissss": [
+      null
+    ],
+    "real/candle_photo__pf": [
+      null
+    ],
+    "real/mug_photo__hissss": [
+      null
+    ],
+    "real/jack_photo__pf-pf-ka-boom": [
+      13,
+      30,
+      52
     ]
   }
 }

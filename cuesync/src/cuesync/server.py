@@ -161,7 +161,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     rank = {"scene": 0, "render": 1}  # one tile per sample pair: the scene render, else the element render
     best = min((rank.get(e["mode"], 2) for e in cache.values()), default=2)
     shown = {k: e for k, e in cache.items() if rank.get(e["mode"], 2) == best}  # scene shots only, when there are any
-    for key, entry in sorted(shown.items(), key=lambda kv: (kv[1].get("plate", ""), kv[1]["title"])):  # by plate
+    # real footage first (in the order it was picked), then by plate
+    order = lambda kv: (not kv[1].get("real", False), kv[1].get("rank", 0), kv[1].get("plate", ""), kv[1]["title"])  # noqa: E731
+    for key, entry in sorted(shown.items(), key=order):
         same = [g for g in gallery if g.title == entry["title"]]
         if same:  # one gallery tile per sample pair: the full render when there is one
             continue

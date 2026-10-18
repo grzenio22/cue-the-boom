@@ -230,6 +230,7 @@ def main() -> int:
     merged = sum(r["raw_error"] is None and r["of"] > 1 for r in rows)
     unclear = sum(r["raw_error"] is None and r["of"] == 1 for r in rows)
     single = [r for r in rows if r["of"] == 1]
+    real = [r for r in rows if "/real_" in r["shot"] or r["shot"].startswith("real/")]  # shots on real stock footage
     summary = [f"Every hit within one frame (42 ms) of its cue: raw render {rate(raw)}, finished shot {rate(fin)}.",
               f"Mean absolute error: raw {mae(raw):.1f} frames, finished {mae(fin):.1f} frames.",
               f"Single hits: raw {rate([r['raw_error'] for r in single])}, finished {rate([r['final_error'] for r in single])} "
@@ -238,6 +239,9 @@ def main() -> int:
               f"Held-out takes only: raw {rate(by('held_out', 'raw_error'))}, finished {rate(by('held_out', 'final_error'))} "
               f"(mean {mae(by('held_out', 'raw_error')):.1f} -> {mae(by('held_out', 'final_error')):.1f} frames)."
               if by("held_out", "raw_error") else "",
+              *(f"Real footage, {label}: raw {rate([r['raw_error'] for r in rs])}, finished {rate([r['final_error'] for r in rs])} "
+                f"(mean {mae([r['raw_error'] for r in rs]):.1f} -> {mae([r['final_error'] for r in rs]):.1f} frames)."
+                for label, rs in (("all", real), ("held out", [r for r in real if r["set"] == "held_out"])) if rs),
               f"{merged} rhythm hit(s) the model merged into a neighbour have no onset of their own and are not counted." if merged else "",
               f"{unclear} take(s) whose start can't be called by eye are not counted." if unclear else "",
               f"Rhythm hits (each one measured): raw {rate([r['raw_error'] for r in later])}, "
@@ -248,7 +252,9 @@ def main() -> int:
     summary = [x for x in summary if x]
     (out / "timing.md").write_text("\n".join(lines + [""] + summary) + "\n", encoding="utf-8")
     print("\n".join(summary))
-    chart(raw, fin, out / "timing.png")
+    seen = [v for v in raw + fin if v is not None]
+    lo = min(-10, (min(seen, default=0) - 1) // 2 * 2)  # even ticks, room for the earliest hit and a few late frames
+    chart(raw, fin, out / "timing.png", lo=lo, hi=max(6, -(-(max(seen, default=0) + 1) // 2) * 2))
     return 0
 
 

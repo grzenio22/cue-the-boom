@@ -4,12 +4,12 @@
 
 [Try it without a GPU](#try-it) · [How it works](#how-it-works) · [How well it lands](#how-well-it-lands)
 
-Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or point at a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 31 test shots, 22 of 24 single hits land within a frame (42 ms) of the cue; straight from the model, none do.
+Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or point at a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 50 test shots, 19 of them real stock footage, 35 of 39 single hits land within a frame (42 ms) of the cue; straight from the model, none do.
 
 **New here:** a performed sound becomes the hit frame and growth curve of a generated effect, painted in the control format the LoRA was trained on; the render's real onset is then measured and corrected, with the error written into every shot's receipt.
 
-![The scene reacts](media/hero.jpg)
-<sub>Scene-mode shots. The plates are stand-ins generated with LTX-2.5 and the noises are synthetic, until real phone footage is added; the effects are rendered into each plate by LTX-2.5 + ainvfx-fluid, from the cue, and timed by CueSync.</sub>
+![The scene reacts: six real clips and photos, each with the noise that cued it](media/hero.jpg)
+<sub>Real stock clips and photos ([credits](samples/CREDITS.md)), each with the noise that cued it; the effect is rendered into the plate by LTX-2.5 + ainvfx-fluid and timed by CueSync. These shots play in the studio's gallery, with no GPU.</sub>
 
 An entry for Comfy's **Open Source Higgsfield** contest, built on the Comfy Developer Platform (the Comfy Python SDK against a self-hosted Comfy API), on open weights only.
 
@@ -49,6 +49,10 @@ cd web && npm install && npm run dev   # terminal 2: the studio, http://localhos
 2. Tap where it comes from, or draw it.
 3. Cue it: say it into the microphone (or pick a sample noise), use the clip's own sound, or press and hold while it plays.
 4. Make the shot. **Into the scene** renders it into your shot (GPU); **Instant** places a pre-rendered element (no GPU).
+
+With the GPU offline, the studio's sample clips still play their scene shots made ahead of time, the drawn one included; each sample noise says whether it plays that render or makes an instant shot. The sample clips are stand-ins generated with LTX-2.5, picked so every feature can be tried without a camera: a drawing, a snap in the clip, a rhythm.
+
+![Shots on the studio's stand-in sample clips](media/stand-ins.jpg)
 
 **From the command line:**
 
@@ -110,28 +114,29 @@ Every shot writes a receipt: the cue, where the hits were painted, how early or 
 
 ### How well it lands
 
-Marked by eye frame by frame on the raw renders of 31 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
+Marked by eye frame by frame on the raw renders of 50 shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
 
 | hits | within one frame (42 ms) of the cue: LTX-2.5 render as it comes → finished shot | mean error |
 |---|---|---|
-| all 36 | 3 → 26 | 4.6 → 1.1 frames |
-| single hits (24) | 0 → 22 | 5.5 → 0.5 frames |
-| hits in a rhythm (12) | 3 → 4 | 2.9 → 2.1 frames |
-| renders the onset threshold was not fitted on (23) | 2 → 15 | 4.5 → 1.3 frames |
+| all 54 | 4 → 40 | 5.1 → 1.1 frames |
+| single hits (39) | 0 → 35 | 6.1 → 0.7 frames |
+| hits in a rhythm (15) | 4 → 5 | 2.7 → 2.0 frames |
+| renders the onset code was not fitted on (34) | 3 → 23 | 5.1 → 1.3 frames |
+| real footage rendered after the last fix (11) | 1 → 8 | 6.4 → 1.2 frames |
 
-Of the 43 hits painted, 36 have an onset that can be marked; the other 7 are 6 rhythm hits the model merged into a neighbour and 1 start too faint to call. Every render the marks refer to ships with the repository (`samples/made_ahead/scene` and `samples/timing_set/`), so the whole table re-measures in under a minute:
+Of the 64 hits painted, 54 have an onset that can be marked; the other 10 are 6 rhythm hits the model merged into a neighbour and 4 that can't be called: a start too faint to see, steam added to a cup's and a mug's own steam, and a candle the model never blew out. Every render the marks refer to ships with the repository (`samples/made_ahead/scene` and `samples/timing_set/`), so the whole table re-measures in about a minute:
 
 ```bash
-python tools/measure_timing.py samples/made_ahead/scene samples/timing_set/before_fixes samples/timing_set/other_seeds samples/timing_set/dropped
+python tools/measure_timing.py samples/made_ahead/scene samples/timing_set/before_fixes samples/timing_set/other_seeds samples/timing_set/dropped samples/timing_set/real
 ```
 
-All of these are LTX-2.5 stand-in plates: real phone footage is still untested.
+**On real footage.** 31 shots are on LTX-2.5 stand-in plates; 19 are on real stock clips and photos (Pexels, Pixabay, Wikimedia Commons). The first 7 real shots showed two misses the stand-ins never did: a real candle's flame flaring white as it was blown out read as already gone, and a whole real scene that LTX-2.5 re-shaped at a latent block boundary read as the effect starting. Both were fixed on those 7 (every stand-in render kept its onset). A second batch of 12 was then rendered and marked with no further change: 8 of its 11 measurable hits land within a frame, 7 of 8 single hits; the miss is a blast the model started inside the jack-o'-lantern's face, away from where it was painted. Footage shot on a phone for this is the next test.
 
 ![Timing: raw render vs finished shot](media/timing.png)
 
 Before any of that, the take itself has to land where it was performed: [`tools/check_take_timing.py`](tools/check_take_timing.py) replaces the studio's microphone with a synthetic one that makes a noise at the moment the clip shows a chosen frame; in 8 takes the noise was found within 45 ms of it (6 within 20 ms). A synthetic microphone has no input latency; a real one reports its own, and the studio subtracts it.
 
-The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (6 of 18 here); those are reported, not faked, and the rest move together. A flame dies down about 0.6 s after the voice stops (0.3 to 1.0 s).
+The limits, measured the same way: in a rhythm LTX-2.5 often merges close hits into one (6 of 21 here); those are reported, not faked, and the rest move together. A flame dies down about 0.6 s after the voice stops (0.3 to 1.4 s).
 
 **Element mode** (Advanced in the studio) is the other route: the effect is rendered alone on black and composited onto the untouched plate in linear light ([`composite.py`](cuesync/src/cuesync/composite.py)); the object stays in front through a GrabCut matte in the studio and the command line ([`matte.py`](cuesync/src/cuesync/matte.py)), or SAM 2.1 in the ComfyUI node.
 
@@ -152,7 +157,7 @@ What we found nobody else doing is the loop: a performed or in-clip sound become
 | `workflows/` | ComfyUI workflows, canvas (`*.json`) and API (`*.api.json`) format (LTX-2.x Community License, derived from the ainvfx-fluid sample) |
 | `web/` | The studio (Next.js) |
 | `effects/` | The effects, as JSON |
-| `samples/` | Sample plates (stand-ins), noises (synthetic), the scene shots made ahead of time, the timing evaluation renders and the instant-mode element library |
+| `samples/` | Sample plates (stand-ins), noises (synthetic), the scene shots made ahead of time (on the stand-ins and on real footage, [credits](samples/CREDITS.md)), the timing evaluation renders and the instant-mode element library |
 | `tools/` | Timing measurement, the take-timing check, the demo tools ([tools/README.md](tools/README.md)) |
 | `infra/pod/` | Disposable Runpod GPU pods with a self-terminating watchdog |
 | `build/model-files.md` | Exact models, licences and versions |
@@ -169,4 +174,4 @@ Tests: `pip install "./cuesync[server,dev]" && pytest cuesync/tests` (CPU only),
   - **SAM 2.1** by Meta (Apache-2.0).
   - Rendered shots carry the LTX-2.x terms.
 - **Software:** **ComfyUI** (GPL-3.0), the **Comfy Python SDK** and **comfy-api-proxy** by Comfy Org, **ComfyUI-LTXVideo** by Lightricks, **Next.js**, **PyAV/FFmpeg**, **OpenCV**.
-- **Samples:** the sample noises (and the snap in `candle_snap.mp4`) are synthetic. The sample plates are stand-ins generated with LTX-2.5.
+- **Samples:** the sample noises (and the snap in `candle_snap.mp4`) are synthetic. The sample plates are stand-ins generated with LTX-2.5. The real-footage shots are made from stock clips and photos by the authors listed in [samples/CREDITS.md](samples/CREDITS.md) (Pexels License, Pixabay Content License, CC0 and public domain); only the processed shots are in the repository.
