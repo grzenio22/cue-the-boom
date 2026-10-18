@@ -751,6 +751,41 @@ def test_a_candle_blown_out_early_by_the_model_is_still_found():
     assert flame_out(frames, region, ref_frames=max(4, 17 - EARLIEST)) == 11
 
 
+def test_a_white_hot_flame_over_wax_it_lights_goes_out_when_it_goes_out():
+    # a real candle: its wax stays warm-lit in the render, and the flame flares white as it is blown out, so
+    # flame colour alone never sees it go out; the flame's own brightness does
+    from cuesync.scene_shot import flame_out
+
+    frames = np.full((30, 64, 64, 3), 40, np.uint8)
+    frames[:, 40:, 16:48] = (230, 190, 120)  # the wax, warm all along
+    for f in range(12):
+        frames[f, 20:40, 28:36] = (255, 250, 235) if f >= 8 else (255, 230, 170)  # the flame; a white flare at the end
+    region = np.zeros((64, 64), bool)
+    region[10:, 10:54] = True
+    assert flame_out(frames, region, ref_frames=8) == 12
+
+
+def test_a_scene_that_re_shapes_at_a_block_boundary_is_not_the_effect_starting():
+    from cuesync.transfer import changed_share, first_visible, onset_past_steps
+
+    rng = np.random.default_rng(3)
+    base = rng.integers(60, 140, (64, 64, 3)).astype(np.uint8)
+    frames = np.repeat(base[None], 30, axis=0)
+    frames[9:, :, ::4] += 60  # frame 9: the model re-shapes the whole scene, inside the effect and out
+    region = np.zeros((64, 64), bool)
+    region[20:44, 20:44] = True
+    for f, rows in ((13, 8), (14, 16), (15, 24)):  # the effect grows in from frame 13
+        frames[f:, 20:20 + rows, 20:44] = 250
+    share = changed_share(frames, region, 8)
+    assert first_visible(share, 8) == 9  # taken for the effect without the check
+    assert onset_past_steps(frames, region, 8, share) == 13
+
+    lit = np.repeat(base[None], 30, axis=0)
+    lit[12:, 20:44, 20:44] = 250  # a fire from frame 12 ...
+    lit[12:, :8] += 60  # ... that lights part of the room as well: not a step
+    assert onset_past_steps(lit, region, 8, changed_share(lit, region, 8)) == 12
+
+
 def _fire_px(frame):
     return int((np.all(frame == FIRE_OUTER, -1) | np.all(frame == FIRE_INNER, -1)).sum())
 

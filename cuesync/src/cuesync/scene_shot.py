@@ -33,7 +33,7 @@ from .pipeline import (FINISH_PRESET, FPS, Progress, Renderer, ShotResult, ShotS
                        _finalise, _sha, auto_scale, load_plate, place_audio, plate_notes, shot_cue)
 from .scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
 from .transfer import (TransferStats, _ecc, changed_share, effect_region, first_visible, gam, hit_onsets, is_still, lin,
-                       transfer)
+                       onset_past_steps, transfer)
 
 MAX_SHIFT = 16  # the model is trusted to land within this many frames of the painted hit
 MODEL = "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame"
@@ -65,14 +65,11 @@ def _fire_area(frame: np.ndarray, region: np.ndarray) -> float:
     return float((fire & r).sum()) / max(1, int(r.sum()))
 
 
-def flame_out(render: np.ndarray, region: np.ndarray, ref_frames: int, share: float = 0.1) -> int | None:
-    """The render frame where a flame that was burning goes out: almost none of its flame-coloured pixels
-    are left (below ``share`` of the lit flame's) for three frames. None if no flame was visible."""
-    small = render[:, ::2, ::2].astype(np.int16)
-    reg = region[::2, ::2]
-    lit_px = (small[..., 0] > 180) & (small[..., 0] - small[..., 2] > 50)
-    count = np.array([float((m & reg).sum()) for m in lit_px])
-    lit = float(np.median(count[1: max(2, min(8, ref_frames))]))  # before the model can have started
+_LUMA = np.array([0.2126, 0.7152, 0.0722], np.float32)
+
+
+def _gone(count: np.ndarray, early: slice, share: float) -> int | None:
+    lit = float(np.median(count[early]))
     if lit < 4:
         return None
     low = count < share * lit
@@ -80,6 +77,24 @@ def flame_out(render: np.ndarray, region: np.ndarray, ref_frames: int, share: fl
         if low[f] and low[f + 1] and low[f + 2]:
             return f
     return None
+
+
+def flame_out(render: np.ndarray, region: np.ndarray, ref_frames: int, share: float = 0.1) -> int | None:
+    """The render frame where a flame that was burning goes out: almost none of its flame pixels are left
+    (below ``share`` of the lit flame's) for three frames. Flame pixels are flame-coloured; where that can't
+    tell (a white-hot flare, or wax the flame lit warm all along, as on a real candle) they are the pixels
+    nearly as bright as the burning flame's brightest. None if no flame was visible."""
+    small = render[:, ::2, ::2].astype(np.int16)
+    reg = region[::2, ::2]
+    early = slice(1, max(2, min(8, ref_frames)))  # before the model can have started
+    warm = np.array([float((((f[..., 0] > 180) & (f[..., 0] - f[..., 2] > 50)) & reg).sum()) for f in small])
+    out = _gone(warm, early, share)
+    if out is None:
+        luma = [f.astype(np.float32) @ _LUMA for f in small]
+        top = 0.9 * float(np.percentile(np.median(np.stack(luma[early]), axis=0)[reg], 99.7))
+        bright = np.array([float(((y > max(150.0, top)) & (f[..., 0] >= f[..., 2]) & reg).sum()) for y, f in zip(luma, small)])
+        out = _gone(bright, early, share)
+    return out
 
 
 def measure_stop(frames: np.ndarray, region: np.ndarray, voice_end: int | None, fire: bool, first: int) -> int | None:
@@ -158,7 +173,7 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
         if len(found) < len(wants):
             warnings.append(f"the model merged {len(wants) - len(found)} of the {len(wants)} hits into their neighbours")
     else:
-        onset = first_visible(share, ref_frames)
+        onset = onset_past_steps(steady, region, ref_frames, share)
     desired = painted - eff.lead_frames  # light beats sound: a burst shows a frame before its "BOOM"
     raw = None if onset is None else desired - onset
     auto = 0 if raw is None else int(np.clip(raw, -MAX_SHIFT, MAX_SHIFT))

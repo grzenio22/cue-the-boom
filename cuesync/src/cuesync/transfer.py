@@ -134,6 +134,27 @@ def first_visible(share: np.ndarray, ref_frames: int, rise: float = FIRST_RISE) 
     return int(above[0]) + 1 if above.size else None
 
 
+STEP = 0.05  # a share of the scene outside the effect changing at once, and staying changed: a scene step
+
+
+def onset_past_steps(frames: np.ndarray, region: np.ndarray, ref_frames: int, share: np.ndarray) -> int | None:
+    """``first_visible``, unless at that moment the scene outside the effect changed at least as much as the
+    effect region (LTX-2.5 can re-shape the whole scene at a latent block boundary, on a real plate): then the
+    onset is measured against the frames just after that step. A fire that lights the room changes the room
+    less than the fire's own region, so it is not taken for a step."""
+    on = first_visible(share, ref_frames)
+    if on is None:
+        return None
+    out = changed_share(frames, ~region, ref_frames)
+    base = float(np.median(out[: max(1, ref_frames)]))
+    step = next((f for f in range(max(1, ref_frames), on + 1) if out[f] - out[f - 1] > STEP
+                 and out[f: f + 3].min() - base > STEP and out[f] >= share[f]), None)
+    if step is None:
+        return on
+    after = first_visible(changed_share(frames[step:], region, 2), 2)
+    return None if after is None else step + after
+
+
 def hit_onsets(share: np.ndarray, wants: list[int], ref_frames: int) -> list[int | None]:
     """Where each hit of a rhythm shows on the render (``wants``: the render frame each should show on). The
     first: from the settled scene, against its own peak (a small "pf" before a big BOOM). Each later one: the
