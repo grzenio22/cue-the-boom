@@ -224,6 +224,29 @@ def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, s
     return out
 
 
+def render_spot(p: np.ndarray, u: np.ndarray, reach: float, w: int, h: int, margin: float = 0.1) -> np.ndarray:
+    """Where the element is rendered: the emitter moved (along each axis, as little as it takes) so the element, from
+    it to ``reach`` px along ``u``, stays ``margin`` inside the frame; centred on an axis it can't fit. Rendered at a
+    hand by the frame's edge, the fire was cut along that edge, and the cut showed once it was carried away from it."""
+    p = np.asarray(p, np.float64)
+    tip = p + np.asarray(u, np.float64) * reach
+    q = p.copy()
+    for i, size in enumerate((w, h)):
+        lo, hi = margin * size, (1.0 - margin) * size
+        a, b = min(p[i], tip[i]), max(p[i], tip[i])
+        q[i] += (lo + hi - a - b) / 2.0 if b - a > hi - lo else max(lo - a, 0.0) - max(b - hi, 0.0)
+    return q
+
+
+def border_fade(h: int, w: int, share: float = 0.06) -> np.ndarray:
+    """(h, w) float32: 1 inside, falling to 0 over ``share`` of the short side at the render's own edges. The model
+    draws a jet right up to its frame's edge; carried, that edge showed as a straight cut across the fire."""
+    m = max(1.0, share * min(h, w))
+    yy, xx = np.mgrid[:h, :w].astype(np.float32)
+    d = np.minimum(np.minimum(xx, w - 1 - xx), np.minimum(yy, h - 1 - yy))
+    return np.clip(d / m, 0, 1) ** 1.5
+
+
 def root_fade(h: int, w: int, ref: tuple, hands: float = ROOT_FADE * LENGTH) -> np.ndarray:
     """(h, w) float32 in the element's own frame: 0 at and behind the emitter, rising to 1 ROOT_FADE of the reach along
     it, so the element comes up from nothing just past the fingertips."""
@@ -374,15 +397,16 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     else:
         say("painting", 0.12, "Painting the element where your hand is on the strike")
         p_hit, u_hit, s_hit = emitter_at(track, k_launch)
-        ref = (p_hit, u_hit, s_hit)
+        hands, most = SIZE.get(eff.behaviour, (LENGTH, 0.6))
+        reach = min(hands * s_hit, most * min(w, h))
+        ref = (render_spot(p_hit, u_hit, reach, w, h), u_hit, s_hit)  # rendered where it fits, carried onto the hand
         aim = angle_of(u_hit)
-        at = (float(p_hit[0] / w), float(p_hit[1] / h))
+        at = (float(ref[0][0] / w), float(ref[0][1] / h))
         black = np.full((1, h, w, 3), CANVAS, np.uint8)
         eff = suited_effect(eff, "the open hand", aim, black[0], at)
         eff = dataclasses.replace(eff, scene=dataclasses.replace(eff.scene, clean=True, resting=0.0))
         start, length = plan_window(cue, eff, None, multi_hit=False)  # one element, the loudest hit's: it plays them all
-        hands, most = SIZE.get(eff.behaviour, (LENGTH, 0.6))
-        scale = float(np.clip(min(hands * s_hit, most * min(w, h)) / (eff.scene.r_max * min(w, h)), 0.4, 1.6))
+        scale = float(np.clip(reach / (eff.scene.r_max * min(w, h)), 0.4, 1.6))
         sp = paint_scene_guide(cue, eff, at, black, start=start, length=length, direction=aim, scale=scale,
                                size=scene_size(w, h), multi_hit=False)
         write_guide(sp.guide, out_dir / "guide.mp4", fps=FPS)
@@ -419,7 +443,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         run = run + 1 if src[t] == "lost" else 0
         lost[t] = run
 
-    fade = root_fade(h, w, ref, ROOT_FADE_HANDS.get(effect, ROOT_FADE * LENGTH))[..., None]
+    fade = (root_fade(h, w, ref, ROOT_FADE_HANDS.get(effect, ROOT_FADE * LENGTH)) * border_fade(h, w))[..., None]
 
     def element_at(t: int) -> np.ndarray | None:
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
