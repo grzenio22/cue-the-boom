@@ -31,7 +31,7 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
   const r = job.receipt;
   if (!r) return null;
   const lib = r.render.library;
-  const hit = r.measured.hit_error_frames;
+  const hit = r.measured.residual_frames ?? r.measured.hit_error_frames ?? null;
   const stop = r.measured.stop_latency_frames;
   const scene = r.mode === "scene";
   const early = r.measured.model_early_frames ?? null;

@@ -29,7 +29,9 @@ export interface Receipt {
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
   warnings?: string[];
   inputs?: { cue?: CueKind; drawn?: boolean; describe?: string | null };
-  measured: { onset_error_frames?: number | null; hit_error_frames: number | null; stop_latency_frames: number | null; stops_with_voice: boolean; model_early_frames?: number | null };
+  // hit_error_frames: an element shot's hit, measured on the shot; residual_frames: what a scene shot's re-time
+  // could not take out (older scene receipts call it hit_error_frames)
+  measured: { onset_error_frames?: number | null; hit_error_frames?: number | null; residual_frames?: number | null; stop_latency_frames: number | null; stops_with_voice: boolean; model_early_frames?: number | null };
   voice: { hero_onset_s: number; voice_end_frame: number | null; active_intervals: number[][] };
   guide: { length: number; tail: string; keyframes: number[]; anchor_frame: number };
   matte?: { source: string; found: boolean };

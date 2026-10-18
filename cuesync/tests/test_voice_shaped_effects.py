@@ -361,3 +361,13 @@ def test_a_soft_lead_in_belongs_to_the_gesture():
     assert first[0] <= hero + 1
     gf, _ = voice_gates(100, cue.intervals(), hero, "both", 9, 10)
     assert (gf[hero: first[1]] == 1.0).all()  # never closes during the gesture
+
+
+def test_the_face_inset_shows_the_face_from_when_the_noise_was_made(tmp_path, make_video):
+    from cuesync.pipeline import _face_track
+
+    # the face clip started half a second before the mic: every sound comes 0.5 s later in it (face_offset_s)
+    face = make_video(tmp_path, n=72, fps=24, w=64, h=64, color_fn=lambda i: (min(255, i * 3), 0, 0))
+    track = _face_track(face, 24, 0.0, 0.5, 16)
+    for f in (0, 6, 12):
+        assert abs(int(track[f][..., 0].mean()) - 3 * (f + 12)) <= 6  # plate frame f shows face frame f + 12

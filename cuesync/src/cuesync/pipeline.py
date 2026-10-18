@@ -99,7 +99,7 @@ class ShotSpec:
     seed: int = 1
     offset_s: float = 0.0  # plate time of the voice recording's first sample
     face: Path | None = None
-    face_offset_s: float | None = None  # face clip lag behind the voice recording (Dub Mode timing.json)
+    face_offset_s: float | None = None  # how much later the take's sounds come in the face clip than in the voice
     label: str = ""
     max_plate_s: float = 10.0
     plate_size: tuple[int, int] | None = None  # None: 1080x1920 for portrait plates, 1920x1080 for landscape
@@ -178,7 +178,7 @@ def _face_track(face: Path, n_frames: int, plate_offset_s: float, face_offset_s:
     lag = face_offset_s or 0.0
     out: list[np.ndarray | None] = []
     for f in range(n_frames):
-        tf = f / FPS - plate_offset_s - lag  # plate time -> voice time -> face time
+        tf = f / FPS - plate_offset_s + lag  # plate time -> voice time -> face time (a sound is lag s later there)
         if tf < times[0] - 0.5 / FPS or tf > times[-1] + 0.5 / FPS:
             out.append(None)
             continue
@@ -464,6 +464,9 @@ def retime_shot(src: Path, spec: ShotSpec, out_dir: Path, hit_shift: int = 0, st
     folders = sorted((src / "hits").iterdir(), key=lambda d: int(d.name)) if (src / "hits").is_dir() else [src]
     multi = len(folders) > 1
     say("compositing", 0.2, "Re-timing: no new render needed")
+    # a shot re-timed before keeps its hits' anchors where that put them; the performance (cue.json) never moves,
+    # so the gates follow the whole hand shift so far
+    total = int((old.get("retimed") or {}).get("hit_shift_frames", 0)) + hit_shift
     anchors = [int(json.loads((f / "guide.json").read_text())["anchor_frame"]) + hit_shift for f in folders]
     rendered = []
     for k, folder in enumerate(folders):
@@ -475,8 +478,10 @@ def retime_shot(src: Path, spec: ShotSpec, out_dir: Path, hit_shift: int = 0, st
         ecue = CueSheet.from_json(json.loads((folder / "cue.json").read_text())) if multi else cue
         plan_k = GuidePlan.from_json(json.loads((folder / "guide.json").read_text()), read_video(folder / "guide.mp4").frames)
         plan_k.anchor_frame = anchors[k]
+        if multi:  # each hit's guide keeps its new anchor, so re-timing this shot again starts from here
+            (dst / "guide.json").write_text(json.dumps(plan_k.to_json(), indent=1))
         frames_k = read_video(folder / "element.mp4").frames
-        intervals = [(a + hit_shift, b + hit_shift) for a, b in ecue.intervals()]
+        intervals = [(a + total, b + total) for a, b in ecue.intervals()]
         last_one = k == len(folders) - 1
         timing_k, align_k, gates_k = _place(
             eff, anchors[k], intervals, frames_k, n, next_hit=None if last_one else anchors[k + 1],
@@ -488,7 +493,7 @@ def retime_shot(src: Path, spec: ShotSpec, out_dir: Path, hit_shift: int = 0, st
         rendered.append({"cue": ecue, "plan": plan_k, "guide": dst / "guide.mp4", "element": frames_k,
                          "timing": timing_k, "align": align_k, "gates": gates_k, "seconds": 0.0, "last": last,
                          "strength": float(np.max(ecue.envelope)) if len(ecue.envelope) else 0.0})
-    retimed = {"from": src.name, "hit_shift_frames": hit_shift, "stop_frame": stop_frame}
+    retimed = {"from": src.name, "hit_shift_frames": total, "stop_frame": stop_frame}
     return _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, float(old.get("scale", 1.0)),
                    old["render"]["renderer"], old.get("matte", {}).get("source", "grabcut"), out_dir, say, t0,
                    retimed=retimed, render_receipt=old["render"])

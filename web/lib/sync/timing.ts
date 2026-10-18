@@ -52,7 +52,8 @@ function normCorr(a: Float32Array, b: Float32Array, lag: number, from = 0, to = 
 }
 
 /**
- * Lag of `other` relative to `ref` in seconds (positive = `other` started later), or null when
+ * Lag of `other` relative to `ref` in seconds: how much later a sound comes in `other` than in `ref` (positive =
+ * `other` started recording earlier), or null when
  * either is silent or the normalised correlation peak is < 0.3. Coarse: 10 ms RMS envelopes within
  * +/-maxLagS; fine: sample-accurate correlation within +/-10 ms around the coarse lag (over a 2 s
  * window around the loudest part of `ref`, to keep it fast).

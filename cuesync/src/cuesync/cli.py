@@ -129,8 +129,16 @@ def cmd_shot(args) -> int:
             last[0] = msg
 
     r = make_shot(spec, renderer, Path(args.output), progress)
-    m = r.receipt["measured"]
-    print(f"done in {r.receipt['seconds_total']:.0f} s -> {r.final}  (hit error {m['hit_error_frames']} frames)")
+    m, al = r.receipt["measured"], r.receipt["alignment"]
+    if r.receipt.get("mode") == "scene":  # how far off the model was, and what moving it couldn't take out
+        early = m.get("model_early_frames")
+        what = "no clear onset: not re-timed" if early is None else (
+            f"the model was {abs(early)} frames {'early' if early > 0 else 'late'}"
+            + (f", moved hit by hit onto {len(al['warp'])} cues" if al.get("warp") else f", moved by {al['auto_shift']}")
+            + (f", {m['residual_frames']} left" if m.get("residual_frames") else ""))
+    else:
+        what = f"hit error {m['hit_error_frames']} frames"
+    print(f"done in {r.receipt['seconds_total']:.0f} s -> {r.final}  ({what})")
     return 0
 
 

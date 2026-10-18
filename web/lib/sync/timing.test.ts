@@ -22,7 +22,7 @@ it("finds a 250 ms delay between two recordings of the same noise", () => {
   expect(Math.abs(estimateOffsetS(ref, other, sr)! - 0.25)).toBeLessThan(0.001);
   expect(estimateOffsetS(ref, new Float32Array(sr * 3), sr)).toBeNull();
 });
-it("finds a negative lag when the face recording started earlier", () => {
+it("finds a negative lag when the face recording started later (its sounds come earlier in it)", () => {
   const sr = 48000, other = new Float32Array(sr * 3);
   for (let i = sr; i < sr + 6000; i++) other[i] = 0.6 * Math.sin(i * 0.09) * Math.exp(-(i - sr) / 2000);
   const ref = new Float32Array(sr * 3); ref.set(other.subarray(0, sr * 3 - 4800), 4800); // ref is 100 ms later

@@ -130,3 +130,7 @@ def test_a_shot_is_retimed_without_rendering_again(tmp_path, make_video, make_wa
     assert again.receipt["measured"]["hit_error_frames"] == 0  # the element moved with the hit
     assert again.receipt["retimed"]["hit_shift_frames"] == 5 and again.final.exists()
     assert again.receipt["render"] == first.receipt["render"]  # nothing rendered again
+    twice = retime_shot(tmp_path / "later", spec, tmp_path / "twice", hit_shift=3)  # re-timed again: it adds up
+    assert twice.receipt["guide"]["anchor_frame"] == first.receipt["guide"]["anchor_frame"] + 8
+    assert twice.receipt["retimed"]["hit_shift_frames"] == 8 and twice.receipt["measured"]["hit_error_frames"] == 0
+    assert twice.receipt["voice"]["active_intervals"] == first.receipt["voice"]["active_intervals"]  # the take stays
