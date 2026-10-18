@@ -196,6 +196,12 @@ def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None) -
     return disc * np.clip(back / max(0.3 * s, 1.0), 0, 1)
 
 
+def track_slice(track: dict, a: int, b: int) -> dict:
+    """The track for frames a..b-1 only (the per-frame lists cut; events and sizes kept)."""
+    per = ("xy", "dir", "scale", "conf", "src", "speed", "landmarks", "gesture")
+    return track | {k: list(track[k][a:b]) for k in per if k in track}
+
+
 def point_light(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, t: int, fluid: str,
                 mask: np.ndarray | None) -> np.ndarray:
     """Until cuesync.fx_light lands: a point light half a hand ahead of the emitter, as bright and as coloured as the
@@ -237,7 +243,6 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     from .media import read_video, write_video
     from .pipeline import FINISH_PRESET, FPS, SOUND, SR, ShotResult, _finalise, load_plate, place_audio, shot_cue, soundtrack
     from .scene import paint_scene_guide, plan_window, scene_size, suited_effect
-    from .scene_shot import impact
     from .transfer import gam, lin
 
     out_dir = Path(out_dir)
@@ -296,38 +301,74 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     offset = k_launch - ign  # element frame e shows on plate frame e + offset: its ignition on the strike
 
     say("compositing", 0.7, "Carrying the element on your hand")
+    from . import fx_light as fx
+
     lag = LAG_FRAMES.get(effect, 3)
-    src = track.get("src") or ["mp"] * n
+    src = list(track.get("src") or []) + ["mp"] * n
     floor_lin = float(lin(np.full((1, 1, 3), floor, np.uint8))[0, 0, 0])
-    out = np.empty_like(plate)
-    lost_run = 0
+    lost, run = np.zeros(n, int), 0
     for t in range(n):
-        lost_run = lost_run + 1 if t < len(src) and src[t] == "lost" else 0
+        run = run + 1 if src[t] == "lost" else 0
+        lost[t] = run
+
+    def element_at(t: int) -> np.ndarray | None:
+        """The element on plate frame t (linear, over black), carried on the hand, its root held out; None when
+        it isn't on (before its build-up, after it ends)."""
         e = t - offset
         if not ign - PREGLOW <= e < len(element):
-            out[t] = plate[t]
-            continue
+            return None
         E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None), track, k_launch, t, lag)
         if e < ign:  # the build-up, coming up to the ignition
             E *= (e - (ign - PREGLOW) + 1) / (PREGLOW + 1)
         elif ign < PREGLOW and e < PREGLOW:  # a render lit from its first frame: bring it up rather than pop it on
             E *= (e + 1) / (PREGLOW + 1)
-        if lost_run > 8:  # the hand is gone: let the element go rather than freeze it
-            E *= max(0.0, 1.0 - (lost_run - 8) / LOST_FADE)
+        if lost[t] > 8:  # the hand is gone: let the element go rather than freeze it
+            E *= max(0.0, 1.0 - (lost[t] - 8) / LOST_FADE)
         m_t = None if mask is None else mask[min(t, len(mask) - 1)].astype(np.float32) / 255.0
-        E *= (1.0 - root_holdout(track, t, h, w, m_t))[..., None]
-        P = point_light(lin(plate[t]), E, track, t, eff.fluid, m_t)
-        if eff.fluid == "smoke":  # smoke is laid over; fire is light, added; steam is lit vapour, screened (added,
-            a = np.clip(E.max(-1) / 0.35, 0.0, 0.9)[..., None]  # dense white steam burned a hand it crossed to white)
-            P = P * (1.0 - a) + np.clip(E / np.maximum(a, 1e-3), 0, 1) * a
-        elif eff.fluid == "steam":
-            P = 1.0 - (1.0 - np.clip(P, 0, 1)) * (1.0 - np.clip(E, 0, 1))
-        else:
-            P = P + E
-        out[t] = gam(P)
-    del plate, element  # (a 10 s 1080p plate and its render are 2 GB: let them go before the finishing copies)
-    sc = eff.scene
-    frames = impact(out, [k_launch], [1.0], sc.shake if sc else 0.0, sc.flash if sc else 0.0)
+        return E * (1.0 - root_holdout(track, t, h, w, m_t))[..., None]
+
+    # the light (cuesync.fx_light) needs the element's light on every frame first: a small copy is enough
+    q = 8
+    small = np.zeros((n, h // q, w // q, 3), np.float32)
+    for t in range(n):
+        E = element_at(t)
+        if E is not None:
+            small[t] = cv2.resize(E, (w // q, h // q), interpolation=cv2.INTER_AREA)
+    white = fx.plate_white(np.stack([lin(plate[i]) for i in np.linspace(0, n - 1, 8).astype(int)]))
+    noise = fx.shadow_noise(plate)
+    out = np.empty_like(plate)
+    CHUNK = 12  # frames lit at a time (a whole 10 s 1080p clip in float32 is 6 GB), overlapping a frame each side
+    for a in range(0, n, CHUNK):
+        b = min(n, a + CHUNK)
+        a0, b1 = max(0, a - 1), min(n, b + 1)
+        P = np.stack([lin(plate[i]) for i in range(a0, b1)])
+        m = None if mask is None else mask[a0:b1].astype(np.float32) / 255.0
+        fx.light_plate(P, small[a0:b1], track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, out=P)
+        for i in range(a, b):
+            E = element_at(i)
+            if E is None:
+                continue
+            E = fx.grain(E[None], noise, seed=spec.seed, frame0=i)[0]
+            j = i - a0
+            if eff.fluid == "smoke":  # smoke is laid over; fire is light, added; steam is lit vapour, screened
+                al = np.clip(E.max(-1) / 0.35, 0.0, 0.9)[..., None]
+                P[j] = P[j] * (1.0 - al) + np.clip(E / np.maximum(al, 1e-3), 0, 1) * al
+            elif eff.fluid == "steam":
+                P[j] = 1.0 - (1.0 - np.clip(P[j], 0, 1)) * (1.0 - np.clip(E, 0, 1))
+            else:
+                P[j] = P[j] + E
+        if eff.fluid == "fire":  # the hot air above and around the flame shimmers
+            alpha = np.stack([cv2.resize(np.clip(fx._lum(small[i]) * 4.0, 0, 1), (w, h)) for i in range(a0, b1)])
+            fx.heat_haze(P, alpha, seed=spec.seed, out=P, frame0=a0)
+        fx.flash(P, [k_launch - a0], [1.0], out=P)
+        out[a:b] = gam(P[a - a0: b - a0])
+    plate = element = small = None  # (a 10 s 1080p plate and its render are 2 GB: let them go before the finishing copies)
+    if effect == "smoke_puff":  # the air blast: a pressure front out of the palm
+        lo, hi = k_launch, min(n, k_launch + fx.AIR_FRAMES + 2)
+        W_ = np.stack([lin(out[i]) for i in range(lo, hi)])
+        fx.air_wave(W_, tuple(p_hit), tuple(u_hit), start_frame=0, seed=spec.seed, out=W_)
+        out[lo:hi] = gam(W_)
+    frames = fx.shake(out, [k_launch + 2], [1.0], px=4.0 * h / 1080, seed=spec.seed)
 
     say("finishing", 0.85, "Adding the sound and the cue ribbon")
     env = np.zeros(n)
