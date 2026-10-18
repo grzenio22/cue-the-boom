@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Performance } from "@/components/Performer";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, type Stroke, submitShot } from "@/lib/shot";
+import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -12,17 +12,6 @@ const VIEWS: { file: View; label: string }[] = [
   { file: "breakdown.mp4", label: "How it was made" },
   { file: "composite.mp4", label: "Clean" },
 ];
-
-const pollUntilDone = async (id: string): Promise<JobStatus> => {
-  for (let i = 0; i < 400; i++) { // ~10 minutes
-    const r = await fetch(`/api/jobs/${id}`);
-    if (r.status === 404) throw new Error("the server lost this job (it may have restarted); please make it again");
-    const s: JobStatus = await r.json();
-    if (s.status === "done" || s.status === "error") return s;
-    await new Promise((res) => setTimeout(res, 1500));
-  }
-  throw new Error("this is taking too long; please try again");
-};
 
 const ms = (frames: number) => Math.round((frames / 24) * 1000);
 
@@ -94,7 +83,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const choices = effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
   const setMode = (m: Mode) => {
     setModeState(m);
-    if (effect !== AUTO_EFFECT && !effects.some((e) => e.id === effect && (m === "scene" ? e.scene : e.element !== false))) {
+    // an effect the new route can't make goes back to the cue's own; offline, the scene shot made ahead is the cue's
+    if ((m === "scene" && ahead) || (effect !== AUTO_EFFECT
+      && !effects.some((e) => e.id === effect && (m === "scene" ? e.scene : e.element !== false)))) {
       setEffect(AUTO_EFFECT);
     }
   };

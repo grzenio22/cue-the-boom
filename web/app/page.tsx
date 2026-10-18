@@ -12,7 +12,8 @@ export default function Home() {
         when it should happen: say it (<em>pf.</em>, <em>KA-BOOM</em>, <em>fwoooOOOM</em>, <em>hissss</em>), lock it to a sound
         already in your clip (a snap, a click, a slam), or press and hold. How you cue it shapes it: when it erupts, how
         big it gets, how long it lasts. LTX-2.5 renders it into the scene, so the room lights up and the scene changes; a
-        moving clip gets only what changed added onto it.
+        moving clip keeps its own pixels and gets only what changed, unless the render moved the scene (then the shot
+        says so).
       </p>
       <Studio />
       <Gallery />

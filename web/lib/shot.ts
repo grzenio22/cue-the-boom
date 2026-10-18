@@ -35,6 +35,8 @@ export interface Receipt {
   voice: { hero_onset_s: number; voice_end_frame: number | null; active_intervals: number[][] };
   guide: { length: number; tail: string; keyframes: number[]; anchor_frame: number };
   matte?: { source: string; found: boolean };
+  plate?: { still: boolean }; // a still plate becomes the render; a moving one keeps its pixels if the check passes
+  transfer?: { accepted: boolean; reason?: string | null } | null;
   hits?: { frame: number; strength: number; size: number; merged?: boolean }[] | null;
   retimed?: { hit_shift_frames: number; stop_frame: number | null } | null;
   seconds_total: number;
@@ -113,12 +115,15 @@ export function drawnReady(plate: { sample: boolean; drawn?: DrawnSample[] }, st
 /** Was this exact sample shot made into the scene ahead of time (so it plays with the GPU offline)? A sample clip
  * at its marked spot, cued by a sample noise its map lists by name, or by the clip's own sound; or the sample's own
  * drawing with the noise it was rendered with. */
+/** Is this the sample's own marked spot (where its scene shots were made ahead of time)? */
+export function atSampleSpot(sample: [number, number] | null | undefined, point: [number, number] | null): boolean {
+  return !!sample && !!point && Math.abs(sample[0] - point[0]) < 0.005 && Math.abs(sample[1] - point[1]) < 0.005;
+}
+
 export function madeAhead(plate: { sample: boolean; point: [number, number] | null; scene?: SceneMap; sound: boolean; drawn?: DrawnSample[] },
   cue: CueKind, voice: Source | null, point: [number, number], strokes: Stroke[]): boolean {
   if (strokes.length) return cue === "voice" && voice !== null && "sample" in voice && drawnReady(plate, strokes).includes(voice.sample);
-  if (!plate.sample || !plate.point) return false;
-  const near = (a: number, b: number) => Math.abs(a - b) < 0.005;
-  if (!near(plate.point[0], point[0]) || !near(plate.point[1], point[1])) return false;
+  if (!plate.sample || !atSampleSpot(plate.point, point)) return false;
   if (cue === "clip") return plate.sound;
   return cue === "voice" && voice !== null && "sample" in voice && !!plate.scene && voice.sample in plate.scene;
 }
@@ -249,7 +254,19 @@ export async function compareTakes(a: string, b: string): Promise<JobStatus> {
   return json<JobStatus>(await fetch("/api/compare", { method: "POST", body: form }));
 }
 
-/** Follow a job until it ends; returns the final status. */
+/** Ask for a job's status until it ends (about ten minutes at most). */
+export async function pollUntilDone(id: string, wait = 1500): Promise<JobStatus> {
+  for (let i = 0; i < 400; i++) {
+    const r = await fetch(`/api/jobs/${id}`);
+    if (r.status === 404) throw new Error("the server lost this job (it may have restarted); please make it again");
+    const s: JobStatus = await r.json();
+    if (s.status === "done" || s.status === "error") return s;
+    await new Promise((res) => setTimeout(res, wait));
+  }
+  throw new Error("this is taking too long; please try again");
+}
+
+/** Follow a job until it ends; returns the final status. If the progress stream drops, it keeps asking. */
 export function followJob(id: string, onEvent: (e: JobEvent) => void): Promise<JobStatus> {
   return new Promise((resolve, reject) => {
     const es = new EventSource(`/api/jobs/${id}/events`);
@@ -260,7 +277,7 @@ export function followJob(id: string, onEvent: (e: JobEvent) => void): Promise<J
     });
     es.onerror = () => {
       es.close();
-      fetch(`/api/jobs/${id}`).then((r) => r.json()).then(resolve, reject);
+      pollUntilDone(id).then(resolve, reject);
     };
   });
 }

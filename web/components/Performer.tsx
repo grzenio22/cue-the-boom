@@ -32,7 +32,7 @@ const MAX_SHOT_S = 10;
  * Step 3: cue it. Say it (perform the noise over the playing plate: mic, optional face camera, or a sample
  * noise), use a sound already in the clip (a snap, a click, a slam), or press and hold while it plays.
  */
-export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, onDone }: {
+export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, drawn = false, onDone }: {
   plateUrl: string;
   point: [number, number];
   voices: SampleVoice[];
@@ -41,8 +41,12 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   scene?: SceneMap; // a sample plate's map: what each noise does to it
   ready?: string[]; // sample noises whose scene shot was made ahead of time (the GPU is offline)
   live?: boolean; // the GPU renders into the scene right now
+  drawn?: boolean; // the source is a drawing: it renders only into the scene (no instant shot)
   onDone: (p: Performance) => void;
 }) {
+  // with the GPU offline, a drawing plays only as the shot made ahead of time with its own noise
+  const onlyReady = drawn && !live;
+  const why = "With the GPU offline, a drawing plays only with the noise it was made ahead of time with";
   const [kind, setKind] = useState<CueKind>("voice");
   const [holds, setHolds] = useState<[number, number][]>([]);
   const [holding, setHolding] = useState(false);
@@ -278,10 +282,11 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         <button role="radio" aria-checked={kind === "voice"} className={kind === "voice" ? "" : "secondary"}
           disabled={step === "performing" || holdPlaying} onClick={() => setKind("voice")}>Say it</button>
         <button role="radio" aria-checked={kind === "clip"} className={kind === "clip" ? "" : "secondary"}
-          disabled={step === "performing" || holdPlaying || !clipSound} onClick={() => setKind("clip")}
-          title={clipSound ? undefined : "This sample has no sound of its own to lock to; your own clip may"}>The clip&apos;s own sound</button>
+          disabled={step === "performing" || holdPlaying || !clipSound || onlyReady} onClick={() => setKind("clip")}
+          title={onlyReady ? why : clipSound ? undefined : "This sample has no sound of its own to lock to; your own clip may"}>The clip&apos;s own sound</button>
         <button role="radio" aria-checked={kind === "hold"} className={kind === "hold" ? "" : "secondary"}
-          disabled={step === "performing" || holdPlaying} onClick={() => setKind("hold")}>Press and hold</button>
+          disabled={step === "performing" || holdPlaying || onlyReady} onClick={() => setKind("hold")}
+          title={onlyReady ? why : undefined}>Press and hold</button>
       </div>
       <div className="perform">
         <video ref={plateRef} src={plateUrl} playsInline muted preload="auto" className="plate" />
@@ -310,10 +315,10 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
       {kind === "voice" && step === "idle" && (
         <>
           <div className="row">
-            <button onClick={() => void arm()}>Use my microphone</button>
+            <button disabled={onlyReady} title={onlyReady ? why : undefined} onClick={() => void arm()}>Use my microphone</button>
             <label className="muted"><input type="checkbox" checked={withFace} onChange={(e) => setWithFace(e.target.checked)} /> add my face to the shot</label>
           </div>
-          <p className="muted">{withFace ? "Your face video is uploaded with your noise and shown as an inset in the final shot." : "Only your noise is uploaded."}</p>
+          <p className="muted">{onlyReady ? `${why}: pick it below.` : withFace ? "Your face video is uploaded with your noise and shown as an inset in the final shot." : "Only your noise is uploaded."}</p>
         </>
       )}
       {kind === "voice" && step !== "idle" && (
@@ -335,12 +340,16 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
           if (live || isReady(v)) return inScene && EFFECT_LABELS[inScene]?.name;
           return v.effect && `${EFFECT_LABELS[v.effect]?.name ?? v.effect}, instant`;
         };
-        const sample = (v: SampleVoice) => (
-          <button key={v.name} className="secondary" disabled={step === "performing"} onClick={() => pickSample(v)}>
-            {v.title ?? v.name}
-            {makes(v) && <span className="muted" style={{ marginLeft: 6 }}>{makes(v)}</span>}
-          </button>
-        );
+        const sample = (v: SampleVoice) => {
+          const off = onlyReady && !isReady(v); // a drawing has no instant shot: this one needs the GPU
+          return (
+            <button key={v.name} className="secondary" disabled={step === "performing" || off} title={off ? why : undefined}
+              onClick={() => pickSample(v)}>
+              {v.title ?? v.name}
+              <span className="muted" style={{ marginLeft: 6 }}>{off ? "needs the GPU" : makes(v)}</span>
+            </button>
+          );
+        };
         const real = live ? [] : voices.filter(isReady);
         return (
           <>
@@ -351,7 +360,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
               </div>
             )}
             <div className="row">
-              <span className="muted">{real.length ? "or, as an instant shot (the GPU is offline):" : live ? "or use a sample noise:" : "or use a sample noise (an instant shot: the GPU is offline):"}</span>
+              <span className="muted">{onlyReady ? "the others need the GPU:" : real.length ? "or, as an instant shot (the GPU is offline):" : live ? "or use a sample noise:" : "or use a sample noise (an instant shot: the GPU is offline):"}</span>
               {voices.filter((v) => !real.includes(v)).map(sample)}
             </div>
           </>

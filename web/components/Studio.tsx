@@ -6,7 +6,7 @@ import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
 import ShotPanel from "@/components/ShotPanel";
 import TapPoint from "@/components/TapPoint";
-import { drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
+import { atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
 interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null }
 
@@ -60,7 +60,7 @@ export default function Studio() {
   const sceneLive = health?.modes.includes("scene") ?? false;
   const madeAheadScene = !sceneLive && (health?.made_ahead?.includes("scene") ?? false);
   // with the GPU offline, the sample noises whose scene shot was made ahead of time (at the sample's own spot)
-  const ready = madeAheadScene && plate?.sample && plate.point && point && plate.point[0] === point[0] && plate.point[1] === point[1]
+  const ready = madeAheadScene && plate?.sample && atSampleSpot(plate.point, point)
     ? Object.keys(plate.scene ?? {}).filter((k) => /\.(wav|mp3|m4a|ogg|webm)$/.test(k)) : [];
   // with the GPU offline, a sample's own drawing still plays: it was rendered ahead of time
   const replay = madeAheadScene && !!plate?.drawn?.length;
@@ -115,6 +115,12 @@ export default function Studio() {
                 <>
                   <p className="muted">Tap where it comes from: a toy&apos;s mouth, a candle&apos;s wick, the coffee in a mug. Drag from there to aim it (a breath, a jet).</p>
                   <TapPoint src={plate.url} value={point} onChange={setPoint} direction={direction} onDirection={setDirection} />
+                  {madeAheadScene && plate.sample && plate.point && !atSampleSpot(plate.point, point) && (
+                    <div className="row">
+                      <span className="muted">Off the sample&apos;s marked spot, Into the scene needs the GPU (offline right now): this makes an instant shot.</span>
+                      <button className="secondary" onClick={() => { setPoint(plate.point); setDirection(plate.direction); }}>Back to the sample&apos;s spot</button>
+                    </div>
+                  )}
                 </>
               )}
               <div className="row"><button disabled={drawing ? strokes.length === 0 : !point} onClick={() => setPointSet(true)}>{drawing ? "That's where it goes" : "That's the spot"}</button></div>
@@ -124,6 +130,10 @@ export default function Studio() {
               {where && <Spot src={plate.url} at={where} />}
               <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
               <button className="secondary" disabled={rendering} onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : plate.drawn?.length ? "Move it, or draw it" : "Move it"}</button>
+              {madeAheadScene && plate.sample && plate.point && !drawing && !atSampleSpot(plate.point, point) && (
+                <button className="secondary" disabled={rendering} onClick={() => { setPoint(plate.point); setDirection(plate.direction); }}
+                  title="The sample's scene shots were made at its marked spot; anywhere else needs the GPU">Back to the sample&apos;s spot</button>
+              )}
             </div>
           )}
         </section>
@@ -132,6 +142,7 @@ export default function Studio() {
       {plate && where && pointSet && performing && (
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
           scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
+          drawn={drawing && strokes.length > 0}
           onDone={(p) => { setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null }]); setPerforming(false); }} />
       )}
 

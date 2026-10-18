@@ -5,6 +5,10 @@ import type { JobStatus } from "@/lib/shot";
 
 type Shot = JobStatus & { title: string };
 
+/** What became of a moving clip's own pixels: kept (only what changed added), or re-drawn by the model. */
+const pixels = (s: JobStatus) => !s.receipt?.transfer ? ""
+  : s.receipt.transfer.accepted ? "; the clip's own pixels, plus what changed" : "; re-drawn by LTX-2.5 (the render moved the scene)";
+
 /** Sample shots made ahead of time: something to watch before trying it. */
 export default function Gallery() {
   const [shots, setShots] = useState<Shot[]>([]);
@@ -28,7 +32,7 @@ export default function Gallery() {
             <video src={s.files["final.mp4"]} muted playsInline preload="metadata" />
             <span>{s.title}</span>
             <span className="muted note">{s.mode === "scene"
-              ? `rendered into the scene (LTX-2.5)${s.receipt?.inputs?.drawn ? ", drawn" : ""}${s.receipt?.inputs?.cue === "clip" ? ", locked to the clip's sound" : s.receipt?.inputs?.cue === "hold" ? ", press and hold" : ""}`
+              ? `rendered into the scene (LTX-2.5)${s.receipt?.inputs?.drawn ? ", drawn" : ""}${s.receipt?.inputs?.cue === "clip" ? ", locked to the clip's sound" : s.receipt?.inputs?.cue === "hold" ? ", press and hold" : ""}${pixels(s)}`
               : s.mode === "render" ? "element rendered from the noise" : "instant (pre-rendered element)"}</span>
           </button>
         ))}
@@ -44,6 +48,7 @@ export default function Gallery() {
           </div>
           <video key={open.shot.id + open.file} src={open.shot.files[open.file]} controls autoPlay playsInline className="result" />
           <p className="muted">{open.shot.title}</p>
+          {(open.shot.receipt?.warnings ?? []).map((w) => <span key={w} className="chip warn">{w}</span>)}
         </div>
       )}
     </section>
