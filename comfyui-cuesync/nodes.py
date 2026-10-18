@@ -80,6 +80,20 @@ def _video(images_u8: np.ndarray, audio: dict | None = None):
     return InputImpl.VideoFromComponents(Types.VideoComponents(images=images, audio=audio, frame_rate=Fraction(FPS)))
 
 
+def _placed(audio: dict | None, offset_s: float) -> dict | None:
+    """The take on the plate's timeline: Analyze Sound's offset_s says where its first sample falls on the plate,
+    so the voice the shot carries starts there too (silence before it, or its start cut)."""
+    if audio is None or abs(offset_s) < 1e-6:
+        return audio
+    wave, sr = audio["waveform"], int(audio["sample_rate"])
+    k = int(round(abs(offset_s) * sr))
+    if offset_s > 0:
+        wave = torch.cat([torch.zeros(*wave.shape[:-1], k, dtype=wave.dtype), wave], dim=-1)
+    else:
+        wave = wave[..., k:]
+    return {"waveform": wave, "sample_rate": sr}
+
+
 def _frames(video) -> tuple[np.ndarray, float]:
     c = video.get_components()
     return (c.images.cpu().numpy() * 255.0 + 0.5).clip(0, 255).astype(np.uint8), float(c.frame_rate)
@@ -223,7 +237,7 @@ class CueSyncPaintScene:
         from PIL import Image as _Image
         first = np.asarray(_Image.fromarray(frames[min(max(start, 0), len(frames) - 1)]).resize(size, _Image.Resampling.LANCZOS))
         silence = {"waveform": torch.zeros(1, 1, int(round(length / FPS * SR))), "sample_rate": SR}
-        meta = sp.to_json() | {"still": bool(still), "x": x, "y": y}
+        meta = sp.to_json() | {"still": bool(still), "x": x, "y": y, "offset_s": float(cue_s.offset_s)}
         return (_video(sp.guide.frames, silence), torch.from_numpy(first.astype(np.float32) / 255.0)[None],
                 scene_prompt(eff, subject, sp.direction, len(sp.events), max((e.size for e in sp.events), default=1.0),
                              describe or None), meta)
@@ -288,7 +302,7 @@ class CueSyncSceneShot:
             rend = np.stack([np.asarray(_Image.fromarray(f).resize((w, h), _Image.Resampling.LANCZOS)) for f in rend])
         sp = ScenePlan.from_json(plan, np.zeros((1, 1, 1, 3), np.uint8))
         st = time_scene(frames, bool(plan.get("still", False)), rend, sp, eff, int(round(max_seconds * FPS)))
-        return (_video(np.ascontiguousarray(st.frames), voice),)
+        return (_video(np.ascontiguousarray(st.frames), _placed(voice, float(plan.get("offset_s", 0.0)))),)
 
 
 _SAM = {}
@@ -404,7 +418,7 @@ class CueSyncComposite:
             occluder = m.astype(np.float32)
         comp = composite(plate_f, elem, align, timing, gates=gates, emission=emission, occluder=occluder,
                          **effect_options(eff))
-        return (_video(comp, voice),)
+        return (_video(comp, _placed(voice, float(cue_s.offset_s))),)
 
 
 NODE_CLASS_MAPPINGS = {
