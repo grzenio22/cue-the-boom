@@ -4,7 +4,7 @@
 
 [Try it without a GPU](#try-it) · [How it works](#how-it-works) · [How well it lands](#how-well-it-lands)
 
-Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or point at a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 50 test shots, 19 of them real stock footage, 35 of 39 single hits land within a frame (42 ms) of the cue (a blast aims a frame early: light beats sound); straight from the model, none do.
+Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or use a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 50 test shots, 19 of them real stock footage, 35 of 39 single hits land within a frame (42 ms) of the cue (a blast aims a frame early: light beats sound); straight from the model, none do.
 
 **New here:** a performed sound becomes the hit frame and growth curve of a generated effect, painted in the control format the LoRA was trained on; the render's real onset is then measured and corrected, hit by hit for a rhythm, with how far off the model was written into every shot's receipt.
 
@@ -102,7 +102,7 @@ git clone https://github.com/Lightricks/ComfyUI-LTXVideo && pip install -r Comfy
 git clone https://github.com/grzenio22/cue-the-boom && pip install -r cue-the-boom/requirements.txt
 ```
 
-To try it on a sample, copy `samples/voices/ka-boom.wav` to `ComfyUI/input/voice.wav` and `samples/plates/jackolantern_kitchen.mp4` to `ComfyUI/input/plate.mp4`, open the workflow and set Paint Scene's x to 0.48 and y to 0.39. The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
+To try it on a sample, copy `samples/voices/fwoooom.wav` to `ComfyUI/input/voice.wav` and `samples/plates/toy_desk.mp4` to `ComfyUI/input/plate.mp4` and queue the workflow as it is: Paint Scene is set up for that toy dinosaur (x 0.375, y 0.485, breathing fire to the left). The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
 
 ## How it works
 

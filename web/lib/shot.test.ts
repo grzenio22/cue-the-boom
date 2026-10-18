@@ -54,6 +54,13 @@ describe("madeAhead", () => {
     expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], top)).toBe(false);
     expect(madeAhead({ ...candle, sample: false }, "clip", null, [0.53, 0.52], [])).toBe(false);
   });
+  it("not once it is aimed another way: the server keys an aimed shot by its direction", () => {
+    const dino = { ...candle, direction: -90 };
+    expect(madeAhead(dino, "voice", { sample: "pf.wav" }, [0.53, 0.52], [], -90)).toBe(true);
+    expect(madeAhead(dino, "voice", { sample: "pf.wav" }, [0.53, 0.52], [], null)).toBe(true);
+    expect(madeAhead(dino, "voice", { sample: "pf.wav" }, [0.53, 0.52], [], 45)).toBe(false);
+    expect(madeAhead(candle, "voice", { sample: "pf.wav" }, [0.53, 0.52], [], 45)).toBe(false);
+  });
   it("plays the sample's own drawing with the noise it was made with", () => {
     expect(madeAhead(pumpkin, "voice", { sample: "fwoooom.wav" }, [0.36, 0.53], top)).toBe(true);
     const nudged = [{ points: [[0.362, 0.531], [0.5, 0.4]] as [number, number][], width: 0.09 }];

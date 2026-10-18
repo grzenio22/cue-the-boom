@@ -92,7 +92,7 @@ def stacked(src: Image.Image, split: list[float] | None) -> Image.Image:
 
 def stamp(img: Image.Image, text: str | None) -> None:
     if text:  # what the shot is made of: as readable as the claims it qualifies
-        ImageDraw.Draw(img).text((W - 24, H - 12), text, font=font(28), fill=(214, 210, 202), anchor="rd")
+        ImageDraw.Draw(img).text((W - 24, H - 12), text, font=font(32), fill=(214, 210, 202), anchor="rd")
 
 
 def envelope(audio: np.ndarray, n: int) -> np.ndarray:

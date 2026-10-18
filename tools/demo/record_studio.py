@@ -2,9 +2,13 @@
 
     python tools/demo/record_studio.py --plate "Toy dinosaur, night" --say samples/voices/fwoooom.wav -o runs/demo/studio
     python tools/demo/record_studio.py --plate "Candle jar" --sample "pf." -o runs/demo/studio_offline
+    python tools/demo/record_studio.py --upload my_clip.mp4 --point 0.43,0.30 --object "a jack-o'-lantern" \
+        --say my_take.wav -o runs/demo/studio_upload
 
 --say: the browser's microphone plays that file (Chromium's fake capture device), so the take goes through the
 same microphone path a person's voice does; --sample picks a sample noise; --clip uses the clip's own sound.
+--upload: your own clip instead of a sample, tapped at --point (x,y as fractions of the picture) and, for a scene
+shot, said to be --object (one of the studio's "What is it?" choices).
 Needs Playwright (pip install playwright) and a Chromium (--chromium, else Playwright's own). Writes studio.webm
 with a visible cursor and marks.json (seconds into the video of each step), so the edit can cut the render wait.
 """
@@ -59,7 +63,11 @@ class Recorder:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--url", default="http://localhost:3000")
-    ap.add_argument("--plate", required=True, help="the sample shot's title, as the studio shows it")
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--plate", help="the sample shot's title, as the studio shows it")
+    src.add_argument("--upload", help="your own clip, uploaded through 'Use your own clip'")
+    ap.add_argument("--point", help="with --upload: where it comes from, x,y as fractions of the picture")
+    ap.add_argument("--object", help="with --upload: what it is, one of the studio's 'What is it?' choices")
     cue = ap.add_mutually_exclusive_group(required=True)
     cue.add_argument("--say", help="a WAV the fake microphone plays while you perform")
     cue.add_argument("--sample", help="a sample noise's title")
@@ -85,11 +93,34 @@ def main() -> int:
         page = ctx.new_page()
         r = Recorder(page)
         page.goto(a.url)
-        page.get_by_text(a.plate, exact=True).first.wait_for(timeout=30000)
+        page.get_by_role("heading", name="1. Pick a shot").wait_for(timeout=30000)
         r.pause(1.5)
         r.mark("pick")
-        r.click(page.get_by_text(a.plate, exact=True).first, pause=1.2)
-        r.click(page.get_by_role("button", name="Move it"), pause=1.5)  # the spot comes with the sample: show it
+        if a.upload:  # your own clip: upload it, then tap where it comes from
+            label = page.get_by_text("Use your own clip", exact=True)
+            r.click(label, pause=0.4)
+            page.locator('input[type="file"]').set_input_files(str(Path(a.upload).resolve()))
+            page.get_by_role("heading", name="2. Where does it come from?").wait_for(timeout=30000)
+            r.pause(1.2)
+            if not a.draw:
+                tap = page.locator("section").filter(has=page.get_by_role("heading", name="2. Where does it come from?")).locator("video").first
+                tap.scroll_into_view_if_needed()
+                page.wait_for_function("v => v.videoWidth > 0", arg=tap.element_handle(), timeout=30000)
+                box = tap.bounding_box()
+                vw, vh = tap.evaluate("v => [v.videoWidth, v.videoHeight]")
+                k = min(box["width"] / vw, box["height"] / vh)  # object-fit: contain
+                cw, ch = vw * k, vh * k
+                x, y = (float(v) for v in a.point.split(","))
+                px, py = box["x"] + (box["width"] - cw) / 2 + x * cw, box["y"] + (box["height"] - ch) / 2 + y * ch
+                page.mouse.move(px, py, steps=18)
+                r.pause(0.3)
+                r.mark("tap")
+                page.mouse.click(px, py)
+                r.pause(1.0)
+        else:
+            page.get_by_text(a.plate, exact=True).first.wait_for(timeout=30000)
+            r.click(page.get_by_text(a.plate, exact=True).first, pause=1.2)
+            r.click(page.get_by_role("button", name="Move it"), pause=1.5)  # the spot comes with the sample: show it
         if a.draw:
             r.click(page.get_by_role("radio", name="Draw it"), pause=1.0)
             r.click(page.get_by_role("radio", name=a.brush), pause=0.6)
@@ -111,9 +142,10 @@ def main() -> int:
         r.mark("cue")
         if a.say:
             r.click(page.get_by_role("button", name="Use my microphone"), pause=1.5)
+            # the playing clip and the level meter in view before the take starts, not after
+            page.locator("video.plate").evaluate("el => el.scrollIntoView({block: 'center', behavior: 'instant'})")
+            r.pause(0.6)
             r.click(page.get_by_role("button", name="Perform"), pause=0.0)
-            # keep the playing clip and the level meter in view while the take is made
-            page.locator("video.plate").evaluate("el => el.scrollIntoView({block: 'center', behavior: 'smooth'})")
             r.mark("performing")
             page.get_by_role("heading", name="4. Make the shot").wait_for(timeout=60000)
         elif a.clip:
@@ -121,6 +153,8 @@ def main() -> int:
             r.click(page.get_by_role("button", name="Lock it to my clip's sound"), pause=1.0)
         else:
             r.click(page.locator("button", has_text=a.sample).first, pause=1.0)
+        if a.object:  # your own clip: what it is
+            r.click(page.get_by_role("radio", name=a.object, exact=True), pause=0.8)
         if a.describe:
             field = page.get_by_label("Say what happens")
             r.click(field, pause=0.3)

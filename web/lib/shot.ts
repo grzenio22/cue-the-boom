@@ -115,15 +115,18 @@ export function drawnReady(plate: { sample: boolean; drawn?: DrawnSample[] }, st
 /** Was this exact sample shot made into the scene ahead of time (so it plays with the GPU offline)? A sample clip
  * at its marked spot, cued by a sample noise its map lists by name, or by the clip's own sound; or the sample's own
  * drawing with the noise it was rendered with. */
-/** Is this the sample's own marked spot (where its scene shots were made ahead of time)? */
-export function atSampleSpot(sample: [number, number] | null | undefined, point: [number, number] | null): boolean {
-  return !!sample && !!point && Math.abs(sample[0] - point[0]) < 0.005 && Math.abs(sample[1] - point[1]) < 0.005;
+/** Is this the sample's own marked spot, aimed its own way (where its scene shots were made ahead of time)? The
+ * server keys a shot by its point and, once aimed, its direction: an aim of your own is another shot. */
+export function atSampleSpot(sample: [number, number] | null | undefined, point: [number, number] | null,
+  sampleDir: number | null = null, dir: number | null = null): boolean {
+  const sameAim = dir === null || (sampleDir !== null && Math.round(dir) === Math.round(sampleDir));
+  return sameAim && !!sample && !!point && Math.abs(sample[0] - point[0]) < 0.005 && Math.abs(sample[1] - point[1]) < 0.005;
 }
 
-export function madeAhead(plate: { sample: boolean; point: [number, number] | null; scene?: SceneMap; sound: boolean; drawn?: DrawnSample[] },
-  cue: CueKind, voice: Source | null, point: [number, number], strokes: Stroke[]): boolean {
+export function madeAhead(plate: { sample: boolean; point: [number, number] | null; direction?: number | null; scene?: SceneMap; sound: boolean; drawn?: DrawnSample[] },
+  cue: CueKind, voice: Source | null, point: [number, number], strokes: Stroke[], direction: number | null = null): boolean {
   if (strokes.length) return cue === "voice" && voice !== null && "sample" in voice && drawnReady(plate, strokes).includes(voice.sample);
-  if (!plate.sample || !atSampleSpot(plate.point, point)) return false;
+  if (!plate.sample || !atSampleSpot(plate.point, point, plate.direction ?? null, direction)) return false;
   if (cue === "clip") return plate.sound;
   return cue === "voice" && voice !== null && "sample" in voice && !!plate.scene && voice.sample in plate.scene;
 }

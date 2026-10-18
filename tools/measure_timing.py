@@ -129,7 +129,7 @@ def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
             s_ = None if not low.size else pk + int(low[0])
             stop = {"shot": f"{d.parent.name}/{d.name}", "effect": eff["id"], "voice_end": v,
                     "raw_latency": None if s_ is None else start + s_ - v,
-                    "final_latency": None if s_ is None else start + shift + s_ - v}
+                    "final_latency": None if s_ is None else start + retime + landed(s_) - v}
     return {"hits": hits, "stop": stop, "differs": f"{d.parent.name}/{d.name}" if differs else None}
 
 

@@ -284,8 +284,9 @@ class CueSyncSceneShot:
             "max_seconds": ("FLOAT", {"default": 10.0, "min": 1.0, "max": 30.0, "step": 0.5}),
         }, "optional": {"voice": ("AUDIO",)}}
 
-    RETURN_TYPES = ("VIDEO",)
-    RETURN_NAMES = ("shot",)
+    RETURN_TYPES = ("VIDEO", "STRING")
+    RETURN_NAMES = ("shot", "report")
+    OUTPUT_TOOLTIPS = ("the finished shot", "how far off the model was, how it was moved, and any warning (as the studio's receipt says)")
     FUNCTION = "run"
     CATEGORY = CATEGORY
 
@@ -302,7 +303,24 @@ class CueSyncSceneShot:
             rend = np.stack([np.asarray(_Image.fromarray(f).resize((w, h), _Image.Resampling.LANCZOS)) for f in rend])
         sp = ScenePlan.from_json(plan, np.zeros((1, 1, 1, 3), np.uint8))
         st = time_scene(frames, bool(plan.get("still", False)), rend, sp, eff, int(round(max_seconds * FPS)))
-        return (_video(np.ascontiguousarray(st.frames), _placed(voice, float(plan.get("offset_s", 0.0)))),)
+        return (_video(np.ascontiguousarray(st.frames), _placed(voice, float(plan.get("offset_s", 0.0)))), _report(st))
+
+
+def _report(st) -> str:
+    """The timing and the warnings of a scene shot, in plain words."""
+    if st.raw is None:
+        lines = ["No clear onset found where the effect was painted: the render was not re-timed."]
+    elif st.warp:
+        lines = [f"Each hit of the rhythm put on its own cue ({len(st.warp)} hits), the first one "
+                 f"{abs(st.raw)} frames {'early' if st.raw > 0 else 'late'} as rendered."]
+    else:
+        lines = [f"LTX-2.5 put it {abs(st.raw)} frames {'early' if st.raw > 0 else 'late'}; moved by {abs(st.auto_shift)} "
+                 f"frames onto the cue." if st.raw else "LTX-2.5 put it on the cue; not moved."]
+    if st.transfer is not None:
+        lines.append("Your clip's own pixels, plus what the render changed." if st.transfer.accepted
+                     else f"Used the render instead of your clip's own pixels: {st.transfer.reason}.")
+    lines += [f"Note: {w}" for w in st.warnings]
+    return "\n".join(lines)
 
 
 _SAM = {}

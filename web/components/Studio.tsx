@@ -60,7 +60,7 @@ export default function Studio() {
   const sceneLive = health?.modes.includes("scene") ?? false;
   const madeAheadScene = !sceneLive && (health?.made_ahead?.includes("scene") ?? false);
   // with the GPU offline, the sample noises whose scene shot was made ahead of time (at the sample's own spot)
-  const ready = madeAheadScene && plate?.sample && atSampleSpot(plate.point, point)
+  const ready = madeAheadScene && plate?.sample && atSampleSpot(plate.point, point, plate.direction, direction)
     ? Object.keys(plate.scene ?? {}).filter((k) => /\.(wav|mp3|m4a|ogg|webm)$/.test(k)) : [];
   // with the GPU offline, a sample's own drawing still plays: it was rendered ahead of time
   const replay = madeAheadScene && !!plate?.drawn?.length;
@@ -115,7 +115,7 @@ export default function Studio() {
                 <>
                   <p className="muted">Tap where it comes from: a toy&apos;s mouth, a candle&apos;s wick, the coffee in a mug. Drag from there to aim it (a breath, a jet).</p>
                   <TapPoint src={plate.url} value={point} onChange={setPoint} direction={direction} onDirection={setDirection} />
-                  {madeAheadScene && plate.sample && plate.point && !atSampleSpot(plate.point, point) && (
+                  {madeAheadScene && plate.sample && plate.point && !atSampleSpot(plate.point, point, plate.direction, direction) && (
                     <div className="row">
                       <span className="muted">Off the sample&apos;s marked spot, Into the scene needs the GPU (offline right now): this makes an instant shot.</span>
                       <button className="secondary" onClick={() => { setPoint(plate.point); setDirection(plate.direction); }}>Back to the sample&apos;s spot</button>
@@ -130,7 +130,7 @@ export default function Studio() {
               {where && <Spot src={plate.url} at={where} />}
               <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
               <button className="secondary" disabled={rendering} onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : plate.drawn?.length ? "Move it, or draw it" : "Move it"}</button>
-              {madeAheadScene && plate.sample && plate.point && !drawing && !atSampleSpot(plate.point, point) && (
+              {madeAheadScene && plate.sample && plate.point && !drawing && !atSampleSpot(plate.point, point, plate.direction, direction) && (
                 <button className="secondary" disabled={rendering} onClick={() => { setPoint(plate.point); setDirection(plate.direction); }}
                   title="The sample's scene shots were made at its marked spot; anywhere else needs the GPU">Back to the sample&apos;s spot</button>
               )}

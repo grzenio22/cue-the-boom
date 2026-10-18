@@ -69,7 +69,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const drawn = strokes.length > 0;
   const sceneLive = modes.includes("scene");
   // with the GPU offline, a sample shot that was made into the scene ahead of time still plays
-  const ahead = !sceneLive && !!madeAheadScene && madeAhead(plate, performance.cue, performance.voice, point, strokes);
+  const ahead = !sceneLive && !!madeAheadScene && madeAhead(plate, performance.cue, performance.voice, point, strokes, direction);
   const sceneOk = sceneLive || ahead;
   const firstMode: Mode = sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
   const [mode, setModeState] = useState<Mode>(firstMode);
