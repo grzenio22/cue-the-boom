@@ -8,7 +8,7 @@ import ShotPanel from "@/components/ShotPanel";
 import TapPoint, { MAX_SOURCES } from "@/components/TapPoint";
 import { atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
-interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null; replayOf?: string | null }
+interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null; replayOf?: string | null; replayWith?: string[] }
 
 /** The plate's first frame, small, with where the effect comes from marked on it. */
 function Spot({ src, at }: { src: string; at: [number, number] }) {
@@ -39,6 +39,7 @@ export default function Studio() {
   const [performing, setPerforming] = useState(true);
   const [rendering, setRendering] = useState(false); // a shot is being made: stepping back would lose it
   const [replayOf, setReplayOf] = useState<string | null>(null); // the next take plays this shot's render again
+  const [replayWith, setReplayWith] = useState<string[]>([]); // and these other shots' renders with it
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchEffects(), fetchSamples()]).then(([h, e, s]) => {
@@ -59,6 +60,8 @@ export default function Studio() {
     setStrokes([]);
     setTakes([]);
     setPerforming(true);
+    setReplayOf(null); // a replay of the last plate's shots has nothing to play here
+    setReplayWith([]);
   };
 
   const current = takes.at(-1);
@@ -77,6 +80,18 @@ export default function Studio() {
   const where: [number, number] | null = drawing && strokes.length ? strokes[0].points[0] : point;
   const sources: [number, number][] = !drawing && point && more.length ? [point, ...more] : [];
   const cue = current?.performance;
+  // the shots rendered into this still plate so far (their own renders, not shots performed again), one per spot: they
+  // play together, each at its own spot (a retake at the same spot is the same source, not another one)
+  const spotOf = (t?: Take) => t?.job?.receipt?.plate?.point ?? null;
+  const near = (a: [number, number] | null, b: [number, number] | null) => !!a && !!b && Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.03;
+  const rendered: { id: string; at: [number, number] | null }[] = [];
+  for (const t of takes) {
+    if (t.job?.status !== "done" || t.job.receipt?.mode !== "scene" || !t.job.receipt.plate?.still || t.job.receipt.replayed) continue;
+    const at = spotOf(t);
+    if (!rendered.some((r) => near(r.at, at))) rendered.push({ id: t.job.id, at });
+  }
+  const here = takes.find((t) => t.job?.id === (current?.replayOf ?? current?.job?.id)) ?? current;
+  const siblings = rendered.filter((r) => r.id !== (current?.replayOf ?? current?.job?.id) && !near(r.at, spotOf(here))).map((r) => r.id);
 
   if (apiError && !health) {
     return (
@@ -164,8 +179,9 @@ export default function Studio() {
           scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
           drawn={drawing && strokes.length > 0}
           onDone={(p) => {
-            setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null, replayOf }]);
+            setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null, replayOf, replayWith }]);
             setReplayOf(null);
+            setReplayWith([]);
             setPerforming(false);
           }} />
       )}
@@ -185,7 +201,9 @@ export default function Studio() {
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
           strokes={drawing ? strokes : []} sources={sources} initialJob={current.job} onBusy={setRendering}
-          replayOf={current.replayOf ?? null} onReplay={(id) => { setReplayOf(id); setPerforming(true); }}
+          replayOf={current.replayOf ?? null} replayWith={current.replayWith ?? []}
+          siblings={siblings}
+          onReplay={(id, together) => { setReplayOf(id); setReplayWith(together); setPerforming(true); }}
           effects={effects} modes={health?.modes ?? []} madeAheadScene={madeAheadScene}
           onDone={(job, effect) => {
             const id = current.id; // this take, even if the user has moved on to another before it finishes

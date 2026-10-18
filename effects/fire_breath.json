@@ -14,12 +14,40 @@
   "release_smoke": 10,
   "release_fire": 6,
   "scene": {
-    "prompt": "ainvfxfluid, {subject} breathes {rhythm} {towards} out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+    "prompt": "ainvfxfluid, {rhythm} {towards} from {subject}, the fire lights up {subject} and the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
     "r_min": 0.12,
     "r_max": 0.46,
     "direction": -90,
     "bend": 0.2,
-    "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them, dark pauses between them and the last burst the longest,",
-    "single": "a long roaring jet of bright orange fire"
+    "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them and the last burst the longest, shoot",
+    "single": "a long roaring jet of bright orange fire shoots",
+    "variants": [
+      {
+        "when": {
+          "subjects": [
+            "dino",
+            "dinosaur",
+            "dragon",
+            "rex",
+            "monster",
+            "creature",
+            "toy",
+            "mouth",
+            "lizard",
+            "beast",
+            "statue",
+            "gargoyle",
+            "skull",
+            "figurine",
+            "triceratops"
+          ]
+        },
+        "use": {
+          "prompt": "ainvfxfluid, {subject} breathes {rhythm} {towards} out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+          "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them, dark pauses between them and the last burst the longest,",
+          "single": "a long roaring jet of bright orange fire"
+        }
+      }
+    ]
   }
 }

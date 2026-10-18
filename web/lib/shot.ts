@@ -35,11 +35,11 @@ export interface Receipt {
   voice: { hero_onset_s: number; voice_end_frame: number | null; active_intervals: number[][] };
   guide: { length: number; tail: string; keyframes: number[]; anchor_frame: number };
   matte?: { source: string; found: boolean };
-  plate?: { still: boolean }; // a still plate becomes the render; a moving one keeps its pixels if the check passes
+  plate?: { still: boolean; point?: [number, number] }; // a still plate becomes the render; a moving one keeps its pixels if the check passes
   transfer?: { accepted: boolean; reason?: string | null } | null;
   hits?: { frame: number; strength: number; size: number; merged?: boolean }[] | null;
   retimed?: { hit_shift_frames: number; stop_frame: number | null } | null;
-  replayed?: { from: string; render_hits: number; new_hits: number; no_new_render: boolean } | null;
+  replayed?: { from: string; render_hits: number; new_hits: number; no_new_render: boolean; renders?: number } | null;
   seconds_total: number;
 }
 
@@ -55,6 +55,7 @@ export interface JobStatus {
   id: string;
   effect?: string | null; // the effect actually used (the noise may have decided it)
   gesture?: string | null; // how the cue was read: hit, rhythm, sustained, breath, hiss
+  heard?: string | null; // effect "auto" on a plate with no map: what the sound is (boom, whoosh, hiss, pop, puff, crackle)
   mode?: Mode | "compare";
   cached?: boolean;
   title?: string;
@@ -262,10 +263,12 @@ export async function submitShot(args: {
   return json<JobStatus>(await fetch("/api/jobs", { method: "POST", body: form }));
 }
 
-/** Perform a finished scene shot again with a new take: each new hit plays one of the render's, no new render. */
+/** Perform a finished scene shot again with a new take: each new hit plays one of the render's, no new render.
+ * ``together``: other finished shots on the same plate, played as one scene (one render per source). */
 export async function replayShot(jobId: string, args: { voice: Source | null; cue?: CueKind; holds?: [number, number][] | null;
-  timing: object | null }): Promise<JobStatus> {
+  timing: object | null; together?: string[] }): Promise<JobStatus> {
   const form = new FormData();
+  if (args.together && args.together.length) form.append("together", JSON.stringify(args.together));
   if (args.voice && "sample" in args.voice) form.append("voice_sample", args.voice.sample);
   else if (args.voice) form.append("voice", args.voice.file, args.voice.filename);
   form.append("cue", args.cue ?? "voice");

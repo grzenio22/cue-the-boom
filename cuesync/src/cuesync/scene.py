@@ -27,7 +27,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from .audio import CueSheet, Hit
-from .effects import EffectSpec
+from .effects import EffectSpec, names, words_of
 from .guide import FIRE_INNER, FIRE_OUTER, MIN_RADIUS_PX, SMOKE, STEAM, GuidePlan, _smoothed, _thinning  # noqa: F401
 
 ZONES = 6
@@ -550,6 +550,7 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
         return _rest(c)
     span = sc.r_max - sc.r_min
     fire = c.eff.fluid == "fire"
+    sideways = abs(c.u[1]) < 0.7  # as aimed: turned up below for room, steam aimed sideways is still a jet (its prompt says so)
     reach = c.reach()
     if reach < MIN_RADIUS_PX * 3:  # no room the way it is aimed: turn it up until it has some
         for turn in (30, 60, 90):
@@ -580,7 +581,7 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
             return _tag([_tube(pts, w0, w1, _thinning(FIRE_OUTER, fade) if fade else FIRE_OUTER, wobble=e),
                          _tube(pts[:core_n], w0 * 0.6, w1 * 0.45, _thinning(FIRE_INNER, fade) if fade else FIRE_INNER,
                                wobble=e + 5)], fire=True)
-        return _steam(c, L, start, fade, e)
+        return _steam_jet(c, L, start, fade, e) if sideways else _steam(c, L, start, fade, e)
 
     short = ev.end is not None and ev.end - ev.at <= 10  # a "pf": its next keyframe must be fire-free, or the breaths merge
     if ev.end is None or e < ev.end:
@@ -611,6 +612,22 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
         return _rest(c)
     # the source stops: what it made lifts off (a gap opens above the source) and thins
     return jet(last * (1.0 - 0.2 * k), start=min(0.6, 0.15 + 0.6 * k), fade=0.3 + 0.6 * k) + _rest(c)
+
+
+def _steam_jet(c: _Ctx, L: float, start: float, fade: float, e: int) -> list[dict]:
+    """Steam aimed sideways (a kettle's spout, a palm): a pressurised jet, a widening cone along the aim that
+    curls up a little as it slows and billows out towards its end. Steam that rises (a drink) is _steam's wisps."""
+    pts = _path(c.s, c.u, L, 0.2 * abs(c.u[0]))
+    pts = pts[int(round(start * (len(pts) - 2))):]
+    w0 = max(0.05 * L, MIN_RADIUS_PX * 0.5) * (1 + 2.5 * start)
+    w1 = max(0.3 * L, MIN_RADIUS_PX)
+    density = 0.85 * (1.0 - 0.85 * fade)  # never solid: steam is translucent
+    out = [_gas(_tube(pts, w0, w1, STEAM, wobble=e), "steam", density)]
+    for k, a in enumerate((0.5, 0.75, 0.95)):  # billows along it, thinner towards the end
+        x, y = pts[min(len(pts) - 1, int(a * (len(pts) - 1)))]
+        r = (w0 + (w1 - w0) * a) * (1.0 + 0.15 * math.sin(0.5 * e + 2.1 * k))
+        out.append(_gas(_ellipse(x, y, r, r * 0.8, STEAM), "steam", density * (1 - 0.4 * a)))
+    return out
 
 
 def _steam(c: _Ctx, L: float, start: float, fade: float, e: int) -> list[dict]:
@@ -975,12 +992,54 @@ def _ending(eff: EffectSpec, words: str) -> str:
     return ", then the flames die down and go out, leaving a wisp of smoke"
 
 
+PERFORMER = ("hand", "palm", "finger", "fingertip", "fist", "knuckle", "wrist", "arm", "thumb")  # a performer in the shot
+
+
+def performer_in(subject: str | None) -> bool:
+    """Is the source a performer's hand (fire from the fingertips), by the subject's whole words ("the palm tree"
+    is no hand either, but a palm is: say "my palm" or "the open palm")?"""
+    words = words_of(subject)
+    return names(words, PERFORMER) and "tree" not in words
+
+
+LIT_BOX = 0.05  # half the side of the box around the source checked for a flame, fraction of the short side
+LIT_SHARE = 0.01  # a flame is burning there when this share of the box is a flame's near-white warm core
+
+
+def lit_at(frame: np.ndarray, point: tuple[float, float]) -> bool:
+    """Is a flame already burning at ``point`` (a lit candle)? Its near-white, warm core in a small box around it:
+    a candle's flame has one; a jack-o'-lantern's orange glow or a pumpkin in the sun does not (on 34 sources)."""
+    h, w = frame.shape[:2]
+    r = max(2, int(LIT_BOX * min(w, h)))
+    cx, cy = int(point[0] * w), int(point[1] * h)
+    box = frame[max(0, cy - r): cy + r, max(0, cx - r): cx + r].astype(np.float32) / 255.0
+    if box.size == 0:
+        return False
+    rr, gg, bb = box[..., 0], box[..., 1], box[..., 2]
+    flame = (rr > 0.9) & (gg > 0.75) & (rr - bb > 0.2)
+    return float(flame.mean()) >= LIT_SHARE
+
+
+def suited_effect(eff: EffectSpec, subject: str | None, direction: float | None, frame: np.ndarray,
+                  point: tuple[float, float], more: list | None = None) -> EffectSpec:
+    """The effect with its scene spec chosen for this shot (see SceneSpec.suited): a jack-o'-lantern keeps its
+    carved face and candle, a creature breathes out of its mouth, a hand or a prop gets the plain prompt, with a
+    resting flame only where one is already burning."""
+    if eff.scene is None:
+        return eff
+    aim = eff.scene.direction if direction is None else float(direction)
+    lit = any(lit_at(frame, tuple(p)) for p in [point, *(more or [])])  # call and response: any of its sources
+    return dataclasses.replace(eff, scene=eff.scene.suited(subject, aim, lit))
+
+
 def scene_prompt(eff: EffectSpec, subject: str | None, direction: float, hits: int = 1, size: float = 1.0,
                  describe: str | None = None) -> str:
     """The prompt for a scene render. ``describe``: the performer's own words for what happens (drawn
     effects, typed material); otherwise the effect's scene prompt with the subject, the direction, the rhythm
     (for ``hits`` >= 2) filled in, or its "small" prompt when the take's biggest event is small."""
     tail = "the light in the scene reacts to it, static camera, realistic phone video"
+    if eff.scene.variants:  # not yet suited to the shot (see suited_effect): the words for this subject and aim
+        eff = dataclasses.replace(eff, scene=eff.scene.suited(subject, direction, lit=False))
     if describe and describe.strip():
         words = " ".join(describe.strip().rstrip(".").split())[:200]
         return f"ainvfxfluid, {words}{_ending(eff, words)}, {tail}"

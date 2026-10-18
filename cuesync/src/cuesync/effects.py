@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 import os
-from dataclasses import asdict, dataclass
+import re
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -28,6 +30,39 @@ _DEFAULTS = {
 }
 
 
+_WHEN = {"subjects", "except", "aim", "lit"}
+
+
+def words_of(text: str | None) -> set[str]:
+    """The words of a subject, lower case ("the jack-o'-lanterns" -> jack, o, lanterns)."""
+    return set(re.findall(r"[a-z]+", (text or "").lower()))
+
+
+def names(words: set[str], wanted) -> bool:
+    """Does any of ``wanted`` appear among ``words`` as a whole word, or its plural ("palms" names a palm)?"""
+    return any(w in words or w + "s" in words or w + "es" in words for w in wanted)
+_USE = {"prompt", "r_min", "r_max", "direction", "resting", "bend", "shake", "flash", "rhythm", "single", "small"}
+
+
+def _variants(raw: list, source: str) -> tuple:
+    """A scene's variants as ((when, use), ...), checked: known conditions and fields, prompts that start right."""
+    out = []
+    for v in raw:
+        when, use = dict(v.get("when", {})), dict(v.get("use", {}))
+        if not when or set(when) - _WHEN or not use or set(use) - _USE:
+            raise ValueError(f"{source}: a scene variant needs 'when' ({sorted(_WHEN)}) and 'use' ({sorted(_USE)})")
+        if when.get("aim", "up") not in ("up", "down", "sideways"):
+            raise ValueError(f"{source}: a variant's aim is up, down or sideways")
+        for k in ("subjects", "except"):
+            if k in when:
+                when[k] = tuple(str(w).lower() for w in when[k])
+        for k in ("prompt", "small"):
+            if use.get(k) and not str(use[k]).startswith(PROMPT_PREFIX):
+                raise ValueError(f"{source}: scene prompts must start with {PROMPT_PREFIX!r}")
+        out.append((when, use))
+    return tuple(out)
+
+
 @dataclass(frozen=True)
 class SceneSpec:
     """How the effect is painted into the shot itself (scene mode, see scene.py)."""
@@ -43,6 +78,25 @@ class SceneSpec:
     rhythm: str = ""  # put at {rhythm} in the prompt when the take is a rhythm of hits ("pf, pf, KA-BOOM")
     single: str = ""  # put there when it is one hit or one sustained sound
     small: str = ""  # the whole prompt instead, when a single burst is small (a quick quiet "pf")
+    # what changes for a kind of subject or aim, each variant whose conditions all hold, in order: ({"subjects":
+    # [words], "except": [words], "aim": "up" | "down" | "sideways", "lit": bool}, {field: value}) -- a jack-o'-lantern's carved face,
+    # a creature's mouth, steam jetting sideways out of a palm, a resting flame only where one already burns;
+    # anything else (a hand, a prop) gets the plain prompt
+    variants: tuple = ()
+
+    def suited(self, subject: str | None, direction: float, lit: bool) -> "SceneSpec":
+        """This scene spec for a shot of ``subject``, aimed ``direction``, with a flame already burning at the
+        source (``lit``) or not: every variant whose conditions all hold, applied in order."""
+        words = words_of(subject)
+        uy = -math.cos(math.radians(direction))
+        aim = "up" if uy < -0.7 else "down" if uy > 0.7 else "sideways"
+        out = replace(self, variants=())
+        for when, use in self.variants:
+            if ("subjects" in when and not names(words, when["subjects"])) or names(words, when.get("except", ())) \
+                    or ("aim" in when and when["aim"] != aim) or ("lit" in when and bool(when["lit"]) != lit):
+                continue
+            out = replace(out, **use)
+        return out
 
 
 @dataclass(frozen=True)
@@ -120,7 +174,7 @@ def _validate(d: dict, source: str) -> EffectSpec:
                               bend=float(sd.get("bend", 0.0)), shake=float(sd.get("shake", 0.0)),
                               flash=float(sd.get("flash", 0.0)),
                               rhythm=str(sd.get("rhythm", "")), single=str(sd.get("single", "")),
-                              small=str(sd.get("small", "")))
+                              small=str(sd.get("small", "")), variants=_variants(sd.get("variants", []), source))
         except KeyError as exc:
             raise ValueError(f"{source}: scene needs {exc.args[0]!r}") from exc
         if not scene.prompt.startswith(PROMPT_PREFIX) or (scene.small and not scene.small.startswith(PROMPT_PREFIX)):

@@ -201,7 +201,6 @@ def steepest_rise(energy: np.ndarray, around: int, before: int = 12, after: int 
 
 
 MAX_WARP = 0.04  # a registration that moves the frame more than this share of its width is not trusted
-COLOUR_MIN, COLOUR_SPAN = 0.08, 0.20  # linear light: near the effect, a change this big replaces the plate
 
 
 def _ecc(src: np.ndarray, ref: np.ndarray, mask: np.ndarray, s: int = 4) -> np.ndarray:
@@ -242,6 +241,8 @@ TRACK_MAX = 0.25  # a tracked camera may move this share of the width (or scale/
 COLOUR_MIN, COLOUR_SPAN = 0.08, 0.20  # linear light: near the effect, a change this big replaces the plate
 FAR = 0.12  # share of the short side: further than this from the effect, a change of brightness is the camera's exposure
 CRUSHED = 0.004  # linear luminance: an 8-bit frame this dark has no texture left to compare, only quantisation
+UNSEEN = (0.002, 0.004)  # linear luminance: where the render and the scene are both darker than this, a change of
+# structure is noise in the black, not content (it swapped a dark background for the render's slightly bluer one)
 LIGHT_EPS = 0.004  # linear light added to both sides of a light ratio, so dark noise can't make a gain
 MAX_GAIN = 8.0  # light from the render may brighten the clip this much at most (and darken it to 1/32)
 # how much of the render's change of colour carries over, and at most how far per channel: a warmer cast (a fire's
@@ -249,6 +250,49 @@ MAX_GAIN = 8.0  # light from the render may brighten the clip this much at most 
 TINT, MAX_TINT = {"warm": 0.85, "cool": 0.5}, {"warm": 2.0, "cool": 1.4}
 FIRE_WARMTH, FIRE_BRIGHT = 0.1, 0.2  # linear light: a flame is warmer than what was there before, and bright
 REACH = 0.15  # share of the short side around the effect within which a flame is replaced, not carried as light
+# a performer's hand in the shot (fire from the fingertips): behind the source, along the arm, the clip's own pixels
+# stay, lit by the effect but never replaced; this far behind the source it starts, this wide either side of the arm
+BEHIND, ARM = 0.02, 0.15  # shares of the short side
+HAND_GROW, HAND_AREA = 0.03, (0.002, 0.6)  # the performer's matte grown by this share of the short side (the hand
+# moves a little as it holds the pose); a matte smaller or bigger than this share of the frame is no performer (SAM may
+# give the whole person, hands and chest, which is kept too: but never where the effect was painted)
+
+
+def behind(point: tuple[float, float], direction: float, w: int, h: int) -> np.ndarray:
+    """(h, w) float: the performer's hand and arm, taken to be behind the source (fingertips at ``point``, the
+    effect going ``direction``, degrees clockwise from up): from just behind the point back to the frame's edge,
+    ARM of the short side either side of that line, softly edged."""
+    side = min(w, h)
+    a = np.radians(direction)
+    ux, uy = np.sin(a), -np.cos(a)
+    yy, xx = np.mgrid[:h, :w].astype(np.float32)
+    dx, dy = xx - point[0] * w, yy - point[1] * h
+    back = -(dx * ux + dy * uy)  # how far behind the source, along the aim
+    across = np.abs(dx * uy - dy * ux)
+    m = np.clip((back - BEHIND * side) / (0.03 * side), 0, 1) * np.clip(1 - (across - ARM * side) / (0.05 * side), 0, 1)
+    return m.astype(np.float32)
+
+
+def hand_matte(matte_fn, frame: np.ndarray, point: tuple[float, float], direction: float) -> np.ndarray | None:
+    """The performer's hand (or the whole performer) in ``frame`` (the render's start frame, where the pose is
+    held), segmented a little behind the source (a tap on the fingertips can land just off them, on the wall), or
+    None when what comes back is too small or too big to be one."""
+    h, w = frame.shape[:2]
+    a = np.radians(direction)
+    back = 0.04 * min(w, h)
+    at = (float(np.clip(point[0] - back * np.sin(a) / w, 0.0, 1.0)), float(np.clip(point[1] + back * np.cos(a) / h, 0.0, 1.0)))
+    m = matte_fn(frame, at)
+    if m is None or not HAND_AREA[0] <= float(np.mean(m > 0.5)) <= HAND_AREA[1]:
+        return None
+    return m.astype(np.float32)
+
+
+def grown(mask: np.ndarray) -> np.ndarray:
+    """A matte grown by HAND_GROW of the short side and softly edged (it covers a hand that sways a little)."""
+    h, w = mask.shape[:2]
+    r = max(1, int(HAND_GROW * min(w, h)))
+    big = cv2.dilate((mask > 0.5).astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1)))
+    return np.clip(cv2.GaussianBlur(big.astype(np.float32), (0, 0), r / 3), 0, 1)
 
 
 def _hp(im: np.ndarray, s: int) -> np.ndarray:
@@ -407,7 +451,7 @@ def render_exposure(render: np.ndarray, R8: np.ndarray, Ar: np.ndarray, far: np.
 
 
 def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], region: np.ndarray, ref_frames: int,
-             start: int, threads: int = 8) -> tuple[np.ndarray, TransferStats]:
+             start: int, threads: int = 8, keep: np.ndarray | None = None) -> tuple[np.ndarray, TransferStats]:
     """Delta-transfer ``render`` (already at the plate's size) onto ``plate``. ``index[f]`` is the render
     frame for plate frame f (None: before the render starts, the plate is left alone). After the render
     ends, its last frame's change stays (what the effect left behind stays). Check ``stats.accepted``.
@@ -416,9 +460,15 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
     onto the start frame, and each render frame is warped once, straight onto its plate frame, with the settled
     scene it is compared against warped there too. The render's own exposure dip is measured and taken out
     before anything is compared (structure, change), but the shot keeps it: a camera exposing for a fireball
-    darkens the room, and taking the dip out of the picture too amplified the render's crushed colour into a cast."""
+    darkens the room, and taking the dip out of the picture too amplified the render's crushed colour into a cast.
+
+    ``keep`` (start-frame layout, see ``behind``): where the clip's own pixels must stay, lit by the effect but
+    never replaced (a performer's hand, which moves on its own and which the render re-draws as it likes); it is
+    also left out of the camera tracking and of the residual."""
     n, h, w = plate.shape[:3]
     static = ~region
+    hand = np.zeros((h, w), np.float32) if keep is None else np.clip(keep, 0, 1).astype(np.float32)
+    track_on = static & (hand < 0.5)  # a moving hand would drag the fit of the camera with it
     moves = not is_still(plate)
     if static.mean() < MIN_STATIC:
         return plate.copy(), TransferStats(residual=None, inside=None, gain=[1.0, 1.0, 1.0], plate_moves=moves, accepted=False,
@@ -431,9 +481,12 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
     gain = np.where(np.isfinite(gain), np.clip(gain, 0.25, 4.0), 1.0).astype(np.float32)
     rl = R * gain
     r_struct = _structure(rl)
-    Ar = track(render, R8, static)  # settled render -> render frame e
-    Ap = track(plate, p0, static, anchor=a) if moves else np.repeat(np.eye(2, 3, dtype=np.float32)[None], n, 0)  # start -> f
+    if track_on.mean() < MIN_STATIC:
+        track_on = static
+    Ar = track(render, R8, track_on)  # settled render -> render frame e
+    Ap = track(plate, p0, track_on, anchor=a) if moves else np.repeat(np.eye(2, 3, dtype=np.float32)[None], n, 0)  # start -> f
     far = cv2.distanceTransform(static.astype(np.uint8), cv2.DIST_L2, 5) > FAR * min(w, h)
+    far &= hand < 0.5  # a performer moves on their own: their hands and clothes are no measure of the exposure
     if far.mean() < MIN_STATIC:
         far = static
     k_exp = render_exposure(render, R8, Ar, far)
@@ -441,6 +494,7 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
     # plate, and not where the render's own content moved (else anything moving in the plate would ghost)
     feather = cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.02 * min(w, h)))
     feather = np.clip(feather * 2.0, 0.0, 1.0)
+    hand = hand * (1.0 - feather)  # where the effect was painted it goes in front of the performer (fire up past the chest)
     near = np.clip(cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.05 * min(w, h))) * 3.0, 0.0, 1.0)
     # the render's flame can grow past where it was painted (taller, over a bright window); a flame is replaced, not
     # carried as light, this far around the effect (as light alone, its top half went see-through over the window)
@@ -479,7 +533,8 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         rep_ = cv2.BORDER_REPLICATE
         feat, nearf, reachf = onto(feather, rep_), onto(near, rep_), onto(reach, rep_)
         reg_f = onto(region.astype(np.float32), rep_) > 0.5
-        stat_f = ~reg_f & valid
+        hand_f = onto(hand, rep_) if keep is not None else None
+        stat_f = ~reg_f & valid & (hand_f < 0.5 if hand_f is not None else True)
         k = float(k_exp[e])
         gl = lin(G) * gain
         norm = gl / k  # at the settled scene's exposure, for comparing only
@@ -488,6 +543,8 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         # clipped light is light, and a frame the model darkened to a few 8-bit levels has no texture to compare
         trusted = (y_g < 0.85) & (y_r < 0.85) & (y_r > 2e-3) & ((gl @ _LUMA) > CRUSHED)
         changed = np.clip((cv2.GaussianBlur(sdiff, (0, 0), 2.0) - 0.06) / 0.18, 0.0, 1.0)
+        seen_y = cv2.GaussianBlur(np.maximum(norm @ _LUMA, rlf @ _LUMA), (0, 0), 2.0)
+        changed = changed * np.clip((seen_y - UNSEEN[0]) / UNSEEN[1], 0.0, 1.0)  # black on black stays the clip's
         # near the effect a smooth, bright change (a fireball, a plume of smoke) has little structure, and taken as
         # light it was added to the plate as a see-through ghost; so there plain change of colour counts too
         colour = np.clip((cv2.GaussianBlur(np.abs(norm - rlf).max(-1), (0, 0), 2.0) - COLOUR_MIN) / COLOUR_SPAN, 0.0, 1.0)
@@ -500,11 +557,16 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         # didn't move (else anything moving in the render would print onto the clip) and filled in from around it
         quiet = np.clip(1.0 - cv2.dilate(cv2.GaussianBlur(changed, (0, 0), 4.0), np.ones((9, 9), np.uint8)), 0.0, 1.0)
         good = quiet * valid * trusted
+        if hand_f is not None:  # the render re-draws a hand as it likes (a green hand is not green light): the light
+            good = good * (1.0 - hand_f)  # on it is filled in from around it
         room, _ = light_gain(gl, rlf, 0.12 * min(w, h), good + 1e-3)
         local, support = light_gain(gl, rlf, 16.0, good)
         a3 = np.clip(support / 0.2, 0.0, 1.0)[..., None]
         far_light = local * a3 + room * (1.0 - a3)
-        L = light_gain(gl, rlf, 4.0, valid * trusted + 1e-3)[0] * feat[..., None] + far_light * (1.0 - feat)[..., None]
+        detail = feat if hand_f is None else feat * (1.0 - hand_f)  # on the hand only smooth light: its detail is the render's
+        L = light_gain(gl, rlf, 4.0, valid * trusted + 1e-3)[0] * detail[..., None] + far_light * (1.0 - detail)[..., None]
+        if hand_f is not None:
+            Mm = Mm * (1.0 - hand_f)
         M3 = Mm[..., None]
         out[f] = gam(pl * L * (1.0 - M3) + gl * M3)
         res_in.append(float(sdiff[reg_f].mean()) if reg_f.any() else 0.0)

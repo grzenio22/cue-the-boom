@@ -6,6 +6,9 @@ early and dies away), a "rhythm" of hits ("pf, pf, KA-BOOM"), a voiced "sustaine
 that have a clear period in the voice range (a "BOOM" or a "wooo" has one; a hiss or a breath has none).
 A sample plate maps gestures to effects (the candle: a hit blows it out, a sustained sound flares it); any
 other plate uses the defaults. Samples and live takes go through the same rules.
+
+A plate with no map of its own (your own clip of a hand, a prop) goes by what the sound is instead: a boom, a
+whoosh, a hiss or a puff, with whether a flame already burns there (see ``heard`` and ``effect_for_kind``).
 """
 
 from __future__ import annotations
@@ -108,10 +111,73 @@ OBJECTS = {  # your own clip: say what it is, and the noise does to it what it w
     "hot-drink": {"title": "a hot drink", "subject": "the hot drink",
                   "scene": {"hit": "steam_jet", "rhythm": "steam_jet", "sustained": "steam_jet", "breath": "steam_jet",
                             "hiss": "steam_jet"}},
+    "hand": {"title": "your hand (fire from the fingertips)", "subject": "the outstretched hand"},  # by the sound's kind
     "flammable": {"title": "something to set alight", "subject": None,
                   "scene": {"hit": "fireball", "rhythm": "fireball", "sustained": "flame_plume", "breath": "smoke_puff",
                             "hiss": "steam_jet"}},
 }
+
+
+KIND_ELEMENT = {"boom": "fireball", "whoosh": "flame_plume", "hiss": "steam_jet", "puff": "smoke_puff"}  # the classic four
+
+
+def heard(cue: CueSheet, samples: np.ndarray | None, sr: int = 48000, source: str = "voice") -> dict:
+    """What the take sounds like, not its words: "boom" (voiced, a "KA-BOOM", a "pf, pf, KA-BOOM"), "whoosh" (a
+    voiced sound that swells or holds, "fwoooOOOM"), "hiss" (long and unvoiced) or "puff" (short and unvoiced:
+    "pf.", "pfffff", a blow), read from its gesture and whether it has a pitch; and, for the record, the kind
+    cue_detect's acoustic heuristics give each hit. (Those alone missed too many real voices to pick with: on 19
+    takes a long "BOOM" was a whoosh, every "pf" a breath it dropped, a hiss a crackle, "fwoooom" a boom.)"""
+    from .cue_detect import detect_cues
+
+    g = gesture(cue, samples, sr, source)
+    detected: list[str] = []
+    if source == "hold" or samples is None or not np.any(samples):
+        return {"kind": None, "gesture": g, "voiced": None, "detected_kinds": detected}
+    try:
+        detected = list(detect_cues(np.asarray(samples, np.float32).reshape(-1), sr, len(cue.envelope), cue.fps,
+                                    audio_offset_ms=-1000.0 * cue.offset_s)["kinds"])
+    except ValueError:
+        pass
+    iv = cue.intervals()
+    voiced = voiced_share(samples, sr, iv, cue.fps, cue.offset_s) >= VOICED_SHARE
+    dur = sum(b - a for a, b in iv) / cue.fps
+    kind = {"hiss": "hiss", "breath": "puff", "sustained": "whoosh"}.get(g)
+    if kind is None:  # a hit or a rhythm: voiced, it is a boom; unvoiced, a puff (or, long, a hiss)
+        kind = "boom" if voiced else "hiss" if g == "rhythm" and dur >= VOICED_LONG_S else "puff"
+    return {"kind": kind, "gesture": g, "voiced": bool(voiced), "detected_kinds": detected}
+
+
+def _upright(strokes: list | None, aspect: float = 1.0) -> bool:
+    """Is a drawing mostly up and down (a plume), rather than across (a jet)? ``aspect``: the plate's width over
+    its height (stroke points are fractions of each)."""
+    dx = dy = 0.0
+    for s in strokes or []:
+        pts = np.asarray(s.get("points") or [], np.float64).reshape(-1, 2)
+        if len(pts) > 1:
+            d = np.abs(np.diff(pts, axis=0)).sum(0)
+            dx, dy = dx + d[0] * aspect, dy + d[1]
+    return dy > dx
+
+
+def effect_for_kind(kind: str, scene: bool, lit: bool = False, strokes: list | None = None, aimed: bool = False,
+                    rhythm: bool = False, aspect: float = 1.0) -> str:
+    """The effect a sound asks for. A boom bursts into flame (aimed, a rhythm of them shoots out as separate jets:
+    jab, jab, palm-strike); a whoosh is a jet of fire (aimed, or drawn across) or a plume (drawn upright, or a prop
+    nobody aimed), and flares a flame that already burns; a hiss is steam; a puff blows a burning flame out, else
+    it is a blast of air and smoke. ``lit``: a flame already burns at the source (scene.lit_at)."""
+    if not scene:
+        return KIND_ELEMENT.get(kind, "fireball")
+    if kind == "puff":
+        return "blow_out" if lit else "smoke_puff"
+    if kind == "hiss":
+        return "steam_jet"
+    if kind == "whoosh":
+        if lit:
+            return "wick_flare"
+        if strokes:
+            return "flame_plume" if _upright(strokes, aspect) else "fire_breath"
+        return "fire_breath" if aimed else "flame_plume"
+    return "fire_breath" if aimed and rhythm and not strokes else "fire_burst"
 
 
 def effect_for(g: str, plate_meta: dict | None = None, voice_name: str | None = None) -> str:

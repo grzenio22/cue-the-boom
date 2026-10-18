@@ -13,6 +13,16 @@
   "scene": {
     "prompt": "ainvfxfluid, thin translucent wisps of steam rise and curl up from {subject}, drifting gently in the light and fading as they rise, static camera, realistic phone video",
     "r_min": 0.1,
-    "r_max": 0.4
+    "r_max": 0.4,
+    "variants": [
+      {
+        "when": {
+          "aim": "sideways"
+        },
+        "use": {
+          "prompt": "ainvfxfluid, a pressurized jet of white steam and mist shoots {towards} from {subject}, billowing and thinning out in the light as it goes, static camera, realistic phone video"
+        }
+      }
+    ]
   }
 }

@@ -136,6 +136,40 @@ def shot_cue(spec: "ShotSpec", duration_s: float | None = None):
                     duration_s=duration_s or spec.max_plate_s, fps=FPS, sr=SR)
 
 
+def auto_effect(spec: "ShotSpec", plate_meta: dict | None = None, voice_name: str | None = None) -> "ShotSpec":
+    """Effect "auto": the take picks it (``spec.effect`` set, what was heard in ``spec.extra``). A plate with its
+    own map (a sample, or what your clip shows: a candle, a hot drink) reads the take's gesture through it; any
+    other plate (a hand, a prop) goes by what the sound is (gestures.heard, effect_for_kind), with whether a flame
+    already burns at the source. A press-and-hold has no sound: its gesture, by the defaults."""
+    from .gestures import DEFAULTS, effect_for, effect_for_kind, gesture, heard
+
+    pm = plate_meta or {}
+    scene = spec.mode == "scene"
+    c = shot_cue(spec)
+    g = gesture(c.cue, c.samples, source=c.source)
+    spec.extra["gesture"] = g
+    if not pm.get("scene"):
+        h = heard(c.cue, c.samples, SR, c.source)
+        if h["kind"]:
+            lit, aspect = False, 1.0
+            if scene:
+                from .scene import lit_at
+
+                first = read_video(spec.plate, max_s=0.05).frames[0]
+                lit = any(lit_at(first, tuple(p)) for p in [spec.point, *(spec.sources or [])])
+                aspect = first.shape[1] / first.shape[0]
+            spec.effect = effect_for_kind(h["kind"], scene, lit, spec.strokes, aimed=spec.direction is not None,
+                                          rhythm=g == "rhythm", aspect=aspect)
+            spec.extra["auto"] = h | {"heard": h["kind"], "lit": lit, "picked": spec.effect}
+            return spec
+    aim = pm | ({"direction": spec.direction} if spec.direction is not None else {})
+    spec.effect = effect_for(g, aim, voice_name) if scene else DEFAULTS[g]
+    if scene and load_effect(spec.effect).scene is None:
+        spec.effect = DEFAULTS[g]
+    spec.extra["auto"] = {"gesture": g, "picked": spec.effect}
+    return spec
+
+
 def _sha(path: Path | None) -> str | None:
     if path is None:
         return None
@@ -146,11 +180,10 @@ FOLEY_GAIN = 0.65  # the effect's own sound sits under the performer's cue, whic
 SOUND = {"cue": "as performed", "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)", "foley_gain": FOLEY_GAIN}
 
 
-def soundtrack(cue_audio: np.ndarray, eff, n_frames: int, envelope: np.ndarray, hits: list[int], strengths: list[float],
-               stop: int | None, seed: int) -> np.ndarray:
-    """The shot's sound: the cue as performed, over procedural Foley of what the effect does on screen (a fire's
-    whoomph and crackle, a puff of smoke, a candle blown out), each hit on the frame where it shows, soft-limited so
-    the two together never clip. Foley that can't be made never costs the shot: then it is the cue alone."""
+def foley(eff, n_frames: int, envelope: np.ndarray, hits: list[int], strengths: list[float], stop: int | None,
+          seed: int) -> np.ndarray | None:
+    """Procedural Foley of what the effect does on screen (a fire's whoomph and crackle, a puff of smoke, a candle
+    blown out), each hit on the frame where it shows; None when it can't be made."""
     from .sfx_synth import synthesize_shot_sfx
 
     env = np.zeros(n_frames, np.float64)
@@ -158,16 +191,32 @@ def soundtrack(cue_audio: np.ndarray, eff, n_frames: int, envelope: np.ndarray, 
     env[:m] = np.clip(np.asarray(envelope, np.float64)[:m], 0.0, 1.0)
     kept = [(int(h), float(s)) for h, s in zip(hits, strengths) if 0 <= h < n_frames]
     try:
-        foley = synthesize_shot_sfx(effect_id=eff.id, fluid=eff.fluid, behaviour=eff.behaviour, n_frames=n_frames,
-                                    envelope=env, hits=[h for h, _ in kept], strengths=[s for _, s in kept],
-                                    stop_frame=None if stop is None else int(np.clip(stop, 0, n_frames)), fps=FPS, sr=SR,
-                                    seed=int(seed))
+        return synthesize_shot_sfx(effect_id=eff.id, fluid=eff.fluid, behaviour=eff.behaviour, n_frames=n_frames,
+                                   envelope=env, hits=[h for h, _ in kept], strengths=[s for _, s in kept],
+                                   stop_frame=None if stop is None else int(np.clip(stop, 0, n_frames)), fps=FPS, sr=SR,
+                                   seed=int(seed))
     except ValueError:
+        return None
+
+
+def mix_foley(cue_audio: np.ndarray, sounds: list[np.ndarray | None]) -> np.ndarray:
+    """The cue as performed over the Foley, soft-limited so the two together never clip; the cue alone when there
+    is no Foley."""
+    sounds = [f for f in sounds if f is not None]
+    if not sounds:
         return cue_audio
     mixed = np.asarray(cue_audio, np.float32).copy()
-    k = min(mixed.size, foley.size)
-    mixed[:k] += FOLEY_GAIN * foley[:k]
+    for f in sounds:
+        k = min(mixed.size, f.size)
+        mixed[:k] += FOLEY_GAIN * f[:k]
     return (np.tanh(mixed / 0.9) * 0.9).astype(np.float32)
+
+
+def soundtrack(cue_audio: np.ndarray, eff, n_frames: int, envelope: np.ndarray, hits: list[int], strengths: list[float],
+               stop: int | None, seed: int) -> np.ndarray:
+    """The shot's sound: the cue as performed, over procedural Foley of what the effect does on screen, soft-limited
+    (see foley, mix_foley). Foley that can't be made never costs the shot: then it is the cue alone."""
+    return mix_foley(cue_audio, [foley(eff, n_frames, envelope, hits, strengths, stop, seed)])
 
 
 def place_audio(samples: np.ndarray, offset_s: float, n_frames: int, fps: int = FPS, sr: int = SR) -> np.ndarray:
@@ -375,6 +424,14 @@ def load_plate(path: Path, point: tuple[float, float], max_s: float, size: tuple
     return frames, (min(max(px, 0.0), 1.0), min(max(py, 0.0), 1.0)), element_size
 
 
+def plate_box(path: Path, point: tuple[float, float], size: tuple[int, int] | None = None) -> tuple[float, ...]:
+    """The crop load_plate takes from ``path`` for a shot tapped at ``point``, as fractions of the source frame."""
+    info = probe_video(path)
+    size = size or ((1920, 1080) if info.width > info.height else (1080, 1920))
+    b = _crop_box(info.width, info.height, size[0], size[1], point)
+    return (b[0] / info.width, b[1] / info.height, b[2] / info.width, b[3] / info.height)
+
+
 def plate_notes(path: Path, max_s: float) -> list[str]:
     """What the receipt should say about the plate: a clip longer than the shot uses is cut, not refused."""
     d = probe_video(path).duration_s
@@ -397,6 +454,8 @@ def _place(eff, anchor: int, intervals: list, frames: np.ndarray, n: int, next_h
 
 
 def make_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress: Progress | None = None) -> ShotResult:
+    if spec.effect == "auto":  # the take picks the effect
+        spec = auto_effect(spec)
     if spec.mode == "scene":
         from .scene_shot import make_scene_shot
 
@@ -622,6 +681,7 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
         "alignment": {"mode": eff.align, "offset": align.offset, "first_element_frame": align.first,
                       "visible_onset": timing.visible_onset, "hit": timing.hit_frame, "peak": timing.peak},
         "sound": SOUND,
+        "auto": spec.extra.get("auto"),
         "measured": {"onset_error_frames": None if onset is None else onset - plan.anchor_frame,
                      # where the hit is seen (the first plate frame showing the element's hit with a gate open)
                      # against where it should be: on the sound, or lead_frames before it (light beats sound)

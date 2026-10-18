@@ -11,14 +11,44 @@
   "keyframe_stride": 8,
   "composite": "screen",
   "scene": {
-    "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
-    "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video",
+    "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks erupts {towards} from {subject}{rhythm}, lighting up {subject} and the whole room with flickering warm orange light, then dark smoke rolls up and fades, static camera, realistic phone video",
+    "small": "ainvfxfluid, a quick small puff of flame pops {towards} from {subject} and lights it up for a moment, static camera, realistic phone video",
     "rhythm": " in two small puffs and then one big blast",
     "single": "",
     "r_min": 0.12,
     "r_max": 0.4,
-    "resting": 0.06,
+    "resting": 0.0,
     "shake": 0.006,
-    "flash": 0.45
+    "flash": 0.45,
+    "variants": [
+      {
+        "when": {
+          "subjects": [
+            "jack",
+            "pumpkin",
+            "lantern"
+          ]
+        },
+        "use": {
+          "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
+          "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video"
+        }
+      },
+      {
+        "when": {
+          "lit": true,
+          "except": [
+            "lamp",
+            "ghost",
+            "bulb",
+            "neon",
+            "screen"
+          ]
+        },
+        "use": {
+          "resting": 0.06
+        }
+      }
+    ]
   }
 }

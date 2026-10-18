@@ -18,20 +18,29 @@ SHOT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "eleme
               "cue.json", "guide.json", "guide_preview.mp4", "start_frame.png", "matte.png")
 
 
-def effect_signature(effect: str) -> str:
-    """A short hash of an effect's definition: a shot made with an older version of it is not that shot."""
+def effect_signature(effect: str, subject: str | None = None, direction: float | None = None) -> str:
+    """A short hash of an effect's definition as it applies to a shot of ``subject`` aimed ``direction`` (its
+    scene variants resolved, a flame taken as burning): a shot made with an older version of it is not that shot,
+    but words added for other subjects (a hand) don't retire a jack-o'-lantern's."""
     import hashlib
+    from dataclasses import asdict
 
     from .effects import load_effect
 
-    return hashlib.sha1(json.dumps(load_effect(effect).to_json(), sort_keys=True).encode()).hexdigest()[:8]
+    eff = load_effect(effect)
+    d = eff.to_json()
+    if eff.scene is not None:
+        d["scene"] = asdict(eff.scene.suited(subject, eff.scene.direction if direction is None else direction, lit=True))
+        d["scene"].pop("variants", None)
+    return hashlib.sha1(json.dumps(d, sort_keys=True).encode()).hexdigest()[:8]
 
 
 def cache_key(mode: str, plate: str, voice: str, effect: str, point: tuple[float, float], seed: int = 1,
-              direction: float | None = None) -> str:
+              direction: float | None = None, subject: str | None = None) -> str:
     """The identity of a sample shot. Points are rounded to the hundredth: a sample's suggested spot; a scene
     shot's direction to the degree; the effect by its definition, so editing an effect retires its old shots."""
-    key = f"{mode}|{plate}|{voice}|{effect}@{effect_signature(effect)}|{point[0]:.2f},{point[1]:.2f}|{seed}"
+    sig = effect_signature(effect, subject if mode == "scene" else None, direction)
+    key = f"{mode}|{plate}|{voice}|{effect}@{sig}|{point[0]:.2f},{point[1]:.2f}|{seed}"
     return key + (f"|{round(direction)}" if direction is not None else "")
 
 
@@ -85,7 +94,7 @@ def precompute(renderer, mode: str, samples_dir: Path, out_root: Path, progress=
     index = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else {}
     for p in sample_pairs(samples_dir, mode):
         # the studio asks for a sample's first take with seed 1; a scene pair may be made with a chosen seed
-        key = cache_key(mode, p["plate"], p["voice"], p["effect"], p["point"], 1, p.get("direction"))
+        key = cache_key(mode, p["plate"], p["voice"], p["effect"], p["point"], 1, p.get("direction"), p.get("subject"))
         name = f"{Path(p['plate']).stem}__{Path(p['voice']).stem}__{p['effect']}"
         if key in index and (out / index[key]["dir"] / "final.mp4").exists():
             continue

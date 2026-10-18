@@ -112,7 +112,7 @@ def cmd_shot(args) -> int:
         holds = [tuple(float(v) for v in h.split("-", 1)) for h in args.hold]
     if args.cue == "voice" and not args.voice:
         raise SystemExit("--voice is required for a voice cue (or use --cue clip / --cue hold)")
-    if not args.scene and (args.strokes or args.describe or args.effect not in ("fireball", "flame_plume", "smoke_puff", "steam_jet")):
+    if not args.scene and (args.strokes or args.describe or args.effect not in ("auto", "fireball", "flame_plume", "smoke_puff", "steam_jet")):
         raise SystemExit("--strokes, --describe and the scene effects (fire_breath, fire_burst, wick_flare, blow_out) "
                          "need --scene")
     strokes = json.loads(Path(args.strokes).read_text(encoding="utf-8")) if args.strokes else None
@@ -306,7 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="what times it: your voice, a sound already in the plate (snap, click, slam), or --hold")
     sh.add_argument("--hold", action="append", metavar="PRESS-RELEASE",
                     help="--cue hold: press and release times in seconds, e.g. 1.0-2.5 (repeat for more)")
-    sh.add_argument("--effect", required=True, help="an effect id from effects/ (fireball, fire_breath, wick_flare, "
+    sh.add_argument("--effect", required=True, help="auto (the sound picks it), or an effect id from effects/ (fireball, fire_breath, wick_flare, "
                                                     "blow_out, flame_plume, smoke_puff, steam_jet)")
     sh.add_argument("--x", type=float, default=0.5, help="emission point, 0..1 across the plate")
     sh.add_argument("--y", type=float, default=0.7, help="emission point, 0..1 down the plate")

@@ -28,7 +28,9 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
   return (
     <div className="row">
       {job.cached && <span className="chip warn">{live ? "a sample made earlier: perform your own noise to make one live" : "a sample made earlier"}</span>}
-      {r.replayed && <span className="chip">performed again on the same render ({r.replayed.new_hits} hit{r.replayed.new_hits === 1 ? "" : "s"} from its {r.replayed.render_hits}): no new render</span>}
+      {r.replayed && <span className="chip">{(r.replayed.renders ?? 1) > 1
+        ? `${r.replayed.renders} shots performed together, each at its own spot (${r.replayed.new_hits} hit${r.replayed.new_hits === 1 ? "" : "s"}): no new render`
+        : `performed again on the same render (${r.replayed.new_hits} hit${r.replayed.new_hits === 1 ? "" : "s"} from its ${r.replayed.render_hits}): no new render`}</span>}
       {r.retimed && <span className="chip">re-timed by hand: hit {r.retimed.hit_shift_frames >= 0 ? "+" : ""}{ms(r.retimed.hit_shift_frames)} ms{r.retimed.stop_frame !== null ? `, stop at ${(r.retimed.stop_frame / 24).toFixed(2)} s` : ""}, same element</span>}
       <span className="chip">{scene ? (r.replayed ? `rendered into the scene ahead of time (${r.render.seconds.toFixed(0)} s on open weights, LTX-2.5)`
         : `rendered into your scene in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5, from your plate's frame)`)
@@ -40,7 +42,8 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
           : r.replayed ? `${r.hits.length} hits, each on your cue, brighter or dimmer by how loud it was`
           : `${r.hits.length} hits, each its own ${scene ? "event" : "burst"}, sized by how you made it`}</span>;
       })()}
-      {job.effect && job.gesture && <span className="chip">{job.cached ? "the" : "your"} {cue === "hold" ? "timing" : "noise"} read as a {job.gesture}: {EFFECT_LABELS[job.effect]?.name ?? job.effect}</span>}
+      {job.effect && job.heard && !r.replayed && <span className="chip">heard a &ldquo;{job.heard}&rdquo;: {EFFECT_LABELS[job.effect]?.name ?? job.effect}</span>}
+      {job.effect && job.gesture && !job.heard && <span className="chip">{job.cached ? "the" : "your"} {cue === "hold" ? "timing" : "noise"} read as a {job.gesture}: {EFFECT_LABELS[job.effect]?.name ?? job.effect}</span>}
       {cue === "clip" && <span className="chip">locked to the sound in your clip</span>}
       {r.inputs?.drawn && <span className="chip">where you drew it</span>}
       {r.inputs?.sources && r.inputs.sources.length > 1 && <span className="chip">call and response: each hit at its own source, in order</span>}
@@ -57,7 +60,7 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
 }
 
 /** Step 4: pick the effect and how to make it, then the shot. */
-export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], initialJob, replayOf = null, onReplay, onBusy, onDone }: {
+export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], initialJob, replayOf = null, replayWith = [], siblings = [], onReplay, onBusy, onDone }: {
   plate: PickedPlate;
   point: [number, number];
   direction: number | null;
@@ -69,7 +72,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   sources?: [number, number][]; // call and response: one source per hit, in order (the first is the point)
   initialJob?: JobStatus | null; // this take's shot, if it was already made (coming back to it)
   replayOf?: string | null; // play this take on that finished shot's render (no new render)
-  onReplay?: (jobId: string) => void; // the performer wants to perform this shot again
+  replayWith?: string[]; // and those other shots on the plate with it, as one scene
+  siblings?: string[]; // the other finished shots on this still plate that could be performed with this one
+  onReplay?: (jobId: string, together: string[]) => void; // the performer wants to perform this shot (and those) again
   onBusy?: (busy: boolean) => void;
   onDone: (job: JobStatus, effect: string) => void;
 }) {
@@ -114,7 +119,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     setEvent({ stage: "uploading", progress: 0.01, message: "Uploading", t: 0 });
     try {
       const queued = replayOf
-        ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing })
+        ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing,
+          together: replayWith })
         : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
           timing: performance.timing, effect, point, seed, mode, direction, subject: subject.trim() || null, object: kind,
           cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
@@ -222,7 +228,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
               {k.title}
             </button>
           ))}
-          {effect === AUTO_EFFECT && kind && <span className="muted">your cue does to it what it would to a {kinds.find((k) => k.id === kind)?.title.replace(/^an? /, "")}</span>}
+          {effect === AUTO_EFFECT && kind && (Object.keys(kinds.find((k) => k.id === kind)?.scene ?? {}).length
+            ? <span className="muted">your cue does to it what it would to a {kinds.find((k) => k.id === kind)?.title.replace(/^an? /, "")}</span>
+            : <span className="muted">the sound picks it: a boom bursts, a whoosh is a jet of fire where you aim it (a plume if you don&apos;t), a hiss is steam, a puff is a blast of air</span>)}
         </div>
       )}
       {mode === "scene" && !plate.sample && (
@@ -265,8 +273,14 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />
           {again && onReplay && (
             <div className="row">
-              <button onClick={() => onReplay(again)}>Perform it again</button>
+              <button onClick={() => onReplay(again, replayWith)}>Perform it again</button>
               <span className="muted">a new rhythm or another voice on the same render: no new render, ready in about 20 s</span>
+            </div>
+          )}
+          {again && onReplay && siblings.length > 0 && (
+            <div className="row">
+              <button onClick={() => onReplay(again, siblings)}>Perform all {siblings.length + 1} together</button>
+              <span className="muted">your shots on this plate as one scene, each effect at its own spot: one rhythm plays them all, no new render</span>
             </div>
           )}
           {!job.receipt?.replayed && <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}

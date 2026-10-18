@@ -31,9 +31,9 @@ from .matte import grabcut_matte
 from .media import probe_video, read_video, write_video
 from .pipeline import (FINISH_PRESET, FPS, Progress, Renderer, ShotResult, ShotSpec, _breakdown, _face_track,
                        _finalise, _sha, auto_scale, load_plate, place_audio, plate_notes, shot_cue, SOUND, soundtrack)
-from .scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
+from .scene import ScenePlan, Strokes, paint_scene_guide, performer_in, plan_window, scene_prompt, scene_size, suited_effect
 from .transfer import (FIRST_RISE, TransferStats, _ecc, changed_share, effect_region, first_visible, gam, hit_onsets,
-                       is_still, lin, onset_past_steps, transfer)
+                       behind, grown, hand_matte, is_still, lin, onset_past_steps, transfer)
 
 MAX_SHIFT = 16  # the model is trusted to land within this many frames of the painted hit
 WARP = (3 / 4, 4 / 3)  # how much slower or faster a rhythm's render may play between two hits to put each on its cue
@@ -231,10 +231,14 @@ def source_onsets(steady: np.ndarray, region: np.ndarray, sp: ScenePlan, eff, wa
 
 
 def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan, eff, max_frames: int,
-               hit_shift: int = 0, threads: int = 8, voice_end: int | None = None, impacts: bool = True) -> SceneTiming:
+               hit_shift: int = 0, threads: int = 8, voice_end: int | None = None, impacts: bool = True,
+               performer: tuple[float, float] | None = None, hand: np.ndarray | None = None) -> SceneTiming:
     """Put an in-scene render on the plate's timeline: measure where the effect visibly starts, move it onto
     the cue (minus the effect's lead), then a still plate becomes the render and a moving plate gets the
-    delta (or, if that fails its check, the render). ``render`` must already be at the plate's size."""
+    delta (or, if that fails its check, the render). ``render`` must already be at the plate's size.
+    ``performer``: the source is a performer's fingertips (see transfer.behind): the hand behind it keeps its
+    own pixels, lit by the effect, and gets the delta even on a still plate (the render re-draws a hand);
+    ``hand``, its matte on the render's start frame (transfer.hand_matte), keeps all of it, fingers and thumb."""
     n = plate.shape[0]
     L = render.shape[0]
     warnings: list[str] = []
@@ -314,14 +318,19 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     if sp.dropped:
         warnings.append(f"{len(sp.dropped)} later hit(s) fall outside the {L}-frame render and were left out")
     stats = None
-    if still:
+    keep = None if performer is None else behind(performer, sp.direction, plate.shape[2], plate.shape[1])
+    if keep is not None and hand is not None and hand.shape == keep.shape:
+        keep = np.maximum(keep, grown(hand))
+    if still and keep is None:
         pick: list[int | None] = [int(np.clip(e, 0, L - 1)) for e in index]
         frames = render[pick]
         plate_view = np.broadcast_to(plate[0], (n_out,) + plate.shape[1:])
         idx_out = pick
     else:
         idx = [None if e < 0 else min(e, L - 1) for e in index]
-        frames, stats = transfer(plate, render, idx, region, ref_frames, start, threads=threads)
+        if still:  # a performer on a still plate: held as long as the render needs
+            plate = np.ascontiguousarray(np.broadcast_to(plate[0], (n_out,) + plate.shape[1:]))
+        frames, stats = transfer(plate, render, idx, region, ref_frames, start, threads=threads, keep=keep)
         if not stats.accepted:
             warnings.append(f"used the render instead of your clip's own pixels: {stats.reason}")
             frames = _render_over_plate(plate, render, idx)
@@ -481,6 +490,8 @@ def make_scene_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress:
     # (a drawing already says how big it is)
     scale = (1.0 if strokes is not None else
              spec.scale if spec.scale is not None else float(np.clip(auto_scale(occluder, point, eff.behaviour), 0.8, 1.15)))
+    aim = strokes.direction if strokes is not None else spec.direction  # the way the guide paints it
+    eff = suited_effect(eff, spec.subject, aim, plate[0], point, sources)  # a hand is not a jack-o'-lantern
     start, length = plan_window(cue, eff, None if still else n, multi_hit=spec.multi_hit)
     sp = paint_scene_guide(cue, eff, point, plate[:1] if still else plate, start=start, length=length,
                            direction=spec.direction, scale=scale, size=scene_size(pw, ph), multi_hit=spec.multi_hit,
@@ -489,6 +500,11 @@ def make_scene_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress:
     if not sp.events:  # nothing to render: say so before spending a GPU render on it
         raise ValueError("the cue's hit is too close to the end of the clip (or outside it) to paint an effect; "
                          "cue it earlier or use a longer clip")
+    (out_dir / "performer.png").unlink(missing_ok=True)  # never an earlier shot's, in a reused folder
+    if performer_in(spec.subject):  # the performer's hand, kept whole (its matte where the render starts)
+        hand = hand_matte(matte_fn, plate[int(np.clip(sp.start, 0, n - 1))], point, sp.direction)
+        if hand is not None:
+            Image.fromarray((np.clip(hand, 0, 1) * 255 + 0.5).astype(np.uint8)).save(out_dir / "performer.png")
     write_guide(sp.guide, out_dir / "guide.mp4", fps=FPS)
     write_guide_preview(sp.guide, out_dir / "guide_preview.mp4", fps=FPS)
     (out_dir / "guide.json").write_text(json.dumps(sp.to_json(), indent=1))
@@ -517,9 +533,12 @@ def retime_scene_shot(src: Path, spec: ShotSpec, out_dir: Path, hit_shift: int =
     old = json.loads((src / "receipt.json").read_text())
     say("reading", 0.05, "Reading your plate")
     plate, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size)
-    for name in ("cue.json", "guide.json", "guide.mp4", "guide_preview.mp4", "render.mp4", "start_frame.png", "matte.png"):
+    for name in ("cue.json", "guide.json", "guide.mp4", "guide_preview.mp4", "render.mp4", "start_frame.png", "matte.png",
+                 "performer.png"):
         if (src / name).exists() and src != out_dir:
             shutil.copyfile(src / name, out_dir / name)
+        elif name == "performer.png" and src != out_dir:  # a shot with no hand matte leaves none behind
+            (out_dir / name).unlink(missing_ok=True)
     c = shot_cue(spec, plate.shape[0] / FPS)
     cue = CueSheet.from_json(json.loads((src / "cue.json").read_text()))
     sp = ScenePlan.from_json(json.loads((src / "guide.json").read_text()), read_video(src / "guide.mp4").frames)
@@ -546,7 +565,11 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
     if not still:
         say("compositing", 0.76, "Putting what changed onto your footage")
     voice_end = cue.voice_end_frame
-    st = time_scene(plate, still, render, sp, eff, int(round(spec.max_plate_s * FPS)), hit_shift, voice_end=voice_end)
+    hand = None
+    if performer_in(spec.subject) and (out_dir / "performer.png").exists():
+        hand = np.asarray(Image.open(out_dir / "performer.png").convert("L"), dtype=np.float32) / 255.0
+    st = time_scene(plate, still, render, sp, eff, int(round(spec.max_plate_s * FPS)), hit_shift, voice_end=voice_end,
+                    performer=point if performer_in(spec.subject) else None, hand=hand)
     comp, plate_view, n_out = st.frames, st.plate_view, st.frames.shape[0]
     onset, auto, start = st.onset, st.auto_shift, sp.start
     at0 = st.painted
@@ -634,6 +657,7 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
         },
         "transfer": None if st.transfer is None else asdict(st.transfer),
         "sound": SOUND,
+        "auto": spec.extra.get("auto"),  # effect "auto": what the take sounded like, and what it picked
         "warnings": st.warnings + plate_notes(spec.plate, spec.max_plate_s),
         "retimed": retimed,
         "seconds_total": round(time.perf_counter() - t0, 1),

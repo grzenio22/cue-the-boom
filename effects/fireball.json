@@ -18,6 +18,29 @@
     "rhythm": " first with two small pops and then one big blast",
     "single": "",
     "flash": 0.45,
-    "small": "ainvfxfluid, a quick small pop of orange flame and a little puff of smoke burst out of {subject}, a brief flash of warm light, static camera, realistic phone video"
+    "small": "ainvfxfluid, a quick small pop of orange flame and a little puff of smoke burst out of {subject}, a brief flash of warm light, static camera, realistic phone video",
+    "variants": [
+      {
+        "when": {
+          "subjects": [
+            "hand",
+            "palm",
+            "finger",
+            "fingertip",
+            "fist",
+            "arm",
+            "wrist",
+            "knuckle",
+            "wand",
+            "person",
+            "performer"
+          ]
+        },
+        "use": {
+          "prompt": "ainvfxfluid, a sudden ragged fireball bursts {towards} out of {subject}{rhythm}, the blast lights up {subject} and the whole room with flickering orange light that reflects on the surfaces, then thick dark smoke rolls up and fades, static camera, realistic phone video",
+          "small": "ainvfxfluid, a quick small pop of orange flame and a little puff of smoke burst out of {subject}, a brief flash of warm light on it, static camera, realistic phone video"
+        }
+      }
+    ]
   }
 }

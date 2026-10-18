@@ -30,7 +30,7 @@ from cuesync.conform import conform
 from cuesync.effects import _candidate_dirs, load_effect
 from cuesync.guide import paint_guide
 from cuesync.media import VideoClip
-from cuesync.scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
+from cuesync.scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size, suited_effect
 from cuesync.score import measure_element
 
 FPS = 24
@@ -254,6 +254,8 @@ class CueSyncPaintScene:
             raise ValueError("Paint Scene: use sources or strokes, not both")
         if pts:
             x, y = pts[0]
+        eff = suited_effect(eff, subject, drawn.direction if drawn else (direction if aim else None), frames[0],
+                            drawn.source if drawn else (x, y), pts)
         sp = paint_scene_guide(cue_s, eff, (x, y), frames[:1] if still else frames, start=start, length=length,
                                direction=direction if aim else None, size=size, strokes=drawn, sources=pts)
         from PIL import Image as _Image

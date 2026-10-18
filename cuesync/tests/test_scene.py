@@ -181,6 +181,31 @@ def test_scene_prompt_fills_subject_and_direction():
     assert "to the right" in scene_prompt(eff, None, 80) and "the object" in scene_prompt(eff, None, 80)
 
 
+def test_a_hand_gets_no_mouth_and_no_carved_face():
+    # a creature breathes out of its mouth, a jack-o'-lantern's carved face flares; a hand only shoots fire
+    hand = scene_prompt(load_effect("fire_breath"), "the two pointed fingers", 90)
+    assert "mouth" not in hand and "from the two pointed fingers" in hand and "to the right" in hand
+    assert "carved" in scene_prompt(load_effect("fire_burst"), "the big jack-o'-lantern", 0)
+    assert "carved" not in scene_prompt(load_effect("fire_burst"), "the open palm", 0)
+    assert "explodes" not in scene_prompt(load_effect("fireball"), "the open palm", 0)
+    sideways, up = scene_prompt(load_effect("steam_jet"), "the palm", 90), scene_prompt(load_effect("steam_jet"), "the mug", 0)
+    assert "jet" in sideways and "to the right" in sideways and "wisps" in up
+
+
+def test_a_resting_flame_only_where_one_burns(tmp_path):
+    from cuesync.scene import lit_at, suited_effect
+
+    dark = np.full((90, 160, 3), 30, np.uint8)
+    candle = dark.copy()
+    candle[40:50, 76:84] = (255, 235, 150)  # a flame's near-white warm core
+    assert lit_at(candle, (0.5, 0.5)) and not lit_at(dark, (0.5, 0.5))
+    burst = load_effect("fire_burst")
+    assert suited_effect(burst, "the candle", None, candle, (0.5, 0.5)).scene.resting > 0
+    assert suited_effect(burst, "the open palm", None, dark, (0.5, 0.5)).scene.resting == 0
+    assert suited_effect(burst, "the big jack-o'-lantern", None, dark, (0.5, 0.5)).scene.resting == 0  # tapped on its face
+    assert suited_effect(burst, "the glowing ghost lamp", None, candle, (0.5, 0.5)).scene.resting == 0  # glows, no flame
+
+
 def test_every_effect_has_a_scene_section():
     for eid in ("fireball", "flame_plume", "steam_jet", "smoke_puff", "fire_breath", "wick_flare", "blow_out"):
         eff = load_effect(eid)
@@ -1064,3 +1089,125 @@ def test_a_fires_warm_light_carries_over_more_fully_than_a_glow_going_out():
     warm, _ = light_gain(ref * np.array([2.0, 1.2, 0.8], np.float32), ref, 1.0)
     cool, _ = light_gain(ref * np.array([0.8, 1.2, 2.0], np.float32), ref, 1.0)
     assert warm[0, 0, 0] / warm[0, 0, 2] > cool[0, 0, 2] / cool[0, 0, 0] > 1.0
+
+
+def test_a_performers_hand_keeps_its_own_pixels_and_gets_the_fires_light():
+    from cuesync.transfer import behind
+
+    rng = np.random.default_rng(7)
+    n = 12
+    base = np.full((256, 128, 3), 60, np.uint8)
+    base[100:140, 0:60] = (170, 130, 110)  # an arm coming in from the left, fingertips at x=60
+    base = np.clip(base.astype(int) + rng.integers(-8, 8, base.shape), 0, 255).astype(np.uint8)
+    plate = np.repeat(base[None], n, 0)
+    plate[::2, 250:254, 100:110] = 120  # the clip moves a little elsewhere, so the transfer path runs
+    region = np.zeros((256, 128), bool)
+    region[95:145, 64:120] = True  # the jet painted to the right of the fingertips
+    render = np.repeat(base[None], n, 0)
+    render[4:, 105:135, 70:115] = (250, 160, 50)  # the fire
+    render[4:, 100:140, 30:60] = (120, 200, 90)  # the model re-drew the hand next to it
+    keep = behind((60 / 128, 120 / 256), 90.0, 128, 256)
+    assert keep[120, 20] == 1.0 and keep[120, 100] == 0.0 and keep[20, 20] == 0.0  # the arm, not the fire, not the wall
+    plain, _ = transfer(plate, render, list(range(n)), region, ref_frames=3, start=0)
+    held, _ = transfer(plate, render, list(range(n)), region, ref_frames=3, start=0, keep=keep)
+    hand = (slice(108, 132), slice(36, 54))
+    assert np.abs(held[10][hand].astype(int) - plate[10][hand]).mean() < np.abs(plain[10][hand].astype(int) - plate[10][hand]).mean()
+    assert held[10][hand][..., 1].mean() < 175  # not the model's green hand
+    assert np.abs(held[10, 112:128, 80:105].astype(int) - np.array([250, 160, 50])).mean() < 30  # the fire is still there
+
+
+def test_the_sound_picks_the_effect_by_what_it_is():
+    from cuesync.gestures import effect_for_kind
+
+    assert effect_for_kind("boom", True) == "fire_burst"
+    assert effect_for_kind("whoosh", True, aimed=True) == "fire_breath"
+    assert effect_for_kind("whoosh", True) == "flame_plume"  # a prop nobody aimed flares up
+    assert effect_for_kind("whoosh", True, strokes=[{"points": [[0.4, 0.8], [0.42, 0.3]], "width": 0.05}]) == "flame_plume"
+    assert effect_for_kind("whoosh", True, strokes=[{"points": [[0.2, 0.5], [0.8, 0.45]], "width": 0.05}]) == "fire_breath"
+    assert effect_for_kind("whoosh", True, lit=True) == "wick_flare"
+    assert effect_for_kind("hiss", True) == "steam_jet"
+    assert effect_for_kind("puff", True, lit=True) == "blow_out" and effect_for_kind("puff", True) == "smoke_puff"
+    assert effect_for_kind("boom", True, aimed=True, rhythm=True) == "fire_breath"  # jab, jab, palm-strike: jets
+    assert effect_for_kind("boom", False) == "fireball" and effect_for_kind("hiss", False) == "steam_jet"
+
+
+def test_what_a_take_sounds_like(make_wav, tmp_path):
+    from cuesync.audio import analyze
+    from cuesync.gestures import heard
+
+    sr = 48000
+    t = np.arange(int(0.5 * sr)) / sr
+    rng = np.random.default_rng(3)
+
+    def take(sound):
+        x = rng.normal(0, 0.001, int(2.5 * sr)).astype(np.float32)
+        x[sr: sr + sound.size] += sound.astype(np.float32)
+        return x
+
+    boom = take(0.6 * np.sin(2 * np.pi * 110 * t) * np.exp(-3 * t))  # voiced, dying away
+    pf = take(rng.normal(0, 0.4, int(0.12 * sr)) * np.exp(-np.arange(int(0.12 * sr)) / (0.03 * sr)))  # short, unvoiced
+    hiss = take(np.concatenate([rng.normal(0, 0.2, sr)]))  # long, unvoiced
+    for x, want in ((boom, "boom"), (pf, "puff"), (hiss, "hiss")):
+        h = heard(analyze(x, sr), x, sr)
+        assert h["kind"] == want, (want, h)
+        assert isinstance(h["detected_kinds"], list)  # cue_detect's own reading, kept for the record
+
+
+def test_the_hand_is_segmented_just_behind_the_fingertips():
+    from cuesync.transfer import grown, hand_matte
+
+    frame = np.zeros((200, 400, 3), np.uint8)
+    seen = []
+
+    def matte_fn(f, at):
+        seen.append(at)
+        m = np.zeros(f.shape[:2], np.float32)
+        m[80:120, 200:300] = 1.0  # a hand to the right of the fingertips
+        return m
+
+    m = hand_matte(matte_fn, frame, (0.5, 0.5), -90.0)  # fire to the left: the hand is to the right
+    assert m is not None and seen[0][0] > 0.5 and seen[0][1] == 0.5
+    assert grown(m)[100, 196] > 0.5 and grown(m)[100, 150] == 0.0  # a little past its edge, not the whole frame
+    assert hand_matte(lambda f, at: np.ones(f.shape[:2], np.float32), frame, (0.5, 0.5), -90.0) is None  # the wall
+
+
+def test_a_dark_background_stays_the_clips_own_around_the_fire():
+    rng = np.random.default_rng(11)
+    n = 12
+    base = np.zeros((256, 128, 3), np.uint8)
+    base[..., 2] = 14  # a near-black navy background
+    base[150:200, 30:100] = (170, 130, 110)  # a palm
+    base = np.clip(base.astype(int) + rng.integers(0, 3, base.shape), 0, 255).astype(np.uint8)
+    plate = np.repeat(base[None], n, 0)
+    plate[::2, 250:254, 100:110] = 40  # the clip moves a little elsewhere, so the transfer path runs
+    region = np.zeros((256, 128), bool)
+    region[60:150, 30:100] = True
+    render = np.repeat(base[None], n, 0)
+    render[4:, ..., 2] = np.where(region, 30, render[4:, ..., 2])  # the model's black is a little bluer around the fire
+    render[4:, 100:140, 50:80] = (250, 160, 50)  # the fire
+    out, _ = transfer(plate, render, list(range(n)), region, ref_frames=3, start=0)
+    assert np.abs(out[10, 65:90, 35:95, 2].astype(int) - plate[10, 65:90, 35:95, 2]).mean() < 4  # the clip's own black
+    assert np.abs(out[10, 110:130, 58:72].astype(int) - np.array([250, 160, 50])).mean() < 30  # the fire is still there
+
+
+def test_words_for_hands_do_not_catch_ordinary_things():
+    from cuesync.scene import performer_in
+
+    assert performer_in("the open palm") and performer_in("my two fingers") and performer_in("the fists")
+    for thing in ("the alarm clock", "a warm mug of tea", "the chandelier", "the mug handle", "the palm tree", "the armchair"):
+        assert not performer_in(thing), thing
+    assert "explodes" in scene_prompt(load_effect("fireball"), "the alarm clock", 0)  # not the hand's burst
+    assert "explodes" not in scene_prompt(load_effect("fireball"), "my open hands", 0)
+
+
+def test_made_ahead_sample_shots_still_match_their_effects():
+    import json as _json
+
+    from cuesync.precompute import cache_key, sample_pairs
+
+    root = Path(__file__).resolve().parents[2] / "samples"
+    index = _json.loads((root / "made_ahead" / "scene" / "index.json").read_text())
+    pairs = [p for p in sample_pairs(root, "scene") if p["plate"] != "toy_desk.mp4"]  # made before a rhythm change
+    keys = [cache_key("scene", p["plate"], p["voice"], p["effect"], p["point"], 1, p.get("direction"), p.get("subject"))
+            for p in pairs]
+    assert keys and all(k in index for k in keys)

@@ -51,7 +51,7 @@ class Job:
     cached: bool = False  # answered from the shots made ahead of time
     title: str = ""
     retime: dict | None = None  # {"src": Path, "hit_shift": int, "stop": int | None}: re-time a finished shot
-    replay: dict | None = None  # {"src": Path}: perform a finished scene shot again, with no new render
+    replay: dict | None = None  # {"src": Path | [Path, ...]}: perform finished scene shots again, with no new render
     status: str = "queued"  # queued | running | done | error
     stage: str = "queued"
     progress: float = 0.0
@@ -70,6 +70,7 @@ class Job:
         return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "status": self.status,
                 "effect": getattr(self.spec, "effect", None) or ((receipt or {}).get("effect") or {}).get("id"),
                 "gesture": spec_extra.get("gesture"),
+                "heard": (spec_extra.get("auto") or {}).get("heard"),  # effect "auto": the sound's kind ("whoosh")
                 "stage": self.stage,
                 "progress": round(self.progress, 3), "message": self.message, "error": self.error, "files": files,
                 "receipt": receipt}
@@ -219,7 +220,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     def objects():
         from .gestures import OBJECTS
 
-        return [{"id": k, "title": v["title"], "subject": v["subject"], "scene": v["scene"]} for k, v in OBJECTS.items()]
+        return [{"id": k, "title": v["title"], "subject": v["subject"], "scene": v.get("scene", {})} for k, v in OBJECTS.items()]
 
     @app.get("/api/samples")
     def samples():
@@ -359,7 +360,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         if mode == "scene" and plate_sample:  # a sample plate knows what it shows and which way its source faces
             subject = subject or pm.get("subject")
             direction = direction if direction is not None else pm.get("direction")
-        if auto and voice_sample and cue == "voice":  # a sample noise's gesture is known: decide now (and hit the cache)
+        # a sample noise's gesture is known: decide now (and hit the cache), where a map says what it does; with no map
+        # (your hand, a prop) the sound itself decides, as it would performed live (auto_effect, below)
+        if auto and voice_sample and cue == "voice" and (pm.get("scene") or mode != "scene"):
             from .gestures import DEFAULTS, effect_for
 
             g = meta.get("voices", {}).get(voice_sample, {}).get("gesture")
@@ -387,7 +390,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 and element is None and x is not None and y is not None and not auto and not source_list
                 and (not stroke_data or drawn_sample) and (not describe or drawn_sample)):
             hit = cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
-                                      direction if mode == "scene" else None))
+                                      direction if mode == "scene" else None, subject))
             if hit:  # this exact sample shot was made ahead of time: answer at once
                 copy_shot(Path(hit["path"]), d)
                 spec = ShotSpec(plate=sample_files("plates")[plate_sample],
@@ -444,23 +447,13 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                         **(shot_defaults or {}))
         if auto_gesture:
             spec.extra["gesture"] = auto_gesture
-        if auto:  # the noise decides: its gesture, read through the plate's own map
-            from .gestures import effect_for, gesture
-            from .pipeline import shot_cue
+        if auto:  # the noise decides: its gesture through the plate's own map, or (no map) what the sound is
+            from .pipeline import auto_effect
 
             try:
-                c = shot_cue(spec)
+                auto_effect(spec, pm, voice_sample)
             except Exception as exc:
                 raise HTTPException(400, f"couldn't read the cue: {exc}") from None
-            from .gestures import DEFAULTS
-
-            g = gesture(c.cue, c.samples, source=c.source)
-            spec.extra["gesture"] = g
-            # scene mode reads the plate's own map (with the performer's aim); elements come from the classic four
-            aim = pm | ({"direction": direction} if direction is not None else {})
-            spec.effect = effect_for(g, aim, voice_sample) if mode == "scene" else DEFAULTS[g]
-            if load_effect(spec.effect).scene is None and mode == "scene":
-                spec.effect = DEFAULTS[g]
         if ahead_scene:  # the GPU is offline: the sample's scene shot made ahead plays this take (no new render)
             pick = next((e for e in ahead_scene if e["effect"] == spec.effect), ahead_scene[0])
             spec.effect = pick["effect"]
@@ -567,16 +560,52 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     @app.post("/api/jobs/{job_id}/replay")
     async def replay(job_id: str, voice: UploadFile | None = File(None), voice_sample: str | None = Form(None),
                      cue: str = Form("voice"), holds: str | None = Form(None), offset_s: float | None = Form(None),
-                     timing: UploadFile | None = File(None)):
+                     timing: UploadFile | None = File(None), together: str | None = Form(None)):
         """Perform a finished scene shot again with a new take: each new hit plays one of the render's hits, with
-        no new render (a still plate: a moving one would need its camera held still). See cuesync.replay."""
+        no new render (a still plate: a moving one would need its camera held still). ``together``, a JSON list of
+        other finished shots on the same plate, plays them all as one scene: one render per source, any rhythm.
+        See cuesync.replay."""
+
+        def rendered(job: Job) -> tuple[list[Path], dict]:  # the shots with the renders it plays, and its receipt
+            rc = json.loads((job.dir / "receipt.json").read_text()) if (job.dir / "receipt.json").exists() else {}
+            got = job.replay["src"] if job.replay else job.dir  # a shot performed again: its renders' shots
+            bases = [Path(x) for x in got] if isinstance(got, list) else [Path(got)]
+            if job.status != "done" or not isinstance(job.spec, ShotSpec) or rc.get("mode") != "scene" \
+                    or not all((b / "render.mp4").exists() for b in bases):
+                raise HTTPException(409, "only a finished shot rendered into the scene can be performed again")
+            if not rc["plate"]["still"]:
+                raise HTTPException(409, "performing a shot again works on a still plate (a photo or a held frame) for now")
+            return bases, rc
+
         src = get(job_id)
-        base = Path(src.replay["src"]) if src.replay else src.dir  # a shot performed again: its render's shot
-        rc = json.loads((src.dir / "receipt.json").read_text()) if (src.dir / "receipt.json").exists() else {}
-        if src.status != "done" or not isinstance(src.spec, ShotSpec) or rc.get("mode") != "scene"                 or not (base / "render.mp4").exists():
-            raise HTTPException(409, "only a finished shot rendered into the scene can be performed again")
-        if not rc["plate"]["still"]:
-            raise HTTPException(409, "performing a shot again works on a still plate (a photo or a held frame) for now")
+        base, rc = rendered(src)
+        try:
+            others = json.loads(together or "[]")
+        except ValueError as exc:
+            raise HTTPException(400, f"together must be a JSON list of shot ids: {exc}") from None
+        if not isinstance(others, list) or not all(isinstance(x, str) for x in others):
+            raise HTTPException(400, "together must be a JSON list of shot ids")
+        from .pipeline import plate_box
+
+        def render_id(b: Path) -> tuple:  # the shot's render (a cached sample is a copy of one at another path)
+            f, r_ = b / "render.mp4", json.loads((b / "receipt.json").read_text())
+            with open(f, "rb") as fh:
+                return (tuple(r_["inputs"]["point"]), r_["effect"]["id"], r_["inputs"].get("seed"), f.stat().st_size,
+                        hashlib.sha1(fh.read(1 << 20)).hexdigest())
+
+        box = plate_box(src.spec.plate, tuple(rc["inputs"]["point"]), src.spec.plate_size)
+        seen = {render_id(b) for b in base}
+        for other in others:
+            more, orc = rendered(get(other))
+            if orc["inputs"]["plate_sha"] != rc["inputs"]["plate_sha"]:
+                raise HTTPException(409, "shots performed together must be on the same plate")
+            if max(abs(u - v) for u, v in zip(plate_box(src.spec.plate, tuple(orc["inputs"]["point"]), src.spec.plate_size), box)) > 0.01:
+                raise HTTPException(409, "these shots were cropped differently from your clip (tapped far apart on a clip "
+                                         "that doesn't fit the frame): perform them separately")
+            for b in more:
+                if render_id(b) not in seen:
+                    seen.add(render_id(b))
+                    base.append(b)
         if cue not in ("voice", "hold"):
             raise HTTPException(400, "perform it again with your voice or press-and-hold")
         if cue == "voice" and (voice is None) == (voice_sample is None):
@@ -601,8 +630,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         t = json.loads((await timing.read()).decode() or "{}") if timing is not None else {}
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
-        spec = dataclasses.replace(src.spec, voice=voice_path, cue=cue, holds=hold_list, offset_s=offset_s, face=None)
-        job = Job(id=rid, dir=d, spec=spec, mode="replay", title=src.title, replay={"src": base})
+        extra = {k: v for k, v in src.spec.extra.items() if k not in ("auto", "gesture")}  # the new take wasn't read for an effect
+        spec = dataclasses.replace(src.spec, voice=voice_path, cue=cue, holds=hold_list, offset_s=offset_s, face=None, extra=extra)
+        job = Job(id=rid, dir=d, spec=spec, mode="replay", title=src.title, replay={"src": base if len(base) > 1 else base[0]})
         return jq.submit(job).public()
 
     @app.get("/api/jobs/{job_id}/files/{name}")

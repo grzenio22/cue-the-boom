@@ -21,6 +21,25 @@ const DRAG_PX = 14;
 
 interface Dims { boxW: number; boxH: number; videoW: number; videoH: number }
 
+/** Where the effect goes: a cone from the source along the aim, with an arrow down its middle (fire from two
+ * pointed fingertips, steam from a palm), so one press-and-drag shows exactly where it will shoot. */
+function Aim({ at, deg }: { at: { left: number; top: number }; deg: number }) {
+  const L = 110, spread = 0.2; // px long, radians either side
+  const a = ((deg - 90) * Math.PI) / 180; // clockwise from up -> screen angle
+  const pt = (r: number, t: number) => [at.left + r * Math.cos(a + t), at.top + r * Math.sin(a + t)];
+  const [tx, ty] = pt(L, 0);
+  const ux = Math.cos(a), uy = Math.sin(a);
+  const head = [[tx, ty], [tx - 14 * ux - 7 * uy, ty - 14 * uy + 7 * ux], [tx - 14 * ux + 7 * uy, ty - 14 * uy - 7 * ux]];
+  return (
+    <svg aria-label={`aimed ${deg} degrees`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "visible" }}>
+      <polygon points={[[at.left, at.top], pt(L, -spread), pt(L, spread)].map((q) => q.join(",")).join(" ")}
+        fill="#ffb02030" stroke="#ffb020" strokeWidth={1.5} strokeDasharray="5 4" />
+      <line x1={at.left} y1={at.top} x2={tx - 10 * ux} y2={ty - 10 * uy} stroke="#ffb020" strokeWidth={2.5} />
+      <polygon points={head.map((q) => q.join(",")).join(" ")} fill="#ffb020" />
+    </svg>
+  );
+}
+
 /** Paused first frame of the plate; tap where the effect should come from, drag to aim it. With ``adding``, each
  * tap is the source of the next hit of a rhythm (numbered, joined in order). */
 export default function TapPoint({ src, value, onChange, direction, onDirection, more = [], adding = false, onMore }: Props) {
@@ -69,7 +88,7 @@ export default function TapPoint({ src, value, onChange, direction, onDirection,
 
   const onUp = () => { drag.current = null; };
 
-  let marker: React.CSSProperties | null = null;
+  let marker: { left: number; top: number } | null = null;
   let at: ((p: [number, number]) => { left: number; top: number }) | null = null;
   if (value && dims && dims.videoW && dims.boxW) {
     const r = contentRect({ width: dims.boxW, height: dims.boxH }, dims.videoW, dims.videoH);
@@ -108,11 +127,7 @@ export default function TapPoint({ src, value, onChange, direction, onDirection,
           {i + 2}
         </div>
       ))}
-      {marker && direction != null && (
-        <div aria-label={`aimed ${direction} degrees`} style={{ position: "absolute", ...marker, width: 72, height: 3, marginTop: -1.5,
-          background: "linear-gradient(90deg, #ffb020, #ff8c0000)", transformOrigin: "0 50%",
-          transform: `rotate(${direction - 90}deg)`, pointerEvents: "none" }} />
-      )}
+      {marker && direction != null && <Aim at={marker} deg={direction} />}
     </div>
   );
 }

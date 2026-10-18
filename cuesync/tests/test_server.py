@@ -312,6 +312,38 @@ def test_a_scene_shot_is_performed_again_with_no_new_render(scene_client, tmp_pa
     assert client.post(f"/api/jobs/{s['id']}/replay", data={"cue": "voice"}).status_code == 400  # a voice cue needs a voice
 
 
+def test_shots_on_one_plate_are_performed_together(scene_client, tmp_path, make_video, make_wav):
+    client, r = scene_client
+    plate = make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))  # a still
+    voice = make_voice(tmp_path, make_wav)
+
+    def shot(plate_path, x, y):
+        with open(plate_path, "rb") as p, open(voice, "rb") as v:
+            s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                            data={"effect": "fire_burst", "mode": "scene", "x": str(x), "y": str(y)}).json()
+        assert wait(client, s["id"])["status"] == "done"
+        return s["id"]
+
+    ids = [shot(plate, 0.3, 0.7), shot(plate, 0.7, 0.3)]  # one render per source
+    renders = len(r.prompts)
+    holds = [[0.5, 0.65], [1.1, 1.25]]  # a rhythm for both
+    again = client.post(f"/api/jobs/{ids[0]}/replay",
+                        data={"cue": "hold", "holds": json.dumps(holds), "together": json.dumps(ids[1:])}).json()
+    done = wait(client, again["id"])
+    assert done["status"] == "done", done.get("error")
+    rc = done["receipt"]
+    assert rc["replayed"]["renders"] == 2 and rc["replayed"]["render_hits"] == 2 and len(r.prompts) == renders
+    assert sorted(h["source"] for h in rc["hits"]) == [0, 1]  # each hit at its own source, from its own render
+    twice = client.post(f"/api/jobs/{again['id']}/replay", data={"cue": "hold", "holds": json.dumps(holds)}).json()
+    assert wait(client, twice["id"])["receipt"]["replayed"]["renders"] == 2  # performed again: both renders again
+    elsewhere = shot(make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (20, 60, 90)), 0.5, 0.5)
+    refused = client.post(f"/api/jobs/{ids[0]}/replay",
+                          data={"cue": "hold", "holds": json.dumps(holds), "together": json.dumps([elsewhere])})
+    assert refused.status_code == 409  # another plate
+    assert client.post(f"/api/jobs/{ids[0]}/replay", data={"cue": "hold", "holds": json.dumps(holds),
+                                                           "together": "nope"}).status_code == 400
+
+
 def test_cue_inputs_are_checked(scene_client, tmp_path, make_video, make_wav):
     client, _ = scene_client
     plate = make_video(tmp_path, n=24, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))
@@ -504,3 +536,56 @@ def test_your_own_clip_says_what_it_is_and_the_noise_does_to_it_what_it_would_to
         bad = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
                           data={"effect": "auto", "mode": "scene", "cue": "hold", "object": "volcano"})
     assert bad.status_code == 400
+
+
+def test_on_a_hand_the_sound_picks_the_effect(scene_client, tmp_path, make_video, make_wav):
+    client, _ = scene_client
+    plate = make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40 + (i % 2)))
+    voice = make_voice(tmp_path, make_wav)  # a voiced burst: a boom
+    with open(plate, "rb") as p, open(voice, "rb") as v:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                        data={"effect": "auto", "mode": "scene", "x": "0.5", "y": "0.5", "object": "hand"}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    auto = done["receipt"]["auto"]
+    assert done["heard"] == auto["heard"] == "boom" and auto["picked"] == done["effect"] == "fire_burst"
+    assert done["receipt"]["inputs"]["subject"] == "the outstretched hand" and "carved" not in done["receipt"]["render"]["prompt"]
+
+
+def test_a_sample_noise_on_a_hand_is_read_by_its_sound(scene_client, tmp_path, make_video):
+    client, _ = scene_client
+    plate = make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40 + (i % 2)))
+    voices = client.get("/api/samples").json()["voices"]
+    pf = next((v["name"] for v in voices if v["name"].startswith("pf.")), None)
+    if pf is None:
+        return
+    with open(plate, "rb") as p:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
+                        data={"effect": "auto", "mode": "scene", "x": "0.5", "y": "0.5", "object": "hand",
+                              "voice_sample": pf}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["auto"]["heard"] == "puff" and done["effect"] == "smoke_puff"  # not the default fireball
+
+
+def test_together_needs_shots_cropped_alike_and_merges_one_spot(scene_client, tmp_path, make_video, make_wav):
+    client, r = scene_client
+    plate = make_video(tmp_path, n=48, fps=24, w=320, h=240, color_fn=lambda i: (60, 50, 40))  # 4:3: cropped to 9:16 here
+    voice = make_voice(tmp_path, make_wav)
+
+    def shot(x, y):
+        with open(plate, "rb") as p, open(voice, "rb") as v:
+            s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                            data={"effect": "fire_burst", "mode": "scene", "x": str(x), "y": str(y)}).json()
+        assert wait(client, s["id"])["status"] == "done"
+        return s["id"]
+
+    top, bottom, again = shot(0.15, 0.5), shot(0.85, 0.5), shot(0.15, 0.5)  # left and right of a clip cropped narrower
+    holds = json.dumps([[0.5, 0.65], [1.1, 1.25]])
+    far = client.post(f"/api/jobs/{top}/replay", data={"cue": "hold", "holds": holds, "together": json.dumps([bottom])})
+    assert far.status_code == 409  # cropped differently from the clip
+    assert client.post(f"/api/jobs/{top}/replay", data={"cue": "hold", "holds": holds, "together": '"abc"'}).status_code == 400
+    same = client.post(f"/api/jobs/{top}/replay", data={"cue": "hold", "holds": holds, "together": json.dumps([again])}).json()
+    done = wait(client, same["id"])
+    assert done["status"] == "done", done.get("error")
+    assert len({h["source"] for h in done["receipt"]["hits"]}) == 1  # the same spot is one source: they hand over

@@ -13,6 +13,28 @@
   "scene": {
     "prompt": "ainvfxfluid, a puff of grey smoke bursts out of {subject} {towards} and drifts away, slowly thinning, static camera, realistic phone video",
     "r_min": 0.08,
-    "r_max": 0.3
+    "r_max": 0.3,
+    "variants": [
+      {
+        "when": {
+          "subjects": [
+            "hand",
+            "palm",
+            "finger",
+            "fingertip",
+            "fist",
+            "arm",
+            "wrist",
+            "knuckle",
+            "wand",
+            "person",
+            "performer"
+          ]
+        },
+        "use": {
+          "prompt": "ainvfxfluid, a concussive blast of air and grey smoke bursts {towards} from {subject}, rippling outwards and drifting away, slowly thinning, static camera, realistic phone video"
+        }
+      }
+    ]
   }
 }
