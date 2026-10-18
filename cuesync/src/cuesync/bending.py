@@ -52,6 +52,8 @@ BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording 
 }
 LAG_FRAMES = {"fire_breath": 4, "fire_burst": 2, "flame_plume": 3, "smoke_puff": 6, "steam_jet": 5}  # the tip's delay
 LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a jet of about six hands
+SIZE = {"jet": (6.0, 0.75), "burst": (1.3, 0.3), "plume": (1.8, 0.45), "puff": (2.5, 0.4)}  # per behaviour: its reach in
+# hand sizes, and at most this share of the frame's short side (a close-up hand made a fireball fill the frame)
 IGNITION = 0.15  # an element has ignited once its light is this share of its brightest frame's
 LOST_FADE = 4  # frames over which an element fades out once the hand has been lost for more than 8
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
@@ -366,7 +368,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         eff = suited_effect(eff, "the open hand", aim, black[0], at)
         eff = dataclasses.replace(eff, scene=dataclasses.replace(eff.scene, clean=True, resting=0.0))
         start, length = plan_window(cue, eff, None, multi_hit=False)  # one element, the loudest hit's: it plays them all
-        scale = float(np.clip(LENGTH * s_hit / (eff.scene.r_max * min(w, h)), 0.5, 1.6))
+        hands, most = SIZE.get(eff.behaviour, (LENGTH, 0.6))
+        scale = float(np.clip(min(hands * s_hit, most * min(w, h)) / (eff.scene.r_max * min(w, h)), 0.4, 1.6))
         sp = paint_scene_guide(cue, eff, at, black, start=start, length=length, direction=aim, scale=scale,
                                size=scene_size(w, h), multi_hit=False)
         write_guide(sp.guide, out_dir / "guide.mp4", fps=FPS)
@@ -411,7 +414,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         acc = None
         for off, gain, size in plays:
             e = t - off
-            if not ign - pre <= e < len(element):
+            if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
                 continue
             E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None) * fade, track, ref, t, lag, size) * gain
             if e < ign:  # the build-up, coming up to the ignition
@@ -455,7 +458,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 P[j] = P[j] * (1.0 - al) + np.clip(E / np.maximum(al, 1e-3), 0, 1) * al
             elif eff.fluid == "steam":  # steam scatters the room's light: laid over, never brighter than its white
                 al = np.clip(fx._lum(E) / 0.35, 0.0, 0.85)[..., None]
-                P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), 0.9 * white) * al
+                P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), max(0.9 * white, 0.45)) * al
             else:
                 P[j] = P[j] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers
