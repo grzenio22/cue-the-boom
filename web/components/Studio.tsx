@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AimOverlay, { type AimValue } from "@/components/AimOverlay";
 import DrawPad from "@/components/DrawPad";
 import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
@@ -22,6 +23,20 @@ function Spot({ src, at }: { src: string; at: [number, number] }) {
   );
 }
 
+/** How many frames (24 fps, at most 10 s: what a shot keeps) a clip has, once its metadata is in. */
+function useFrames(src: string | undefined): number {
+  const [n, setN] = useState(240);
+  useEffect(() => {
+    if (!src) return;
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => { if (Number.isFinite(v.duration)) setN(Math.max(1, Math.min(240, Math.floor(v.duration * 24)))); };
+    v.src = src;
+    return () => { v.removeAttribute("src"); v.load(); };
+  }, [src]);
+  return n;
+}
+
 export default function Studio() {
   const [health, setHealth] = useState<Health | null>(null);
   const [effects, setEffects] = useState<EffectInfo[]>([]);
@@ -40,6 +55,10 @@ export default function Studio() {
   const [rendering, setRendering] = useState(false); // a shot is being made: stepping back would lose it
   const [replayOf, setReplayOf] = useState<string | null>(null); // the next take plays this shot's render again
   const [replayWith, setReplayWith] = useState<string[]>([]); // and these other shots' renders with it
+  const [hand, setHand] = useState(false); // your hand is the source: the element comes off it (element bending)
+  const [aimFrame, setAimFrame] = useState(0); // the frame your hand is tapped on
+  const [aim, setAim] = useState<AimValue | null>(null);
+  const frames = useFrames(plate?.url);
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchEffects(), fetchSamples()]).then(([h, e, s]) => {
@@ -62,7 +81,12 @@ export default function Studio() {
     setPerforming(true);
     setReplayOf(null); // a replay of the last plate's shots has nothing to play here
     setReplayWith([]);
+    setHand(false);
+    setAim(null);
+    setAimFrame(0);
   };
+  const handLive = health?.modes.includes("bending") ?? false;
+  const toHand = (on: boolean) => { setHand(on); setDrawing(false); setMore([]); setAdding(false); setAim(null); if (on) setPoint(null); };
 
   const current = takes.at(-1);
   const sceneLive = health?.modes.includes("scene") ?? false;
@@ -113,7 +137,29 @@ export default function Studio() {
             <span className="muted">{plate.title}</span>
             <button className="secondary" disabled={rendering} onClick={() => setPlate(null)}>Different shot</button>
           </div>
-          {!pointSet ? (
+          {!pointSet && handLive && (
+            <div className="row" role="radiogroup" aria-label="What it comes from">
+              <button role="radio" aria-checked={!hand} className={hand ? "secondary" : ""} onClick={() => toHand(false)}>A thing in the shot</button>
+              <button role="radio" aria-checked={hand} className={hand ? "" : "secondary"} onClick={() => toHand(true)}>
+                Your hand <span className="muted" style={{ marginLeft: 6 }}>fire, steam or air off your fingers or palm</span>
+              </button>
+            </div>
+          )}
+          {!pointSet && hand ? (
+            <>
+              <p className="muted">Find a frame where your hand is clear, tap where it comes from (your fingertips, your palm) and drag to aim it.
+                It is carried on your hand from there, wherever the hand goes.</p>
+              <label className="row">
+                <span className="muted">Frame</span>
+                <input type="range" min={0} max={frames - 1} value={Math.min(aimFrame, frames - 1)} style={{ flex: "1 1 260px" }}
+                  onChange={(e) => { setAimFrame(Number(e.target.value)); setAim(null); setPoint(null); }} />
+                <span className="muted">{(aimFrame / 24).toFixed(1)} s</span>
+              </label>
+              <AimOverlay src={plate.url} frame={Math.min(aimFrame, frames - 1)} value={aim}
+                onChange={(v) => { setAim(v); setPoint([v.x, v.y]); setDirection(v.angle); }} />
+              <div className="row"><button disabled={!point} onClick={() => setPointSet(true)}>That&apos;s my hand</button></div>
+            </>
+          ) : !pointSet ? (
             <>
               <div className="row" role="radiogroup" aria-label="Tap or draw">
                 <button role="radio" aria-checked={!drawing} className={drawing ? "secondary" : ""} onClick={() => setDrawing(false)}>Tap the source</button>
@@ -162,7 +208,8 @@ export default function Studio() {
           ) : (
             <div className="row">
               {where && <Spot src={plate.url} at={where} />}
-              <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})`
+              <span className="chip">{hand ? `your hand at ${(aimFrame / 24).toFixed(1)} s${direction != null ? `, aimed ${direction}°` : ""}`
+                : drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})`
                 : sources.length ? `${sources.length} sources, one per hit` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
               <button className="secondary" disabled={rendering} onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : plate.drawn?.length ? "Move it, or draw it" : "Move it"}</button>
               {madeAheadScene && plate.sample && plate.point && !drawing && !atSampleSpot(plate.point, point, plate.direction, direction) && (
@@ -200,7 +247,8 @@ export default function Studio() {
 
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
-          strokes={drawing ? strokes : []} sources={sources} initialJob={current.job} onBusy={setRendering}
+          strokes={drawing ? strokes : []} sources={sources} hand={hand ? { frame: aim?.frame ?? aimFrame } : null}
+          initialJob={current.job} onBusy={setRendering}
           replayOf={current.replayOf ?? null} replayWith={current.replayWith ?? []}
           siblings={siblings}
           onReplay={(id, together) => { setReplayOf(id); setReplayWith(together); setPerforming(true); }}

@@ -23,8 +23,18 @@ export function hitAnchor(r: Receipt | null | undefined): number {
   return r.mode === "scene" ? (r.alignment?.hit_frame ?? r.guide.anchor_frame) : r.guide.anchor_frame;
 }
 
+/** A shot from your hand (cuesync.bending): the element rendered over black once, carried on the tracked hand. */
+export interface BendingReceipt {
+  mask: string | null;
+  snap: { used: "motion" | "cue"; mismatch: boolean };
+  hits: { frame: number; gain: number; size: number }[];
+  performed_again: { from: string; no_new_render: boolean } | null;
+}
+
 export interface Receipt {
-  mode?: "scene";
+  mode?: "scene" | "bending";
+  bending?: BendingReceipt;
+  auto?: { heard: string; hand: string | null; picked: string; why: string } | null;
   alignment?: { model_onset?: number | null; auto_shift?: number; hit_frame?: number; retime_frames?: number };
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
   warnings?: string[];
@@ -43,7 +53,13 @@ export interface Receipt {
   seconds_total: number;
 }
 
-export type Mode = "instant" | "render" | "scene";
+export type Mode = "instant" | "render" | "scene" | "bending";
+
+/** What a hand can throw (element bending), in the order the badge cycles them. */
+export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "steam_jet", "smoke_puff"];
+export const HAND_LABELS: Record<string, string> = {
+  fire_breath: "Flamethrower", fire_burst: "Fireball", flame_plume: "Flame in the palm", steam_jet: "Steam", smoke_puff: "Air blast",
+};
 
 /** A drawn stroke: points in normalised video coordinates, brush width as a share of the frame width. */
 export interface Stroke { points: [number, number][]; width: number }
@@ -239,6 +255,7 @@ export async function submitShot(args: {
   strokes?: Stroke[] | null;
   describe?: string | null;
   sources?: [number, number][] | null; // call and response: one source per hit, in order (the first is the point)
+  frame?: number | null; // from your hand: the frame (24 fps) the hand was tapped on
 }): Promise<JobStatus> {
   const form = new FormData();
   if ("sample" in args.plate) form.append("plate_sample", args.plate.sample);
@@ -257,7 +274,8 @@ export async function submitShot(args: {
   form.append("y", String(args.point[1]));
   form.append("seed", String(args.seed));
   form.append("mode", args.mode);
-  if (args.mode === "scene" && args.direction != null) form.append("direction", String(args.direction));
+  if ((args.mode === "scene" || args.mode === "bending") && args.direction != null) form.append("direction", String(args.direction));
+  if (args.mode === "bending" && args.frame != null) form.append("frame", String(args.frame));
   if (args.mode === "scene" && args.subject) form.append("subject", args.subject);
   if (args.object && !("sample" in args.plate)) form.append("object", args.object);
   return json<JobStatus>(await fetch("/api/jobs", { method: "POST", body: form }));

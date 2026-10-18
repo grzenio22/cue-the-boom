@@ -128,3 +128,13 @@ def test_an_air_blast_is_made_not_rendered_and_is_gone_in_half_a_second():
     assert len(puff) <= 14 and lum[-1] < 0.3 * lum.max()  # short, and thinned out by its end
     assert centre[9] > centre[0] + 30  # it travels along the aim
     assert np.array_equal(puff, air_puff(128, 256, ref, seed=1))  # the same for the same seed
+
+
+def test_the_aim_arrow_turns_the_direction_and_is_carried_with_the_hand():
+    from cuesync.bending import anchored
+
+    tr = track_of(10, 200, 100, lambda t: (50 + 5 * t, 50), d=(1.0, 0.0))  # moving right, pointing right
+    a = anchored(tr, 4, (70.0, 50.0), aim=0.0)  # tapped on frame 4, the arrow drawn straight up
+    assert np.allclose(a["dir"][4], (0.0, -1.0), atol=1e-6) and np.allclose(a["dir"][9], (0.0, -1.0), atol=1e-6)
+    assert np.allclose(a["xy"][9], (50 + 45 + 0, 50), atol=1e-6) and a["anchor"]["turn"] == -90.0
+    assert np.allclose(anchored(tr, 4, (70.0, 50.0))["dir"][4], (1.0, 0.0))  # no arrow: the hand's own direction

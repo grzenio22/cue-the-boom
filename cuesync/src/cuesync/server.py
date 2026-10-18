@@ -108,7 +108,7 @@ class JobQueue:
     @staticmethod
     def queue_of(mode: str) -> str:
         """Scene renders and element renders share the one GPU worker; a replay is compositing, like a re-time."""
-        return "render" if mode == "scene" else "retime" if mode == "replay" else mode
+        return "render" if mode in ("scene", "bending") else "retime" if mode == "replay" else mode
 
     def queued(self, mode: str = "render") -> int:
         q = self._qs.get(self.queue_of(mode))
@@ -128,6 +128,7 @@ class JobQueue:
         job.events.append({"stage": stage, "progress": round(frac, 3), "message": msg, "t": round(time.time() - job.created, 2)})
 
     def _work(self, mode: str) -> None:
+        from .bending import bending_again, bending_job
         from .pipeline import make_shot, retime_shot
         from .replay import replay_scene_shot
 
@@ -138,8 +139,12 @@ class JobQueue:
                 say = lambda s, f, m: self._emit(job, s, f, m)  # noqa: E731
                 if job.retime:
                     retime_shot(job.retime["src"], job.spec, job.dir, job.retime["hit_shift"], job.retime["stop"], say)
+                elif job.replay and job.replay.get("bending"):
+                    bending_again(job.replay["src"], job.spec, job.dir, say)
                 elif job.replay:
                     replay_scene_shot(job.replay["src"], job.spec, job.dir, say)
+                elif job.mode == "bending":
+                    bending_job(job.spec, self.renderers[mode], job.dir, progress=say)
                 else:
                     make_shot(job.spec, self.renderers[mode], job.dir, progress=say)
                 job.status = "done"
@@ -196,7 +201,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     def available_modes() -> list[str]:
         modes = [m for m in jq.renderers if m != "render" or render_ready()]
         if scenes and "render" in modes:
-            modes.append("scene")
+            modes += ["scene", "bending"]
         return sorted(modes)
 
     def sample_meta() -> dict:
@@ -273,7 +278,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      direction: float | None = Form(None), subject: str | None = Form(None),
                      cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
                      describe: str | None = Form(None), object: str | None = Form(None),  # noqa: A002
-                     sources: str | None = Form(None)):
+                     sources: str | None = Form(None), frame: int | None = Form(None)):
+        from .bending import BENDING_PROMPTS  # the elements a hand can throw
         from .cues import SOURCES
         from .scene import Strokes
 
@@ -314,20 +320,28 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             eff = load_effect("fireball" if auto else effect)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(400, f"unknown effect {effect!r}: {exc}") from None
-        if mode not in ("scene", "render", "instant"):
+        if mode not in ("scene", "render", "instant", "bending"):
             raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
         if mode != "scene" and (stroke_data or describe or source_list):
             raise HTTPException(400, "drawing, describing the effect and several sources need scene mode")
         if mode == "scene" and eff.scene is None:
             raise HTTPException(400, f"{effect!r} has no scene mode")
-        if mode != "scene" and not auto and effect not in ELEMENT_EFFECTS:
+        if mode == "bending" and not auto and effect not in BENDING_PROMPTS:
+            raise HTTPException(400, f"from a hand: one of {sorted(BENDING_PROMPTS)} (or auto)")
+        if mode not in ("scene", "bending") and not auto and effect not in ELEMENT_EFFECTS:
             raise HTTPException(400, f"{effect!r} only exists in scene mode")
+        if frame is not None and (mode != "bending" or not 0 <= frame < 24 * 60):
+            raise HTTPException(400, "frame (the frame you tapped the hand on) is for a bending shot, from 0")
 
         def need_live() -> None:
             """A shot that wasn't made ahead of time needs its renderer, and the GPU answering."""
             ahead = " (the sample shots made ahead of time still work: a sample clip at its marked spot, with a sample noise)"
-            if mode == "scene" and not (scenes and "render" in jq.renderers):
+            if mode in ("scene", "bending") and not (scenes and "render" in jq.renderers):
                 raise HTTPException(400, "Into the scene needs the GPU render API, which this server doesn't have" + ahead)
+            if mode == "bending":
+                if not render_ready() and effect != "smoke_puff":  # (an air blast is made, not rendered)
+                    raise HTTPException(503, "the GPU is offline right now; instant mode still works")
+                return
             if mode != "scene" and mode not in jq.renderers:
                 raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
             if mode in ("render", "scene") and not render_ready():
@@ -362,7 +376,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             direction = direction if direction is not None else pm.get("direction")
         # a sample noise's gesture is known: decide now (and hit the cache), where a map says what it does; with no map
         # (your hand, a prop) the sound itself decides, as it would performed live (auto_effect, below)
-        if auto and voice_sample and cue == "voice" and (pm.get("scene") or mode != "scene"):
+        if auto and voice_sample and cue == "voice" and mode != "bending" and (pm.get("scene") or mode != "scene"):
             from .gestures import DEFAULTS, effect_for
 
             g = meta.get("voices", {}).get(voice_sample, {}).get("gesture")
@@ -447,7 +461,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                         **(shot_defaults or {}))
         if auto_gesture:
             spec.extra["gesture"] = auto_gesture
-        if auto:  # the noise decides: its gesture through the plate's own map, or (no map) what the sound is
+        if mode == "bending":  # the hand you tapped, on the frame you tapped it (its sound and gesture pick "auto")
+            spec.extra["tap_frame"] = int(frame or 0)
+        elif auto:  # the noise decides: its gesture through the plate's own map, or (no map) what the sound is
             from .pipeline import auto_effect
 
             try:
@@ -514,7 +530,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         pair = side_by_side(clips[0], clips[1], anchors[0], anchors[1], envs[0], envs[1], labels)
         n, h, w2 = pair.shape[:3]
         lead = max(anchors)
-        sr, spf = 48000, 48000 // 24
+        spf = 48000 // 24
 
         def track(v: np.ndarray, pad_frames: int) -> np.ndarray:
             out = np.zeros(n * spf, np.float32)
@@ -578,13 +594,20 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             return bases, rc
 
         src = get(job_id)
-        base, rc = rendered(src)
-        try:
-            others = json.loads(together or "[]")
-        except ValueError as exc:
-            raise HTTPException(400, f"together must be a JSON list of shot ids: {exc}") from None
-        if not isinstance(others, list) or not all(isinstance(x, str) for x in others):
-            raise HTTPException(400, "together must be a JSON list of shot ids")
+        src_rc = json.loads((src.dir / "receipt.json").read_text()) if (src.dir / "receipt.json").exists() else {}
+        bending = src.status == "done" and isinstance(src.spec, ShotSpec) and src_rc.get("mode") == "bending"
+        if bending:  # a hand take: its element plays the new take on the same tracked hand
+            if together:
+                raise HTTPException(400, "a shot from your hand is performed again on its own")
+            base, others = [src.dir], []
+        else:
+            base, rc = rendered(src)
+            try:
+                others = json.loads(together or "[]")
+            except ValueError as exc:
+                raise HTTPException(400, f"together must be a JSON list of shot ids: {exc}") from None
+            if not isinstance(others, list) or not all(isinstance(x, str) for x in others):
+                raise HTTPException(400, "together must be a JSON list of shot ids")
         from .pipeline import plate_box
 
         def render_id(b: Path) -> tuple:  # the shot's render (a cached sample is a copy of one at another path)
@@ -593,8 +616,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 return (tuple(r_["inputs"]["point"]), r_["effect"]["id"], r_["inputs"].get("seed"), f.stat().st_size,
                         hashlib.sha1(fh.read(1 << 20)).hexdigest())
 
-        box = plate_box(src.spec.plate, tuple(rc["inputs"]["point"]), src.spec.plate_size)
-        seen = {render_id(b) for b in base}
+        box = None if bending else plate_box(src.spec.plate, tuple(rc["inputs"]["point"]), src.spec.plate_size)
+        seen = set() if bending else {render_id(b) for b in base}
         for other in others:
             more, orc = rendered(get(other))
             if orc["inputs"]["plate_sha"] != rc["inputs"]["plate_sha"]:
@@ -632,7 +655,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         extra = {k: v for k, v in src.spec.extra.items() if k not in ("auto", "gesture")}  # the new take wasn't read for an effect
         spec = dataclasses.replace(src.spec, voice=voice_path, cue=cue, holds=hold_list, offset_s=offset_s, face=None, extra=extra)
-        job = Job(id=rid, dir=d, spec=spec, mode="replay", title=src.title, replay={"src": base if len(base) > 1 else base[0]})
+        job = Job(id=rid, dir=d, spec=spec, mode="replay", title=src.title,
+                  replay={"src": base if len(base) > 1 else base[0], "bending": bending})
         return jq.submit(job).public()
 
     @app.get("/api/jobs/{job_id}/files/{name}")

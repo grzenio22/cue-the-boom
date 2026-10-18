@@ -589,3 +589,65 @@ def test_together_needs_shots_cropped_alike_and_merges_one_spot(scene_client, tm
     done = wait(client, same["id"])
     assert done["status"] == "done", done.get("error")
     assert len({h["source"] for h in done["receipt"]["hits"]}) == 1  # the same spot is one source: they hand over
+
+
+# ---------------------------------------------------------------- element bending: your own hand in the shot
+
+
+class FakeElementRenderer:
+    """Renders 'the element over black' as its own guide (cuesync.bending's renders), with the GPU answering."""
+
+    name, scenes = "fake-element", True
+
+    def __init__(self):
+        self.prompts = []
+
+    def ready(self):
+        return True
+
+    def __call__(self, guide_path, prompt, seed, out_path, image=None):
+        from cuesync.media import read_video
+
+        self.prompts.append(prompt)
+        write_video(out_path, read_video(guide_path).frames, fps=24)
+        return 0.1
+
+
+def test_a_shot_from_your_hand_is_tracked_carried_and_performed_again(tmp_path, make_video, make_wav, monkeypatch):
+    import cuesync.bending as bending
+
+    seen = {}
+
+    def fake_prepare(plate, out_dir, tap, frame, emitter):  # the tracker's subprocess: a still hand at the tap
+        seen.update(tap=tap, frame=frame, emitter=emitter)
+        t = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": emitter, "hand": "right", "xy": [list(tap)] * 72,
+             "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72, "conf": [1.0] * 72, "src": ["mp"] * 72,
+             "speed": [0.0] * 72, "landmarks": [None] * 72, "gesture": ["Open_Palm"] * 72, "events": []}
+        (out_dir / "hand_track.json").write_text(json.dumps(t))
+        return out_dir / "hand_track.json", None
+
+    monkeypatch.setattr(bending, "prepare_hand", fake_prepare)
+    r = FakeElementRenderer()
+    client = TestClient(create_app(r, tmp_path / "jobs", shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
+    assert "bending" in client.get("/api/health").json()["modes"]
+    plate = make_video(tmp_path, n=72, fps=24, w=256, h=128, color_fn=lambda i: (40, 35, 30))
+    voice = make_voice(tmp_path, make_wav)
+
+    def post(**data):
+        with open(plate, "rb") as p, open(voice, "rb") as v:
+            return client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                               data={"mode": "bending", "x": "0.4", "y": "0.6", **data})
+
+    assert post(effect="fireball").status_code == 400  # not one a hand throws
+    assert post(effect="fire_burst", frame="-1").status_code == 400
+    s = post(effect="fire_burst", frame="12", direction="90").json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    rc = done["receipt"]
+    assert rc["mode"] == "bending" and seen["frame"] == 12 and seen["emitter"] == "palm"
+    assert abs(seen["tap"][0] - 0.4 * 256) < 1 and len(r.prompts) == 1 and "to the right" in r.prompts[0]  # the arrow
+    again = client.post(f"/api/jobs/{s['id']}/replay", data={"cue": "hold", "holds": json.dumps([[0.5, 0.7], [1.5, 1.8]])})
+    done = wait(client, again.json()["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["bending"]["performed_again"]["no_new_render"] and len(r.prompts) == 1
+    assert len(done["receipt"]["bending"]["hits"]) == 2

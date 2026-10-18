@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { Performance } from "@/components/Performer";
+import EffectBadge from "@/components/EffectBadge";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
+import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -59,8 +60,26 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
   );
 }
 
+/** A shot from your hand, as plain claims: rendered once over black, carried on your hand, fired on each strike. */
+function HandChips({ job }: { job: JobStatus }) {
+  const r = job.receipt;
+  const b = r?.bending;
+  if (!r || !b) return null;
+  return (
+    <div className="row">
+      <span className="chip">{b.performed_again ? "performed again on the same render: no new render"
+        : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)` : "made, not rendered: an air blast"}</span>
+      <span className="chip">carried on your hand frame by frame, and lighting it from where it is</span>
+      {b.hits.length > 1 && <span className="chip">{b.hits.length} hits, each on its own strike, as big as it was loud</span>}
+      {b.snap.used === "motion" && <span className="chip">launched on your hand&apos;s strike</span>}
+      {r.auto?.why && <span className="chip">{r.auto.why}</span>}
+      <span className="chip">{r.seconds_total.toFixed(0)} s in total</span>
+    </div>
+  );
+}
+
 /** Step 4: pick the effect and how to make it, then the shot. */
-export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], initialJob, replayOf = null, replayWith = [], siblings = [], onReplay, onBusy, onDone }: {
+export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], hand = null, initialJob, replayOf = null, replayWith = [], siblings = [], onReplay, onBusy, onDone }: {
   plate: PickedPlate;
   point: [number, number];
   direction: number | null;
@@ -70,6 +89,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   madeAheadScene?: boolean; // the GPU is offline, but sample scene shots were made ahead of time
   strokes: Stroke[];
   sources?: [number, number][]; // call and response: one source per hit, in order (the first is the point)
+  hand?: { frame: number } | null; // your hand is the source (element bending), tapped on this frame
   initialJob?: JobStatus | null; // this take's shot, if it was already made (coming back to it)
   replayOf?: string | null; // play this take on that finished shot's render (no new render)
   replayWith?: string[]; // and those other shots on the plate with it, as one scene
@@ -87,7 +107,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   // ... and your own take plays a sample's scene shot made ahead: each of your hits plays one of the render's
   const replay = !sceneLive && !several && !ahead && !!madeAheadScene && replayable(plate, performance.cue, performance.voice, point, strokes, direction);
   const sceneOk = sceneLive || ahead || replay;
-  const firstMode: Mode = sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
+  const firstMode: Mode = hand ? "bending" : sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
   const [mode, setModeState] = useState<Mode>(firstMode);
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
   const [effect, setEffect] = useState(AUTO_EFFECT);
@@ -96,7 +116,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [kind, setKind] = useState<string | null>(null); // your own clip: what it is
   useEffect(() => { if (!plate.sample) fetchObjects().then(setKinds, () => setKinds([])); }, [plate.sample]);
   const [describe, setDescribe] = useState("");
-  const choices = effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
+  const choices = hand ? effects.filter((e) => HAND_EFFECTS.includes(e.id))
+    : effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
   const setMode = (m: Mode) => {
     setModeState(m);
     // an effect the new route can't make goes back to the cue's own; offline, the scene shot made ahead is the cue's
@@ -113,7 +134,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [view, setView] = useState<View>("final.mp4");
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
 
-  const make = async () => {
+  const make = async (pick?: string) => {
+    const eff = pick ?? effect;
     setBusy(true);
     setJob(null);
     setEvent({ stage: "uploading", progress: 0.01, message: "Uploading", t: 0 });
@@ -122,7 +144,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing,
           together: replayWith })
         : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
-          timing: performance.timing, effect, point, seed, mode, direction, subject: subject.trim() || null, object: kind,
+          timing: performance.timing, effect: eff, point, seed, mode, direction, frame: hand?.frame ?? null, subject: subject.trim() || null, object: kind,
           cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
           describe: describe.trim() || null, sources: several ? sources : null });
       setGuideUrl(null);
@@ -140,7 +162,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       if (done.status !== "done" && done.status !== "error") done = await pollUntilDone(queued.id);
       setJob(done);
       setView("final.mp4");
-      if (done.status === "done") onDone(done, effect);
+      if (done.status === "done") onDone(done, eff);
     } catch (e) {
       setJob({ id: "", status: "error", stage: "error", progress: 0, message: "", error: (e as Error).message, files: {}, receipt: null });
     } finally {
@@ -154,7 +176,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     const start = setTimeout(() => void make(), 0); // once, after mounting (strict mode mounts twice in development)
     return () => clearTimeout(start);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const again = job?.status === "done" && job.receipt?.mode === "scene" && job.receipt.plate?.still ? (replayOf ?? job.id) : null;
+  const bent = job?.receipt?.mode === "bending";
+  const again = job?.status === "done" && ((job.receipt?.mode === "scene" && job.receipt.plate?.still) || bent) ? (replayOf ?? job.id) : null;
+  const auto = job?.receipt?.auto;
 
   return (
     <section>
@@ -170,13 +194,17 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           <button key={e.id} role="radio" aria-checked={effect === e.id} disabled={busy || (ahead && mode === "scene")}
             title={ahead && mode === "scene" ? "needs the GPU, which is offline: this sample plays the effect it was made with" : undefined}
             className={effect === e.id ? "" : "secondary"} onClick={() => setEffect(e.id)}>
-            {EFFECT_LABELS[e.id]?.name ?? e.id}
+            {(hand && HAND_LABELS[e.id]) || EFFECT_LABELS[e.id]?.name || e.id}
             <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[e.id]?.cue}</span>
 
           </button>
         ))}
       </div>
-      {mode === "scene" && !ahead && (
+      {hand && (
+        <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
+          fireball, a hiss from a palm steam, a pf a blast of air. Rendered once over black on the GPU (~1 min), then carried on your hand.</p>
+      )}
+      {!hand && mode === "scene" && !ahead && (
         <label className="row">
           <span className="muted">Say what happens (optional)</span>
           <input value={describe} maxLength={200} disabled={busy} style={{ flex: "1 1 260px" }}
@@ -184,6 +212,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
             onChange={(e) => setDescribe(e.target.value)} />
         </label>
       )}
+      {!hand && <>
       <div className="row" role="radiogroup" aria-label="How to make it">
         <span className="muted">How</span>
         <button role="radio" aria-checked={mode === "scene"} disabled={busy || !sceneOk}
@@ -206,6 +235,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           </button>
         </div>
       </details>
+      </>}
       {sceneOnly && mode !== "scene" && (
         <p className="chip warn">{modes.includes("scene")
           ? `${drawn ? "A drawing" : "A source for each hit"} needs "Into the scene".`
@@ -218,7 +248,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           : madeAheadScene ? "The GPU is offline right now: instant mode places a pre-rendered element with your timing. Into the scene still plays for a sample clip at its marked spot: with a noise marked ready, the clip's own snap, or your own take on the render made ahead."
             : "The GPU is offline right now: instant mode places a pre-rendered element with your timing."}</p>
       )}
-      {mode === "scene" && !plate.sample && kinds.length > 0 && (
+      {!hand && mode === "scene" && !plate.sample && kinds.length > 0 && (
         <div className="row" role="radiogroup" aria-label="What is it">
           <span className="muted">What is it?</span>
           {kinds.map((k) => (
@@ -233,7 +263,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
             : <span className="muted">the sound picks it: a boom bursts, a whoosh is a jet of fire where you aim it (a plume if you don&apos;t), a hiss is steam, a puff is a blast of air</span>)}
         </div>
       )}
-      {mode === "scene" && !plate.sample && (
+      {!hand && mode === "scene" && !plate.sample && (
         <label className="row">
           <span className="muted">{kinds.length ? "In your words (optional)" : "What is it?"}</span>
           <input value={subject} maxLength={120} disabled={busy} placeholder="the toy dinosaur on the desk"
@@ -241,7 +271,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         </label>
       )}
       <div className="row">
-        <button disabled={busy || effects.length === 0 || (sceneOnly && mode !== "scene")} onClick={() => void make()}>{job?.status === "done" ? "Make it again" : "Make the shot"}</button>
+        <button disabled={busy || effects.length === 0 || (!hand && sceneOnly && mode !== "scene")} onClick={() => void make()}>{job?.status === "done" ? "Make it again" : "Make the shot"}</button>
       </div>
 
       {busy && event && (
@@ -270,20 +300,26 @@ export default function ShotPanel({ plate, point, direction, performance, effect
             ))}
           </div>
           <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
-          <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />
+          {bent ? <HandChips job={job} /> : <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />}
+          {bent && auto && !job.receipt?.bending?.performed_again && (
+            <EffectBadge choices={HAND_EFFECTS} onPick={(id) => { setEffect(id); void make(id); }}
+              detected={{ effect: auto.picked, kind: auto.heard, gesture: auto.hand, confidence: auto.hand ? 0.8 : 0.4,
+                mismatch: !!job.receipt?.bending?.snap.mismatch }} />
+          )}
           {again && onReplay && (
             <div className="row">
               <button onClick={() => onReplay(again, replayWith)}>Perform it again</button>
-              <span className="muted">a new rhythm or another voice on the same render: no new render, ready in about 20 s</span>
+              <span className="muted">{bent ? "a new rhythm on the same hand take: no new render, ready in about a minute"
+                : "a new rhythm or another voice on the same render: no new render, ready in about 20 s"}</span>
             </div>
           )}
-          {again && onReplay && siblings.length > 0 && (
+          {again && onReplay && !bent && siblings.length > 0 && (
             <div className="row">
               <button onClick={() => onReplay(again, siblings)}>Perform all {siblings.length + 1} together</button>
               <span className="muted">your shots on this plate as one scene, each effect at its own spot: one rhythm plays them all, no new render</span>
             </div>
           )}
-          {!job.receipt?.replayed && <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}
+          {!job.receipt?.replayed && !bent && <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}
             onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />}
           <div className="row">
             {job.files["final.mp4"] && <a className="btn secondary" href={job.files["final.mp4"]} download="cue-the-boom.mp4">Download the shot</a>}
