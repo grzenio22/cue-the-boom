@@ -877,18 +877,22 @@ def test_a_rhythm_pauses_between_its_hits_on_the_guide():
     assert held.guide.frames[b].max() > 0 or b not in held.guide.keyframes
 
 
-def test_light_a_render_takes_away_darkens_the_plate_without_a_colour_cast():
-    from cuesync.transfer import gam, lin, relight
+def test_light_a_render_takes_away_darkens_the_plate_and_its_texture_survives():
+    from cuesync.transfer import gam, light_gain, lin
 
     plate = lin(np.full((4, 4, 3), (150, 140, 130), np.uint8))  # a warm-white surface in the real clip
     ref = lin(np.full((4, 4, 3), (220, 200, 140), np.uint8))  # the render lit it more brightly, and warmer
     after = lin(np.full((4, 4, 3), (60, 60, 120), np.uint8))  # then the candle went out in the render
-    out = gam(relight(plate, ref, after - ref)).astype(int)[0, 0]
+    out = gam(plate * light_gain(after, ref, 1.0)[0]).astype(int)[0, 0]
     old = gam(np.maximum(plate + after - ref, 0.0)).astype(int)[0, 0]
-    assert old[2] > 2 * max(old[0], 1)  # the old additive transfer: red clipped to black, a blue cast
-    assert out.max() < 150 and abs(out[2] / max(out[0], 1) - 130 / 150) < 0.15  # darker, still its own colour
-    glow = gam(relight(plate, ref, lin(np.full((4, 4, 3), (255, 200, 120), np.uint8)) - ref)).astype(int)[0, 0]
-    assert glow[0] > 150  # light the render adds (a fire's glow) is still added
+    assert old[0] == 0  # the old additive transfer: red subtracted below black
+    assert out.max() < 150 and out.min() > 20  # darker, and no channel crushed to black
+    glow = gam(plate * light_gain(lin(np.full((4, 4, 3), (255, 200, 120), np.uint8)), ref, 1.0)[0]).astype(int)[0, 0]
+    assert glow[0] > 150  # light the render adds (a fire's glow) still brightens it
+    rng = np.random.default_rng(2)  # under a room going dark and warm (a fire), the clip's texture stays
+    tex = lin(np.clip(rng.normal(170, 25, (64, 64, 3)), 0, 255).astype(np.uint8))
+    dim = gam(tex * light_gain(np.full_like(tex, 0.06) * np.array([1.4, 0.9, 0.8], np.float32), np.full_like(tex, 0.4), 4.0)[0])
+    assert dim[..., 0].mean() > dim[..., 2].mean() + 5 and dim[..., 1].std() > 3
 
 
 def test_a_smooth_fireball_covers_what_is_behind_it_instead_of_ghosting_it():
@@ -924,6 +928,8 @@ def test_each_hit_of_a_rhythm_goes_on_its_own_cue_within_a_speed_limit():
     # a merged hit has no anchor; one only reachable at more than a third faster is left where the shift puts it
     assert warp_anchors([12, None, 54], [16, 31, 51]) == [(12, 16), (54, 51)]
     assert warp_anchors([12, 22, 54], [16, 31, 51]) == [(12, 16), (54, 51)]  # 10 render frames over 15: too slow
+    # lanterns_call: the big blast came too late to reach after the ghost's pop; landing the blast beats landing the pop
+    assert warp_anchors([8, 24, 52], [16, 32, 49], [0.7, 0.75, 1.0]) == [(8, 16), (52, 49)]
 
 
 def test_a_rhythm_the_model_spaced_unevenly_lands_hit_by_hit():
@@ -972,6 +978,9 @@ def test_call_and_response_paints_each_hit_at_its_own_source_in_order():
     assert xs[0] < 0.35 and 0.35 < xs[1] < 0.65 and xs[2] > 0.65  # left, middle, right, in the rhythm's order
     again = sp.from_json(sp.to_json(), sp.guide.frames)
     assert again.sources == sources and again.source_of(5) == 2
+    # only the last hit leaves smoke: an early pop's smoke drifted over the next source and hid its hit
+    smoky = [b["e"] for b in sp.guide.blobs if any(s.get("fluid") == "smoke" for s in b["shapes"])]
+    assert smoky and min(smoky) > sp.events[-1].at
 
 
 def test_call_and_response_times_each_hit_at_its_own_source():
@@ -994,6 +1003,27 @@ def test_call_and_response_times_each_hit_at_its_own_source():
     st = time_scene(plate, True, render, sp, eff, 240)
     assert [o for o, _ in st.warp] == shown
     assert [st.index[h] for h in st.hits] == shown  # each fire on the shot frame of its own cue
+
+
+def test_a_source_a_neighbours_fire_spread_over_stays_on_its_cue():
+    from cuesync.scene_shot import time_scene
+
+    cue = cue_of([(1.0, 0.2, 0.9), (1.8, 0.2, 0.9), (2.7, 0.3, 1.0)], length_s=5.0)
+    eff = load_effect("fire_burst")
+    start, length = plan_window(cue, eff, None)
+    plate = np.full((1, 256, 128, 3), 50, np.uint8)
+    sources = [(0.2, 0.6), (0.5, 0.6), (0.8, 0.6)]
+    sp = paint_scene_guide(cue, eff, sources[0], plate, start=start, length=length, size=(128, 256), sources=sources)
+    wants = [ev.at - eff.lead_frames for ev in sp.events]
+    render = np.full((length, 256, 128, 3), 50, np.uint8)
+    yy, xx = np.mgrid[:256, :128]
+    for (sx, sy), o in zip(sources, (wants[0] - 2, wants[1] + 1, wants[0])):  # the third lit along with the first
+        disc = (yy - sy * 256) ** 2 + (xx - sx * 128) ** 2 < 14 ** 2
+        for e in range(o, length):
+            render[e][disc] = (250, 180, 60)
+    st = time_scene(plate, True, render, sp, eff, 240)
+    assert len(st.warp) == 2 and all(o != wants[2] - 16 for o, _ in st.warp)
+    assert st.hits[2] == start + wants[2]  # not at the edge of its window, where the spread fire already was
 
 
 def test_call_and_response_blows_candles_out_one_at_a_time():

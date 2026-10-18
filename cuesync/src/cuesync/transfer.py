@@ -4,14 +4,18 @@ An in-scene render starts from a plate frame, so it is a new video of the plate'
 that is the shot: CueSync only re-times it. For a moving plate the real plate must stay what it is, so only
 what the render changed is put onto it, in linear light:
 
-    out = lerp(P + gain * (G' - R), gain * G', M)
+    out = lerp(P * L, gain * G', M),   L = blur(gain * G') / blur(gain * R)
 
-G' is the render frame registered onto R (an affine ECC fit on the region the effect never reaches), R the
-render's own settled scene before the effect, ``gain`` the colour difference between R and the plate. The
-difference carries the light the effect throws on the scene (the table, the wall, the prop) and keeps the
-plate's own texture under it; M is where the STRUCTURE changed (the fire's detail, smoke, debris: a high-pass
-difference of the logs, which a smooth change of light does not produce), and there the render replaces the
-plate. If the plate moves, these layers follow it (a second ECC fit, plate frame onto the start frame).
+G' is the render frame warped onto the plate frame, R the render's own settled scene before the effect (warped
+there too), ``gain`` the colour difference between R and the plate. The render follows the plate's camera, so
+both videos are tracked onto the start frame (affine ECC fits on the region the effect never reaches, each
+starting from its neighbour's) and the render is resampled once, straight onto its plate frame. The render's
+exposure (a model exposing for a fireball darkens the whole room) is measured far from the effect and taken out
+before comparing. The change carries the light the effect throws on the scene (the table, the wall, the
+prop) as a gain L on the plate (light multiplies what it falls on), so the plate keeps its own texture and
+colour under it while the render's brightening, darkening and tint carry over; M is where the STRUCTURE changed (the fire's detail, smoke,
+debris: a high-pass difference of the logs, which a smooth change of light does not produce), and there the
+render replaces the plate.
 
 The transfer is checked, not trusted: the structural change where the effect never reaches (texture that
 moved or was re-drawn, not light) is the residual; above ``MAX_RESIDUAL`` (the render drifted or re-shaped the
@@ -203,7 +207,9 @@ COLOUR_MIN, COLOUR_SPAN = 0.08, 0.20  # linear light: near the effect, a change 
 def _ecc(src: np.ndarray, ref: np.ndarray, mask: np.ndarray, s: int = 4) -> np.ndarray:
     """Affine warp (full resolution) with ref(x) ~ src(W x), fitted where ``mask`` is set, on the frames'
     structure (high-pass log luminance), so that light thrown on part of the scene doesn't pull the fit.
-    An implausible fit (a large move or zoom) falls back to no warp."""
+    An implausible fit (a large move or zoom) falls back to no warp. Each frame is fitted on its own, from no warp:
+    the onset measure's thresholds were fitted by eye on renders registered this way (``track`` follows a camera
+    across a whole clip, for the transfer)."""
     h, w = ref.shape[:2]
 
     def g(im):
@@ -232,6 +238,100 @@ def _ecc(src: np.ndarray, ref: np.ndarray, mask: np.ndarray, s: int = 4) -> np.n
     return warp
 
 
+TRACK_MAX = 0.25  # a tracked camera may move this share of the width (or scale/turn this much) before a fit is distrusted
+COLOUR_MIN, COLOUR_SPAN = 0.08, 0.20  # linear light: near the effect, a change this big replaces the plate
+FAR = 0.12  # share of the short side: further than this from the effect, a change of brightness is the camera's exposure
+CRUSHED = 0.004  # linear luminance: an 8-bit frame this dark has no texture left to compare, only quantisation
+LIGHT_EPS = 0.004  # linear light added to both sides of a light ratio, so dark noise can't make a gain
+MAX_GAIN = 8.0  # light from the render may brighten the clip this much at most (and darken it to 1/32)
+TINT, MAX_TINT = 0.6, 1.5  # how much of the render's change of colour carries over, and at most how far per channel
+
+
+def _hp(im: np.ndarray, s: int) -> np.ndarray:
+    """High-pass log luminance at 1/s size: structure, blind to a smooth change of light or exposure."""
+    h, w = im.shape[:2]
+    small = cv2.resize(im, (w // s, h // s), interpolation=cv2.INTER_AREA)
+    y = np.log(cv2.cvtColor(small, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0 + 0.02)
+    return (y - cv2.GaussianBlur(y, (0, 0), 2.0)).astype(np.float32)
+
+
+def _m3(A: np.ndarray) -> np.ndarray:
+    return np.vstack([A, [0.0, 0.0, 1.0]]).astype(np.float64)
+
+
+def _scaled(A: np.ndarray, k: float) -> np.ndarray:
+    """A warp in pixels of one size, in pixels of a size 1/k of it."""
+    B = np.array(A, np.float32)
+    B[:, 2] /= k
+    return B
+
+
+def _err(gr: np.ndarray, gs: np.ndarray, sel: np.ndarray, A: np.ndarray) -> float:
+    moved = cv2.warpAffine(gs, A, gr.shape[::-1], flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT)
+    return float(np.abs(moved - gr)[sel].mean())
+
+
+def _fit(gr: np.ndarray, gs: np.ndarray, m: np.ndarray, init: np.ndarray) -> np.ndarray | None:
+    """ECC from ``init`` (a warp at this size); None where it does not converge."""
+    try:
+        _, A = cv2.findTransformECC(gr, gs, np.array(init, np.float32), cv2.MOTION_AFFINE,
+                                    (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 1e-5), m, 5)
+    except cv2.error:
+        return None
+    return A
+
+
+def track(frames: np.ndarray, ref: np.ndarray, mask: np.ndarray, anchor: int = 0, s: int = 4) -> np.ndarray:
+    """Affine warps (n, 2, 3) at full size with ref(x) ~ frames[i](W_i x), fitted on structure where ``mask`` is
+    set. A camera that moves far over a clip is followed step by step: each fit starts from its neighbour's, coarse
+    to fine, and if it still doesn't converge the frame is fitted to its neighbour and the two warps are chained.
+    (Every frame fitted from no warp at all stopped converging once the camera had drifted a few pixels, and then
+    fell back to no warp: the render was compared with a scene it was no longer aligned to.) A fit that aligns
+    worse than where it started, or moves implausibly far, keeps its neighbour's warp."""
+    n = len(frames)
+    h, w = ref.shape[:2]
+    W = np.repeat(np.eye(2, 3, dtype=np.float32)[None], n, 0)
+    m4 = cv2.resize(mask.astype(np.uint8), (w // s, h // s), interpolation=cv2.INTER_NEAREST)
+    m8 = cv2.resize(mask.astype(np.uint8), (w // (2 * s), h // (2 * s)), interpolation=cv2.INTER_NEAREST)
+    sel = m4 > 0
+    if n == 0 or not sel.any() or not m8.any():
+        return W
+    r4, r8 = _hp(ref, s), _hp(ref, 2 * s)
+    g4: dict[int, np.ndarray] = {}
+
+    def hp4(i: int) -> np.ndarray:
+        if i not in g4:
+            g4[i] = _hp(frames[i], s)
+        return g4[i]
+
+    def step(i: int, init: np.ndarray, prev: int | None) -> None:
+        start = _scaled(init, s)
+        coarse = _fit(r8, _hp(frames[i], 2 * s), m8, _scaled(init, 2 * s))
+        A = _fit(r4, hp4(i), m4, start if coarse is None else _scaled(_scaled(coarse, 0.5 / s), s))
+        if A is None and prev is not None:  # a small step: the frame onto its neighbour, chained to the neighbour's warp
+            D = _fit(hp4(prev), hp4(i), m4, np.eye(2, 3, dtype=np.float32))
+            if D is not None:
+                A = (_m3(D) @ _m3(start))[:2].astype(np.float32)
+        W[i] = init
+        if A is None:
+            return
+        full = _scaled(A, 1.0 / s)
+        if (np.abs(full[:, :2] - np.eye(2)).max() <= TRACK_MAX and np.abs(full[:, 2]).max() <= TRACK_MAX * w
+                and _err(r4, hp4(i), sel, A) <= _err(r4, hp4(i), sel, start)):
+            W[i] = full
+
+    a = int(np.clip(anchor, 0, n - 1))
+    step(a, np.eye(2, 3, dtype=np.float32), None)
+    for i in range(a + 1, n):
+        step(i, W[i - 1], i - 1)
+        g4.pop(i - 1, None)
+    g4.clear()
+    for i in range(a - 1, -1, -1):
+        step(i, W[i + 1], i + 1)
+        g4.pop(i + 1, None)
+    return W
+
+
 @dataclass
 class TransferStats:
     residual: float | None  # mean structural change outside the effect region (lower is better)
@@ -240,6 +340,7 @@ class TransferStats:
     plate_moves: bool
     accepted: bool  # False: the caller must not use this transfer (see reason)
     reason: str = ""
+    exposure: float | None = None  # the render's darkest exposure against its settled scene (1 = unchanged)
 
 
 def _structure(lin_rgb: np.ndarray, sigma: float = 3.0) -> np.ndarray:
@@ -251,23 +352,65 @@ def _structure(lin_rgb: np.ndarray, sigma: float = 3.0) -> np.ndarray:
 _LUMA = np.array([0.2126, 0.7152, 0.0722], np.float32)
 
 
-def relight(pl: np.ndarray, rl: np.ndarray, delta: np.ndarray) -> np.ndarray:
-    """The plate (linear light) with the render's change of light: light the render added is added (a fire's
-    glow); light it took away scales the plate down by the render's own loss of brightness, never below black
-    and never off its colour (subtracting a brighter render's lost light drove the plate's red channel below zero
-    and left a blue cast where a candle went out)."""
-    gained = np.maximum(delta, 0.0)
-    lost = np.minimum(delta, 0.0)
-    before = rl @ _LUMA
-    ratio = np.clip((np.maximum(rl + lost, 0.0) @ _LUMA + 1e-4) / (before + 1e-4), 0.0, 1.0)
-    return pl * ratio[..., None] + gained
+def _smooth(x: np.ndarray, sigma: float) -> np.ndarray:
+    """Gaussian blur, done at a reduced size for a wide sigma (same result to the eye, a fraction of the cost)."""
+    h, w = x.shape[:2]
+    q = int(max(1, min(8, sigma // 4)))
+    if q == 1:
+        return cv2.GaussianBlur(x, (0, 0), sigma)
+    small = cv2.resize(x, (max(1, w // q), max(1, h // q)), interpolation=cv2.INTER_AREA)
+    return cv2.resize(cv2.GaussianBlur(small, (0, 0), sigma / q), (w, h), interpolation=cv2.INTER_LINEAR)
+
+
+def light_gain(gl: np.ndarray, rl: np.ndarray, sigma: float, weight: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """How the render's light changed, as a per-channel gain for the clip, and how much trusted support it had.
+    The clip keeps its own texture and colour under the gain, while the render's brightening, darkening and tint
+    carry over. (Added and subtracted differences washed texture out under strong light, drove channels below
+    zero where light was taken away, and turned a room lit only by a fire grey instead of warm.) The per-pixel
+    ratio is averaged in log over ``sigma``: a change of light or exposure scales every surface alike, so the
+    ratio is smooth across an object's edge where a ratio of two blurs is not (that drew a halo round
+    everything). Pixels ``weight`` doesn't trust are filled in from around them (normalised convolution). The
+    brightness change carries over whole, its colour only partly (``TINT``): in full, a candle's warm glow going
+    out turned the white wax mint green."""
+    r = np.log((gl + LIGHT_EPS) / (rl + LIGHT_EPS))
+    w = np.ones(gl.shape[:2], np.float32) if weight is None else weight.astype(np.float32)
+    support = _smooth(w, sigma)
+    g = _smooth(r * w[..., None], sigma) / np.maximum(support, 1e-4)[..., None]
+    lum = (g @ _LUMA)[..., None]
+    g = lum + np.clip(TINT * (g - lum), -np.log(MAX_TINT), np.log(MAX_TINT))
+    return np.exp(np.clip(g, -np.log(32.0), np.log(MAX_GAIN))).astype(np.float32), support
+
+
+def render_exposure(render: np.ndarray, R8: np.ndarray, Ar: np.ndarray, far: np.ndarray, q: int = 4) -> np.ndarray:
+    """Per render frame: its brightness far from the effect against its settled scene (a model that exposes for a
+    fireball darkens the whole room, by up to 3 stops). Measured where the frame has texture and isn't clipped,
+    and smoothed over 5 frames."""
+    h, w = R8.shape[:2]
+    ref = cv2.resize(lin(R8), (w // q, h // q), interpolation=cv2.INTER_AREA) @ _LUMA
+    fq = cv2.resize(far.astype(np.uint8), (w // q, h // q), interpolation=cv2.INTER_NEAREST) > 0
+    out = np.ones(len(render), np.float32)
+    for e, f in enumerate(render):
+        g = cv2.warpAffine(cv2.resize(f, (w // q, h // q), interpolation=cv2.INTER_AREA), _scaled(Ar[e], q), (w // q, h // q),
+                           flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT)
+        y = lin(g) @ _LUMA
+        ok = fq & (ref > 0.01) & (ref < 0.8) & (y < 0.8)
+        if ok.sum() > 50:
+            out[e] = float(np.clip(np.median(y[ok] / ref[ok]), 1 / 16, 4.0))
+    pad = np.pad(out, 2, mode="edge")
+    return np.array([np.median(pad[i: i + 5]) for i in range(len(out))], np.float32)
 
 
 def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], region: np.ndarray, ref_frames: int,
              start: int, threads: int = 8) -> tuple[np.ndarray, TransferStats]:
     """Delta-transfer ``render`` (already at the plate's size) onto ``plate``. ``index[f]`` is the render
     frame for plate frame f (None: before the render starts, the plate is left alone). After the render
-    ends, its last frame's change stays (what the effect left behind stays). Check ``stats.accepted``."""
+    ends, its last frame's change stays (what the effect left behind stays). Check ``stats.accepted``.
+
+    The render follows the plate's camera (its scene is painted from the plate's frames), so both are tracked
+    onto the start frame, and each render frame is warped once, straight onto its plate frame, with the settled
+    scene it is compared against warped there too. The render's own exposure dip is measured and taken out
+    before anything is compared (structure, change), but the shot keeps it: a camera exposing for a fireball
+    darkens the room, and taking the dip out of the picture too amplified the render's crushed colour into a cast."""
     n, h, w = plate.shape[:3]
     static = ~region
     moves = not is_still(plate)
@@ -276,65 +419,83 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
                                            reason="the effect covers nearly the whole frame")
     R8 = np.median(render[: max(1, ref_frames)], axis=0).astype(np.uint8)
     R = lin(R8)
-    p0 = plate[min(max(start, 0), n - 1)]
+    a = min(max(start, 0), n - 1)
+    p0 = plate[a]
     gain = (np.median(lin(p0)[static] + 1e-3, axis=0) / np.median(R[static] + 1e-3, axis=0)).astype(np.float32)
     gain = np.where(np.isfinite(gain), np.clip(gain, 0.25, 4.0), 1.0).astype(np.float32)
     rl = R * gain
     r_struct = _structure(rl)
-    reg_cache: dict[int, np.ndarray] = {}
+    Ar = track(render, R8, static)  # settled render -> render frame e
+    Ap = track(plate, p0, static, anchor=a) if moves else np.repeat(np.eye(2, 3, dtype=np.float32)[None], n, 0)  # start -> f
+    far = cv2.distanceTransform(static.astype(np.uint8), cv2.DIST_L2, 5) > FAR * min(w, h)
+    if far.mean() < MIN_STATIC:
+        far = static
+    k_exp = render_exposure(render, R8, Ar, far)
     # the render may replace the plate only around the effect; elsewhere only its smooth light reaches the
     # plate, and not where the render's own content moved (else anything moving in the plate would ghost)
     feather = cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.02 * min(w, h)))
     feather = np.clip(feather * 2.0, 0.0, 1.0)
     near = np.clip(cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.05 * min(w, h))) * 3.0, 0.0, 1.0)
-
-    def layers(e: int):
-        if e not in reg_cache:
-            reg_cache[e] = _ecc(render[e], R8, static)
-        Gw = cv2.warpAffine(render[e], reg_cache[e], (w, h), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
-                            borderMode=cv2.BORDER_REFLECT)
-        gl = lin(Gw) * gain
-        sdiff = np.abs(_structure(gl) - r_struct)
-        y_g, y_r = gl.max(-1), rl.max(-1)
-        sdiff_valid = np.where((y_g < 0.85) & (y_r < 0.85) & (y_r > 2e-3), sdiff, 0.0)  # clipped light is light
-        changed = np.clip((cv2.GaussianBlur(sdiff, (0, 0), 2.0) - 0.06) / 0.18, 0.0, 1.0)
-        # near the effect a smooth, bright change (a fireball, a plume of smoke) has little structure, and taken as
-        # light it was added to the plate as a see-through ghost; so there plain change of colour counts too
-        colour = np.clip((cv2.GaussianBlur(np.abs(gl - rl).max(-1), (0, 0), 2.0) - COLOUR_MIN) / COLOUR_SPAN, 0.0, 1.0)
-        changed = np.maximum(changed, colour * near)
-        M = cv2.GaussianBlur(changed, (0, 0), 3.0) * feather
-        delta = gl - rl
-        quiet = 1.0 - cv2.dilate(cv2.GaussianBlur(changed, (0, 0), 4.0), np.ones((9, 9), np.uint8))
-        light = cv2.GaussianBlur(delta, (0, 0), 16.0) * np.clip(quiet, 0.0, 1.0)[..., None]
-        delta = delta * feather[..., None] + light * (1.0 - feather)[..., None]
-        return gl, delta, M, sdiff_valid
+    ones = np.ones((h, w), np.float32)
+    ident = np.eye(2, 3, dtype=np.float32)
 
     out = np.empty_like(plate)
-    res_in, res_out = [], []
+    res_in: list[float] = []
+    res_out: list[float] = []
 
     def one(f: int) -> None:
         e = index[f]
         if e is None:
             out[f] = plate[f]
             return
-        gl, delta, M, sdiff = layers(e)
-        if moves and f != start:  # the layers live in the start frame's coordinates: follow the plate
-            A = _ecc(plate[f], p0, static)
-            gl = cv2.warpAffine(gl, A, (w, h), borderMode=cv2.BORDER_REFLECT)
-            delta = cv2.warpAffine(delta, A, (w, h), borderMode=cv2.BORDER_CONSTANT)
-            M = cv2.warpAffine(M, A, (w, h), borderMode=cv2.BORDER_CONSTANT)
-        pl = lin(plate[f])
-        M3 = M[..., None]
-        out[f] = gam(relight(pl, rl, delta) * (1.0 - M3) + gl * M3)
-        res_in.append(float(sdiff[region].mean()) if region.any() else 0.0)
-        res_out.append(float(sdiff[static].mean()))
+        P = Ap[f]
+        same = np.allclose(P, ident, atol=1e-4)
+
+        def onto(x: np.ndarray, border: int = cv2.BORDER_CONSTANT) -> np.ndarray:  # start-frame layout -> plate frame f
+            return x if same else cv2.warpAffine(x, P, (w, h), flags=cv2.INTER_LINEAR, borderMode=border)
+
+        # plate frame f -> start frame -> render frame e: one warp, so the render is resampled only once
+        M = (_m3(Ar[e]) @ _m3(cv2.invertAffineTransform(P)))[:2].astype(np.float32)
+        G = cv2.warpAffine(render[e], M, (w, h), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT)
+        rlf, rsf = onto(rl, cv2.BORDER_REFLECT), onto(r_struct, cv2.BORDER_REFLECT)
+        feat, nearf, reg_f = onto(feather), onto(near), onto(region.astype(np.float32)) > 0.5
+        valid = onto(ones) > 0.99  # what the start frame saw (a moving camera reveals new ground at the edges)
+        stat_f = ~reg_f & valid
+        k = float(k_exp[e])
+        gl = lin(G) * gain
+        norm = gl / k  # at the settled scene's exposure, for comparing only
+        sdiff = np.abs(_structure(norm) - rsf)
+        y_g, y_r = norm.max(-1), rlf.max(-1)
+        # clipped light is light, and a frame the model darkened to a few 8-bit levels has no texture to compare
+        trusted = (y_g < 0.85) & (y_r < 0.85) & (y_r > 2e-3) & ((gl @ _LUMA) > CRUSHED)
+        changed = np.clip((cv2.GaussianBlur(sdiff, (0, 0), 2.0) - 0.06) / 0.18, 0.0, 1.0)
+        # near the effect a smooth, bright change (a fireball, a plume of smoke) has little structure, and taken as
+        # light it was added to the plate as a see-through ghost; so there plain change of colour counts too
+        colour = np.clip((cv2.GaussianBlur(np.abs(norm - rlf).max(-1), (0, 0), 2.0) - COLOUR_MIN) / COLOUR_SPAN, 0.0, 1.0)
+        changed = np.maximum(changed, colour * nearf)
+        Mm = cv2.GaussianBlur(changed, (0, 0), 3.0) * feat
+        # near the effect its light in some detail; elsewhere smooth light, taken only where the render's own content
+        # didn't move (else anything moving in the render would print onto the clip) and filled in from around it
+        quiet = np.clip(1.0 - cv2.dilate(cv2.GaussianBlur(changed, (0, 0), 4.0), np.ones((9, 9), np.uint8)), 0.0, 1.0)
+        good = quiet * valid * trusted
+        room, _ = light_gain(gl, rlf, 0.12 * min(w, h), good + 1e-3)
+        local, support = light_gain(gl, rlf, 16.0, good)
+        a3 = np.clip(support / 0.2, 0.0, 1.0)[..., None]
+        far_light = local * a3 + room * (1.0 - a3)
+        L = light_gain(gl, rlf, 4.0, valid * trusted + 1e-3)[0] * feat[..., None] + far_light * (1.0 - feat)[..., None]
+        M3 = Mm[..., None]
+        out[f] = gam(lin(plate[f]) * L * (1.0 - M3) + gl * M3)
+        res_in.append(float(sdiff[reg_f].mean()) if reg_f.any() else 0.0)
+        ok = stat_f & trusted
+        res_out.append(float(sdiff[ok].mean()) if ok.any() else 0.0)
 
     with ThreadPoolExecutor(max_workers=threads) as pool:
         list(pool.map(one, range(n)))
     residual = float(np.mean(res_out)) if res_out else 0.0
     inside = float(np.mean(res_in)) if res_in else 0.0
     ok = residual <= MAX_RESIDUAL
+    used = [k_exp[e] for e in index if e is not None]
     return out, TransferStats(residual=round(residual, 4), inside=round(inside, 4), gain=[round(float(g), 3) for g in gain],
-                              plate_moves=moves,
-                              accepted=ok, reason="" if ok else
+                              plate_moves=moves, accepted=ok, exposure=round(float(min(used)), 3) if used else None,
+                              reason="" if ok else
                               f"the render moved or re-shaped the scene outside the effect (residual {residual:.2f})")

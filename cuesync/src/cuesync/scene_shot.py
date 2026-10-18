@@ -30,13 +30,13 @@ from .guide import write_guide, write_guide_preview
 from .matte import grabcut_matte
 from .media import probe_video, read_video, write_video
 from .pipeline import (FINISH_PRESET, FPS, Progress, Renderer, ShotResult, ShotSpec, _breakdown, _face_track,
-                       _finalise, _sha, auto_scale, load_plate, place_audio, plate_notes, shot_cue)
+                       _finalise, _sha, auto_scale, load_plate, place_audio, plate_notes, shot_cue, SOUND, soundtrack)
 from .scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
 from .transfer import (FIRST_RISE, TransferStats, _ecc, changed_share, effect_region, first_visible, gam, hit_onsets,
                        is_still, lin, onset_past_steps, transfer)
 
 MAX_SHIFT = 16  # the model is trusted to land within this many frames of the painted hit
-WARP = (0.75, 1.33)  # how much slower or faster a rhythm's render may play between two hits to put each on its cue
+WARP = (3 / 4, 4 / 3)  # how much slower or faster a rhythm's render may play between two hits to put each on its cue
 MODEL = "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame"
 FIRE_STOP_SHARE = 0.15  # the fire has stopped when its visible area is below this share of its peak
 GAS_STOP_SHARE = 0.3  # smoke or steam has settled when the change is below this share of its peak
@@ -59,20 +59,26 @@ class SceneTiming:
     warp: list[tuple[int, int]] = field(default_factory=list)  # a rhythm's (render onset, cue) per hit put on its cue
 
 
-def warp_anchors(onsets: list[int | None], wants: list[int]) -> list[tuple[int, int]]:
+def warp_anchors(onsets: list[int | None], wants: list[int], weights: list[float] | None = None) -> list[tuple[int, int]]:
     """(render frame, cue frame) for each hit of a rhythm that can go on its own cue: shown on its own, within
     MAX_SHIFT of its cue, and reached from the hit before by playing the render at a speed within WARP. LTX-2.5
-    spaces a rhythm's hits unevenly, so one shift for all of them leaves the later ones off their cues."""
-    out: list[tuple[int, int]] = []
-    for o, w in zip(onsets, wants):
-        if o is None or abs(w - o) > MAX_SHIFT:
+    spaces a rhythm's hits unevenly, so one shift for all of them leaves the later ones off their cues. When not
+    all of them can be reached, the hits kept are the set that weighs most (``weights``: the hits' sizes, since the
+    big blast is the one everyone sees land), then the most hits. (Keeping hits in order until one didn't fit left
+    the last, biggest blast of "pf, pf, KA-BOOM" 11 frames late to land a small pop on time.)"""
+    cand = [(i, o, w) for i, (o, w) in enumerate(zip(onsets, wants)) if o is not None and abs(w - o) <= MAX_SHIFT]
+    wt = list(weights) if weights is not None else [1.0] * len(onsets)
+    best: list[tuple[int, int, int]] = []
+    best_key: tuple | None = None
+    for mask in range(1, 1 << len(cand)):
+        pick = [c for j, c in enumerate(cand) if mask >> j & 1]
+        if not all(b[2] > a[2] and b[1] > a[1] and WARP[0] <= (b[1] - a[1]) / (b[2] - a[2]) <= WARP[1]
+                   for a, b in zip(pick, pick[1:])):
             continue
-        if out:
-            po, pw = out[-1]
-            if w <= pw or o <= po or not WARP[0] <= (o - po) / (w - pw) <= WARP[1]:
-                continue
-        out.append((o, w))
-    return out
+        key = (round(sum(wt[i] for i, _, _ in pick), 6), len(pick), -pick[0][0])
+        if best_key is None or key > best_key:
+            best, best_key = pick, key
+    return [(o, w) for _, o, w in best]
 
 
 def on_cue(r: float, anchors: list[tuple[int, int]]) -> float:
@@ -215,6 +221,11 @@ def source_onsets(steady: np.ndarray, region: np.ndarray, sp: ScenePlan, eff, wa
             out.append(None)
             continue
         above = np.nonzero(share[lo:hi] > base + FIRST_RISE * (peak - base))[0]
+        if above.size and above[0] == 0 and lo > ref_frames:
+            # already lit when its window opens: a neighbour's fire spread over (its "onset" was the window's edge,
+            # and the hit's sound went there too); it can't be called, so this hit stays on its cue
+            out.append(None)
+            continue
         out.append(lo + int(above[0]) if above.size else None)
     return out
 
@@ -241,7 +252,7 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
         onsets = source_onsets(steady, region, sp, eff, wants, ref_frames)
         found = [(w, o) for w, o in zip(wants, onsets) if o is not None]
         shown = [k for k, o in enumerate(onsets) if o is not None] or [0]
-        warp = warp_anchors(onsets, wants)
+        warp = warp_anchors(onsets, wants, [ev.size for ev in sp.events])
         if len(warp) >= 2:
             onset = warp[0][0] - (warp[0][1] - (at0 - eff.lead_frames))
         else:
@@ -261,7 +272,7 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
         onsets = hit_onsets(curve, wants, ref_frames)
         found = [(w, o) for w, o in zip(wants, onsets) if o is not None]
         shown = [k for k, o in enumerate(onsets) if o is not None] or [0]
-        warp = warp_anchors(onsets, wants)
+        warp = warp_anchors(onsets, wants, [ev.size for ev in sp.events])
         if len(warp) >= 2:  # each hit on its own cue: the render plays a little faster or slower between them
             onset = warp[0][0] - (warp[0][1] - (at0 - eff.lead_frames))  # the first hit, by the first anchor's error
         elif found:
@@ -541,7 +552,18 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
     at0 = st.painted
     index_of = lambda t: st.index[t]  # noqa: E731
 
-    audio = place_audio(samples, audio_offset, n_out)
+    env = np.zeros(n_out)
+    m = min(n_out, len(cue.envelope))
+    env[:m] = np.asarray(cue.envelope)[:m]
+    region = effect_region(sp.guide.blobs, sp.guide.size, (pw, ph))
+    stops = eff.voice_gate == "both"
+    raw = st.raw
+    first = start + at0 - eff.lead_frames + hit_shift - (0 if raw is None else raw - auto)  # where it now shows
+    stop = measure_stop(comp, region, voice_end, eff.fluid == "fire", first) if stops else None
+    # the effect's own sound, each hit on the frame where it shows (none for a render that shows no effect)
+    shown = [k for k in range(len(sp.events)) if k not in st.merged] if onset is not None else []
+    audio = soundtrack(place_audio(samples, audio_offset, n_out), eff, n_out, env, [st.hits[k] for k in shown],
+                       [min(1.0, sp.events[k].size * (0.5 + 0.5 * sp.events[k].peak)) for k in shown], stop, spec.seed)
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
 
@@ -552,9 +574,6 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
             faces = _face_track(spec.face, n_out, spec.offset_s, spec.face_offset_s, min(ph, pw) // 3)
         except Exception:  # a broken face clip must not cost the shot
             faces = None
-    env = np.zeros(n_out)
-    m = min(n_out, len(cue.envelope))
-    env[:m] = np.asarray(cue.envelope)[:m]
     final_path, breakdown_path = out_dir / "final.mp4", out_dir / "breakdown.mp4"
 
     def write_final() -> None:
@@ -572,11 +591,6 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
         for fut in [pool.submit(write_final), pool.submit(write_breakdown)]:
             fut.result()
 
-    region = effect_region(sp.guide.blobs, sp.guide.size, (pw, ph))
-    stops = eff.voice_gate == "both"
-    raw = st.raw
-    first = start + at0 - eff.lead_frames + hit_shift - (0 if raw is None else raw - auto)  # where it now shows
-    stop = measure_stop(comp, region, voice_end, eff.fluid == "fire", first) if stops else None
     receipt = {
         "cuesync": __version__,
         "mode": "scene",
@@ -619,6 +633,7 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
             "stopped_within_plate": None if not stops else stop is not None,
         },
         "transfer": None if st.transfer is None else asdict(st.transfer),
+        "sound": SOUND,
         "warnings": st.warnings + plate_notes(spec.plate, spec.max_plate_s),
         "retimed": retimed,
         "seconds_total": round(time.perf_counter() - t0, 1),

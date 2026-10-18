@@ -142,6 +142,34 @@ def _sha(path: Path | None) -> str | None:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
 
 
+FOLEY_GAIN = 0.65  # the effect's own sound sits under the performer's cue, which stays on top
+SOUND = {"cue": "as performed", "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)", "foley_gain": FOLEY_GAIN}
+
+
+def soundtrack(cue_audio: np.ndarray, eff, n_frames: int, envelope: np.ndarray, hits: list[int], strengths: list[float],
+               stop: int | None, seed: int) -> np.ndarray:
+    """The shot's sound: the cue as performed, over procedural Foley of what the effect does on screen (a fire's
+    whoomph and crackle, a puff of smoke, a candle blown out), each hit on the frame where it shows, soft-limited so
+    the two together never clip. Foley that can't be made never costs the shot: then it is the cue alone."""
+    from .sfx_synth import synthesize_shot_sfx
+
+    env = np.zeros(n_frames, np.float64)
+    m = min(n_frames, len(envelope))
+    env[:m] = np.clip(np.asarray(envelope, np.float64)[:m], 0.0, 1.0)
+    kept = [(int(h), float(s)) for h, s in zip(hits, strengths) if 0 <= h < n_frames]
+    try:
+        foley = synthesize_shot_sfx(effect_id=eff.id, fluid=eff.fluid, behaviour=eff.behaviour, n_frames=n_frames,
+                                    envelope=env, hits=[h for h, _ in kept], strengths=[s for _, s in kept],
+                                    stop_frame=None if stop is None else int(np.clip(stop, 0, n_frames)), fps=FPS, sr=SR,
+                                    seed=int(seed))
+    except ValueError:
+        return cue_audio
+    mixed = np.asarray(cue_audio, np.float32).copy()
+    k = min(mixed.size, foley.size)
+    mixed[:k] += FOLEY_GAIN * foley[:k]
+    return (np.tanh(mixed / 0.9) * 0.9).astype(np.float32)
+
+
 def place_audio(samples: np.ndarray, offset_s: float, n_frames: int, fps: int = FPS, sr: int = SR) -> np.ndarray:
     """Lay the performance onto a silent track as long as the plate, starting at plate time ``offset_s``."""
     out = np.zeros(int(round(n_frames / fps * sr)), dtype=np.float32)
@@ -205,15 +233,18 @@ def _ribbons(env: np.ndarray, n: int, w: int) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _finalise(frames: np.ndarray, env: np.ndarray, label: str, faces) -> np.ndarray:
-    """Face inset (bottom left), effect label and the live voice ribbon with its playhead."""
+    """Face inset (bottom left) and the live voice ribbon with its playhead, the effect's label in the ribbon (over
+    the picture, a big caption sat right on top of a rising fireball)."""
     n, h, w = frames.shape[:3]
     out = np.empty((n, h + RIBBON_H, w, 3), dtype=np.uint8)
     pad = w // 30
-    played, future = _ribbons(env, n, w)
-    font = _font(max(18, w // 14))
-    stamp = Image.new("RGBA", (w, max(18, w // 14) * 2 + 16), (0, 0, 0, 0))
-    ImageDraw.Draw(stamp).text((w // 2, max(18, w // 14) // 2 + 8), label, font=font, fill=(255, 255, 255, 255), anchor="mt",
-                               stroke_width=max(2, w // 168), stroke_fill=(0, 0, 0, 255))
+    font = _font(RIBBON_H // 3)
+    ribbons = []
+    for rib in _ribbons(env, n, w):
+        tag = Image.fromarray(rib)
+        ImageDraw.Draw(tag).text((pad // 2, 4), label, font=font, fill=(235, 235, 240), stroke_width=2, stroke_fill=RIBBON_BG)
+        ribbons.append(np.asarray(tag))
+    played, future = ribbons
     mask_cache: dict[int, Image.Image] = {}
     for t in range(n):
         img = Image.fromarray(frames[t])
@@ -227,7 +258,6 @@ def _finalise(frames: np.ndarray, env: np.ndarray, label: str, faces) -> np.ndar
             img.paste(Image.fromarray(faces[t]), (x0, y0), mask_cache[s])
             ImageDraw.Draw(img).rounded_rectangle([x0, y0, x0 + s - 1, y0 + s - 1], radius=s // 6,
                                                   outline=(255, 255, 255), width=max(2, w // 270))
-        img.paste(stamp, (0, 0), stamp)
         out[t, :h] = np.asarray(img)
         px = int(t / max(n - 1, 1) * (w - 1))
         out[t, h:, :px + 1] = played[:, :px + 1]
@@ -520,7 +550,21 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
         guide_path = out_dir / "guide.mp4"
     elif retimed:
         (out_dir / "guide.json").write_text(json.dumps(plan.to_json(), indent=1))
-    audio = place_audio(samples, spec.offset_s if spec.cue == "voice" else 0.0, n)
+    env = np.zeros(n)
+    m = min(n, len(cue.envelope))
+    env[:m] = np.asarray(cue.envelope)[:m]
+    small_plate, small_comp = plate[:, ::4, ::4], comp[:, ::4, ::4]  # visibility measured on a 1/4 grid
+    stop = measure_composite_end(small_plate, small_comp)
+
+    def hit_at(r) -> int | None:  # the plate frame where this element's hit plays
+        return next((f for f in range(n) if r["gates"][0][f] + r["gates"][1][f] > 0
+                     and element_index_for(r["align"], r["timing"], f, r["element"].shape[0]) == r["timing"].hit_frame), None)
+
+    played = [(hit_at(r), r["strength"]) for r in rendered]
+    played = [(f, s) for f, s in played if f is not None]
+    audio = soundtrack(place_audio(samples, spec.offset_s if spec.cue == "voice" else 0.0, n), eff, n, env,
+                       [f for f, _ in played], [min(1.0, s) for _, s in played],
+                       stop if eff.voice_gate == "both" else None, spec.seed)
     comp_path = out_dir / "composite.mp4"
     write_video(comp_path, comp, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
 
@@ -531,9 +575,6 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
             faces = _face_track(spec.face, n, spec.offset_s, spec.face_offset_s, min(plate.shape[1:3]) // 3)
         except Exception:  # a broken face clip must not cost the shot
             faces = None
-    env = np.zeros(n)
-    m = min(n, len(cue.envelope))
-    env[:m] = np.asarray(cue.envelope)[:m]
     final_path, breakdown_path = out_dir / "final.mp4", out_dir / "breakdown.mp4"
 
     def write_final() -> None:
@@ -554,11 +595,8 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
         for fut in [pool.submit(write_final), pool.submit(write_breakdown)]:
             fut.result()
 
-    small_plate, small_comp = plate[:, ::4, ::4], comp[:, ::4, ::4]  # visibility measured on a 1/4 grid
     onset = measure_composite_onset(small_plate, small_comp)
-    hit_plate = next((f for f in range(n) if gates[0][f] + gates[1][f] > 0
-                      and element_index_for(align, timing, f, element.shape[0]) == timing.hit_frame), None)
-    stop = measure_composite_end(small_plate, small_comp)
+    hit_plate = hit_at(main)
     voice_end = cue.voice_end_frame
     lib = {k: v for k, v in main["last"].items() if k != "guide"}
     receipt = {
@@ -583,6 +621,7 @@ def _finish(spec, eff, plate, cue, samples, rendered, multi, occluder, scale, re
                   "coverage": None if occluder is None else round(float(occluder.mean()), 4)},
         "alignment": {"mode": eff.align, "offset": align.offset, "first_element_frame": align.first,
                       "visible_onset": timing.visible_onset, "hit": timing.hit_frame, "peak": timing.peak},
+        "sound": SOUND,
         "measured": {"onset_error_frames": None if onset is None else onset - plan.anchor_frame,
                      # where the hit is seen (the first plate frame showing the element's hit with a gate open)
                      # against where it should be: on the sound, or lead_frames before it (light beats sound)

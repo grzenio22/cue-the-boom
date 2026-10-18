@@ -582,23 +582,28 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
                                wobble=e + 5)], fire=True)
         return _steam(c, L, start, fade, e)
 
+    short = ev.end is not None and ev.end - ev.at <= 10  # a "pf": its next keyframe must be fire-free, or the breaths merge
     if ev.end is None or e < ev.end:
+        if short and fire:  # a "pf" gets one keyframe of fire: it must read as a flame, at least 60% of a full one
+            return jet(max(length(e), (sc.r_min + 0.6 * span) * c.side * ev.size, MIN_RADIUS_PX * 2))
         grow = _ease((t + 8) / 10)
         return jet(max(length(e), MIN_RADIUS_PX * 2) * grow)
     since = e - ev.end
     last = max(length(i) for i in range(max(0, ev.end - 8), max(1, ev.end)))
     if fire:
         out: list[dict] = []
-        short = ev.end - ev.at <= 10  # a "pf": its next keyframe must be fire-free, or the breaths merge into one
         if since < DIE_DOWN and not short:  # the flame lets go of the mouth and burns out downstream
             out += jet(last, start=min(0.85, since / DIE_DOWN), fade=0.15 + 0.5 * since / DIE_DOWN)
-        if since < 40:  # its smoke, where the flame was: a dark wisp rising and thinning (a round blob reads as cotton)
-            k = since / 40
+        # its smoke, where the flame was: a dark wisp rising and thinning (a round blob reads as cotton). After a
+        # "pf" only a small, faint, brief one: a big grey cloud after each short flame buried the flames themselves.
+        life, dense, scale = (16, 0.3, 0.6) if short else (40, 0.55, 1.0)
+        if since < life:
+            k = since / life
             mid = _path(c.s, c.u, min(last, 0.8 * reach), sc.bend * abs(c.u[0]))[9]
-            rx = max(0.14 * last * (1 + 0.5 * k) * (0.5 + 0.5 * ev.size), MIN_RADIUS_PX)
+            rx = max(0.14 * last * (1 + 0.5 * k) * (0.5 + 0.5 * ev.size) * scale, MIN_RADIUS_PX)
             ry = rx * 2.2
             out.insert(0, _gas(_ellipse(mid[0], mid[1] - ry * 0.6 - 0.22 * c.h * k, rx, ry, SMOKE), "smoke",
-                               0.55 - 0.45 * k))
+                               dense * (1 - 0.82 * k)))
         return out + _rest(c)
     tail = max(8, c.length - 1 - ev.end)
     k = since / tail
@@ -881,6 +886,10 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
             part = drawn.shapes(c_k, ev, e) if drawn is not None else painter(c_k, ev, e)
             if gap_of.get(k) == e:  # the pause before the next hit: none of this hit's fire
                 part = [s for s in part if not is_fire(s) or is_rest(s)]
+            if len(ctxs) > 1 and k < len(events) - 1 and eff.behaviour != "extinguish":
+                # call and response: an early pop leaves no smoke. Rising, it covered the next source (the model drew
+                # it as a flat grey ball in front of the big jack-o'-lantern) just where that source's hit is measured.
+                part = [s for s in part if s.get("fluid") != "smoke"]
             own = by_src.setdefault(src_of(k), [])
             own += [s for s in part if s not in own]
         gap_next = next((events[k + 1].at for k, g in gap_of.items() if g == e), None)

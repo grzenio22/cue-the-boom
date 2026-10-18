@@ -201,3 +201,31 @@ def test_experiment_resumes_from_existing_elements(tmp_path, make_video, make_wa
     m = run(plates=[plate], noises=[noise], offsets=[0.0], effect="fireball", point=(0.5, 0.5), seeds=[1],
             length=49, elements_dir=done, workflow=None, out=out)                    # nothing to render: reuses
     assert len(m["runs"]) == 1 and m["runs"][0]["element_length"] == 49 and not m["runs"][0]["stale_element"]
+
+
+def test_the_effect_label_never_covers_the_picture():
+    from cuesync.pipeline import _finalise
+
+    frames = np.full((6, 256, 144, 3), 90, np.uint8)
+    out = _finalise(frames, np.linspace(0.0, 1.0, 6), "fire burst", None)
+    assert (out[:, :256] == 90).all()  # a big caption on the picture sat right on top of a rising fireball
+    assert (out[0, 256:, :70] > 200).any()  # it is in the cue ribbon instead
+
+
+def test_a_shot_sounds_like_its_effect_on_the_frame_it_shows():
+    from cuesync.pipeline import FPS, SR, soundtrack
+
+    eff = load_effect("fire_burst")
+    n = 48
+    silent = np.zeros(int(round(n / FPS * SR)), np.float32)
+    out = soundtrack(silent, eff, n, np.zeros(n), [20], [1.0], None, seed=1)
+    per_frame = SR // FPS
+    before = np.abs(out[: 19 * per_frame]).max()
+    after = np.abs(out[20 * per_frame: 26 * per_frame]).max()
+    assert after > 10 * max(before, 1e-4)  # the whoomph is on the hit's frame, not before it
+    loud = soundtrack(np.full_like(silent, 0.95), eff, n, np.ones(n), [20], [1.0], None, seed=1)
+    assert np.abs(loud).max() <= 0.9  # the cue and the Foley together never clip
+    from types import SimpleNamespace
+
+    water = SimpleNamespace(id="water_splash", fluid="water", behaviour="burst")  # nothing to synthesise it with
+    assert soundtrack(silent, water, n, np.zeros(n), [20], [1.0], None, seed=1) is silent  # then the cue alone
