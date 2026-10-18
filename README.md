@@ -104,6 +104,45 @@ git clone https://github.com/grzenio22/cue-the-boom && pip install -r cue-the-bo
 
 To try it on a sample, copy `samples/voices/fwoooom.wav` to `ComfyUI/input/voice.wav` and `samples/plates/toy_desk.mp4` to `ComfyUI/input/plate.mp4` and queue the workflow as it is: Paint Scene is set up for that toy dinosaur (x 0.375, y 0.485, breathing fire to the left). The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
 
+## From your hand (element bending)
+
+Film your own hand, tap where the fire leaves it (fingertips, palm), drag to aim, and cue it: a long "fffff" from pointed fingers is a flamethrower, "KA-BOOM" from an open palm a fireball, a palm "hissss" steam, a "pf" a blast of air. The sound and the hand's gesture pick the effect; a tap on the badge changes it.
+
+The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA learned static sources, so the hand isn't regenerated). Then it is carried on your hand frame by frame:
+- **Tracking:** MediaPipe and optical flow follow the hand you tapped.
+- **History:** each part of the flame keeps the direction it was thrown in, so a swing whips through the air.
+- **Matte:** a SAM 2.1 matte lets the fingers in front of the flame's root hide it.
+- **Timing:** each hit fires on your arm's strike when the strike falls on the beat.
+- **Light:** your hand is lit from where the fire is.
+
+**Perform it again** plays the same render on a new rhythm, with no new render.
+
+**Without a GPU:** pick the sample *Your hand: cupped palm* in the studio, perform any rhythm (or pick a sample noise), and its fireball, made ahead of time, fires on each of your hits (about two minutes on a laptop CPU).
+
+**On your own clip** it needs the GPU for the render (above), plus two helper environments the server runs as subprocesses. They live apart from `cuesync/.venv` because MediaPipe's opencv-contrib clashes with the core's opencv-python. From the repository root (on Linux and macOS the interpreter is `bin/python`):
+
+```bash
+# the hand tracker (MediaPipe + RTMPose, Apache-2.0; its models download on first use into ~/.cache/cuesync)
+uv venv cuesync/.venv-track --python 3.12
+uv pip install --python cuesync/.venv-track/Scripts/python.exe mediapipe==1.1.1 onnxruntime==1.31.0 av==19.0.1
+# the hand matte (SAM 2.1-small, Apache-2.0; an NVIDIA GPU, CUDA 12.8 wheels, ~3 GB). Without it the flame's root
+# fades out behind the fingertips instead.
+uv venv cuesync/.venv-mask --python 3.12
+export VIRTUAL_ENV="$PWD/cuesync/.venv-mask"
+uv pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+uv pip install hydra-core==1.3.7 iopath==0.1.10 huggingface-hub==2.2.0 mediapipe==1.1.1 av==19.0.1 tqdm setuptools wheel
+SAM2_BUILD_CUDA=0 uv pip install --no-build-isolation --no-deps "sam-2 @ git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4"
+unset VIRTUAL_ENV
+```
+
+`cuesync serve` finds them there; `CUESYNC_TRACK_PY` and `CUESYNC_MASK_PY` point it at others.
+
+A take that tracks well:
+- **Light and background:** your hand lit, in front of a plain darker background.
+- **Framing:** the whole hand in frame on the strike, with room for the flame in the direction it goes.
+- **Camera:** 1080p at 24-30 fps, held still or steady. First person (the phone at your eyes, your hand coming in from below) works too.
+- **Cue:** make your noise as you strike.
+
 ## How it works
 
 ![How it was made](media/how-it-was-made.jpg)
@@ -163,6 +202,7 @@ What we found nobody else doing is the loop: a performed or in-clip sound become
 | Path | What |
 |---|---|
 | `cuesync/` | The Python core and CLI: cues, scene guides, the Comfy SDK runner, timing and transfer, the element compositor, the render API (Apache-2.0) |
+| `cuesync/src/cuesync/bending.py`, `hand_track.py`, `hand_mask.py`, `fx_light.py` | Element bending: carrying a render on a tracked hand, the tracker, the matte, the fire's light on the hand |
 | `comfyui-cuesync/` | ComfyUI node pack: Analyze Sound, Hold Cue, Paint Scene, Scene Shot, plus the element-mode nodes |
 | `workflows/` | ComfyUI workflows, canvas (`*.json`) and API (`*.api.json`) format (LTX-2.x Community License, derived from the ainvfx-fluid sample) |
 | `web/` | The studio (Next.js) |
