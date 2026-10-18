@@ -63,7 +63,7 @@ IGNITION = 0.15  # an element has ignited once its light is this share of its br
 LOST_FADE = 4  # frames over which an element fades out once the hand has been lost for more than 8
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
 # a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
-ROOT_FADE_HANDS = {"steam_jet": 0.3}  # steam has no nozzle to hide: over the full fade it started a hand from the palm
+ROOT_FADE_SHARE = {"steam_jet": 0.05}  # steam has no nozzle to hide: over the full fade it started a hand from the palm
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
 PREGLOW = 4  # frames of the render's build-up shown before its ignition (a spark-up, not an element that pops on);
@@ -309,13 +309,13 @@ def border_fade(h: int, w: int, share: float = 0.06) -> np.ndarray:
     return np.clip(d / m, 0, 1) ** 1.5
 
 
-def root_fade(h: int, w: int, ref: tuple, hands: float = ROOT_FADE * LENGTH) -> np.ndarray:
+def root_fade(h: int, w: int, ref: tuple, length: float) -> np.ndarray:
     """(h, w) float32 in the element's own frame: 0 at and behind the emitter, rising to 1 ROOT_FADE of the reach along
     it, so the element comes up from nothing just past the fingertips."""
     p0, u0, s0 = ref
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
     along = (xx - p0[0]) * u0[0] + (yy - p0[1]) * u0[1]
-    return np.clip(along / max(hands * s0, 1.0), 0, 1).astype(np.float32)
+    return np.clip(along / max(length, 1.0), 0, 1).astype(np.float32)
 
 
 def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None) -> np.ndarray:
@@ -500,13 +500,19 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     floor_lin = float(lin(np.full((1, 1, 3), floor, np.uint8))[0, 0, 0])
     if ign >= pre + 3:  # the render's own black, pixel by pixel, from before anything shows (one value for the whole
         # frame left the painted root's lifted box behind); a render lit from its start keeps the single value
-        floor_lin = np.maximum(lin(np.min(element[: ign - pre], axis=0)), floor_lin)
+        mins = np.min(element[: ign - pre], axis=0)  # opened: a speck lit before the ignition (in all those frames) left
+        # its floor so high that subtracting it cut a dark hole in the fire that later burned over it
+        mins = cv2.morphologyEx(mins, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
+        floor_lin = np.maximum(lin(mins), floor_lin)
     lost, run = np.zeros(n, int), 0
     for t in range(n):
         run = run + 1 if src[t] == "lost" else 0
         lost[t] = run
 
-    fade = root_fade(h, w, ref, ROOT_FADE_HANDS.get(effect, ROOT_FADE * LENGTH)) * border_fade(h, w)
+    hands_, most_ = SIZE.get(eff.behaviour, (LENGTH, 0.6))
+    reach_px = min(hands_ * ref[2], most_ * min(w, h))  # the element's own reach: its root fades over a share of it (a
+    # share of six hands faded a palm-sized fireball out to its top, and it hung above the hand)
+    fade = root_fade(h, w, ref, ROOT_FADE_SHARE.get(effect, ROOT_FADE) * reach_px) * border_fade(h, w)
     if eff.fluid == "steam":  # vapour thins out as it spreads: dense at the palm, a third as dense at its far end
         p0_, u0_, s0_ = ref
         yy_, xx_ = np.mgrid[:h, :w].astype(np.float32)
