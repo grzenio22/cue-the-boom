@@ -309,7 +309,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           {again && onReplay && (
             <div className="row">
               <button onClick={() => onReplay(again, replayWith)}>Perform it again</button>
-              <span className="muted">{bent ? "a new rhythm on the same hand take: no new render, ready in about a minute"
+              <span className="muted">{bent ? "a new rhythm on the same hand take: no new render, ready in about two minutes"
                 : "a new rhythm or another voice on the same render: no new render, ready in about 20 s"}</span>
             </div>
           )}
