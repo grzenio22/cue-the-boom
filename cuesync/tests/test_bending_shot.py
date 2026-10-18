@@ -85,7 +85,7 @@ def test_a_bending_shot_carries_the_element_and_says_how(tmp_path, make_video, m
     x0, y0 = int(p[0]), int(p[1])
     ahead = out[40, y0 - 10: y0 + 10, x0 + 5: x0 + 60].astype(int)
     assert ahead.max() > 150  # the fire, carried to where the emitter is on frame 40, in front of it
-    assert out[40, :, : max(0, x0 - 60)].astype(int).max() < 140  # and not left behind where it was rendered (light only)
+    assert out[40, :, : max(0, x0 - 60)].astype(int).max() < 190  # and not left behind where it was rendered (its light and glow only)
     assert Path(res.final).exists() and (tmp_path / "shot" / "receipt.json").exists()
 
 

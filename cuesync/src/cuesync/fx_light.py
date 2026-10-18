@@ -45,9 +45,9 @@ _GRAIN, _HAZE, _AIR, _SHAKE = 1, 2, 3, 4  # mixed into each seed, so one seed gi
 # most NEAR hand scales: the brief's 1 / (1 + (r / 1.5 scale)^2) once the element is as big as WP3 renders a
 # fireball, steeper for a smaller one, as a candle lights only the fingers near it); on the rest of the shot R = FAR.
 PUSH = 0.5  # the light sits this far in front of the emitter, along its direction (inside the flame, not the skin)
-NEAR, NEAR_MIN, FAR = 1.5, 0.3, 2.5  # the hand's light: the element's radius, held to [NEAR_MIN, NEAR]; the room's:
+NEAR, NEAR_MIN, FAR = 1.0, 0.3, 2.5  # the hand's light: the element's radius, held to [NEAR_MIN, NEAR]; the room's:
 # as if it stood FAR behind the flame (a wall about 60 cm behind a hand), so weak but reaching across the frame
-HAND_GAIN, ROOM_GAIN = 2.0, 1.5  # over a matte-white ball's light (fitted by eye on the cupped-palm plate): the
+HAND_GAIN, ROOM_GAIN = 3.5, 2.0  # over a matte-white ball's light (fitted by eye on the cupped-palm plate): the
 # critiques ask for light that is bright at the blow and reaches further than first instinct
 FEATHER = 1.0  # behind the emitter, off the hand, the light fades out over this distance (soft, so the edge of the
 # hand's shadow is no line across the wall); past it nothing is lit
@@ -55,8 +55,8 @@ ARM_HALF = 0.5  # with no matte: the hand and forearm are taken to be a band thi
 MAX_LIGHT = 4.0  # the light may brighten a surface this much at most (+2.3 stops: a hand inside a fireball)
 ALBEDO_FLOOR = 0.01  # a pixel too dark to read a colour from still reflects this much (a shadow is not black paint)
 MIN_WHITE = 0.05  # linear: a plate's white is never taken to be darker than this (a black plate is not white paint)
-GLOW, GLOW_RADIUS = 0.03, 1.0  # the flame's own light scattered in the air and lens: a faint wide halo (half of first
-# instinct, no lens flares), blurred by this many of the element's radii
+GLOW, GLOW_RADIUS = 0.07, 1.0  # the flame's own light scattered in the air and lens: a wide halo, visible on black (the
+# critiques: without it the flame sat on the plate like a sticker; no lens flares), blurred by this many of its radii
 # What each fluid throws: the colour temperatures its light is held to, how bright it is against fire (steam only
 # scatters light, it makes none) and how much it glows. Smoke throws none and only veils (SMOKE_*).
 FLUIDS = {"fire": {"kelvin": (2000.0, 2700.0), "gain": 1.0, "glow": 1.0},

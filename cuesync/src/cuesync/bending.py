@@ -288,9 +288,10 @@ def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None) -
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
     dx, dy = xx - p[0], yy - p[1]
     disc = np.clip(1.0 - (np.hypot(dx, dy) - 0.25 * s) / max(0.25 * s, 1.0), 0, 1)
-    if mask is not None:
-        return disc * mask
     back = -(dx * u[0] + dy * u[1])  # how far behind the emitter, along its direction
+    if mask is not None:  # the hand where it is behind the emitter: the fingers in front of a flame's root hide it, the
+        # palm the flame rises in front of doesn't (the whole matte put fire in a cupped hand behind it)
+        return disc * mask * np.clip(0.5 + back / max(0.3 * s, 1.0), 0, 1)
     return disc * np.clip(back / max(0.3 * s, 1.0), 0, 1)
 
 

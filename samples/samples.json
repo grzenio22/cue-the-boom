@@ -201,8 +201,8 @@
   "hand_cupped.mp4": {
    "title": "Your hand: cupped palm",
    "point": [
-    0.453,
-    0.639
+    0.6,
+    0.6
    ],
    "hand": {
     "frame": 60
