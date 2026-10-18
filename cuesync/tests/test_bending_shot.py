@@ -28,7 +28,7 @@ def test_the_element_follows_the_emitter_base_first_tip_late():
     out = warp_element(el, tr, emitter_at(tr, 10), 20, lag=4)
     base = np.argwhere(out[:, :120, 0] > 0.5)[:, 1].mean()
     tip = np.argwhere(out[:, 120:, 0] > 0.5)[:, 1].mean() + 120
-    assert abs(base - (50 + 40)) < 2  # the base is where the emitter is now
+    assert abs(base - (50 + 40)) < 3  # the base is where the emitter is now (less the half frame its blur trails)
     assert abs(tip - (170 + 4 * (20 - 4 - 10))) < 3  # the tip is where the emitter was four frames ago
     assert np.allclose(warp_element(el, tr, emitter_at(tr, 10), 10, lag=4), el, atol=1e-3)  # as rendered on the strike
 

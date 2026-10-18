@@ -39,6 +39,7 @@ from .gestures import effect_for_kind
 
 POINTING = ("Victory", "Pointing_Up")  # two fingers, or one: a jet from the fingertips
 SNAP_BEFORE, SNAP_AFTER = 4, 1  # frames at 24 fps the strike may come before / after the voice's hit and still take it
+MISMATCH_NEAR = 12  # frames: a strike this close to a hit, but outside the snap window, is the hand off the beat
 COMBO_S = 1.5  # booms closer together than this are one combo: a burst per strike
 
 BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording ("ainvfxfluid, ... isolated on ...")
@@ -53,7 +54,8 @@ BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording 
     "steam_jet": "ainvfxfluid, a thin hissing jet of white steam streaming fast {towards} from a small point, narrow at "
                  "its source and fanning out into translucent curling wisps, isolated on a pure black background",
 }
-LAG_FRAMES = {"fire_breath": 4, "fire_burst": 2, "flame_plume": 3, "smoke_puff": 6, "steam_jet": 5}  # the tip's delay
+LAG_FRAMES = {"fire_breath": 10, "fire_burst": 2, "flame_plume": 5, "smoke_puff": 6, "steam_jet": 10}  # the far end's
+# age in frames: how long ago the emitter threw it (a jet crosses its reach in about 0.4 s)
 LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a jet of about six hands
 SIZE = {"jet": (6.0, 0.75), "burst": (1.3, 0.3), "plume": (1.8, 0.45), "puff": (2.5, 0.4)}  # per behaviour: its reach in
 # hand sizes, and at most this share of the frame's short side (a close-up hand made a fireball fill the frame)
@@ -124,8 +126,9 @@ def snap_launch(cue_frame: int, events: list[dict], fps: float = 24.0, kinds: tu
     strikes = [int(e["frame"]) for e in events if e.get("kind") in kinds]
     m = min(strikes, key=lambda f: abs(f - cue_frame)) if strikes else None
     ok = m is not None and cue_frame - SNAP_BEFORE * k <= m <= cue_frame + SNAP_AFTER * k
+    near = m is not None and abs(m - cue_frame) <= MISMATCH_NEAR * k  # a strike seconds away is another gesture
     return {"cue": int(cue_frame), "motion": m, "frame": int(m if ok else cue_frame), "used": "motion" if ok else "cue",
-            "mismatch": m is not None and not ok}
+            "mismatch": near and not ok}
 
 
 # ------------------------------------------------------------------ carrying the element on the hand
@@ -180,47 +183,68 @@ def ignition_frame(element: np.ndarray, floor: int, burst: bool = False) -> int 
     return int(np.argmax(lum >= IGNITION * lum.max()))
 
 
-def pose_inverse(ref: tuple, track: dict, t: int, size: float = 1.0) -> np.ndarray:
-    """2x3: plate frame ``t``'s pixel -> the rendered element's pixel. The element was rendered with the emitter at
+def pose_forward(ref: tuple, track: dict, t: float, size: float = 1.0) -> np.ndarray:
+    """2x3: the rendered element's pixel -> plate frame ``t``'s pixel. The element was rendered with the emitter at
     ``ref`` (position, unit direction, hand size); at ``t`` it is moved, turned and scaled with the emitter (a similarity
-    transform), and ``size`` times bigger (a quieter hit plays it smaller)."""
+    transform), and ``size`` times bigger (a quieter hit plays it smaller). A fractional ``t`` blends its two frames."""
+    a = math.floor(t)
+    if t - a > 1e-3:
+        return pose_forward(ref, track, a, size) * (a + 1 - t) + pose_forward(ref, track, a + 1, size) * (t - a)
     p0, u0, s0 = ref
-    p1, u1, s1 = emitter_at(track, t)
+    p1, u1, s1 = emitter_at(track, int(a))
     turn = math.atan2(u1[1], u1[0]) - math.atan2(u0[1], u0[0])
     k = size * s1 / max(s0, 1e-6)
     c, s = math.cos(turn) * k, math.sin(turn) * k
-    fwd = np.array([[c, -s, p1[0] - (c * p0[0] - s * p0[1])], [s, c, p1[1] - (s * p0[0] + c * p0[1])]], np.float64)
-    return cv2.invertAffineTransform(fwd)
+    return np.array([[c, -s, p1[0] - (c * p0[0] - s * p0[1])], [s, c, p1[1] - (s * p0[0] + c * p0[1])]], np.float64)
+
+
+def pose_inverse(ref: tuple, track: dict, t: int, size: float = 1.0) -> np.ndarray:
+    """2x3: plate frame ``t``'s pixel -> the rendered element's pixel (pose_forward, inverted)."""
+    return cv2.invertAffineTransform(pose_forward(ref, track, t, size))
 
 
 def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, size: float = 1.0,
-                 blur: bool = True) -> np.ndarray:
+                 blur: bool = True, since: int | None = None) -> np.ndarray:
     """An element frame (float32, over black, at the plate's size, rendered with the emitter at ``ref``) carried onto
-    plate frame ``t``: its base follows the emitter now, a point further along it follows where the emitter was up to
-    ``lag`` frames before (a flame's tip trails the hand). One remap, each pixel taking the lag level of how far along
-    the element it lies."""
+    plate frame ``t`` with its emission history: in slices along its length, its base on the emitter's pose now and
+    each slice further along on the pose the emitter had when that part left the hand, up to ``lag`` frames before for
+    the far end (never before ``since``, the strike). Fire already thrown keeps flying the way it was thrown while the
+    hand swings on: one pose for the whole element made it a strip swung on a pivot, and one remap with a pose per pixel
+    tore it apart on a fast turn. The slices are half a frame apart (with ``blur``; a frame without), overlap (their
+    weights sum to 1) and so also smear the element over the hand's motion, as a 180-degree shutter would; each is
+    warped only where it is."""
     h, w = frame.shape[:2]
     p0, u0, s0 = ref
-    reach = max(LENGTH * s0, 1.0)
-    yy, xx = np.mgrid[:h, :w].astype(np.float32)
-    maps = []
-    for k in range(lag + 1):
-        A = pose_inverse(ref, track, t - k, size).astype(np.float32)
-        maps.append((A[0, 0] * xx + A[0, 1] * yy + A[0, 2], A[1, 0] * xx + A[1, 1] * yy + A[1, 2]))
-    mx0, my0 = maps[0]
-    along = (mx0 - p0[0]) * u0[0] + (my0 - p0[1]) * u0[1]  # how far along the element (in its own frame) this pixel is
-    level = np.clip(along / reach * lag, 0, lag)  # fractional: neighbouring lags blend (whole steps tore a sweep apart)
-    k0 = np.minimum(np.floor(level).astype(np.int32), max(lag - 1, 0))
-    frac = (level - k0).astype(np.float32)
-    mxs, mys = np.stack([m[0] for m in maps]), np.stack([m[1] for m in maps])
-    k1 = np.minimum(k0 + 1, lag)
-    pick = lambda a, k: np.take_along_axis(a, k[None], 0)[0]  # noqa: E731
-    mx = pick(mxs, k0) * (1 - frac) + pick(mxs, k1) * frac
-    my = pick(mys, k0) * (1 - frac) + pick(mys, k1) * frac
-    out = cv2.remap(frame, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-    if blur and lag > 0:  # half a frame of the hand's own motion, as a 180-degree shutter would smear it
-        hx, hy = 0.5 * (mx + pick(mxs, k1)), 0.5 * (my + pick(mys, k1))
-        out = 0.5 * (out + cv2.remap(frame, hx, hy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0))
+    lo = -np.inf if since is None else float(since)
+    out = np.zeros_like(frame)
+    lit = frame[::4, ::4].max(-1) > 1e-4  # where the element is, from a quarter-size look
+    ys, xs = np.nonzero(lit)
+    if ys.size == 0:
+        return out
+    ey0, ey1, ex0, ex1 = max(0, 4 * ys.min() - 4), min(h, 4 * ys.max() + 8), max(0, 4 * xs.min() - 4), min(w, 4 * xs.max() + 8)
+    sub = frame[ey0:ey1, ex0:ex1]
+    yy, xx = np.mgrid[ey0:ey1, ex0:ex1].astype(np.float32)
+    n = (2 * lag if blur else lag) + 1 if lag > 0 else 1
+    level = np.clip(((xx - p0[0]) * u0[0] + (yy - p0[1]) * u0[1]) * (lag / max(LENGTH * s0, 1.0)), 0, lag)
+    step = lag / (n - 1) if n > 1 else 1.0
+    for c in np.linspace(0.0, lag, n):
+        wgt = np.clip(1.0 - np.abs(level - c) / step, 0.0, 1.0) if n > 1 else np.ones_like(level)
+        rows, cols = np.nonzero(wgt.any(1))[0], np.nonzero(wgt.any(0))[0]
+        if rows.size == 0:
+            continue
+        r0, r1, c0, c1 = rows[0], rows[-1] + 1, cols[0], cols[-1] + 1
+        part = sub[r0:r1, c0:c1] * wgt[r0:r1, c0:c1, None]
+        A = pose_forward(ref, track, max(t - c, lo), size)
+        A[:, 2] += A[:, 0] * (ex0 + c0) + A[:, 1] * (ey0 + r0)  # from the slice's own corner
+        ph, pw = part.shape[:2]
+        corners = np.array([[0, 0, 1], [pw, 0, 1], [0, ph, 1], [pw, ph, 1]], np.float64) @ A.T
+        dx0, dy0 = max(0, int(np.floor(corners[:, 0].min())) - 1), max(0, int(np.floor(corners[:, 1].min())) - 1)
+        dx1, dy1 = min(w, int(np.ceil(corners[:, 0].max())) + 2), min(h, int(np.ceil(corners[:, 1].max())) + 2)
+        if dx1 <= dx0 or dy1 <= dy0:
+            continue
+        A[:, 2] -= (dx0, dy0)
+        out[dy0:dy1, dx0:dx1] += cv2.warpAffine(part, A.astype(np.float32), (dx1 - dx0, dy1 - dy0),
+                                                flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
     return out
 
 
@@ -453,7 +477,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             e = t - off
             if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
                 continue
-            E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None) * fade, track, ref, t, lag, size) * gain
+            E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None) * fade, track, ref, t, lag, size,
+                             since=off + ign) * gain
             if e < ign:  # the build-up, coming up to the ignition
                 E *= (e - (ign - pre) + 1) / (pre + 1)
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
