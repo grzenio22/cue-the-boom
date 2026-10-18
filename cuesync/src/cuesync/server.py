@@ -169,7 +169,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
     cache = load_cache(precomputed)
     gallery: list[Job] = []
-    rank = {"scene": 0, "render": 1}  # one tile per sample pair: the scene render, else the element render
+    rank = {"scene": 0, "bending": 0, "render": 1}  # one tile per sample pair: the scene render, else the element render
     best = min((rank.get(e["mode"], 2) for e in cache.values()), default=2)
     shown = {k: e for k, e in cache.items() if rank.get(e["mode"], 2) == best}  # scene shots only, when there are any
     # real footage first (in the order it was picked), then by plate
@@ -428,7 +428,12 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
         offline = mode == "scene" and not (scenes and "render" in jq.renderers and render_ready())
         ahead_scene = made_ahead_scene() if offline and not (stroke_data or describe or source_list or face) else []
-        if not ahead_scene:
+        # a sample hand with its element made ahead: with the GPU offline, your take plays that render on the hand
+        ahead_hand = [e for e in cache.values() if e.get("mode") == "bending" and e.get("plate") == plate_sample] \
+            if mode == "bending" and plate_sample and not render_ready() else []
+        if ahead_hand and not auto:
+            ahead_hand = [e for e in ahead_hand if e["effect"] == effect]
+        if not (ahead_scene or ahead_hand):
             need_live()
         (d / "in").mkdir(parents=True)
         if plate is not None:
@@ -470,6 +475,10 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 auto_effect(spec, pm, voice_sample)
             except Exception as exc:
                 raise HTTPException(400, f"couldn't read the cue: {exc}") from None
+        if ahead_hand:  # the GPU is offline: the sample hand's element made ahead plays this take on it (no new render)
+            spec.point, spec.extra["tap_frame"] = tuple(pm.get("point", spec.point)), int(ahead_hand[0].get("tap_frame", 0))
+            return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="replay", title=ahead_hand[0]["title"],
+                                 replay={"src": Path(ahead_hand[0]["path"]), "bending": True})).public()
         if ahead_scene:  # the GPU is offline: the sample's scene shot made ahead plays this take (no new render)
             pick = next((e for e in ahead_scene if e["effect"] == spec.effect), ahead_scene[0])
             spec.effect = pick["effect"]

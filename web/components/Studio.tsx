@@ -81,12 +81,17 @@ export default function Studio() {
     setPerforming(true);
     setReplayOf(null); // a replay of the last plate's shots has nothing to play here
     setReplayWith([]);
-    setHand(false);
+    setHand(!!p.hand); // a sample hand clip starts as a hand shot, at its own spot
     setAim(null);
-    setAimFrame(0);
+    setAimFrame(p.hand?.frame ?? 0);
   };
   const handLive = health?.modes.includes("bending") ?? false;
-  const toHand = (on: boolean) => { setHand(on); setDrawing(false); setMore([]); setAdding(false); setAim(null); if (on) setPoint(null); };
+  // with the GPU offline, a sample hand clip whose element was made ahead: your take plays it on the hand
+  const handAhead = !handLive && (health?.made_ahead?.includes("bending") ?? false) && !!plate?.hand;
+  const toHand = (on: boolean) => {
+    setHand(on); setDrawing(false); setMore([]); setAdding(false); setAim(null);
+    if (on && handAhead && plate) { setPoint(plate.point); setAimFrame(plate.hand?.frame ?? 0); } else if (on) setPoint(null);
+  };
 
   const current = takes.at(-1);
   const sceneLive = health?.modes.includes("scene") ?? false;
@@ -137,7 +142,7 @@ export default function Studio() {
             <span className="muted">{plate.title}</span>
             <button className="secondary" disabled={rendering} onClick={() => setPlate(null)}>Different shot</button>
           </div>
-          {!pointSet && handLive && (
+          {!pointSet && (handLive || handAhead) && (
             <div className="row" role="radiogroup" aria-label="What it comes from">
               <button role="radio" aria-checked={!hand} className={hand ? "secondary" : ""} onClick={() => toHand(false)}>A thing in the shot</button>
               <button role="radio" aria-checked={hand} className={hand ? "" : "secondary"} onClick={() => toHand(true)}>
@@ -145,7 +150,16 @@ export default function Studio() {
               </button>
             </div>
           )}
-          {!pointSet && hand ? (
+          {!pointSet && hand && handAhead ? (
+            <>
+              <p className="muted">The GPU is offline right now: this hand&apos;s fireball was made ahead of time, at the spot marked on its
+                palm. Perform your own rhythm and it fires on each beat, carried on the hand, with no new render.</p>
+              <div className="row">
+                {plate.point && <Spot src={plate.url} at={plate.point} />}
+                <button onClick={() => setPointSet(true)}>Perform it</button>
+              </div>
+            </>
+          ) : !pointSet && hand ? (
             <>
               <p className="muted">Find a frame where your hand is clear, tap where it comes from (your fingertips, your palm) and drag to aim it.
                 It is carried on your hand from there, wherever the hand goes.</p>
@@ -224,7 +238,7 @@ export default function Studio() {
       {plate && where && pointSet && performing && (
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
           scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
-          drawn={drawing && strokes.length > 0}
+          drawn={drawing && strokes.length > 0} hand={hand}
           onDone={(p) => {
             setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null, replayOf, replayWith }]);
             setReplayOf(null);

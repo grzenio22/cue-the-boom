@@ -116,7 +116,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [kind, setKind] = useState<string | null>(null); // your own clip: what it is
   useEffect(() => { if (!plate.sample) fetchObjects().then(setKinds, () => setKinds([])); }, [plate.sample]);
   const [describe, setDescribe] = useState("");
-  const choices = hand ? effects.filter((e) => HAND_EFFECTS.includes(e.id))
+  const handOffline = !!hand && !modes.includes("bending"); // a sample hand's element made ahead: the cue plays it
+  const choices = handOffline ? [] : hand ? effects.filter((e) => HAND_EFFECTS.includes(e.id))
     : effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
   const setMode = (m: Mode) => {
     setModeState(m);
@@ -200,7 +201,11 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           </button>
         ))}
       </div>
-      {hand && (
+      {handOffline && (
+        <p className="muted">The GPU is offline: your take plays this hand&apos;s fireball, made ahead of time, on each of your hits.
+          No new render; ready in about two minutes.</p>
+      )}
+      {hand && !handOffline && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
           fireball, a hiss from a palm steam, a pf a blast of air. Rendered once over black on the GPU (~1 min), then carried on your hand.</p>
       )}
@@ -241,7 +246,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           ? `${drawn ? "A drawing" : "A source for each hit"} needs "Into the scene".`
           : `${drawn ? "A drawing" : "A source for each hit"} needs "Into the scene", and the GPU is offline right now: tap one source instead for an instant shot.`}</p>
       )}
-      {!sceneLive && (
+      {!hand && !sceneLive && (
         <p className="muted">{ahead ? (mode === "scene"
           ? "The GPU is offline right now, but this sample was rendered into the scene ahead of time, so it plays now. The other effects need the GPU."
           : "The GPU is offline right now: instant mode places a pre-rendered element with your timing; Into the scene plays the one made ahead of time.")

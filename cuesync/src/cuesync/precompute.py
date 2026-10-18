@@ -121,7 +121,7 @@ def load_cache(root: Path | None) -> dict:
     found = {}
     if root is None or not Path(root).is_dir():
         return found
-    for index_path in (Path(root) / m / "index.json" for m in ("instant", "render", "scene")):  # not old copies
+    for index_path in (Path(root) / m / "index.json" for m in ("instant", "render", "scene", "bending")):  # not old copies
         if not index_path.exists():
             continue
         for key, entry in json.loads(index_path.read_text(encoding="utf-8")).items():

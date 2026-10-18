@@ -14,6 +14,7 @@ export interface PickedPlate {
   sample: boolean;
   sound: boolean; // may carry a sound to lock to (your own clip, or a sample with one)
   drawn?: DrawnSample[]; // a sample's own drawings, rendered ahead of time
+  hand?: { frame: number } | null; // a sample hand clip: tapped on this frame, its element made ahead of time
 }
 
 const MIN_PLATE_S = 1;
@@ -60,7 +61,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
           {samples.map((s) => (
             <button key={s.name} className="tile" onClick={() => onPick({ source: { sample: s.name }, url: s.url,
               title: s.title ?? s.name, point: s.point ?? null, direction: s.direction ?? null, subject: s.subject ?? null,
-              scene: s.scene, sample: true, sound: !!s.sound, drawn: s.drawn })}>
+              scene: s.scene, sample: true, sound: !!s.sound, drawn: s.drawn, hand: s.hand ?? null })}>
               <video src={s.url} muted playsInline preload="metadata" />
               <span>{s.title ?? s.name}</span>
               {s.note && <span className="muted note">{s.note}</span>}

@@ -99,6 +99,7 @@ export interface DrawnSample { title: string; voice: string; effect: string; str
 export interface SamplePlate {
   name: string; url: string; title?: string; point?: [number, number]; note?: string;
   subject?: string; direction?: number; scene?: SceneMap;
+  hand?: { frame: number }; // a hand clip: the frame its hand was tapped on (its element made ahead of time)
   sound?: boolean; // the sample carries a sound of its own to lock to (a snap)
   drawn?: DrawnSample[];
 }

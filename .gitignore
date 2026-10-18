@@ -28,4 +28,4 @@ models/
 cuesync/build/
 cuesync/dist/
 cuesync/src/cuesync/effect_files/
-
+.venv-*/

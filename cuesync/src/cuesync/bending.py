@@ -616,7 +616,10 @@ def bending_job(spec, renderer, out_dir: Path, progress=None):
 def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
     """Perform a finished bending shot again with a new take (``spec``): its element on the same hand take, no new
     render; a shot that was itself performed again plays its first render."""
-    b = json.loads((Path(src_dir) / "receipt.json").read_text())["bending"]
-    first = Path(b["performed_again"]["from"]) if b.get("performed_again") else Path(src_dir)
-    return make_bending_shot(spec, None, out_dir, b["track"], b["mask"], progress, element_from=first,
-                             tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)
+    src_dir = Path(src_dir)
+    b = json.loads((src_dir / "receipt.json").read_text())["bending"]
+    first = Path(b["performed_again"]["from"]) if b.get("performed_again") else src_dir
+    here = lambda name, was: str(first / name) if (first / name).exists() else was  # noqa: E731  (a shot made ahead
+    # travels with its own track and matte)
+    return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),
+                             progress, element_from=first, tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)

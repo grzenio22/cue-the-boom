@@ -14,6 +14,7 @@ themselves are not in this repository.
 | `made_ahead/scene/real_dino_books__fwoooom` | [A Toy Dinosaur on a Stack of Books](https://www.pexels.com/video/a-toy-dinosaur-on-a-stack-of-books-8014678/) | Cup of Couple | Pexels License |
 | `made_ahead/scene/real_cake_candle__pf` | [Close Up Video of Candle on a Cake](https://www.pexels.com/video/close-up-video-of-candle-on-a-cake-8015404/) | Cup of Couple | Pexels License |
 | `made_ahead/scene/real_candles_glasses__fwoooom` | [Still Video of Candles in Glasses](https://www.pexels.com/video/still-video-of-candles-in-glasses-6343626/) | KATRIN BOLOVTSOVA | Pexels License |
+| `plates/hand_cupped.mp4`, `made_ahead/bending/hand_cupped__kaboom__fire_burst` | [Close-Up Shot of Open Hands](https://www.pexels.com/video/close-up-shot-of-open-hands-7298370/) | Kindel Media | Pexels License |
 | `made_ahead/scene/real_kuri_photo__fwoooom` | [Red kuri pumpkin centred on a counter (photo)](https://pixabay.com/photos/pumpkin-autumn-red-kuri-squash-1583767/) | sparparim | Pixabay Content License |
 | `made_ahead/scene/real_pumpkins_tap__fwoooom` | [Two Pumpkins Placed Near a Glass Window](https://www.pexels.com/video/two-pumpkins-placed-near-a-glass-window-5490678/) | olia danilevich | Pexels License |
 | `made_ahead/scene/real_jack_stacked__kaboom` | [Video of a Jack-O'-Lantern](https://www.pexels.com/video/video-of-a-jack-o-lantern-5604115/) | Yaroslav Shuraev | Pexels License |
@@ -38,4 +39,4 @@ credited above.
 | [blowing out candle.wav](https://freesound.org/people/Reitanna/sounds/242867/) | Reitanna | CC0 1.0 | `made_ahead/scene/real_voice_candles_call` |
 | [Various short blows/puffs of air from male mouth](https://freesound.org/people/rykenn/sounds/432170/) | rykenn | CC0 1.0 | `made_ahead/scene/real_voice_lanterns_call`, `made_ahead/scene/real_voice_candles_call` |
 | [Boom (vocal)](https://freesound.org/people/Sadiquecat/sounds/802505/) | Sadiquecat | CC0 1.0 | `made_ahead/scene/real_voice_jack_sadiquecat` |
-| [TF2 Demoman "Ka-Boom!" taunt (own voice)](https://freesound.org/people/unfa/sounds/245604/) | unfa | CC0 1.0 | `made_ahead/scene/real_voice_pumpkins_kaboom`, `made_ahead/scene/real_voice_jack_unfa` |
+| [TF2 Demoman "Ka-Boom!" taunt (own voice)](https://freesound.org/people/unfa/sounds/245604/) | unfa | CC0 1.0 | `made_ahead/scene/real_voice_pumpkins_kaboom`, `made_ahead/scene/real_voice_jack_unfa`, `made_ahead/bending/hand_cupped__kaboom__fire_burst` |

@@ -197,6 +197,17 @@
     "effect": "blow_out",
     "title": "a snap in the clip · Candle jar"
    }
+  },
+  "hand_cupped.mp4": {
+   "title": "Your hand: cupped palm",
+   "point": [
+    0.453,
+    0.639
+   ],
+   "hand": {
+    "frame": 60
+   },
+   "note": "a real hand (Pexels); its fireball was made ahead of time: perform your own rhythm on it with no GPU"
   }
  }
 }

@@ -651,3 +651,48 @@ def test_a_shot_from_your_hand_is_tracked_carried_and_performed_again(tmp_path, 
     assert done["status"] == "done", done.get("error")
     assert done["receipt"]["bending"]["performed_again"]["no_new_render"] and len(r.prompts) == 1
     assert len(done["receipt"]["bending"]["hits"]) == 2
+
+
+def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_path, make_video, make_wav):
+    from cuesync.bending import make_bending_shot
+    from cuesync.pipeline import ShotSpec
+    from cuesync.precompute import cache_key
+
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    plate = make_video(samples / "plates", n=72, fps=24, w=256, h=128, color_fn=lambda i: (40, 35, 30))
+    plate = plate.rename(samples / "plates" / "hand.mp4")
+    (samples / "samples.json").write_text(json.dumps({"voices": {}, "plates": {"hand.mp4": {
+        "title": "Your hand", "point": [0.4, 0.6], "hand": {"frame": 10}}}}))
+    shot = samples / "made_ahead" / "bending" / "hand__boom"
+    shot.mkdir(parents=True)
+    t = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": "palm", "hand": "right", "xy": [[102.0, 77.0]] * 72,
+         "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72, "conf": [1.0] * 72, "src": ["mp"] * 72, "speed": [0.0] * 72,
+         "landmarks": [None] * 72, "gesture": ["Open_Palm"] * 72, "events": []}
+    (shot / "hand_track.json").write_text(json.dumps(t))
+    voice = make_voice(tmp_path, make_wav)
+    r = FakeElementRenderer()
+    make_bending_shot(ShotSpec(plate=plate, voice=voice, effect="fire_burst", point=(0.4, 0.6), plate_size=(256, 128),
+                               max_plate_s=3.0), r, shot, shot / "hand_track.json")
+    key = cache_key("bending", "hand.mp4", "", "fire_burst", (0.4, 0.6))
+    (shot.parent / "index.json").write_text(json.dumps({key: {"dir": shot.name, "title": "a fireball in your palm",
+        "plate": "hand.mp4", "voice": "", "effect": "fire_burst", "mode": "bending", "seed": 1, "tap_frame": 10}}))
+
+    class Offline(FakeElementRenderer):
+        def ready(self):
+            return False
+
+    client = TestClient(create_app(Offline(), tmp_path / "jobs", samples_dir=samples, precomputed=samples / "made_ahead",
+                                   shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
+    assert "bending" in client.get("/api/health").json()["made_ahead"]
+    with open(voice, "rb") as v:
+        s = client.post("/api/jobs", files={"voice": ("v.wav", v, "audio/wav")},
+                        data={"mode": "bending", "plate_sample": "hand.mp4", "effect": "auto", "x": "0.4", "y": "0.6"}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["bending"]["performed_again"]["no_new_render"] and done["mode"] == "replay"
+    with open(voice, "rb") as v:  # a hand clip of your own still needs the GPU
+        with open(plate, "rb") as p:
+            assert client.post("/api/jobs", files={"voice": ("v.wav", v, "audio/wav"), "plate": ("p.mp4", p, "video/mp4")},
+                               data={"mode": "bending", "effect": "auto", "x": "0.4", "y": "0.6"}).status_code in (400, 503)

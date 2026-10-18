@@ -32,7 +32,7 @@ const MAX_SHOT_S = 10;
  * Step 3: cue it. Say it (perform the noise over the playing plate: mic, optional face camera, or a sample
  * noise), use a sound already in the clip (a snap, a click, a slam), or press and hold while it plays.
  */
-export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, drawn = false, onDone }: {
+export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, drawn = false, hand = false, onDone }: {
   plateUrl: string;
   point: [number, number];
   voices: SampleVoice[];
@@ -42,6 +42,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   ready?: string[]; // sample noises whose scene shot was made ahead of time (the GPU is offline)
   live?: boolean; // the GPU renders into the scene right now
   drawn?: boolean; // the source is a drawing: it renders only into the scene (no instant shot)
+  hand?: boolean; // the source is your hand: the hand and the noise pick the effect together
   onDone: (p: Performance) => void;
 }) {
   // with the GPU offline, a drawing plays only as the shot made ahead of time with its own noise
@@ -336,6 +337,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         // what each noise makes right now: with the GPU offline, the real render only where it was made ahead of time
         const isReady = (v: SampleVoice) => !!ready?.includes(v.name);
         const makes = (v: SampleVoice): string | undefined => {
+          if (hand) return undefined; // what it makes depends on the hand too
           const inScene = sceneEffect(scene, v) ?? v.effect;
           if (live || isReady(v)) return inScene && EFFECT_LABELS[inScene]?.name;
           return v.effect && `${EFFECT_LABELS[v.effect]?.name ?? v.effect}, instant`;
@@ -360,7 +362,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
               </div>
             )}
             <div className="row">
-              <span className="muted">{onlyReady ? "the others need the GPU:" : real.length ? "or, as an instant shot (the GPU is offline):" : live ? "or use a sample noise:" : "or use a sample noise (an instant shot: the GPU is offline):"}</span>
+              <span className="muted">{hand ? "or use a sample noise:" : onlyReady ? "the others need the GPU:" : real.length ? "or, as an instant shot (the GPU is offline):" : live ? "or use a sample noise:" : "or use a sample noise (an instant shot: the GPU is offline):"}</span>
               {voices.filter((v) => !real.includes(v)).map(sample)}
             </div>
           </>
