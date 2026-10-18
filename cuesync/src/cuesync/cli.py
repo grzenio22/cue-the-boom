@@ -116,11 +116,14 @@ def cmd_shot(args) -> int:
         raise SystemExit("--strokes, --describe and the scene effects (fire_breath, fire_burst, wick_flare, blow_out) "
                          "need --scene")
     strokes = json.loads(Path(args.strokes).read_text(encoding="utf-8")) if args.strokes else None
+    sources = [[float(v) for v in p.split(",")] for p in args.sources.split(";")] if args.sources else None
+    if sources and not args.scene:
+        raise SystemExit("--sources needs --scene")
     spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice) if args.voice else None, effect=args.effect,
                     point=(args.x, args.y), seed=args.seed, offset_s=args.offset_s,
                     face=Path(args.face) if args.face else None, label=args.label or "", scale=args.scale,
                     mode="scene" if args.scene else "element", direction=args.direction, subject=args.subject,
-                    cue=args.cue, holds=holds, strokes=strokes, describe=args.describe)
+                    cue=args.cue, holds=holds, strokes=strokes, describe=args.describe, sources=sources)
     last = [""]
 
     def progress(stage: str, frac: float, msg: str) -> None:
@@ -318,6 +321,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="scene mode: where the effect goes, degrees clockwise from up (-90 left, 90 right)")
     sh.add_argument("--subject", help='scene mode: what it happens to, e.g. "the toy dinosaur on the table"')
     sh.add_argument("--strokes", help='scene mode: a JSON file of drawn strokes [{"points": [[x, y], ...], "width": w}]')
+    sh.add_argument("--sources", help='scene mode, call and response: one source per hit, "x1,y1;x2,y2;x3,y3" '
+                                      "(each hit of the rhythm fires at its own; pair it with --describe)")
     sh.add_argument("--describe", help='scene mode: say what happens, e.g. "thick smoke pours out of the lamp"')
     sh.add_argument("--instant", action="store_true",
                     help="no GPU: use the pre-rendered element library (timed and placed by your performance)")

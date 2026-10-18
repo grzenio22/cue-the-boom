@@ -114,6 +114,7 @@ class ShotSpec:
     cue: str = "voice"  # what times it: "voice" (a performance), "clip" (a sound in the plate), "hold"
     holds: list | None = None  # cue "hold": [(press_s, release_s), ...] on the plate's timeline
     strokes: list | None = None  # scene mode: the effect drawn on the plate ([{"points": [[x, y], ...], "width"}])
+    sources: list | None = None  # scene mode, call and response: one source per hit of a rhythm ([[x, y], ...])
     describe: str | None = None  # scene mode: the performer's own words for what happens (replaces the prompt)
     extra: dict = field(default_factory=dict)
 

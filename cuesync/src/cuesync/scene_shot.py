@@ -32,8 +32,8 @@ from .media import probe_video, read_video, write_video
 from .pipeline import (FINISH_PRESET, FPS, Progress, Renderer, ShotResult, ShotSpec, _breakdown, _face_track,
                        _finalise, _sha, auto_scale, load_plate, place_audio, plate_notes, shot_cue)
 from .scene import ScenePlan, Strokes, paint_scene_guide, plan_window, scene_prompt, scene_size
-from .transfer import (TransferStats, _ecc, changed_share, effect_region, first_visible, gam, hit_onsets, is_still, lin,
-                       onset_past_steps, transfer)
+from .transfer import (FIRST_RISE, TransferStats, _ecc, changed_share, effect_region, first_visible, gam, hit_onsets,
+                       is_still, lin, onset_past_steps, transfer)
 
 MAX_SHIFT = 16  # the model is trusted to land within this many frames of the painted hit
 WARP = (0.75, 1.33)  # how much slower or faster a rhythm's render may play between two hits to put each on its cue
@@ -174,6 +174,51 @@ def _render_over_plate(plate: np.ndarray, render: np.ndarray, idx: list[int | No
     return out
 
 
+def source_regions(region: np.ndarray, sources: list[tuple[float, float]]) -> list[np.ndarray]:
+    """The effect region split between the sources of a call and response: each pixel goes to its nearest source,
+    and only within 0.6 of the distance to the next one, so one source's fire lighting its neighbour is not taken
+    for the neighbour's own hit."""
+    h, w = region.shape
+    pts = [(x * w, y * h) for x, y in sources]
+    yy, xx = np.mgrid[:h, :w].astype(np.float32)
+    dist = np.stack([np.hypot(xx - px, yy - py) for px, py in pts])
+    near = dist.argmin(0)
+    gaps = [float(np.hypot(a[0] - b[0], a[1] - b[1])) for i, a in enumerate(pts) for b in pts[i + 1:]]
+    reach = max(0.6 * min(gaps), 0.12 * min(w, h)) if gaps else float(max(w, h))
+    return [region & (near == k) & (dist[k] < reach) for k in range(len(pts))]
+
+
+def source_onsets(steady: np.ndarray, region: np.ndarray, sp: ScenePlan, eff, wants: list[int],
+                  ref_frames: int) -> list[int | None]:
+    """Where each hit of a call and response shows, each measured at its own source: a fire's first visible
+    frame there (or, blowing out, the frame its flame is gone). A source that fires more than once, or shows
+    nothing, gets None: that hit keeps the shared shift rather than a guess."""
+    regions = source_regions(region, sp.sources)
+    used = [sp.source_of(k) for k in range(len(wants))]
+    out: list[int | None] = []
+    for k, want in enumerate(wants):
+        j = used[k]
+        reg = regions[j]
+        if used.count(j) > 1 or not reg.any():
+            out.append(None)
+            continue
+        if eff.behaviour == "extinguish":
+            o = flame_out(steady, reg, ref_frames)
+            out.append(o if o is not None and abs(o - want) <= MAX_SHIFT else None)
+            continue
+        share = changed_share(steady, reg, ref_frames, flame=eff.fluid == "fire")
+        base = float(np.median(share[: max(1, ref_frames)]))
+        lo = max(ref_frames, want - MAX_SHIFT)
+        hi = min(len(share), want + MAX_SHIFT + 24)
+        peak = float(share[lo:hi].max()) if hi > lo else base
+        if peak - base < 0.01:
+            out.append(None)
+            continue
+        above = np.nonzero(share[lo:hi] > base + FIRST_RISE * (peak - base))[0]
+        out.append(lo + int(above[0]) if above.size else None)
+    return out
+
+
 def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan, eff, max_frames: int,
                hit_shift: int = 0, threads: int = 8, voice_end: int | None = None) -> SceneTiming:
     """Put an in-scene render on the plate's timeline: measure where the effect visibly starts, move it onto
@@ -190,7 +235,22 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     painted = at0
     shown = list(range(len(sp.events)))  # the events the render shows on their own (a blast flashes for these)
     warp: list[tuple[int, int]] = []  # a rhythm's hits, each put on its own cue
-    if eff.behaviour == "extinguish":  # what must land on the cue is the flame going out, not the smoke after it
+    called = bool(sp.sources) and len(sp.sources) > 1 and len(sp.events) >= 2  # call and response
+    if called:  # each hit at its own source: measured there, and each put on its own cue
+        wants = [ev.at - eff.lead_frames for ev in sp.events]
+        onsets = source_onsets(steady, region, sp, eff, wants, ref_frames)
+        found = [(w, o) for w, o in zip(wants, onsets) if o is not None]
+        shown = [k for k, o in enumerate(onsets) if o is not None] or [0]
+        warp = warp_anchors(onsets, wants)
+        if len(warp) >= 2:
+            onset = warp[0][0] - (warp[0][1] - (at0 - eff.lead_frames))
+        else:
+            warp = []
+            onset = (at0 - eff.lead_frames - int(round(float(np.median([w - o for w, o in found]))))) if found \
+                else first_visible(share, ref_frames)
+        if len(found) < len(wants):
+            warnings.append(f"{len(wants) - len(found)} of the {len(wants)} sources show no clear hit of their own")
+    elif eff.behaviour == "extinguish":  # what must land on the cue is the flame going out, not the smoke after it
         onset = flame_out(steady, region, ref_frames)
         if onset is None:
             onset = first_visible(share, ref_frames)
@@ -331,6 +391,21 @@ def shake(frames: np.ndarray, hits: list[int], strengths: list[float], amount: f
     return out
 
 
+def _plate_sources(spec: ShotSpec) -> list[tuple[float, float]] | None:
+    """A call and response's sources, in the cropped plate's coordinates (the crop ``load_plate`` makes around
+    the first one); a source that falls outside the crop is moved to its edge."""
+    if not spec.sources:
+        return None
+    pts = [(float(p[0]), float(p[1])) for p in spec.sources]
+    if any(not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0) for x, y in pts):
+        raise ValueError("each source is x,y between 0 and 1")
+    info = probe_video(spec.plate)
+    landscape = info.width > info.height
+    size = spec.plate_size or ((1920, 1080) if landscape else (1080, 1920))
+    box = _crop_box(info.width, info.height, size[0], size[1], spec.point)
+    return [tuple(min(max(v, 0.0), 1.0) for v in crop_point(p, info.width, info.height, box)) for p in pts]
+
+
 def _plate_strokes(spec: ShotSpec) -> Strokes | None:
     """The drawing, in the cropped plate's coordinates (the same crop ``load_plate`` makes around the point).
     Parts drawn outside the crop are left out (a stroke that leaves the frame is split), not squashed onto
@@ -384,6 +459,9 @@ def make_scene_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress:
     strokes = _plate_strokes(spec)
     if strokes is not None:
         point = strokes.source
+    sources = _plate_sources(spec)
+    if sources:
+        point = sources[0]
     matte_fn = spec.matte or getattr(renderer, "matte", None) or grabcut_matte
     occluder = matte_fn(plate[0], point)
     if occluder is not None:
@@ -396,7 +474,7 @@ def make_scene_shot(spec: ShotSpec, renderer: Renderer, out_dir: Path, progress:
     sp = paint_scene_guide(cue, eff, point, plate[:1] if still else plate, start=start, length=length,
                            direction=spec.direction, scale=scale, size=scene_size(pw, ph), multi_hit=spec.multi_hit,
                            hold=str(spec.extra.get("hold", "pre")), strokes=strokes,
-                           gaps=str(spec.extra.get("gaps", "hold")))
+                           gaps=str(spec.extra.get("gaps", "hold")), sources=sources)
     if not sp.events:  # nothing to render: say so before spending a GPU render on it
         raise ValueError("the cue's hit is too close to the end of the clip (or outside it) to paint an effect; "
                          "cue it earlier or use a longer clip")
@@ -507,6 +585,7 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
                    "seed": spec.seed, "offset_s": spec.offset_s, "face": spec.face is not None,
                    "direction": sp.direction, "subject": spec.subject, "cue": cue_source,
                    "drawn": sp.strokes is not None, "describe": spec.describe,
+                   "sources": [list(p) for p in sp.sources] if sp.sources else None,
                    "holds": [list(h) for h in spec.holds] if cue_source == "hold" and spec.holds else None},
         "voice": {"onsets_s": [round(t, 3) for t in cue.onsets_s], "hero_onset_s": round(cue.hero_onset_s, 3),
                   "active_intervals": [list(iv) for iv in cue.intervals()], "voice_end_frame": voice_end,

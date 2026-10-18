@@ -947,3 +947,64 @@ def test_a_rhythm_the_model_spaced_unevenly_lands_hit_by_hit():
     assert [o for o, _ in st.warp] == shown
     for o, w, h in zip(shown, wants, st.hits):
         assert h == start + w and st.index[h] == o  # each burst is on the shot frame of its own cue
+
+
+def _fire_centre_x(frame, w):
+    """Mean x of the painted fire in a guide frame, as a share of the width (None: no fire)."""
+    fire = np.all(frame == FIRE_OUTER, -1) | np.all(frame == FIRE_INNER, -1)
+    if fire.sum() < 20:
+        return None
+    return float(np.nonzero(fire)[1].mean()) / w
+
+
+def test_call_and_response_paints_each_hit_at_its_own_source_in_order():
+    cue = cue_of([(1.0, 0.2, 0.9), (1.8, 0.2, 0.9), (2.7, 0.3, 1.0)], length_s=5.0)
+    eff = load_effect("fire_burst")
+    start, length = plan_window(cue, eff, None)
+    plate = np.full((1, 256, 128, 3), 50, np.uint8)
+    sources = [(0.2, 0.6), (0.5, 0.6), (0.8, 0.6)]
+    sp = paint_scene_guide(cue, eff, sources[0], plate, start=start, length=length, size=(128, 256), sources=sources)
+    assert len(sp.events) == 3 and sp.sources == sources
+    xs = []
+    for ev in sp.events:
+        k = next(b["e"] for b in sp.guide.blobs if b["e"] >= ev.at + 2)  # a keyframe a little after the hit
+        xs.append(_fire_centre_x(sp.guide.frames[k], 128))
+    assert xs[0] < 0.35 and 0.35 < xs[1] < 0.65 and xs[2] > 0.65  # left, middle, right, in the rhythm's order
+    again = sp.from_json(sp.to_json(), sp.guide.frames)
+    assert again.sources == sources and again.source_of(5) == 2
+
+
+def test_call_and_response_times_each_hit_at_its_own_source():
+    from cuesync.scene_shot import time_scene
+
+    cue = cue_of([(1.0, 0.2, 0.9), (1.8, 0.2, 0.9), (2.7, 0.3, 1.0)], length_s=5.0)
+    eff = load_effect("fire_burst")
+    start, length = plan_window(cue, eff, None)
+    plate = np.full((1, 256, 128, 3), 50, np.uint8)
+    sources = [(0.2, 0.6), (0.5, 0.6), (0.8, 0.6)]
+    sp = paint_scene_guide(cue, eff, sources[0], plate, start=start, length=length, size=(128, 256), sources=sources)
+    wants = [ev.at - eff.lead_frames for ev in sp.events]
+    shown = [w + off for w, off in zip(wants, (-4, 2, -1))]  # where the model put each source's fire
+    render = np.full((length, 256, 128, 3), 50, np.uint8)
+    yy, xx = np.mgrid[:256, :128]
+    for (sx, sy), o in zip(sources, shown):
+        disc = (yy - sy * 256) ** 2 + (xx - sx * 128) ** 2 < 14 ** 2
+        for e in range(o, length):  # each fire stays: there is no dip between them, only another place
+            render[e][disc] = (250, 180, 60)
+    st = time_scene(plate, True, render, sp, eff, 240)
+    assert [o for o, _ in st.warp] == shown
+    assert [st.index[h] for h in st.hits] == shown  # each fire on the shot frame of its own cue
+
+
+def test_call_and_response_blows_candles_out_one_at_a_time():
+    cue = cue_of([(1.0, 0.15, 0.9), (1.9, 0.15, 0.9)], length_s=4.0)
+    eff = load_effect("blow_out")
+    start, length = plan_window(cue, eff, None)
+    plate = np.full((1, 256, 128, 3), 50, np.uint8)
+    sources = [(0.3, 0.6), (0.7, 0.6)]
+    sp = paint_scene_guide(cue, eff, sources[0], plate, start=start, length=length, size=(128, 256), sources=sources)
+    between = next(b["e"] for b in sp.guide.blobs if sp.events[0].at + 2 <= b["e"] < sp.events[1].at)
+    x = _fire_centre_x(sp.guide.frames[between], 128)
+    assert x is not None and x > 0.5  # the first candle is out, the second still burns
+    after = sp.guide.blobs[-1]["e"]
+    assert _fire_centre_x(sp.guide.frames[after], 128) is None  # then both are out

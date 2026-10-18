@@ -743,6 +743,7 @@ class ScenePlan:
     dropped: list[int] = field(default_factory=list)  # plate frames of hits the render window could not hold
     strokes: Strokes | None = None
     notes: list[str] = field(default_factory=list)  # what the painting had to change, for the performer
+    sources: list[tuple[float, float]] | None = None  # call and response: one source per hit (normalised)
 
     @classmethod
     def from_json(cls, d: dict, frames: np.ndarray) -> "ScenePlan":
@@ -750,19 +751,26 @@ class ScenePlan:
         return cls(guide=GuidePlan.from_json(d, frames), start=int(d["start"]),
                    events=[Event(**ev) for ev in d.get("events", [])], direction=float(d.get("direction", 0.0)),
                    dropped=[int(f) for f in d.get("dropped", [])], strokes=Strokes.parse(d.get("strokes")),
-                   notes=list(d.get("notes", [])))
+                   notes=list(d.get("notes", [])),
+                   sources=[tuple(float(v) for v in p) for p in d["sources"]] if d.get("sources") else None)
+
+    def source_of(self, k: int) -> int:
+        """Which source event k fires at (one per hit, the last one for any hits after it)."""
+        return min(k, len(self.sources) - 1) if self.sources else 0
 
     def to_json(self) -> dict:
         return self.guide.to_json() | {"mode": "scene", "start": self.start, "direction": round(self.direction, 1),
                                        "events": [dataclasses.asdict(ev) for ev in self.events],
                                        "dropped": self.dropped, "notes": self.notes,
-                                       "strokes": self.strokes.to_json() if self.strokes else None}
+                                       "strokes": self.strokes.to_json() if self.strokes else None,
+                                       "sources": [[round(x, 4), round(y, 4)] for x, y in self.sources] if self.sources else None}
 
 
 def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float], plate_frames: np.ndarray, *,
                       start: int, length: int, direction: float | None = None, scale: float = 1.0,
                       size: tuple[int, int] | None = None, multi_hit: bool = True, hold: str = "pre",
-                      strokes: Strokes | None = None, gaps: str = "hold") -> ScenePlan:
+                      strokes: Strokes | None = None, gaps: str = "hold",
+                      sources: list[tuple[float, float]] | None = None) -> ScenePlan:
     """Paint the control video for an in-scene render. ``plate_frames`` are the plate's frames (one frame
     for a still plate); keyframe e is painted over the zones of plate frame start + e, all in the palette of
     the first, so a moving plate's zones move with it and the colours never flicker.
@@ -781,12 +789,19 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
     model renders a dip between them rather than one long fire; "none" paints the fire on. LTX-2.5 merged 5 of
     12 rhythm hits with "none"; on the same two rhythms, "hold" kept 5 of 6 hits apart and "free" 2.
 
+    ``sources``: call and response, one source per hit of a rhythm (normalised points, in order; any hits past the
+    last fire at the last): "pf, pf, KA-BOOM" sets off a candle, another candle, then the pumpkin. Each source keeps
+    its own resting flame until its own hit, and a blown-out flame stays out from its own hit on.
+
     Smoke is painted relative to the scene's brightness: light grey reads as white cotton in a dark room."""
     if eff.scene is None:
         raise ValueError(f"effect {eff.id!r} has no scene section")
     w, h = size or scene_size(plate_frames.shape[2], plate_frames.shape[1])
     if strokes is not None:
         point, direction = strokes.source, strokes.direction
+    if sources:
+        sources = [(float(x), float(y)) for x, y in sources]
+        point = sources[0]
     direction = eff.scene.direction if direction is None else float(direction)
     from .guide import keyframe_indices
 
@@ -828,6 +843,14 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
             active[a2:b2] = True
     ctx = _Ctx(eff=eff, s=(float(point[0]) * w, float(point[1]) * h), u=unit(direction), w=w, h=h, scale=scale,
                env=env, active=active, length=length, notes=notes)
+    ctxs = [dataclasses.replace(ctx, s=(x * w, y * h)) for x, y in sources] if sources else [ctx]
+
+    def src_of(k: int) -> int:
+        return min(k, len(ctxs) - 1)
+
+    first_at_src: dict[int, int] = {}
+    for k, ev in enumerate(events):
+        first_at_src.setdefault(src_of(k), ev.at)
     # the keyframe each rhythm hit must be fire-free on: the last before the next hit, after its own first one
     gap_of: dict[int, int] = {}
     if gaps != "none":
@@ -848,25 +871,30 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
         if first_zones is None:
             first_zones = zones
             smoke_k = _smoke_level(zones)
-        shapes: list[dict] = []
+        by_src: dict[int, list[dict]] = {}
         for k, ev in enumerate(events):
-            # a later event takes over the source: the earlier one's flame is not painted under it twice
+            # a later event at the same source takes it over: the earlier one's flame is not painted under it twice
             nxt = events[k + 1].at if k + 1 < len(events) else None
-            if nxt is not None and e >= nxt and eff.behaviour in ("plume", "jet"):
+            if nxt is not None and e >= nxt and eff.behaviour in ("plume", "jet") and src_of(k + 1) == src_of(k):
                 continue
-            part = drawn.shapes(ctx, ev, e) if drawn is not None else painter(ctx, ev, e)
+            c_k = ctxs[src_of(k)]
+            part = drawn.shapes(c_k, ev, e) if drawn is not None else painter(c_k, ev, e)
             if gap_of.get(k) == e:  # the pause before the next hit: none of this hit's fire
                 part = [s for s in part if not is_fire(s) or is_rest(s)]
-            shapes += [s for s in part if s not in shapes]
+            own = by_src.setdefault(src_of(k), [])
+            own += [s for s in part if s not in own]
         gap_next = next((events[k + 1].at for k, g in gap_of.items() if g == e), None)
-        if gap_next is not None and gaps == "hold":
-            shapes = [s for s in shapes if is_rest(s)]  # the plate and its resting flame, held until the next hit
-        if eff.behaviour == "extinguish" and events and e >= events[0].at:
-            shapes = [s for s in shapes if not is_fire(s)]  # once blown out it stays out, whatever comes after
-        # the resting flame goes under the effect (painted first), and only once
-        rest = [s for s in shapes if is_rest(s)][:1]
-        shapes = rest + [s for s in shapes if not is_rest(s)] if not any(is_fire(s) and not is_rest(s) for s in shapes) \
-            else [s for s in shapes if not is_rest(s)]
+        shapes: list[dict] = []
+        for j, own in by_src.items():
+            if gap_next is not None and gaps == "hold":
+                own = [s for s in own if is_rest(s)]  # the plate and its resting flames, held until the next hit
+            if eff.behaviour == "extinguish" and e >= first_at_src.get(j, length):
+                own = [s for s in own if not is_fire(s)]  # once blown out it stays out, whatever comes after
+            # a source's resting flame goes under its own effect (painted first), and only once
+            rest = [s for s in own if is_rest(s)][:1]
+            own = rest + [s for s in own if not is_rest(s)] if not any(is_fire(s) and not is_rest(s) for s in own) \
+                else [s for s in own if not is_rest(s)]
+            shapes += [s for s in own if s not in shapes]
         shapes = [sh for sh in shapes if sh.get("density", 1.0) >= MIN_DENSITY]
         frames[e] = draw([_resolve(sh, zones, smoke_k) for sh in shapes], zones)
         # held: the scene before the first hit, a quiet keyframe between two hits (no fire painted), so the model
@@ -888,7 +916,7 @@ def paint_scene_guide(cue: CueSheet, eff: EffectSpec, point: tuple[float, float]
                       voice_end=voice_end if voice_end is not None and 0 <= voice_end < length else None,
                       tail="scene", canvas=True, point=(float(point[0]), float(point[1])), scale=float(scale))
     return ScenePlan(guide=guide, start=start, events=events, direction=direction, zones=first_zones, dropped=dropped,
-                     strokes=strokes, notes=sorted(ctx.notes))
+                     strokes=strokes, notes=sorted(ctx.notes), sources=sources or None)
 
 
 def _smoke_level(zones: np.ndarray) -> float:
