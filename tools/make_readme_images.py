@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cuesync" / "src"))
 from cuesync.media import read_video  # noqa: E402
 
 REAL = [  # shot on real footage, frames after its hit, label
-    ("real_dragon__fwoooom", 14, "“fwoooOOOM”"),
+    ("real_candles_glasses__fwoooom", 30, "“fwoooOOOM”"),
     ("real_lanterns__kaboom", 10, "“KA-BOOM”"),
     ("real_candle_stool__pf", 12, "“pf.”"),
     ("real_trex_photo__fwoooom", 24, "“fwoooOOOM”"),

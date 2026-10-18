@@ -6,7 +6,6 @@ themselves are not in this repository.
 
 | Shots | Source | Author | Licence |
 |---|---|---|---|
-| `made_ahead/scene/real_dragon__fwoooom` | [A Dragon Figurine](https://www.pexels.com/video/a-dragon-figurine-8710886/) | RDNE Stock project | Pexels License |
 | `made_ahead/scene/real_trex_photo__fwoooom` | [Toy T-rex on a wooden table (photo)](https://pixabay.com/photos/dino-dinosaur-toy-t-rex-648717/) | Efraimstochter | Pixabay Content License |
 | `made_ahead/scene/real_lanterns__kaboom` | [Lit jack-o'-lanterns and a ghost figure on a table (4K)](https://pixabay.com/videos/halloween-pumpkin-thanksgiving-53930/) | omisido | Pixabay Content License |
 | `made_ahead/scene/real_candle_stool__pf` | [A Burning Candle on a Wooden Stool](https://www.pexels.com/video/a-burning-candle-on-a-wooden-stool-6343575/) | KATRIN BOLOVTSOVA | Pexels License |
@@ -24,3 +23,4 @@ themselves are not in this repository.
 | `timing_set/real/hot_drink__hissss` | [Close Up Video of a Hot Drink](https://www.pexels.com/video/close-up-video-of-a-hot-drink-6938926/) | cottonbro studio | Pexels License |
 | `timing_set/real/candle_photo__pf` | [Candle Burning](https://commons.wikimedia.org/wiki/File:Candle_Burning.JPG) | Nanda93 | Public domain |
 | `timing_set/real/mug_photo__hissss` | [Coffee steaming in a mug](https://commons.wikimedia.org/wiki/File:Coffee_steaming_in_a_mug.jpg) | PedanticNarrativeController | CC0 1.0 |
+| `timing_set/real/dragon__fwoooom` | [A Dragon Figurine](https://www.pexels.com/video/a-dragon-figurine-8710886/) | RDNE Stock project | Pexels License |

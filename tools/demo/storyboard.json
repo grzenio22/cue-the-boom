@@ -2,18 +2,103 @@
  "beats": [
   {
    "type": "clip",
-   "src": "runs/precomputed/scene/jackolantern_kitchen__ka-boom__fire_burst/final.mp4",
-   "start": 0.3,
-   "dur": 3.6,
-   "label": "“KA-BOOM”",
-   "side": "Cue the Boom.\nDraw where. Cue it with a sound.\nThe scene reacts.",
-   "stamp": "LTX-2.5 + ainvfx-fluid · open weights · stand-in plate (LTX-2.5), synthetic noise"
+   "src": "runs/real/heldout/lanterns__kaboom/composite.mp4",
+   "start": 0.35,
+   "dur": 2.6,
+   "wave": true,
+   "pops": [
+    [
+     0.733,
+     "KA-BOOM"
+    ]
+   ],
+   "stamp": "real stock clip (Pixabay) · synthetic noise · LTX-2.5 + ainvfx-fluid, open weights"
+  },
+  {
+   "type": "title",
+   "dur": 1.6,
+   "text": "Cue the Boom",
+   "sub": "Draw where. Cue it with a sound. The scene reacts."
+  },
+  {
+   "type": "clip",
+   "src": "runs/real/heldout/trex_photo__fwoooom/composite.mp4",
+   "start": 0.45,
+   "dur": 2.6,
+   "wave": true,
+   "pops": [
+    [
+     0.55,
+     "fwoooOOOM"
+    ]
+   ],
+   "stamp": "real stock photo (Pixabay), animated by LTX-2.5 · synthetic noise",
+   "caption": "On a photo: LTX-2.5 brings it to life, timed by the noise."
+  },
+  {
+   "type": "clip",
+   "src": "runs/real/final/pumpkins_tap__fwoooom/composite.mp4",
+   "start": 0.45,
+   "dur": 2.6,
+   "wave": true,
+   "pops": [
+    [
+     0.55,
+     "fwoooOOOM"
+    ]
+   ],
+   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed",
+   "caption": "On a clip: its own pixels stay, and the fire lights them."
+  },
+  {
+   "type": "clip",
+   "src": "runs/real/final/cake_candle__pf/composite.mp4",
+   "start": 0.5,
+   "dur": 2.6,
+   "wave": true,
+   "pops": [
+    [
+     0.5,
+     "pf."
+    ]
+   ],
+   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed",
+   "caption": "Blown out, it stays out."
+  },
+  {
+   "type": "versus",
+   "shot": "runs/real/heldout/table_pumpkin__fwoooom",
+   "start": 0.1,
+   "dur": 2.4,
+   "speed": 1.0,
+   "cue_at": 1.0,
+   "labels": [
+    "LTX-2.5, as it comes",
+    "the finished shot"
+   ],
+   "caption": "LTX-2.5 started it 11 frames early; CueSync moved it onto the noise.",
+   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed"
+  },
+  {
+   "type": "versus",
+   "shot": "runs/real/heldout/table_pumpkin__fwoooom",
+   "start": 0.25,
+   "dur": 3.3,
+   "speed": 0.3333333333333333,
+   "cue_at": 1.0,
+   "labels": [
+    "LTX-2.5, as it comes",
+    "the finished shot"
+   ],
+   "caption": "Slowed down: the render 0.46 s early, the shot on the noise.",
+   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed",
+   "note": "slowed ×3"
   },
   {
    "type": "clip",
    "src": "runs/demo/studio_live/studio.webm",
    "start": 1.9,
-   "dur": 4.0,
+   "dur": 3.2,
    "speed": 2.1,
    "crop": [
     0.205,
@@ -21,8 +106,9 @@
     0.785,
     1.0
    ],
-   "side": "1. Pick a shot.\nThe sample comes with its\nsource; tap or drag to move it.",
-   "note": "the studio · sped up ×2"
+   "side": "1. Pick a shot.\nIts spot is set;\ntap to move it.",
+   "note": "the studio · sped up ×2",
+   "stamp": "the studio's sample plates: stand-ins made with LTX-2.5"
   },
   {
    "type": "clip",
@@ -38,9 +124,9 @@
    "audio_src": "runs/demo/live_dino_final.mp4",
    "audio_from": 0.0,
    "audio_at": 0.47,
-   "side": "2. Cue it: make the noise\nwhile the clip plays.",
+   "side": "2. Cue it: make the noise\nwhile the clip plays.\n(Here: a synthetic\nsample noise.)",
    "note": "real time",
-   "stamp": "a live take through the microphone (a synthetic voice, until real ones are recorded)"
+   "stamp": "a scripted take: a synthetic sample noise fed to the microphone input · no person yet"
   },
   {
    "type": "clip",
@@ -55,7 +141,7 @@
     1.0
    ],
    "side": "3. Into the scene:\nLTX-2.5 renders it from\nyour plate's frame.",
-   "note": "83 s on one GPU · sped up ×42",
+   "note": "82 s in total on one GPU · sped up ×42",
    "stamp": "LTX-2.5 image-to-video + ainvfx-fluid, with the painted guide"
   },
   {
@@ -64,32 +150,36 @@
    "start": 0.3,
    "dur": 3.8,
    "label": "that take",
-   "side": "As long and as hard\nas you breathe it,\nthen it dies down.",
-   "stamp": "the shot from the take above"
+   "side": "As long and as loud\nas the noise,\nthen it dies down.",
+   "stamp": "stand-in plate (LTX-2.5) · synthetic noise · the shot from that take"
   },
   {
    "type": "clip",
    "src": "runs/demo/studio_live/studio.webm",
    "start": 106.6,
-   "dur": 5.0,
-   "speed": 3.0,
+   "dur": 1.6,
    "crop": [
     0.205,
     0.0,
     0.785,
     1.0
    ],
-   "side": "4. Drag the hit to re-time.\nIt is composited again\nin seconds, no new render.",
-   "note": "sped up ×3"
+   "side": "4. Drag the hit\nto re-time it.",
+   "note": "real time"
   },
   {
    "type": "clip",
-   "src": "runs/precomputed/scene/candle_snap__clip__blow_out/final.mp4",
-   "start": 0.6,
-   "dur": 3.4,
-   "label": "a snap in the clip",
-   "side": "The sound that is already\nin your clip times it.\nNothing typed.",
-   "stamp": "stand-in plate (LTX-2.5) · synthetic snap"
+   "src": "runs/demo/studio_live/studio.webm",
+   "start": 120.3,
+   "dur": 3.6,
+   "crop": [
+    0.205,
+    0.0,
+    0.785,
+    1.0
+   ],
+   "side": "Composited again\nfrom the same render:\nno new render.",
+   "note": "12 s later"
   },
   {
    "type": "clip",
@@ -105,71 +195,104 @@
    ],
    "side": "Or draw where it goes,\nthen cue it.",
    "note": "sped up ×2.3",
-   "stamp": "a live take: drawn, then a noise through the microphone"
+   "stamp": "drawn in the studio · the cue: a synthetic sample noise fed to the microphone input"
   },
   {
    "type": "clip",
    "src": "runs/demo/live_pumpkin_final.mp4",
    "start": 0.8,
    "dur": 4.2,
-   "label": "draw it + “fwoooom”",
-   "side": "Your voice fills the drawing;\nwhen you stop, it dies down.",
-   "stamp": "the shot from the take above"
-  },
-  {
-   "type": "triptych",
-   "srcs": [
-    "runs/precomputed/scene/jackolantern_kitchen__pf__fire_burst/composite.mp4",
-    "runs/precomputed/scene/candle_shelf__pf__blow_out/composite.mp4",
-    "runs/precomputed/scene/mug_counter__hissss__steam_jet/composite.mp4"
-   ],
-   "labels": [
-    "“pf.” small pop",
-    "“pf.” blown out",
-    "“hissss”"
-   ],
-   "start": 0.6,
-   "dur": 3.4,
-   "audio": 1,
-   "caption": "The noise and what it comes from decide what happens.",
-   "stamp": "stand-in plates (LTX-2.5) · synthetic noises"
+   "label": "draw it + “fwoooOOOM”",
+   "side": "The noise fills the drawing;\nwhen it stops, it dies down.",
+   "stamp": "stand-in plate (LTX-2.5) · synthetic noise · the shot from that take"
   },
   {
    "type": "clip",
-   "src": "runs/precomputed/scene/jackolantern_kitchen__ka-boom__fire_burst/breakdown.mp4",
+   "src": "runs/warp/toy_desk__pf-pf-ka-boom__fire_breath/composite.mp4",
    "start": 0.4,
-   "dur": 5.0,
-   "side": "Your sound sets the hit.\nCueSync paints it the way\nthe LoRA was trained;\nLTX-2.5 renders it;\nthe real onset is measured\nand moved onto your cue.",
-   "stamp": "plate · painted guide · LTX-2.5 render · the shot"
+   "dur": 3.4,
+   "wave": true,
+   "pops": [
+    [
+     0.642,
+     "pf"
+    ],
+    [
+     1.308,
+     "pf"
+    ],
+    [
+     2.1,
+     "KA-BOOM"
+    ]
+   ],
+   "side": "A rhythm: every hit\nthe model keeps apart\nis re-timed to its beat.",
+   "stamp": "stand-in plate (LTX-2.5) · synthetic noise · re-timed hit by hit"
+  },
+  {
+   "type": "clip",
+   "src": "runs/real/heldout/lanterns__kaboom/breakdown.mp4",
+   "start": 0.4,
+   "dur": 4.0,
+   "caption": "Your sound sets the hit. LTX-2.5 renders it; CueSync moves the real onset onto your cue."
   },
   {
    "type": "image",
    "src": "media/timing.png",
    "dur": 5.0,
    "zoom": 1.02,
-   "caption": "Marked by eye on 29 renders: 26 of 31 measurable hits land within a frame after re-timing, 2 of 31 before. 5 merged rhythm hits and 1 unclear start are not counted."
+   "caption": "47 of 54 hits land within a frame of the cue. Straight from the model: 4.",
+   "stamp": "marked by eye on 50 renders, 19 of them real footage · all cued by synthetic sample noises"
   },
   {
    "type": "image",
    "src": "media/comfyui-scene-workflow.png",
-   "dur": 4.5,
-   "zoom": 1.03,
-   "caption": "One ComfyUI workflow, the CueSync node pack, the Comfy SDK. Open source."
+   "dur": 1.5,
+   "zoom": 1.0,
+   "caption": "The same shot as one ComfyUI workflow."
+  },
+  {
+   "type": "image",
+   "src": "media/comfyui-scene-workflow.png",
+   "crop": [
+    0.0,
+    0.0,
+    0.662,
+    0.489
+   ],
+   "dur": 2.2,
+   "zoom": 1.04,
+   "caption": "Your cue and your plate in: CueSync Analyze Sound, CueSync Paint Scene."
+  },
+  {
+   "type": "image",
+   "src": "media/comfyui-scene-workflow.png",
+   "crop": [
+    0.534,
+    0.535,
+    0.955,
+    0.72
+   ],
+   "dur": 1.8,
+   "zoom": 1.04,
+   "caption": "Code MIT / Apache-2.0; open weights only, through the Comfy SDK."
   },
   {
    "type": "credits",
-   "dur": 6.0,
-   "title": "Built with",
+   "dur": 5.0,
+   "title": "Cue the Boom",
    "lines": [
     "LTX-2.5 · Lightricks",
     "ainvfx-fluid · AInVFX / Adrien Toupet",
     "SAM 2.1 · Meta",
     "ComfyUI + Comfy SDK · Comfy Org",
-    "· open weights only, self-hosted on a rented GPU",
-    "· plates: stand-ins generated with LTX-2.5",
-    "· noises: synthetic, until real ones are recorded",
-    "github.com/grzenio22/cue-the-boom"
-   ]
+    "Real footage · Pexels, Pixabay, Wikimedia Commons",
+    "  · authors in samples/CREDITS.md",
+    "Open weights only, self-hosted on a rented GPU",
+    "Some sample plates: stand-ins made with LTX-2.5",
+    "Noises: synthetic, until real ones are recorded"
+   ],
+   "url": "github.com/grzenio22/cue-the-boom"
   }
  ]
 }

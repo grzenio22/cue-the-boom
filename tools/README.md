@@ -10,5 +10,6 @@ not part of the repository).
 | `check_take_timing.py` | Replaces the studio's microphone with a synthetic one that makes a noise at a known frame, and checks the take lands there. Needs the studio and the render API running, and Playwright with a Chromium (`pip install playwright`). |
 | `pack_made_ahead.py` | Packs shots made with `cuesync precompute` small enough to ship in `samples/made_ahead`. |
 | `make_readme_images.py` | `media/hero.jpg` and `media/how-it-was-made.jpg` from the sample shots. |
-| `demo/build_demo.py`, `demo/storyboard.json` | The demo video from a storyboard of clips, stills and titles. Its inputs are shots and screen recordings in `runs/`. |
+| `demo/build_demo.py`, `demo/storyboard.json` | The demo video from a storyboard of clips, stills, titles and raw-render-vs-shot comparisons, with each shot's sound drawn under it. Its inputs are shots and screen recordings in `runs/`. |
+| `demo/make_storyboard.py` | Writes the storyboard; the moment each noise word appears comes from that shot's receipt. |
 | `demo/record_studio.py` | Records the studio in use (a fake microphone, drawing, re-timing) for the demo. Needs Playwright. |

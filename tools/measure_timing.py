@@ -197,7 +197,7 @@ def chart(raw: list, fin: list, path: Path, lo: int = -10, hi: int = 16) -> None
         got = [v for v in vals if v is not None]
         within = sum(abs(v) <= 1 for v in got)
         mean = float(np.mean([abs(v) for v in got])) if got else float("nan")
-        d.text((40, y + 50), f"{within}/{len(got)} on the cue · {mean:.1f} frames off", font=_font(24),
+        d.text((40, y + 50), f"{within}/{len(got)} within a frame · mean {mean:.1f} frames", font=_font(24),
                fill=colour if colour != GREY else MUTED)
         seen: dict[int, int] = {}
         for v in sorted(got, key=abs):
