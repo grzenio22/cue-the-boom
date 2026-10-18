@@ -189,11 +189,12 @@
   "retime_frames": 0,
   "offset": 12,
   "lead": 0,
-  "hit_frame": 25
+  "hit_frame": 25,
+  "warp": null
  },
  "measured": {
   "model_early_frames": 4,
-  "hit_error_frames": 0,
+  "residual_frames": 0,
   "stops_with_voice": true,
   "stop_latency_frames": 12,
   "stopped_within_plate": true

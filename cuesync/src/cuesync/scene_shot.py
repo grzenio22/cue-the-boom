@@ -36,6 +36,7 @@ from .transfer import (TransferStats, _ecc, changed_share, effect_region, first_
                        onset_past_steps, transfer)
 
 MAX_SHIFT = 16  # the model is trusted to land within this many frames of the painted hit
+WARP = (0.75, 1.33)  # how much slower or faster a rhythm's render may play between two hits to put each on its cue
 MODEL = "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame"
 FIRE_STOP_SHARE = 0.15  # the fire has stopped when its visible area is below this share of its peak
 GAS_STOP_SHARE = 0.3  # smoke or steam has settled when the change is below this share of its peak
@@ -55,6 +56,39 @@ class SceneTiming:
     hits: list[int] = field(default_factory=list)  # shot frames where each event shows
     warnings: list[str] = field(default_factory=list)
     merged: list[int] = field(default_factory=list)  # events the model merged into a neighbour (no flash, no shake)
+    warp: list[tuple[int, int]] = field(default_factory=list)  # a rhythm's (render onset, cue) per hit put on its cue
+
+
+def warp_anchors(onsets: list[int | None], wants: list[int]) -> list[tuple[int, int]]:
+    """(render frame, cue frame) for each hit of a rhythm that can go on its own cue: shown on its own, within
+    MAX_SHIFT of its cue, and reached from the hit before by playing the render at a speed within WARP. LTX-2.5
+    spaces a rhythm's hits unevenly, so one shift for all of them leaves the later ones off their cues."""
+    out: list[tuple[int, int]] = []
+    for o, w in zip(onsets, wants):
+        if o is None or abs(w - o) > MAX_SHIFT:
+            continue
+        if out:
+            po, pw = out[-1]
+            if w <= pw or o <= po or not WARP[0] <= (o - po) / (w - pw) <= WARP[1]:
+                continue
+        out.append((o, w))
+    return out
+
+
+def on_cue(r: float, anchors: list[tuple[int, int]]) -> float:
+    """Where render frame ``r`` lands on the painted timeline: in straight lines through the anchors, at the
+    render's own speed before the first and after the last."""
+    rs, ws = zip(*anchors)
+    if r <= rs[0] or len(anchors) == 1:
+        return ws[0] + (r - rs[0]) if r <= rs[0] else ws[-1] + (r - rs[-1])
+    if r >= rs[-1]:
+        return ws[-1] + (r - rs[-1])
+    return float(np.interp(r, rs, ws))
+
+
+def from_cue(a: float, anchors: list[tuple[int, int]]) -> float:
+    """The render frame that lands at ``a`` on the painted timeline (the inverse of ``on_cue``)."""
+    return on_cue(a, [(w, r) for r, w in anchors])
 
 
 def _fire_area(frame: np.ndarray, region: np.ndarray) -> float:
@@ -155,20 +189,27 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     share = changed_share(steady, region, ref_frames)
     painted = at0
     shown = list(range(len(sp.events)))  # the events the render shows on their own (a blast flashes for these)
+    warp: list[tuple[int, int]] = []  # a rhythm's hits, each put on its own cue
     if eff.behaviour == "extinguish":  # what must land on the cue is the flame going out, not the smoke after it
         onset = flame_out(steady, region, ref_frames)
         if onset is None:
             onset = first_visible(share, ref_frames)
+            warnings.append("the flame doesn't go out in the render, so it was timed on the first change it shows")
     elif len(sp.events) >= 2:  # a rhythm: every hit it shows on its own, moved together by their middle error
         wants = [ev.at - eff.lead_frames for ev in sp.events]
         curve = changed_share(steady, region, ref_frames, flame=True) if eff.fluid == "fire" else share
         onsets = hit_onsets(curve, wants, ref_frames)
         found = [(w, o) for w, o in zip(wants, onsets) if o is not None]
         shown = [k for k, o in enumerate(onsets) if o is not None] or [0]
-        if found:
+        warp = warp_anchors(onsets, wants)
+        if len(warp) >= 2:  # each hit on its own cue: the render plays a little faster or slower between them
+            onset = warp[0][0] - (warp[0][1] - (at0 - eff.lead_frames))  # the first hit, by the first anchor's error
+        elif found:
+            warp = []
             off = int(round(float(np.median([w - o for w, o in found]))))
             onset = at0 - eff.lead_frames - off  # where the first hit shows, by that error
         else:
+            warp = []
             onset = first_visible(share, ref_frames)
         if len(found) < len(wants):
             warnings.append(f"the model merged {len(wants) - len(found)} of the {len(wants)} hits into their neighbours")
@@ -184,12 +225,19 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
     shift = auto + hit_shift
     start = sp.start
     # A still plate is held for as long as the render needs; a moving one is as long as it is.
-    n_out = min(max(n, start + shift + L), max_frames) if still else n
-    index = [f - start - shift for f in range(n_out)]
+    end = start + hit_shift + int(np.ceil(on_cue(L, warp))) if warp else start + shift + L
+    n_out = min(max(n, end), max_frames) if still else n
+    if warp:
+        index = [int(round(from_cue(f - start - hit_shift, warp))) for f in range(n_out)]
+    else:
+        index = [f - start - shift for f in range(n_out)]
     # where each event now shows: the auto shift put the model's events on their painted times, except for what
     # the clamp could not take out (err), so the camera reacts to the burst, not to the cue
     err = 0 if raw is None else raw - auto
     hits = [start + hit_shift + ev.at - eff.lead_frames - err for ev in sp.events]
+    if warp:  # a rhythm put on its cues hit by hit: each shows where its own onset now lands
+        hits = [start + hit_shift + (int(round(on_cue(o, warp))) if o is not None else ev.at - eff.lead_frames)
+                for o, ev in zip(onsets, sp.events)]
     strengths = [ev.size * (0.5 + 0.5 * ev.peak) for ev in sp.events]
     sc = eff.scene
     if sp.dropped:
@@ -212,7 +260,7 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
                         sc.shake if sc else 0.0, sc.flash if sc else 0.0)
     return SceneTiming(frames=frames, index=idx_out, plate_view=plate_view, onset=onset, painted=painted, raw=raw,
                        auto_shift=auto, shift=shift, transfer=stats, hits=hits, warnings=warnings + list(sp.notes),
-                       merged=[k for k in range(len(sp.events)) if k not in shown])
+                       merged=[k for k in range(len(sp.events)) if k not in shown], warp=warp)
 
 
 def registered(render: np.ndarray, region: np.ndarray, ref_frames: int) -> np.ndarray:
@@ -477,12 +525,15 @@ def _finish_scene(spec, eff, plate, still, point, cue, cue_source, samples, audi
                       "clamped": raw is not None and raw != auto, "retime_frames": hit_shift,
                       "offset": start + st.shift, "lead": eff.lead_frames,
                       # the shot frame of the (biggest) hit: where the re-time handle sits
-                      "hit_frame": start + at0 - eff.lead_frames + hit_shift},
+                      "hit_frame": start + at0 - eff.lead_frames + hit_shift,
+                      # a rhythm put on its cues hit by hit: [render frame of each hit's onset, its cue frame]
+                      "warp": [list(a) for a in st.warp] or None},
         "measured": {
             # how early (+) or late the model put the effect against the cue (measured on the render)
             "model_early_frames": raw,
-            # what the re-timing could not take out (the model was further off than MAX_SHIFT)
-            "hit_error_frames": None if raw is None else raw - auto,
+            # what the re-timing could not take out (the model was further off than MAX_SHIFT): the error left by
+            # the onset measured on the render, not a second measurement of the finished shot
+            "residual_frames": None if raw is None else raw - auto,
             "stops_with_voice": stops,  # what the effect is meant to do
             # what it did: frames from the end of the cue until the effect is visibly gone (measured on the shot)
             "stop_latency_frames": None if stop is None or voice_end is None else stop - voice_end,

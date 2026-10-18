@@ -186,17 +186,31 @@
  "alignment": {
   "mode": "scene",
   "painted_hit": 17,
-  "model_onset": 15,
-  "auto_shift": 1,
+  "model_onset": 12,
+  "auto_shift": 4,
   "clamped": false,
   "retime_frames": 0,
-  "offset": 9,
+  "offset": 12,
   "lead": 1,
-  "hit_frame": 24
+  "hit_frame": 24,
+  "warp": [
+   [
+    12,
+    16
+   ],
+   [
+    31,
+    32
+   ],
+   [
+    52,
+    51
+   ]
+  ]
  },
  "measured": {
   "model_early_frames": 1,
-  "hit_error_frames": 0,
+  "residual_frames": 0,
   "stops_with_voice": false,
   "stop_latency_frames": null,
   "stopped_within_plate": null

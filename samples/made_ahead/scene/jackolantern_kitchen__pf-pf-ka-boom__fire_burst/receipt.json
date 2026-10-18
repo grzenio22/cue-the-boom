@@ -146,7 +146,7 @@
  "plate": {
   "still": true,
   "frames": 96,
-  "shot_frames": 132,
+  "shot_frames": 130,
   "size": [
    1080,
    1920
@@ -186,17 +186,27 @@
  "alignment": {
   "mode": "scene",
   "painted_hit": 17,
-  "model_onset": 13,
-  "auto_shift": 3,
+  "model_onset": 11,
+  "auto_shift": 5,
   "clamped": false,
   "retime_frames": 0,
-  "offset": 11,
+  "offset": 13,
   "lead": 1,
-  "hit_frame": 24
+  "hit_frame": 24,
+  "warp": [
+   [
+    11,
+    16
+   ],
+   [
+    50,
+    51
+   ]
+  ]
  },
  "measured": {
-  "model_early_frames": 3,
-  "hit_error_frames": 0,
+  "model_early_frames": 5,
+  "residual_frames": 0,
   "stops_with_voice": false,
   "stop_latency_frames": null,
   "stopped_within_plate": null
@@ -205,6 +215,10 @@
  "warnings": [
   "the model merged 1 of the 3 hits into their neighbours"
  ],
- "retimed": null,
- "seconds_total": 105.5
+ "retimed": {
+  "from": "jackolantern_kitchen__pf-pf-ka-boom__fire_burst",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 13.7
 }

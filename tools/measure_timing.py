@@ -25,7 +25,10 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cuesync" / "src"))
+from cuesync.effects import _validate  # noqa: E402
 from cuesync.media import read_video  # noqa: E402
+from cuesync.scene import ScenePlan  # noqa: E402
+from cuesync.scene_shot import on_cue, time_scene  # noqa: E402
 from cuesync.transfer import effect_region  # noqa: E402
 
 CHANGED = 30  # 8-bit, largest channel: a pixel the effect visibly changed
@@ -64,6 +67,16 @@ def flame_gone(frames: np.ndarray, point: tuple[float, float], ref_frames: int, 
     return None
 
 
+def recomputed(d: Path, g: dict, rc: dict) -> tuple[int, list[tuple[int, int]]]:
+    """The re-time the current code makes of this render (its shift, and a rhythm's per-hit anchors): the
+    pipeline's own time_scene, run on the render alone (the onset and the shift don't depend on the plate), so the
+    table never rests on what a receipt was written with."""
+    render = read_video(d / "render.mp4", size=tuple(g["size"])).frames
+    sp = ScenePlan.from_json(g, np.zeros((1, 1, 1, 3), np.uint8))
+    st = time_scene(render[:1], True, render, sp, _validate(rc["effect"], str(d / "receipt.json")), 240)
+    return st.auto_shift, [tuple(a) for a in st.warp]
+
+
 def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
     rc = json.loads((d / "receipt.json").read_text())
     if rc.get("mode") != "scene" or not (d / "render.mp4").exists():
@@ -71,7 +84,11 @@ def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
     g = json.loads((d / "guide.json").read_text())
     al, eff = rc["alignment"], rc["effect"]
     start, lead, retime = int(g["start"]), int(al["lead"]), int(al.get("retime_frames", 0))
-    shift = int(al["auto_shift"]) + retime  # the finished shot is the render moved by this many frames
+    auto, warp = recomputed(d, g, rc)  # the finished shot is the render moved by auto (+ a hand re-time) ...
+    differs = auto != int(al["auto_shift"]) or warp != [tuple(a) for a in al.get("warp") or []]
+    shift = auto + retime  # ... or, for a rhythm, put on its cues hit by hit (warp)
+    # where a render frame lands on the painted timeline (the hand re-time moves the cue with it)
+    landed = (lambda o: int(round(on_cue(o, warp)))) if warp else (lambda o: o + shift - retime)  # noqa: E731
     events = g["events"]
     gw, gh = g["size"]
     size = (gw // SMALL, gh // SMALL)
@@ -101,7 +118,7 @@ def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
     hits = [{"shot": f"{d.parent.name}/{d.name}", "effect": eff["id"], "set": group or "detector", "hit": k + 1, "of": len(want),
              "cue_frame": start + want[k] + retime,
              "raw_error": None if o is None else o - want[k] - retime,
-             "final_error": None if o is None else o + shift - want[k] - retime}
+             "final_error": None if o is None else landed(o) - want[k]}
             for k, o in enumerate(on)]
     stop = None
     if eff["fluid"] == "fire" and eff["behaviour"] in ("jet", "plume"):
@@ -113,7 +130,7 @@ def measure(d: Path, eye: list | None = None, group: str = "") -> dict | None:
             stop = {"shot": f"{d.parent.name}/{d.name}", "effect": eff["id"], "voice_end": v,
                     "raw_latency": None if s_ is None else start + s_ - v,
                     "final_latency": None if s_ is None else start + shift + s_ - v}
-    return {"hits": hits, "stop": stop}
+    return {"hits": hits, "stop": stop, "differs": f"{d.parent.name}/{d.name}" if differs else None}
 
 
 def shot_dirs(paths: list[str]) -> list[Path]:
@@ -249,6 +266,9 @@ def main() -> int:
               f"Flames that should stop with the voice stop {int(np.median(fl))} frames after it (median, finished; "
               f"range {min(fl)} to {max(fl)})." if fl else "",
               "Onsets marked by eye on the raw render; the finished error is that mark moved by the shot's re-time."]
+    stale = [r["differs"] for r in found if r["differs"]]
+    summary.append(f"Re-times recomputed from the renders: {len(stale)} of {len(found)} differ from their receipts"
+                   + (f" ({', '.join(stale)})." if stale else "."))
     summary = [x for x in summary if x]
     (out / "timing.md").write_text("\n".join(lines + [""] + summary) + "\n", encoding="utf-8")
     print("\n".join(summary))

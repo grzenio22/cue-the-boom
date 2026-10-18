@@ -155,7 +155,7 @@
  },
  "measured": {
   "model_early_frames": 7,
-  "hit_error_frames": 0,
+  "residual_frames": 0,
   "stops_with_voice": true,
   "stop_latency_frames": null,
   "stopped_within_plate": false

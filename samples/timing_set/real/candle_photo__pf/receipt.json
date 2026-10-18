@@ -149,17 +149,24 @@
   "retime_frames": 0,
   "offset": 12,
   "lead": 0,
-  "hit_frame": 24
+  "hit_frame": 24,
+  "warp": null
  },
  "measured": {
   "model_early_frames": 5,
-  "hit_error_frames": 0,
+  "residual_frames": 0,
   "stops_with_voice": false,
   "stop_latency_frames": null,
   "stopped_within_plate": null
  },
  "transfer": null,
- "warnings": [],
- "retimed": null,
- "seconds_total": 56.4
+ "warnings": [
+  "the flame doesn't go out in the render, so it was timed on the first change it shows"
+ ],
+ "retimed": {
+  "from": "candle_photo__pf",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 7.8
 }

@@ -25,7 +25,8 @@ FILES = ("receipt.json", "cue.json", "guide.json", "matte.png")
 
 
 def pack(src: Path, out: Path, crf: int, modes: tuple[str, ...] = ("scene",), max_side: int | None = None) -> int:
-    """Copy and re-encode every shot under ``src``/<mode>; ``max_side`` also scales the videos down to it."""
+    """Copy and re-encode every shot under ``src``/<mode>; ``max_side`` also scales the videos down to it, except
+    the render, which stays at its size: the timing check measures it as LTX-2.5 made it."""
     n = 0
     for mode in modes:
         index = src / mode / "index.json"
@@ -47,7 +48,7 @@ def pack(src: Path, out: Path, crf: int, modes: tuple[str, ...] = ("scene",), ma
                 clip = read_video(s / name)
                 frames = clip.frames
                 h, w = frames.shape[1:3]
-                if max_side and max(h, w) > max_side:
+                if max_side and max(h, w) > max_side and name != "render.mp4":
                     k = max_side / max(h, w)
                     size = (int(w * k) // 2 * 2, int(h * k) // 2 * 2)
                     frames = np.stack([cv2.resize(f, size, interpolation=cv2.INTER_AREA) for f in frames])

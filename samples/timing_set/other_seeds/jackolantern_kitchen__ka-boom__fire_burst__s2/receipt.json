@@ -1,172 +1,172 @@
 {
-  "cuesync": "0.1.0",
-  "mode": "scene",
-  "effect": {
-    "id": "fire_burst",
-    "anchor": "hero",
-    "behaviour": "burst",
-    "fluid": "fire",
-    "secondary": "smoke",
-    "prompt": "ainvfxfluid, a fireball bursting upwards, isolated on a pure black background",
-    "r_min": 0.04,
-    "r_max": 0.42,
-    "rise": 0.35,
-    "keyframe_stride": 8,
-    "composite": "screen",
-    "align": "hit",
-    "lead_frames": 1,
-    "voice_gate": "attack",
-    "release_fire": 5,
-    "release_smoke": 24,
-    "holdout_below": 0.08,
-    "tail_frames": 80,
-    "smoke_albedo": 0.3,
-    "scene": {
-      "prompt": "ainvfxfluid, a fireball bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
-      "r_min": 0.12,
-      "r_max": 0.4,
-      "direction": 0.0,
-      "resting": 0.06,
-      "bend": 0.0,
-      "shake": 0.006,
-      "flash": 0.45,
-      "rhythm": " in two small puffs and then one big blast",
-      "single": "",
-      "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video"
-    }
-  },
-  "inputs": {
-    "plate_sha": "cd1f9dcf5fe936c1",
-    "voice_sha": "d561ae8e10d4e46d",
-    "point": [
-      0.48,
-      0.39
-    ],
-    "seed": 2,
-    "offset_s": 0.0,
-    "face": false,
-    "direction": 0.0,
-    "subject": "the carved jack-o'-lantern on the kitchen table",
-    "cue": "voice",
-    "drawn": false,
-    "describe": null,
-    "holds": null
-  },
-  "voice": {
-    "onsets_s": [
-      0.989,
-      1.099
-    ],
-    "hero_onset_s": 1.099,
-    "active_intervals": [
-      [
-        23,
-        43
-      ]
-    ],
-    "voice_end_frame": 43,
-    "peak_frame": 27,
-    "source": "voice"
-  },
-  "guide": {
-    "effect": "fire_burst",
-    "size": [
-      1088,
-      1920
-    ],
-    "point": [
-      0.4799,
-      0.39
-    ],
-    "scale": 1.15,
-    "length": 121,
-    "anchor_frame": 9,
-    "voice_end": 34,
-    "tail": "scene",
-    "canvas": true,
-    "keyframes": [
-      0,
-      1,
-      9,
-      17,
-      25,
-      33,
-      41,
-      49,
-      57,
-      65,
-      73,
-      81,
-      89,
-      97,
-      105,
-      113,
-      120
-    ],
-    "mode": "scene",
-    "start": 9,
-    "direction": 0.0,
-    "events": [
-      {
-        "at": 17,
-        "end": 34,
-        "peak": 1.0,
-        "size": 1.0,
-        "energy": 16.477364245354565
-      }
-    ],
-    "dropped": [],
-    "notes": [],
-    "strokes": null
-  },
-  "render": {
-    "renderer": "comfy",
-    "seconds": 88.24,
-    "prompt": "ainvfxfluid, a fireball bursts up out of the carved jack-o'-lantern on the kitchen table, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
-    "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
-    "start_frame": 9,
-    "length": 121
-  },
-  "plate": {
-    "still": true,
-    "frames": 96,
-    "shot_frames": 137,
-    "size": [
-      1080,
-      1920
-    ],
-    "point": [
-      0.4799,
-      0.39
-    ]
-  },
-  "hits": null,
-  "dropped_hits": [],
+ "cuesync": "0.1.0",
+ "mode": "scene",
+ "effect": {
+  "id": "fire_burst",
+  "anchor": "hero",
+  "behaviour": "burst",
+  "fluid": "fire",
+  "secondary": "smoke",
+  "prompt": "ainvfxfluid, a fireball bursting upwards, isolated on a pure black background",
+  "r_min": 0.04,
+  "r_max": 0.42,
+  "rise": 0.35,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "hit",
+  "lead_frames": 1,
+  "voice_gate": "attack",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.08,
+  "tail_frames": 80,
+  "smoke_albedo": 0.3,
+  "scene": {
+   "prompt": "ainvfxfluid, a fireball bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
+   "r_min": 0.12,
+   "r_max": 0.4,
+   "direction": 0.0,
+   "resting": 0.06,
+   "bend": 0.0,
+   "shake": 0.006,
+   "flash": 0.45,
+   "rhythm": " in two small puffs and then one big blast",
+   "single": "",
+   "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video"
+  }
+ },
+ "inputs": {
+  "plate_sha": "cd1f9dcf5fe936c1",
+  "voice_sha": "d561ae8e10d4e46d",
+  "point": [
+   0.48,
+   0.39
+  ],
+  "seed": 2,
+  "offset_s": 0.0,
+  "face": false,
+  "direction": 0.0,
+  "subject": "the carved jack-o'-lantern on the kitchen table",
+  "cue": "voice",
+  "drawn": false,
+  "describe": null,
+  "holds": null
+ },
+ "voice": {
+  "onsets_s": [
+   0.989,
+   1.099
+  ],
+  "hero_onset_s": 1.099,
+  "active_intervals": [
+   [
+    23,
+    43
+   ]
+  ],
+  "voice_end_frame": 43,
+  "peak_frame": 27,
+  "source": "voice"
+ },
+ "guide": {
+  "effect": "fire_burst",
+  "size": [
+   1088,
+   1920
+  ],
+  "point": [
+   0.4799,
+   0.39
+  ],
   "scale": 1.15,
-  "matte": {
-    "source": "auto",
-    "found": true,
-    "coverage": 0.278
-  },
-  "alignment": {
-    "mode": "scene",
-    "painted_hit": 17,
-    "model_onset": 9,
-    "auto_shift": 7,
-    "clamped": false,
-    "retime_frames": 0,
-    "offset": 16,
-    "lead": 1,
-    "hit_frame": 25
-  },
-  "measured": {
-    "model_early_frames": 7,
-    "hit_error_frames": 0,
-    "stops_with_voice": false,
-    "stop_latency_frames": null,
-    "stopped_within_plate": null
-  },
-  "transfer": null,
-  "warnings": [],
-  "seconds_total": 11.2
+  "length": 121,
+  "anchor_frame": 9,
+  "voice_end": 34,
+  "tail": "scene",
+  "canvas": true,
+  "keyframes": [
+   0,
+   1,
+   9,
+   17,
+   25,
+   33,
+   41,
+   49,
+   57,
+   65,
+   73,
+   81,
+   89,
+   97,
+   105,
+   113,
+   120
+  ],
+  "mode": "scene",
+  "start": 9,
+  "direction": 0.0,
+  "events": [
+   {
+    "at": 17,
+    "end": 34,
+    "peak": 1.0,
+    "size": 1.0,
+    "energy": 16.477364245354565
+   }
+  ],
+  "dropped": [],
+  "notes": [],
+  "strokes": null
+ },
+ "render": {
+  "renderer": "comfy",
+  "seconds": 88.24,
+  "prompt": "ainvfxfluid, a fireball bursts up out of the carved jack-o'-lantern on the kitchen table, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
+  "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+  "start_frame": 9,
+  "length": 121
+ },
+ "plate": {
+  "still": true,
+  "frames": 96,
+  "shot_frames": 137,
+  "size": [
+   1080,
+   1920
+  ],
+  "point": [
+   0.4799,
+   0.39
+  ]
+ },
+ "hits": null,
+ "dropped_hits": [],
+ "scale": 1.15,
+ "matte": {
+  "source": "auto",
+  "found": true,
+  "coverage": 0.278
+ },
+ "alignment": {
+  "mode": "scene",
+  "painted_hit": 17,
+  "model_onset": 9,
+  "auto_shift": 7,
+  "clamped": false,
+  "retime_frames": 0,
+  "offset": 16,
+  "lead": 1,
+  "hit_frame": 25
+ },
+ "measured": {
+  "model_early_frames": 7,
+  "residual_frames": 0,
+  "stops_with_voice": false,
+  "stop_latency_frames": null,
+  "stopped_within_plate": null
+ },
+ "transfer": null,
+ "warnings": [],
+ "seconds_total": 11.2
 }

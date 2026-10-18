@@ -276,7 +276,7 @@ def test_scene_shot_end_to_end_lands_the_effect_on_the_voice(tmp_path, make_vide
     assert rc["mode"] == "scene" and rc["plate"]["still"] is True
     assert r.calls[0]["image"] is not None and "the toy" in r.calls[0]["prompt"]
     assert rc["measured"]["model_early_frames"] in range(5, 8)
-    assert rc["measured"]["hit_error_frames"] in (-1, 0, 1)
+    assert rc["measured"]["residual_frames"] in (-1, 0, 1)
     for name in ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "render.mp4", "guide_preview.mp4"):
         assert (tmp_path / "shot" / name).exists()
     comp = read_video(tmp_path / "shot" / "composite.mp4").frames
@@ -910,3 +910,40 @@ def test_a_smooth_fireball_covers_what_is_behind_it_instead_of_ghosting_it():
     out, st = transfer(plate, render, list(range(n)), region, ref_frames=3, start=0)
     patch = out[10, 130:140, 57:67].astype(int)  # where the clip's dark spot was (the render had it elsewhere)
     assert np.abs(patch - np.array([250, 160, 60])).mean() < 6  # the flame, not a ghost of what is behind it (14.8 without)
+
+
+def test_each_hit_of_a_rhythm_goes_on_its_own_cue_within_a_speed_limit():
+    from cuesync.scene_shot import from_cue, on_cue, warp_anchors
+
+    # the model put three hits 4 early, 1 early and 3 late: no single shift lands all three
+    anchors = warp_anchors([12, 30, 54], [16, 31, 51])
+    assert anchors == [(12, 16), (30, 31), (54, 51)]
+    assert [on_cue(o, anchors) for o, _ in anchors] == [16, 31, 51]
+    assert from_cue(on_cue(41.5, anchors), anchors) == 41.5  # one is the other's inverse
+    assert on_cue(5, anchors) == 9 and on_cue(70, anchors) == 67  # the render's own speed outside the hits
+    # a merged hit has no anchor; one only reachable at more than a third faster is left where the shift puts it
+    assert warp_anchors([12, None, 54], [16, 31, 51]) == [(12, 16), (54, 51)]
+    assert warp_anchors([12, 22, 54], [16, 31, 51]) == [(12, 16), (54, 51)]  # 10 render frames over 15: too slow
+
+
+def test_a_rhythm_the_model_spaced_unevenly_lands_hit_by_hit():
+    from cuesync.scene_shot import time_scene
+
+    cue = cue_of([(1.0, 0.2, 0.9), (1.8, 0.2, 0.9), (2.7, 0.3, 1.0)], length_s=5.0)
+    eff = load_effect("fireball")
+    start, length = plan_window(cue, eff, None)
+    plate = np.full((1, 256, 128, 3), 60, np.uint8)
+    sp = paint_scene_guide(cue, eff, (0.5, 0.6), plate, start=start, length=length, size=(128, 256))
+    assert len(sp.events) == 3
+    wants = [ev.at - eff.lead_frames for ev in sp.events]
+    shown = [w + off for w, off in zip(wants, (-4, -1, 3))]  # where the model put each burst
+    render = np.full((length, 256, 128, 3), 60, np.uint8)
+    yy, xx = np.mgrid[:256, :128]
+    disc = (yy - 150) ** 2 + (xx - 64) ** 2 < 30 ** 2
+    for o in shown:
+        for e in range(o, min(o + 6, length)):  # a burst, then it dies back before the next
+            render[e][disc] = (250, 180, 60)
+    st = time_scene(plate, True, render, sp, eff, 240)
+    assert [o for o, _ in st.warp] == shown
+    for o, w, h in zip(shown, wants, st.hits):
+        assert h == start + w and st.index[h] == o  # each burst is on the shot frame of its own cue
