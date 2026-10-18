@@ -165,8 +165,8 @@
   "stopped_within_plate": true
  },
  "transfer": {
-  "residual": 0.0789,
-  "inside": 0.0926,
+  "residual": 0.0744,
+  "inside": 0.0829,
   "gain": [
    1.0,
    1.035,
@@ -174,7 +174,7 @@
   ],
   "plate_moves": true,
   "accepted": false,
-  "reason": "the render moved or re-shaped the scene outside the effect (residual 0.08)",
+  "reason": "the render moved or re-shaped the scene outside the effect (residual 0.07)",
   "exposure": 0.99
  },
  "sound": {
@@ -183,12 +183,12 @@
   "foley_gain": 0.65
  },
  "warnings": [
-  "used the render instead of your clip's own pixels: the render moved or re-shaped the scene outside the effect (residual 0.08)"
+  "used the render instead of your clip's own pixels: the render moved or re-shaped the scene outside the effect (residual 0.07)"
  ],
  "retimed": {
   "from": "firepit__fwoooom",
   "hit_shift_frames": 0,
   "stop_frame": null
  },
- "seconds_total": 69.9
+ "seconds_total": 91.5
 }

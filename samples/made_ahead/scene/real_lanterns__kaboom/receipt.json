@@ -171,7 +171,7 @@
  },
  "transfer": {
   "residual": 0.0477,
-  "inside": 0.0554,
+  "inside": 0.0555,
   "gain": [
    1.0,
    1.084,
@@ -193,5 +193,5 @@
   "hit_shift_frames": 0,
   "stop_frame": null
  },
- "seconds_total": 53.8
+ "seconds_total": 68.1
 }

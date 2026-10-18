@@ -208,8 +208,8 @@
   "stopped_within_plate": null
  },
  "transfer": {
-  "residual": 0.0411,
-  "inside": 0.0275,
+  "residual": 0.0428,
+  "inside": 0.0289,
   "gain": [
    1.018,
    1.033,
@@ -233,5 +233,5 @@
   "hit_shift_frames": 0,
   "stop_frame": null
  },
- "seconds_total": 94.9
+ "seconds_total": 84.7
 }

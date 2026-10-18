@@ -259,6 +259,10 @@
   "foley_gain": 0.65
  },
  "warnings": [],
- "retimed": null,
- "seconds_total": 169.2
+ "retimed": {
+  "from": "lanterns_call__voices_v2_s2",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 83.0
 }
