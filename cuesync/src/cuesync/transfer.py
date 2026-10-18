@@ -244,7 +244,11 @@ FAR = 0.12  # share of the short side: further than this from the effect, a chan
 CRUSHED = 0.004  # linear luminance: an 8-bit frame this dark has no texture left to compare, only quantisation
 LIGHT_EPS = 0.004  # linear light added to both sides of a light ratio, so dark noise can't make a gain
 MAX_GAIN = 8.0  # light from the render may brighten the clip this much at most (and darken it to 1/32)
-TINT, MAX_TINT = 0.6, 1.5  # how much of the render's change of colour carries over, and at most how far per channel
+# how much of the render's change of colour carries over, and at most how far per channel: a warmer cast (a fire's
+# light) more fully than a cooler one (a warm glow going out, which in full turned white wax mint green)
+TINT, MAX_TINT = {"warm": 0.85, "cool": 0.5}, {"warm": 2.0, "cool": 1.4}
+FIRE_WARMTH, FIRE_BRIGHT = 0.1, 0.2  # linear light: a flame is warmer than what was there before, and bright
+REACH = 0.15  # share of the short side around the effect within which a flame is replaced, not carried as light
 
 
 def _hp(im: np.ndarray, s: int) -> np.ndarray:
@@ -370,14 +374,16 @@ def light_gain(gl: np.ndarray, rl: np.ndarray, sigma: float, weight: np.ndarray 
     ratio is averaged in log over ``sigma``: a change of light or exposure scales every surface alike, so the
     ratio is smooth across an object's edge where a ratio of two blurs is not (that drew a halo round
     everything). Pixels ``weight`` doesn't trust are filled in from around them (normalised convolution). The
-    brightness change carries over whole, its colour only partly (``TINT``): in full, a candle's warm glow going
-    out turned the white wax mint green."""
+    brightness change carries over whole, its colour partly (``TINT``)."""
     r = np.log((gl + LIGHT_EPS) / (rl + LIGHT_EPS))
     w = np.ones(gl.shape[:2], np.float32) if weight is None else weight.astype(np.float32)
     support = _smooth(w, sigma)
     g = _smooth(r * w[..., None], sigma) / np.maximum(support, 1e-4)[..., None]
     lum = (g @ _LUMA)[..., None]
-    g = lum + np.clip(TINT * (g - lum), -np.log(MAX_TINT), np.log(MAX_TINT))
+    c = g - lum
+    warm = (c[..., 0] - c[..., 2])[..., None] > 0
+    cap = np.where(warm, np.log(MAX_TINT["warm"]), np.log(MAX_TINT["cool"]))
+    g = lum + np.clip(np.where(warm, TINT["warm"], TINT["cool"]) * c, -cap, cap)
     return np.exp(np.clip(g, -np.log(32.0), np.log(MAX_GAIN))).astype(np.float32), support
 
 
@@ -436,6 +442,10 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
     feather = cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.02 * min(w, h)))
     feather = np.clip(feather * 2.0, 0.0, 1.0)
     near = np.clip(cv2.GaussianBlur(region.astype(np.float32), (0, 0), max(2.0, 0.05 * min(w, h))) * 3.0, 0.0, 1.0)
+    # the render's flame can grow past where it was painted (taller, over a bright window); a flame is replaced, not
+    # carried as light, this far around the effect (as light alone, its top half went see-through over the window)
+    away = cv2.distanceTransform((~region).astype(np.uint8), cv2.DIST_L2, 5) / min(w, h)  # share of the short side
+    reach = np.clip(1.0 - (away - REACH) / 0.05, 0.0, 1.0).astype(np.float32)
     ones = np.ones((h, w), np.float32)
     ident = np.eye(2, 3, dtype=np.float32)
 
@@ -457,9 +467,18 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         # plate frame f -> start frame -> render frame e: one warp, so the render is resampled only once
         M = (_m3(Ar[e]) @ _m3(cv2.invertAffineTransform(P)))[:2].astype(np.float32)
         G = cv2.warpAffine(render[e], M, (w, h), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REFLECT)
-        rlf, rsf = onto(rl, cv2.BORDER_REFLECT), onto(r_struct, cv2.BORDER_REFLECT)
-        feat, nearf, reg_f = onto(feather), onto(near), onto(region.astype(np.float32)) > 0.5
-        valid = onto(ones) > 0.99  # what the start frame saw (a moving camera reveals new ground at the edges)
+        pl = lin(plate[f])
+        seen = onto(ones)  # what the start frame saw (a moving camera reveals new ground at the edges)
+        valid = seen > 0.99
+        if same:
+            rlf, rsf = rl, r_struct
+        else:  # where the start frame never looked, the clip itself is the settled scene (cut off there, the fire
+            # left a hard-edged box where new ground came into view)
+            rlf = onto(rl, cv2.BORDER_REFLECT) * seen[..., None] + pl * (1.0 - seen)[..., None]
+            rsf = _structure(rlf)
+        rep_ = cv2.BORDER_REPLICATE
+        feat, nearf, reachf = onto(feather, rep_), onto(near, rep_), onto(reach, rep_)
+        reg_f = onto(region.astype(np.float32), rep_) > 0.5
         stat_f = ~reg_f & valid
         k = float(k_exp[e])
         gl = lin(G) * gain
@@ -474,6 +493,9 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         colour = np.clip((cv2.GaussianBlur(np.abs(norm - rlf).max(-1), (0, 0), 2.0) - COLOUR_MIN) / COLOUR_SPAN, 0.0, 1.0)
         changed = np.maximum(changed, colour * nearf)
         Mm = cv2.GaussianBlur(changed, (0, 0), 3.0) * feat
+        warmer = (norm[..., 0] - norm[..., 2]) - (rlf[..., 0] - rlf[..., 2])
+        fire = np.clip((warmer - FIRE_WARMTH) / 0.2, 0.0, 1.0) * np.clip((norm @ _LUMA - FIRE_BRIGHT) / 0.2, 0.0, 1.0)
+        Mm = np.maximum(Mm, cv2.GaussianBlur(fire, (0, 0), 3.0) * reachf)
         # near the effect its light in some detail; elsewhere smooth light, taken only where the render's own content
         # didn't move (else anything moving in the render would print onto the clip) and filled in from around it
         quiet = np.clip(1.0 - cv2.dilate(cv2.GaussianBlur(changed, (0, 0), 4.0), np.ones((9, 9), np.uint8)), 0.0, 1.0)
@@ -484,7 +506,7 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         far_light = local * a3 + room * (1.0 - a3)
         L = light_gain(gl, rlf, 4.0, valid * trusted + 1e-3)[0] * feat[..., None] + far_light * (1.0 - feat)[..., None]
         M3 = Mm[..., None]
-        out[f] = gam(lin(plate[f]) * L * (1.0 - M3) + gl * M3)
+        out[f] = gam(pl * L * (1.0 - M3) + gl * M3)
         res_in.append(float(sdiff[reg_f].mean()) if reg_f.any() else 0.0)
         ok = stat_f & trusted
         res_out.append(float(sdiff[ok].mean()) if ok.any() else 0.0)

@@ -1038,3 +1038,29 @@ def test_call_and_response_blows_candles_out_one_at_a_time():
     assert x is not None and x > 0.5  # the first candle is out, the second still burns
     after = sp.guide.blobs[-1]["e"]
     assert _fire_centre_x(sp.guide.frames[after], 128) is None  # then both are out
+
+
+def test_a_flame_taller_than_where_it_was_painted_stays_solid_over_a_bright_window():
+    rng = np.random.default_rng(5)
+    n = 12
+    base = np.full((256, 128, 3), 70, np.uint8)
+    base[:110] = 235  # a bright window above a dark table
+    base = np.clip(base.astype(int) + rng.integers(-6, 6, base.shape), 0, 255).astype(np.uint8)
+    plate = np.repeat(base[None], n, 0)
+    plate[::2, 250:254, 5:15] = 120  # the clip moves a little elsewhere, so the transfer path runs
+    region = np.zeros((256, 128), bool)
+    region[115:200, 40:90] = True  # where the flame was painted
+    render = np.repeat(base[None], n, 0)
+    render[4:, 95:200, 50:80] = (250, 150, 40)  # the model's flame grew taller, up over the window
+    out, st = transfer(plate, render, list(range(n)), region, ref_frames=3, start=0)
+    assert np.abs(out[10, 100:106, 58:72].astype(int) - np.array([250, 150, 40])).mean() < 25  # solid, not see-through
+    assert np.abs(out[10, 20:40, 10:30].astype(int) - plate[10, 20:40, 10:30]).mean() < 4  # the rest of the window stays
+
+
+def test_a_fires_warm_light_carries_over_more_fully_than_a_glow_going_out():
+    from cuesync.transfer import light_gain
+
+    ref = np.full((8, 8, 3), 0.3, np.float32)
+    warm, _ = light_gain(ref * np.array([2.0, 1.2, 0.8], np.float32), ref, 1.0)
+    cool, _ = light_gain(ref * np.array([0.8, 1.2, 2.0], np.float32), ref, 1.0)
+    assert warm[0, 0, 0] / warm[0, 0, 2] > cool[0, 0, 2] / cool[0, 0, 0] > 1.0
