@@ -1,6 +1,7 @@
 """Scene mode: the effect painted into the plate's own zones at its source, rendered from the plate frame,
 re-timed onto the voice; delta transfer for moving plates."""
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -1211,3 +1212,22 @@ def test_made_ahead_sample_shots_still_match_their_effects():
     keys = [cache_key("scene", p["plate"], p["voice"], p["effect"], p["point"], 1, p.get("direction"), p.get("subject"))
             for p in pairs]
     assert keys and all(k in index for k in keys)
+
+
+def test_fire_from_a_hand_is_clean_and_a_pumpkins_still_smokes():
+    from cuesync.scene import suited_effect
+
+    frame = np.zeros((256, 128, 3), np.uint8)
+    for eid in ("fire_burst", "fire_breath", "fireball"):
+        hand = suited_effect(load_effect(eid), "the open palm", 90.0, frame, (0.5, 0.5))
+        assert hand.scene.clean and "smoke" not in scene_prompt(hand, "the open palm", 90.0), eid
+    pumpkin = suited_effect(load_effect("fire_burst"), "the carved jack-o'-lantern", 0.0, frame, (0.5, 0.5))
+    assert not pumpkin.scene.clean and "smoke" in scene_prompt(pumpkin, "the carved jack-o'-lantern", 0.0)
+    cue = cue_of([(1.0, 0.6, 0.9)], length_s=4.0)
+    base = load_effect("fire_burst")
+    guides = []
+    for clean in (False, True):  # the same burst, with and without its smoke painted after it
+        eff = dataclasses.replace(base, scene=dataclasses.replace(base.scene.suited("the open palm", 0.0, False), clean=clean))
+        start, length = plan_window(cue, eff, None)
+        guides.append(paint_scene_guide(cue, eff, (0.5, 0.6), frame[None], start=start, length=length, size=(128, 256)).guide.frames)
+    assert np.abs(guides[0].astype(int) - guides[1]).max() > 10  # the smoke after the burst is gone from the keyframes

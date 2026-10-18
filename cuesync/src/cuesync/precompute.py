@@ -31,7 +31,9 @@ def effect_signature(effect: str, subject: str | None = None, direction: float |
     d = eff.to_json()
     if eff.scene is not None:
         d["scene"] = asdict(eff.scene.suited(subject, eff.scene.direction if direction is None else direction, lit=True))
-        d["scene"].pop("variants", None)
+        for k in ("variants", "clean"):  # fields added since: at their default they change nothing a shot was made with
+            if not d["scene"].get(k):
+                d["scene"].pop(k, None)
     return hashlib.sha1(json.dumps(d, sort_keys=True).encode()).hexdigest()[:8]
 
 

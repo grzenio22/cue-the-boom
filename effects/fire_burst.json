@@ -48,6 +48,28 @@
         "use": {
           "resting": 0.06
         }
+      },
+      {
+        "when": {
+          "subjects": [
+            "hand",
+            "palm",
+            "finger",
+            "fingertip",
+            "fist",
+            "arm",
+            "wrist",
+            "knuckle",
+            "wand",
+            "person",
+            "performer"
+          ]
+        },
+        "use": {
+          "clean": true,
+          "prompt": "ainvfxfluid, a sudden ragged blast of clean bright flame and sparks erupts {towards} from {subject}{rhythm}, lighting up {subject} and the whole room with flickering warm orange light, then the flames vanish into the air, static camera, realistic phone video",
+          "small": "ainvfxfluid, a quick small burst of clean bright flame pops {towards} from {subject} and lights it up for a moment, static camera, realistic phone video"
+        }
       }
     ]
   }

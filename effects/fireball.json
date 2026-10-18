@@ -37,8 +37,9 @@
           ]
         },
         "use": {
-          "prompt": "ainvfxfluid, a sudden ragged fireball bursts {towards} out of {subject}{rhythm}, the blast lights up {subject} and the whole room with flickering orange light that reflects on the surfaces, then thick dark smoke rolls up and fades, static camera, realistic phone video",
-          "small": "ainvfxfluid, a quick small pop of orange flame and a little puff of smoke burst out of {subject}, a brief flash of warm light on it, static camera, realistic phone video"
+          "prompt": "ainvfxfluid, a sudden ragged fireball of clean bright flame bursts {towards} out of {subject}{rhythm}, the blast lights up {subject} and the whole room with flickering orange light that reflects on the surfaces, then the flames vanish into the air, static camera, realistic phone video",
+          "small": "ainvfxfluid, a quick small pop of orange flame and a little puff of smoke burst out of {subject}, a brief flash of warm light on it, static camera, realistic phone video",
+          "clean": true
         }
       }
     ]

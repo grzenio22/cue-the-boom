@@ -47,6 +47,27 @@
           "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them, dark pauses between them and the last burst the longest,",
           "single": "a long roaring jet of bright orange fire"
         }
+      },
+      {
+        "when": {
+          "subjects": [
+            "hand",
+            "palm",
+            "finger",
+            "fingertip",
+            "fist",
+            "arm",
+            "wrist",
+            "knuckle",
+            "wand",
+            "person",
+            "performer"
+          ]
+        },
+        "use": {
+          "clean": true,
+          "prompt": "ainvfxfluid, {rhythm} {towards} from {subject}, a white-hot core near the source and licking turbulent edges, the fire lights up {subject} and the surroundings with flickering warm orange light, then the flame is gone, static camera, realistic phone video"
+        }
       }
     ]
   }

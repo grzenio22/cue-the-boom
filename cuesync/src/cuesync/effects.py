@@ -41,7 +41,7 @@ def words_of(text: str | None) -> set[str]:
 def names(words: set[str], wanted) -> bool:
     """Does any of ``wanted`` appear among ``words`` as a whole word, or its plural ("palms" names a palm)?"""
     return any(w in words or w + "s" in words or w + "es" in words for w in wanted)
-_USE = {"prompt", "r_min", "r_max", "direction", "resting", "bend", "shake", "flash", "rhythm", "single", "small"}
+_USE = {"prompt", "r_min", "r_max", "direction", "resting", "bend", "shake", "flash", "rhythm", "single", "small", "clean"}
 
 
 def _variants(raw: list, source: str) -> tuple:
@@ -78,6 +78,7 @@ class SceneSpec:
     rhythm: str = ""  # put at {rhythm} in the prompt when the take is a rhythm of hits ("pf, pf, KA-BOOM")
     single: str = ""  # put there when it is one hit or one sustained sound
     small: str = ""  # the whole prompt instead, when a single burst is small (a quick quiet "pf")
+    clean: bool = False  # the fire is clean, no smoke painted after it (firebending: dark smoke on it reads as wrong)
     # what changes for a kind of subject or aim, each variant whose conditions all hold, in order: ({"subjects":
     # [words], "except": [words], "aim": "up" | "down" | "sideways", "lit": bool}, {field: value}) -- a jack-o'-lantern's carved face,
     # a creature's mouth, steam jetting sideways out of a palm, a resting flame only where one already burns;
@@ -174,7 +175,8 @@ def _validate(d: dict, source: str) -> EffectSpec:
                               bend=float(sd.get("bend", 0.0)), shake=float(sd.get("shake", 0.0)),
                               flash=float(sd.get("flash", 0.0)),
                               rhythm=str(sd.get("rhythm", "")), single=str(sd.get("single", "")),
-                              small=str(sd.get("small", "")), variants=_variants(sd.get("variants", []), source))
+                              small=str(sd.get("small", "")), clean=bool(sd.get("clean", False)),
+                              variants=_variants(sd.get("variants", []), source))
         except KeyError as exc:
             raise ValueError(f"{source}: scene needs {exc.args[0]!r}") from exc
         if not scene.prompt.startswith(PROMPT_PREFIX) or (scene.small and not scene.small.startswith(PROMPT_PREFIX)):

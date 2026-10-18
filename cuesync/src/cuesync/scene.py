@@ -490,7 +490,7 @@ def _burst(c: _Ctx, ev: Event, e: int) -> list[dict]:
         r = rpk * max(0.0, 1.0 - (t - held) / decay)
     cx, cy = c.s[0] + c.u[0] * 0.45 * rpk, c.s[1] + c.u[1] * 0.45 * rpk - 0.25 * rpk * min(t, held + decay) / 24
     shapes: list[dict] = []
-    if c.eff.secondary == "smoke" and t >= 10:
+    if c.eff.secondary == "smoke" and t >= 10 and not sc.clean:
         age = (t - 10) / max(1, c.length - ev.at - 10)
         sr = rpk * (0.75 + 0.55 * age) * (0.8 + 0.4 * min(ev.energy / 24.0, 1.0)) * (0.6 + 0.4 * ev.size)
         sy = cy - 0.6 * rpk - 0.5 * c.h * age * 0.5  # rises, and may leave the top of the frame
@@ -534,7 +534,7 @@ def _plume(c: _Ctx, ev: Event, e: int) -> list[dict]:
     if since < settle:
         hgt = last * (1 - since / settle) + (sc.resting * min(c.w, c.h)) * since / settle
         tip = (c.s[0] + c.u[0] * last * 0.9, c.s[1] + c.u[1] * last * 0.9)
-        wisp = [_gas(_ellipse(tip[0], tip[1] - 40 - 120 * since / settle, last * 0.18, last * 0.3, SMOKE), "smoke",
+        wisp = [] if sc.clean else [_gas(_ellipse(tip[0], tip[1] - 40 - 120 * since / settle, last * 0.18, last * 0.3, SMOKE), "smoke",
                      0.7 - 0.45 * since / settle)]
         return wisp + (flame(hgt) if hgt >= MIN_RADIUS_PX * 1.5 else _rest(c))
     return _rest(c)
@@ -598,7 +598,7 @@ def _jet(c: _Ctx, ev: Event, e: int) -> list[dict]:
         # its smoke, where the flame was: a dark wisp rising and thinning (a round blob reads as cotton). After a
         # "pf" only a small, faint, brief one: a big grey cloud after each short flame buried the flames themselves.
         life, dense, scale = (16, 0.3, 0.6) if short else (40, 0.55, 1.0)
-        if since < life:
+        if since < life and not sc.clean:
             k = since / life
             mid = _path(c.s, c.u, min(last, 0.8 * reach), sc.bend * abs(c.u[0]))[9]
             rx = max(0.14 * last * (1 + 0.5 * k) * (0.5 + 0.5 * ev.size) * scale, MIN_RADIUS_PX)
