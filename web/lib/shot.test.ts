@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dragDirection, failure, hitAnchor, madeAhead, type Receipt, sameStrokes, sceneEffect, suggestEffect } from "./shot";
+import { dragDirection, failure, hitAnchor, madeAhead, type Receipt, replayable, sameStrokes, sceneEffect, suggestEffect } from "./shot";
 
 const SR = 48000;
 
@@ -80,5 +80,20 @@ describe("failure", () => {
     expect((await failure(new Response(JSON.stringify({ detail: "the GPU is offline" }), { status: 503 }))).message).toBe("the GPU is offline");
     expect((await failure(new Response("Internal Server Error", { status: 500 }))).message).toBe("Internal Server Error");
     expect((await failure(new Response("", { status: 502 }))).message).toBe("request failed (502)");
+  });
+});
+
+describe("replayable", () => {
+  const plate = { sample: true, point: [0.48, 0.39] as [number, number], direction: null, scene: { "ka-boom.wav": "fire_burst" } };
+  const mine = { file: new Blob(), filename: "voice.webm" };
+  it("plays your own take on a sample's scene shot made ahead, at its spot", () => {
+    expect(replayable(plate, "voice", mine, [0.48, 0.39], [])).toBe(true);
+    expect(replayable(plate, "hold", null, [0.48, 0.39], [])).toBe(true);
+  });
+  it("not a sample noise (that one was made ahead as it is), another spot, a drawing, or nothing made ahead", () => {
+    expect(replayable(plate, "voice", { sample: "ka-boom.wav" }, [0.48, 0.39], [])).toBe(false);
+    expect(replayable(plate, "voice", mine, [0.3, 0.39], [])).toBe(false);
+    expect(replayable(plate, "voice", mine, [0.48, 0.39], [{ points: [[0.4, 0.4]], width: 0.05 }])).toBe(false);
+    expect(replayable({ ...plate, scene: {} }, "voice", mine, [0.48, 0.39], [])).toBe(false);
   });
 });

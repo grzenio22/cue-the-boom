@@ -124,7 +124,7 @@ class ShotResult:
     out_dir: Path
     final: Path
     composite: Path
-    breakdown: Path
+    breakdown: Path | None
     receipt: dict
 
 

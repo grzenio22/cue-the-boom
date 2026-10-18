@@ -290,6 +290,28 @@ def test_call_and_response_sources_go_through_the_api(scene_client, tmp_path, ma
                    strokes=json.dumps([{"points": [[0.3, 0.6], [0.6, 0.4]], "width": 0.08}])) == 400
 
 
+def test_a_scene_shot_is_performed_again_with_no_new_render(scene_client, tmp_path, make_video, make_wav):
+    client, r = scene_client
+    plate = make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))  # a still
+    voice = make_voice(tmp_path, make_wav)
+    with open(plate, "rb") as p, open(voice, "rb") as v:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                        data={"effect": "fire_burst", "mode": "scene", "x": "0.5", "y": "0.45"}).json()
+    first = wait(client, s["id"])
+    assert first["status"] == "done", first.get("error")
+    renders = len(r.prompts)
+    holds = [[0.5, 0.65], [1.1, 1.25], [1.7, 2.1]]  # a new rhythm, pressed on the button
+    again = client.post(f"/api/jobs/{s['id']}/replay", data={"cue": "hold", "holds": json.dumps(holds)}).json()
+    done = wait(client, again["id"])
+    assert done["status"] == "done", done.get("error")
+    rc = done["receipt"]
+    assert rc["replayed"]["no_new_render"] and rc["replayed"]["new_hits"] == 3 and len(rc["hits"]) == 3
+    assert len(r.prompts) == renders and "final.mp4" in done["files"]  # nothing rendered again
+    twice = client.post(f"/api/jobs/{again['id']}/replay", data={"cue": "hold", "holds": json.dumps(holds[:1])}).json()
+    assert wait(client, twice["id"])["status"] == "done"  # performed again from a replay: its render's shot again
+    assert client.post(f"/api/jobs/{s['id']}/replay", data={"cue": "voice"}).status_code == 400  # a voice cue needs a voice
+
+
 def test_cue_inputs_are_checked(scene_client, tmp_path, make_video, make_wav):
     client, _ = scene_client
     plate = make_video(tmp_path, n=24, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))
@@ -399,6 +421,37 @@ def test_with_the_gpu_offline_the_sample_scene_shots_made_ahead_still_play(tmp_p
     assert snap["cached"] is True and snap["effect"] == "blow_out"  # the snap in the clip, no GPU
     moved = client.post("/api/jobs", data=base | {"voice_sample": "pf.wav", "x": "0.3"})
     assert moved.status_code == 400 and "made ahead" in moved.text  # anything else needs the GPU, and says so
+
+
+def test_with_the_gpu_offline_your_own_take_plays_the_samples_scene_shot_made_ahead(tmp_path, make_video, make_wav):
+    from cuesync.pipeline import ShotSpec, make_shot
+    from cuesync.precompute import cache_key
+
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    make_video(tmp_path, n=48, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40)).rename(samples / "plates" / "jack.mp4")
+    make_voice(tmp_path, make_wav).rename(samples / "voices" / "ka-boom.wav")
+    (samples / "samples.json").write_text(json.dumps({
+        "plates": {"jack.mp4": {"point": [0.5, 0.45], "subject": "the jack-o'-lantern", "scene": {"hit": "fire_burst"}}},
+        "voices": {"ka-boom.wav": {"gesture": "hit"}}}))
+    shot = tmp_path / "pre" / "scene" / "jack__ka-boom__fire_burst"
+    make_shot(ShotSpec(plate=samples / "plates" / "jack.mp4", voice=samples / "voices" / "ka-boom.wav", effect="fire_burst",
+                       point=(0.5, 0.45), mode="scene", plate_size=(128, 256), max_plate_s=3.0, matte=lambda f, p: None),
+              FakeSceneRenderer(), shot)
+    (tmp_path / "pre" / "scene" / "index.json").write_text(json.dumps({
+        cache_key("scene", "jack.mp4", "ka-boom.wav", "fire_burst", (0.5, 0.45)): {
+            "dir": shot.name, "title": "KA-BOOM · jack", "plate": "jack.mp4", "voice": "ka-boom.wav",
+            "effect": "fire_burst", "mode": "scene"}}))
+    client = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), samples_dir=samples,
+                                   precomputed=tmp_path / "pre", shot_defaults={"plate_size": (128, 256), "max_plate_s": 3.0}))
+    holds = [[0.5, 0.65], [1.3, 1.8]]  # the performer's own timing, not a sample noise
+    s = client.post("/api/jobs", data={"effect": "fire_burst", "plate_sample": "jack.mp4", "mode": "scene", "x": "0.5",
+                                       "y": "0.45", "cue": "hold", "holds": json.dumps(holds)}).json()
+    assert s["mode"] == "replay"
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["replayed"]["no_new_render"] and done["receipt"]["replayed"]["new_hits"] == 2
 
 
 def test_with_the_gpu_offline_a_samples_own_drawing_replays(tmp_path, make_video, make_wav):

@@ -16,6 +16,7 @@ Full renders go through one worker in order (one GPU); instant shots have their 
 """
 
 import asyncio
+import dataclasses
 import hashlib
 import json
 import math
@@ -50,6 +51,7 @@ class Job:
     cached: bool = False  # answered from the shots made ahead of time
     title: str = ""
     retime: dict | None = None  # {"src": Path, "hit_shift": int, "stop": int | None}: re-time a finished shot
+    replay: dict | None = None  # {"src": Path}: perform a finished scene shot again, with no new render
     status: str = "queued"  # queued | running | done | error
     stage: str = "queued"
     progress: float = 0.0
@@ -104,8 +106,8 @@ class JobQueue:
 
     @staticmethod
     def queue_of(mode: str) -> str:
-        """Scene renders and element renders share the one GPU worker."""
-        return "render" if mode == "scene" else mode
+        """Scene renders and element renders share the one GPU worker; a replay is compositing, like a re-time."""
+        return "render" if mode == "scene" else "retime" if mode == "replay" else mode
 
     def queued(self, mode: str = "render") -> int:
         q = self._qs.get(self.queue_of(mode))
@@ -126,6 +128,7 @@ class JobQueue:
 
     def _work(self, mode: str) -> None:
         from .pipeline import make_shot, retime_shot
+        from .replay import replay_scene_shot
 
         while True:
             job = self.jobs[self._qs[mode].get()]
@@ -134,6 +137,8 @@ class JobQueue:
                 say = lambda s, f, m: self._emit(job, s, f, m)  # noqa: E731
                 if job.retime:
                     retime_shot(job.retime["src"], job.spec, job.dir, job.retime["hit_shift"], job.retime["stop"], say)
+                elif job.replay:
+                    replay_scene_shot(job.replay["src"], job.spec, job.dir, say)
                 else:
                     make_shot(job.spec, self.renderers[mode], job.dir, progress=say)
                 job.status = "done"
@@ -396,7 +401,18 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                           message="Made earlier", cached=True, title=hit["title"])
                 jq.jobs[job_id] = job
                 return job.public()
-        need_live()
+        def made_ahead_scene() -> list[dict]:
+            """The scene shots made ahead of time for this sample plate at its own spot (any noise)."""
+            if not (plate_sample and x is not None and y is not None):
+                return []
+            spot = f"|{float(x):.2f},{float(y):.2f}|"
+            return [e for k, e in cache.items() if e.get("mode") == "scene" and e.get("plate") == plate_sample
+                    and spot in k and not e.get("drawn")]
+
+        offline = mode == "scene" and not (scenes and "render" in jq.renderers and render_ready())
+        ahead_scene = made_ahead_scene() if offline and not (stroke_data or describe or source_list or face) else []
+        if not ahead_scene:
+            need_live()
         (d / "in").mkdir(parents=True)
         if plate is not None:
             plate_path = await save(plate, d / "in" / f"plate{Path(plate.filename or '.mp4').suffix or '.mp4'}")
@@ -445,6 +461,11 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             spec.effect = effect_for(g, aim, voice_sample) if mode == "scene" else DEFAULTS[g]
             if load_effect(spec.effect).scene is None and mode == "scene":
                 spec.effect = DEFAULTS[g]
+        if ahead_scene:  # the GPU is offline: the sample's scene shot made ahead plays this take (no new render)
+            pick = next((e for e in ahead_scene if e["effect"] == spec.effect), ahead_scene[0])
+            spec.effect = pick["effect"]
+            return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="replay", title=pick["title"],
+                                 replay={"src": Path(pick["path"])})).public()
         return jq.submit(Job(id=job_id, dir=d, spec=spec, mode=mode)).public()
 
     def get(job_id: str) -> Job:
@@ -541,6 +562,47 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         job = Job(id=rid, dir=jq.root / rid, spec=src.spec, mode="retime", title=src.title,
                   retime={"src": src.dir, "hit_shift": int(shift), "stop": stop})
         job.dir.mkdir(parents=True)
+        return jq.submit(job).public()
+
+    @app.post("/api/jobs/{job_id}/replay")
+    async def replay(job_id: str, voice: UploadFile | None = File(None), voice_sample: str | None = Form(None),
+                     cue: str = Form("voice"), holds: str | None = Form(None), offset_s: float | None = Form(None),
+                     timing: UploadFile | None = File(None)):
+        """Perform a finished scene shot again with a new take: each new hit plays one of the render's hits, with
+        no new render (a still plate: a moving one would need its camera held still). See cuesync.replay."""
+        src = get(job_id)
+        base = Path(src.replay["src"]) if src.replay else src.dir  # a shot performed again: its render's shot
+        rc = json.loads((src.dir / "receipt.json").read_text()) if (src.dir / "receipt.json").exists() else {}
+        if src.status != "done" or not isinstance(src.spec, ShotSpec) or rc.get("mode") != "scene"                 or not (base / "render.mp4").exists():
+            raise HTTPException(409, "only a finished shot rendered into the scene can be performed again")
+        if not rc["plate"]["still"]:
+            raise HTTPException(409, "performing a shot again works on a still plate (a photo or a held frame) for now")
+        if cue not in ("voice", "hold"):
+            raise HTTPException(400, "perform it again with your voice or press-and-hold")
+        if cue == "voice" and (voice is None) == (voice_sample is None):
+            raise HTTPException(400, "a voice cue needs a voice (or voice_sample)")
+        if voice_sample is not None and voice_sample not in sample_files("voices"):
+            raise HTTPException(400, f"no sample voice {voice_sample!r}")
+        hold_list = None
+        if cue == "hold":
+            try:
+                hold_list = [(float(a), float(b)) for a, b in json.loads(holds or "[]")]
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(400, f"holds must be a JSON list of [press_s, release_s]: {exc}") from None
+            if not hold_list:
+                raise HTTPException(400, "a hold cue needs at least one press")
+        rid = uuid.uuid4().hex[:12]
+        d = jq.root / rid
+        (d / "in").mkdir(parents=True)
+        voice_path = None
+        if cue == "voice":
+            voice_path = (await save(voice, d / "in" / f"voice{Path(voice.filename or '.wav').suffix or '.wav'}")
+                          if voice is not None else sample_files("voices")[voice_sample])
+        t = json.loads((await timing.read()).decode() or "{}") if timing is not None else {}
+        if offset_s is None:
+            offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
+        spec = dataclasses.replace(src.spec, voice=voice_path, cue=cue, holds=hold_list, offset_s=offset_s, face=None)
+        job = Job(id=rid, dir=d, spec=spec, mode="replay", title=src.title, replay={"src": base})
         return jq.submit(job).public()
 
     @app.get("/api/jobs/{job_id}/files/{name}")

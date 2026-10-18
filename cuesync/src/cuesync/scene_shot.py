@@ -231,7 +231,7 @@ def source_onsets(steady: np.ndarray, region: np.ndarray, sp: ScenePlan, eff, wa
 
 
 def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan, eff, max_frames: int,
-               hit_shift: int = 0, threads: int = 8, voice_end: int | None = None) -> SceneTiming:
+               hit_shift: int = 0, threads: int = 8, voice_end: int | None = None, impacts: bool = True) -> SceneTiming:
     """Put an in-scene render on the plate's timeline: measure where the effect visibly starts, move it onto
     the cue (minus the effect's lead), then a still plate becomes the render and a moving plate gets the
     delta (or, if that fails its check, the render). ``render`` must already be at the plate's size."""
@@ -326,7 +326,7 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
             warnings.append(f"used the render instead of your clip's own pixels: {stats.reason}")
             frames = _render_over_plate(plate, render, idx)
         plate_view, idx_out = plate, idx
-    if onset is not None:  # no flash or shake for a burst that can't be found, nor for a hit merged into another
+    if onset is not None and impacts:  # no flash or shake for a burst that can't be found, nor for a merged hit
         frames = impact(frames, [hits[k] for k in shown], [strengths[k] for k in shown],
                         sc.shake if sc else 0.0, sc.flash if sc else 0.0)
     return SceneTiming(frames=frames, index=idx_out, plate_view=plate_view, onset=onset, painted=painted, raw=raw,

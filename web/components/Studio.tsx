@@ -8,7 +8,7 @@ import ShotPanel from "@/components/ShotPanel";
 import TapPoint, { MAX_SOURCES } from "@/components/TapPoint";
 import { atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
-interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null }
+interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null; replayOf?: string | null }
 
 /** The plate's first frame, small, with where the effect comes from marked on it. */
 function Spot({ src, at }: { src: string; at: [number, number] }) {
@@ -38,6 +38,7 @@ export default function Studio() {
   const [takes, setTakes] = useState<Take[]>([]);
   const [performing, setPerforming] = useState(true);
   const [rendering, setRendering] = useState(false); // a shot is being made: stepping back would lose it
+  const [replayOf, setReplayOf] = useState<string | null>(null); // the next take plays this shot's render again
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchEffects(), fetchSamples()]).then(([h, e, s]) => {
@@ -162,7 +163,11 @@ export default function Studio() {
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
           scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
           drawn={drawing && strokes.length > 0}
-          onDone={(p) => { setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null }]); setPerforming(false); }} />
+          onDone={(p) => {
+            setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null, replayOf }]);
+            setReplayOf(null);
+            setPerforming(false);
+          }} />
       )}
 
       {plate && where && pointSet && !performing && cue && (
@@ -171,7 +176,7 @@ export default function Studio() {
           <div className="row">
             <span className="chip">{cue.cue === "clip" ? "the clip's own sound" : cue.cue === "hold" ? cue.label : cue.voice && "sample" in cue.voice ? `sample noise: ${cue.label}` : `your ${cue.label}`}</span>
             {cue.cue === "voice" && cue.previewUrl && <audio src={cue.previewUrl} controls preload="none" className="cue-audio" />}
-            <button className="secondary" disabled={rendering} onClick={() => setPerforming(true)}>Cue it differently</button>
+            <button className="secondary" disabled={rendering} onClick={() => { setReplayOf(null); setPerforming(true); }}>Cue it differently</button>
           </div>
           <p className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</p>
         </section>
@@ -180,6 +185,7 @@ export default function Studio() {
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
           strokes={drawing ? strokes : []} sources={sources} initialJob={current.job} onBusy={setRendering}
+          replayOf={current.replayOf ?? null} onReplay={(id) => { setReplayOf(id); setPerforming(true); }}
           effects={effects} modes={health?.modes ?? []} madeAheadScene={madeAheadScene}
           onDone={(job, effect) => {
             const id = current.id; // this take, even if the user has moved on to another before it finishes

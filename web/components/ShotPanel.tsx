@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Performance } from "@/components/Performer";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, type Stroke, submitShot } from "@/lib/shot";
+import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -28,20 +28,23 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
   return (
     <div className="row">
       {job.cached && <span className="chip warn">{live ? "a sample made earlier: perform your own noise to make one live" : "a sample made earlier"}</span>}
+      {r.replayed && <span className="chip">performed again on the same render ({r.replayed.new_hits} hit{r.replayed.new_hits === 1 ? "" : "s"} from its {r.replayed.render_hits}): no new render</span>}
       {r.retimed && <span className="chip">re-timed by hand: hit {r.retimed.hit_shift_frames >= 0 ? "+" : ""}{ms(r.retimed.hit_shift_frames)} ms{r.retimed.stop_frame !== null ? `, stop at ${(r.retimed.stop_frame / 24).toFixed(2)} s` : ""}, same element</span>}
-      <span className="chip">{scene ? `rendered into your scene in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5, from your plate's frame)`
+      <span className="chip">{scene ? (r.replayed ? `rendered into the scene ahead of time (${r.render.seconds.toFixed(0)} s on open weights, LTX-2.5)`
+        : `rendered into your scene in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5, from your plate's frame)`)
         : lib ? `instant: a pre-rendered LTX-2.5 element, timed by your voice` : `rendered from your voice in ${r.render.seconds.toFixed(0)} s on open weights`}</span>
       {r.hits && r.hits.length > 1 && (() => {
         const merged = r.hits.filter((h) => h.merged).length;
         return <span className="chip">{merged
           ? `${r.hits.length} hits; the model kept ${r.hits.length - merged} apart and merged ${merged} into a neighbour`
+          : r.replayed ? `${r.hits.length} hits, each on your cue, brighter or dimmer by how loud it was`
           : `${r.hits.length} hits, each its own ${scene ? "event" : "burst"}, sized by how you made it`}</span>;
       })()}
       {job.effect && job.gesture && <span className="chip">{job.cached ? "the" : "your"} {cue === "hold" ? "timing" : "noise"} read as a {job.gesture}: {EFFECT_LABELS[job.effect]?.name ?? job.effect}</span>}
       {cue === "clip" && <span className="chip">locked to the sound in your clip</span>}
       {r.inputs?.drawn && <span className="chip">where you drew it</span>}
       {r.inputs?.sources && r.inputs.sources.length > 1 && <span className="chip">call and response: each hit at its own source, in order</span>}
-      {scene && early !== null && early !== 0 && <span className="chip">the model put it {ms(Math.abs(early))} ms {early > 0 ? "early" : "late"}; moved onto your cue</span>}
+      {scene && !r.replayed && early !== null && early !== 0 && <span className="chip">the model put it {ms(Math.abs(early))} ms {early > 0 ? "early" : "late"}; moved onto your cue</span>}
       {(r.warnings ?? []).map((w) => <span key={w} className="chip warn">{w}</span>)}
       {hit !== null && <span className="chip">{hit === 0 ? (scene ? "moved onto your cue's frame (as measured on the render)" : "the hit is on your cue's frame")
         : `the model was too far off to move all the way: ${hit > 0 ? "+" : ""}${ms(hit)} ms from your cue`}</span>}
@@ -54,7 +57,7 @@ function Chips({ job, effect, live }: { job: JobStatus; effect: EffectInfo | und
 }
 
 /** Step 4: pick the effect and how to make it, then the shot. */
-export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], initialJob, onBusy, onDone }: {
+export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], initialJob, replayOf = null, onReplay, onBusy, onDone }: {
   plate: PickedPlate;
   point: [number, number];
   direction: number | null;
@@ -65,6 +68,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   strokes: Stroke[];
   sources?: [number, number][]; // call and response: one source per hit, in order (the first is the point)
   initialJob?: JobStatus | null; // this take's shot, if it was already made (coming back to it)
+  replayOf?: string | null; // play this take on that finished shot's render (no new render)
+  onReplay?: (jobId: string) => void; // the performer wants to perform this shot again
   onBusy?: (busy: boolean) => void;
   onDone: (job: JobStatus, effect: string) => void;
 }) {
@@ -74,7 +79,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const sceneLive = modes.includes("scene");
   // with the GPU offline, a sample shot that was made into the scene ahead of time still plays
   const ahead = !sceneLive && !several && !!madeAheadScene && madeAhead(plate, performance.cue, performance.voice, point, strokes, direction);
-  const sceneOk = sceneLive || ahead;
+  // ... and your own take plays a sample's scene shot made ahead: each of your hits plays one of the render's
+  const replay = !sceneLive && !several && !ahead && !!madeAheadScene && replayable(plate, performance.cue, performance.voice, point, strokes, direction);
+  const sceneOk = sceneLive || ahead || replay;
   const firstMode: Mode = sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
   const [mode, setModeState] = useState<Mode>(firstMode);
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
@@ -106,10 +113,12 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     setJob(null);
     setEvent({ stage: "uploading", progress: 0.01, message: "Uploading", t: 0 });
     try {
-      const queued = await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
-        timing: performance.timing, effect, point, seed, mode, direction, subject: subject.trim() || null, object: kind,
-        cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
-        describe: describe.trim() || null, sources: several ? sources : null });
+      const queued = replayOf
+        ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing })
+        : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
+          timing: performance.timing, effect, point, seed, mode, direction, subject: subject.trim() || null, object: kind,
+          cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
+          describe: describe.trim() || null, sources: several ? sources : null });
       setGuideUrl(null);
       const peek = setInterval(() => { // the guide exists a second in: show it while the element is made
         fetch(`/api/jobs/${queued.id}`).then((r) => r.json()).then((s: JobStatus) => {
@@ -132,6 +141,14 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       setBusy(false);
     }
   };
+
+  // a take for performing a shot again plays at once: nothing to choose, nothing to render
+  useEffect(() => {
+    if (!replayOf || initialJob) return;
+    const start = setTimeout(() => void make(), 0); // once, after mounting (strict mode mounts twice in development)
+    return () => clearTimeout(start);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const again = job?.status === "done" && job.receipt?.mode === "scene" && job.receipt.plate?.still ? (replayOf ?? job.id) : null;
 
   return (
     <section>
@@ -166,6 +183,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         <button role="radio" aria-checked={mode === "scene"} disabled={busy || !sceneOk}
           className={mode === "scene" ? "" : "secondary"} onClick={() => setMode("scene")}>
           Into the scene <span className="muted">{ahead ? "made ahead of time for this sample: it plays now"
+            : replay ? "made ahead of time for this sample: your take plays its render, no GPU, ~20 s"
             : "LTX-2.5 renders it into your shot and the scene reacts, ~2 min"}</span>
         </button>
         <button role="radio" aria-checked={mode === "instant"} disabled={busy || !modes.includes("instant") || sceneOnly}
@@ -191,7 +209,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         <p className="muted">{ahead ? (mode === "scene"
           ? "The GPU is offline right now, but this sample was rendered into the scene ahead of time, so it plays now. The other effects need the GPU."
           : "The GPU is offline right now: instant mode places a pre-rendered element with your timing; Into the scene plays the one made ahead of time.")
-          : madeAheadScene ? "The GPU is offline right now: instant mode places a pre-rendered element with your timing. Into the scene still plays for a sample clip at its marked spot with a noise marked ready, or with the clip's own snap."
+          : madeAheadScene ? "The GPU is offline right now: instant mode places a pre-rendered element with your timing. Into the scene still plays for a sample clip at its marked spot: with a noise marked ready, the clip's own snap, or your own take on the render made ahead."
             : "The GPU is offline right now: instant mode places a pre-rendered element with your timing."}</p>
       )}
       {mode === "scene" && !plate.sample && kinds.length > 0 && (
@@ -245,8 +263,14 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           </div>
           <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
           <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />
-          <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}
-            onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />
+          {again && onReplay && (
+            <div className="row">
+              <button onClick={() => onReplay(again)}>Perform it again</button>
+              <span className="muted">a new rhythm or another voice on the same render: no new render, ready in about 20 s</span>
+            </div>
+          )}
+          {!job.receipt?.replayed && <Retime key={job.id} job={job} stopsWithVoice={job.receipt?.mode !== "scene" && (effects.find((e) => e.id === (job.effect ?? effect))?.stops_with_voice ?? false)}
+            onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />}
           <div className="row">
             {job.files["final.mp4"] && <a className="btn secondary" href={job.files["final.mp4"]} download="cue-the-boom.mp4">Download the shot</a>}
             <details>

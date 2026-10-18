@@ -39,6 +39,7 @@ export interface Receipt {
   transfer?: { accepted: boolean; reason?: string | null } | null;
   hits?: { frame: number; strength: number; size: number; merged?: boolean }[] | null;
   retimed?: { hit_shift_frames: number; stop_frame: number | null } | null;
+  replayed?: { from: string; render_hits: number; new_hits: number; no_new_render: boolean } | null;
   seconds_total: number;
 }
 
@@ -129,6 +130,15 @@ export function madeAhead(plate: { sample: boolean; point: [number, number] | nu
   if (!plate.sample || !atSampleSpot(plate.point, point, plate.direction ?? null, direction)) return false;
   if (cue === "clip") return plate.sound;
   return cue === "voice" && voice !== null && "sample" in voice && !!plate.scene && voice.sample in plate.scene;
+}
+
+/** With the GPU offline, can your own take (your voice, or press-and-hold) play a sample's scene shot made ahead of
+ * time? A sample clip at its marked spot, with a scene shot made for it: each of your hits plays the render's. */
+export function replayable(plate: { sample: boolean; point: [number, number] | null; direction?: number | null; scene?: SceneMap },
+  cue: CueKind, voice: Source | null, point: [number, number], strokes: Stroke[], direction: number | null = null): boolean {
+  if (strokes.length || !plate.sample || !plate.scene || Object.keys(plate.scene).length === 0) return false;
+  if (!atSampleSpot(plate.point, point, plate.direction ?? null, direction)) return false;
+  return cue === "hold" || (cue === "voice" && voice !== null && !("sample" in voice));
 }
 export interface Samples { plates: SamplePlate[]; voices: SampleVoice[] }
 
@@ -250,6 +260,18 @@ export async function submitShot(args: {
   if (args.mode === "scene" && args.subject) form.append("subject", args.subject);
   if (args.object && !("sample" in args.plate)) form.append("object", args.object);
   return json<JobStatus>(await fetch("/api/jobs", { method: "POST", body: form }));
+}
+
+/** Perform a finished scene shot again with a new take: each new hit plays one of the render's, no new render. */
+export async function replayShot(jobId: string, args: { voice: Source | null; cue?: CueKind; holds?: [number, number][] | null;
+  timing: object | null }): Promise<JobStatus> {
+  const form = new FormData();
+  if (args.voice && "sample" in args.voice) form.append("voice_sample", args.voice.sample);
+  else if (args.voice) form.append("voice", args.voice.file, args.voice.filename);
+  form.append("cue", args.cue ?? "voice");
+  if (args.holds && args.holds.length) form.append("holds", JSON.stringify(args.holds));
+  if (args.timing) form.append("timing", new Blob([JSON.stringify(args.timing)], { type: "application/json" }), "timing.json");
+  return json<JobStatus>(await fetch(`/api/jobs/${jobId}/replay`, { method: "POST", body: form }));
 }
 
 export async function compareTakes(a: string, b: string): Promise<JobStatus> {
