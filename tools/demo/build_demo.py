@@ -19,7 +19,9 @@ Beats (all times in seconds; text may use \\n):
    "cue_at": 1.0}   the shot's raw render (as LTX-2.5 made it, on the plate's timeline) beside the finished shot,
       the sound drawn under both with a line where the noise is (cue_at: s on the shot's timeline)
   {"type": "credits", "dur": 6, "title": "...", "lines": ["...", "  · a sub-line", "..."], "url": "..."}
-Every beat may set "stamp": a small corner label (e.g. "stand-in plate, generated with LTX-2.5").
+Every beat may set "stamp": a small corner label (e.g. "stand-in plate, generated with LTX-2.5"), and "vo": a
+narration WAV with "vo_at" (s into the beat, default 0.15) and "vo_gain": it is laid over the beat's own sound,
+which is ducked while it speaks; narration longer than its beat runs on into the next beats.
 """
 
 from __future__ import annotations
@@ -334,6 +336,25 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
     return frames, audio
 
 
+DUCK = 0.3  # the beat's own sound under narration
+
+
+def narrate(audio: np.ndarray, parts: list[tuple[int, np.ndarray]]) -> tuple[np.ndarray, np.ndarray]:
+    """The beat's sound with narration laid over it (each part from a sample offset), ducked while it speaks; what
+    runs past the beat's end comes back, to go on under the next beat."""
+    if not parts:
+        return audio, np.zeros(0, np.float32)
+    speech = np.zeros(max([audio.size] + [at + a.size for at, a in parts]), np.float32)
+    for at, a in parts:
+        speech[at: at + a.size] += a
+    speaking = (np.abs(speech[: audio.size]) > 0).astype(np.float32)
+    k = int(0.15 * SR)
+    speaking = np.convolve(np.maximum.accumulate(speaking[::-1])[::-1] * np.maximum.accumulate(speaking), np.ones(k, np.float32) / k,
+                           mode="same")  # ducked from the first word to the last, not between words
+    out = audio * (1.0 - (1.0 - DUCK) * speaking) + speech[: audio.size]
+    return out.astype(np.float32), speech[audio.size:]
+
+
 def build(storyboard: Path, out: Path) -> float:
     """Render the beats one at a time and encode each as it is made (a whole demo held in memory is ~10 GB):
     H.264 yuv420p tagged BT.709 like cuesync's write_video, then the sound as AAC."""
@@ -344,7 +365,7 @@ def build(storyboard: Path, out: Path) -> float:
 
     beats = json.loads(Path(storyboard).read_text(encoding="utf-8"))
     beats = beats["beats"] if isinstance(beats, dict) else beats
-    n_frames, all_audio = 0, []
+    n_frames, all_audio, carry = 0, [], np.zeros(0, np.float32)
     with av.open(str(out), "w") as container:
         vs = container.add_stream("libx264", rate=Fraction(FPS))
         vs.width, vs.height, vs.pix_fmt = W, H, "yuv420p"
@@ -354,6 +375,10 @@ def build(storyboard: Path, out: Path) -> float:
         astream = container.add_stream("aac", rate=SR, layout="mono")
         for k, b in enumerate(beats):
             frames, audio = render_beat(b)
+            parts = [(0, carry)] if carry.size else []
+            if b.get("vo"):
+                parts.append((int(float(b.get("vo_at", 0.15)) * SR), read_audio(b["vo"], SR) * float(b.get("vo_gain", 1.0))))
+            audio, carry = narrate(audio, parts)
             for fr in frames:
                 vf = av.VideoFrame.from_ndarray(np.ascontiguousarray(fr), format="rgb24").reformat(
                     format="yuv420p", dst_colorspace=Colorspace.ITU709, dst_color_range=ColorRange.MPEG)
@@ -365,6 +390,8 @@ def build(storyboard: Path, out: Path) -> float:
             del frames
         for packet in vs.encode():
             container.mux(packet)
+        if carry.size:
+            print(f"the last narration runs {carry.size / SR:.2f} s past the end: cut", flush=True)
         samples = np.clip(np.concatenate(all_audio), -1.0, 1.0).astype(np.float32)
         for start in range(0, samples.size, 1024):
             af = av.AudioFrame.from_ndarray(np.ascontiguousarray(samples[start:start + 1024].reshape(1, -1)), format="fltp", layout="mono")
