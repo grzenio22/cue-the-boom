@@ -99,7 +99,7 @@
   "seed": 1,
   "drawn": false
  },
- "scene|s4_toy_t_rex_on_a_wooden_table_photo.mp4|fwoooom.wav|fire_breath@829e0743|0.90,0.31|1": {
+ "scene|s4_toy_t_rex_on_a_wooden_table_photo.mp4|fwoooom.wav|fire_breath@b29693ae|0.90,0.31|1": {
   "dir": "real_trex_photo__fwoooom",
   "title": "fwoooOOOM · Toy T-rex, a photo (real footage)",
   "plate": "s4_toy_t_rex_on_a_wooden_table_photo.mp4",
@@ -159,7 +159,7 @@
   "real": true,
   "rank": 4
  },
- "scene|s4_pexels_8014678_a_toy_dinosaur_on_a_stack_of_book.mp4|fwoooom.wav|fire_breath@829e0743|0.36,0.42|1": {
+ "scene|s4_pexels_8014678_a_toy_dinosaur_on_a_stack_of_book.mp4|fwoooom.wav|fire_breath@b29693ae|0.36,0.42|1": {
   "dir": "real_dino_books__fwoooom",
   "title": "fwoooOOOM · Toy dinosaur on books (real footage)",
   "plate": "s4_pexels_8014678_a_toy_dinosaur_on_a_stack_of_book.mp4",
@@ -169,7 +169,7 @@
   "seed": 1,
   "drawn": false,
   "real": true,
-  "rank": 5
+  "rank": -98
  },
  "scene|s6_pexels_8015404_close_up_video_of_candle_on_a_cak.mp4|pf.wav|blow_out@2bfda6bb|0.53,0.44|1": {
   "dir": "real_cake_candle__pf",
@@ -230,5 +230,112 @@
   "drawn": false,
   "real": true,
   "rank": 10
+ },
+ "scene|s2_lit_jack_o_lanterns_and_a_ghost_figure_on_a_tabl.mp4|real_voice_lanterns_call.wav|fire_burst@a735a743|0.42,0.72|1": {
+  "dir": "real_voice_lanterns_call",
+  "title": "pf, pf, BOOM in two people's voices · each hit at its own lantern (real footage)",
+  "plate": "s2_lit_jack_o_lanterns_and_a_ghost_figure_on_a_tabl.mp4",
+  "voice": "real_voice_lanterns_call.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 2,
+  "drawn": false,
+  "real": true,
+  "voices": [
+   "rykenn_puffs_432170",
+   "jedimichael_mouthbooms_491216"
+  ],
+  "rank": -100
+ },
+ "scene|s5_pexels_5490678_two_pumpkins_placed_near_a_glass_.mp4|real_voice_pumpkins_kaboom.wav|fire_burst@a735a743|0.22,0.35|1": {
+  "dir": "real_voice_pumpkins_kaboom",
+  "title": "Ka-Boom! in one take · ka at the back pumpkin, BOOM at the front (real footage)",
+  "plate": "s5_pexels_5490678_two_pumpkins_placed_near_a_glass_.mp4",
+  "voice": "real_voice_pumpkins_kaboom.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false,
+  "real": true,
+  "voices": [
+   "unfa_kaboom_245604"
+  ],
+  "rank": -99
+ },
+ "scene|s1_pexels_6343626_still_video_of_candles_in_glasses.mp4|real_voice_candles_call.wav|blow_out@2bfda6bb|0.61,0.33|1": {
+  "dir": "real_voice_candles_call",
+  "title": "a puff, then a real candle blow · two candles out one after the other (real footage)",
+  "plate": "s1_pexels_6343626_still_video_of_candles_in_glasses.mp4",
+  "voice": "real_voice_candles_call.wav",
+  "effect": "blow_out",
+  "mode": "scene",
+  "seed": 2,
+  "drawn": false,
+  "real": true,
+  "voices": [
+   "rykenn_puffs_432170",
+   "reitanna_candle_242867"
+  ],
+  "rank": -96
+ },
+ "scene|s2_jack_o_lantern_at_night.mp4|real_voice_jack_unfa.wav|fire_burst@a735a743|0.47,0.22|1": {
+  "dir": "real_voice_jack_unfa",
+  "title": "Ka-Boom! (unfa) · one jack-o'-lantern, four voices (real footage)",
+  "plate": "s2_jack_o_lantern_at_night.mp4",
+  "voice": "real_voice_jack_unfa.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false,
+  "real": true,
+  "voices": [
+   "unfa_kaboom_245604"
+  ],
+  "rank": -95
+ },
+ "scene|s2_jack_o_lantern_at_night.mp4|real_voice_jack_sadiquecat.wav|fire_burst@a735a743|0.47,0.22|1": {
+  "dir": "real_voice_jack_sadiquecat",
+  "title": "Boom (Sadiquecat) · one jack-o'-lantern, four voices (real footage)",
+  "plate": "s2_jack_o_lantern_at_night.mp4",
+  "voice": "real_voice_jack_sadiquecat.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false,
+  "real": true,
+  "voices": [
+   "sadiquecat_boom_802505"
+  ],
+  "rank": -94
+ },
+ "scene|s2_jack_o_lantern_at_night.mp4|real_voice_jack_jedimichael.wav|fire_burst@a735a743|0.47,0.22|1": {
+  "dir": "real_voice_jack_jedimichael",
+  "title": "a mouth boom (Jedimichael) · one jack-o'-lantern, four voices (real footage)",
+  "plate": "s2_jack_o_lantern_at_night.mp4",
+  "voice": "real_voice_jack_jedimichael.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false,
+  "real": true,
+  "voices": [
+   "jedimichael_mouthbooms_491216"
+  ],
+  "rank": -93
+ },
+ "scene|s2_jack_o_lantern_at_night.mp4|real_voice_jack_huw2k8.wav|fire_burst@a735a743|0.47,0.22|1": {
+  "dir": "real_voice_jack_huw2k8",
+  "title": "Powf (huw2k8) · one jack-o'-lantern, four voices (real footage)",
+  "plate": "s2_jack_o_lantern_at_night.mp4",
+  "voice": "real_voice_jack_huw2k8.wav",
+  "effect": "fire_burst",
+  "mode": "scene",
+  "seed": 1,
+  "drawn": false,
+  "real": true,
+  "voices": [
+   "huw2k8_powf_459936"
+  ],
+  "rank": -97
  }
 }

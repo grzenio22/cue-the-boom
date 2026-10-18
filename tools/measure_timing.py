@@ -248,6 +248,7 @@ def main() -> int:
     unclear = sum(r["raw_error"] is None and r["of"] == 1 for r in rows)
     single = [r for r in rows if r["of"] == 1]
     real = [r for r in rows if "/real_" in r["shot"] or r["shot"].startswith("real/")]  # shots on real stock footage
+    voices = [r for r in rows if "/real_voice_" in r["shot"]]  # ... cued by real people's recorded voices
     summary = [f"Every hit within one frame (42 ms) of its cue: raw render {rate(raw)}, finished shot {rate(fin)}.",
               f"Mean absolute error: raw {mae(raw):.1f} frames, finished {mae(fin):.1f} frames.",
               f"Single hits: raw {rate([r['raw_error'] for r in single])}, finished {rate([r['final_error'] for r in single])} "
@@ -259,6 +260,8 @@ def main() -> int:
               *(f"Real footage, {label}: raw {rate([r['raw_error'] for r in rs])}, finished {rate([r['final_error'] for r in rs])} "
                 f"(mean {mae([r['raw_error'] for r in rs]):.1f} -> {mae([r['final_error'] for r in rs]):.1f} frames)."
                 for label, rs in (("all", real), ("held out", [r for r in real if r["set"] == "held_out"])) if rs),
+              f"Real people's recorded voices: raw {rate([r['raw_error'] for r in voices])}, finished "
+              f"{rate([r['final_error'] for r in voices])}." if voices else "",
               f"{merged} rhythm hit(s) the model merged into a neighbour have no onset of their own and are not counted." if merged else "",
               f"{unclear} take(s) whose start can't be called by eye are not counted." if unclear else "",
               f"Rhythm hits (each one measured): raw {rate([r['raw_error'] for r in later])}, "

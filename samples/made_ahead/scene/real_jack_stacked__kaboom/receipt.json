@@ -50,6 +50,7 @@
   "cue": "voice",
   "drawn": false,
   "describe": null,
+  "sources": null,
   "holds": null
  },
  "voice": {
@@ -117,7 +118,8 @@
   ],
   "dropped": [],
   "notes": [],
-  "strokes": null
+  "strokes": null,
+  "sources": null
  },
  "render": {
   "renderer": "comfy",
@@ -157,7 +159,8 @@
   "retime_frames": 0,
   "offset": 12,
   "lead": 1,
-  "hit_frame": 25
+  "hit_frame": 25,
+  "warp": null
  },
  "measured": {
   "model_early_frames": 3,
@@ -167,8 +170,8 @@
   "stopped_within_plate": null
  },
  "transfer": {
-  "residual": 0.084,
-  "inside": 0.038,
+  "residual": 0.0683,
+  "inside": 0.0341,
   "gain": [
    1.057,
    1.072,
@@ -176,15 +179,21 @@
   ],
   "plate_moves": true,
   "accepted": false,
-  "reason": "the render moved or re-shaped the scene outside the effect (residual 0.08)"
+  "reason": "the render moved or re-shaped the scene outside the effect (residual 0.07)",
+  "exposure": 0.387
+ },
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
  },
  "warnings": [
-  "used the render instead of your clip's own pixels: the render moved or re-shaped the scene outside the effect (residual 0.08)"
+  "used the render instead of your clip's own pixels: the render moved or re-shaped the scene outside the effect (residual 0.07)"
  ],
  "retimed": {
   "from": "jack_stacked__kaboom",
   "hit_shift_frames": 0,
   "stop_frame": null
  },
- "seconds_total": 47.3
+ "seconds_total": 74.4
 }

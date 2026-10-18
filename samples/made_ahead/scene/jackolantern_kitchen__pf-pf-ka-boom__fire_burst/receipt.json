@@ -50,6 +50,7 @@
   "cue": "voice",
   "drawn": false,
   "describe": null,
+  "sources": null,
   "holds": null
  },
  "voice": {
@@ -133,7 +134,8 @@
   ],
   "dropped": [],
   "notes": [],
-  "strokes": null
+  "strokes": null,
+  "sources": null
  },
  "render": {
   "renderer": "comfy",
@@ -212,6 +214,11 @@
   "stopped_within_plate": null
  },
  "transfer": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
  "warnings": [
   "the model merged 1 of the 3 hits into their neighbours"
  ],
@@ -220,5 +227,5 @@
   "hit_shift_frames": 0,
   "stop_frame": null
  },
- "seconds_total": 13.7
+ "seconds_total": 21.3
 }

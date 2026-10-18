@@ -45,11 +45,12 @@
   "seed": 1,
   "offset_s": 0.0,
   "face": false,
-  "direction": 91.67230399318832,
+  "direction": 91.7,
   "subject": "the small pumpkin on the kitchen table",
   "cue": "voice",
   "drawn": true,
   "describe": "the small pumpkin on the kitchen table catches fire, flames spread along its top and burn",
+  "sources": null,
   "holds": null
  },
  "voice": {
@@ -146,7 +147,8 @@
     ],
     "width": 0.0907
    }
-  ]
+  ],
+  "sources": null
  },
  "render": {
   "renderer": "comfy",
@@ -186,7 +188,8 @@
   "retime_frames": 0,
   "offset": 13,
   "lead": 0,
-  "hit_frame": 24
+  "hit_frame": 24,
+  "warp": null
  },
  "measured": {
   "model_early_frames": 6,
@@ -196,7 +199,16 @@
   "stopped_within_plate": true
  },
  "transfer": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
  "warnings": [],
- "retimed": null,
- "seconds_total": 16.1
+ "retimed": {
+  "from": "pumpkin_kitchen__fwoooom__flame_plume",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 23.7
 }

@@ -1,0 +1,231 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "scene",
+ "effect": {
+  "id": "blow_out",
+  "anchor": "hero",
+  "behaviour": "extinguish",
+  "fluid": "smoke",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a thin curl of grey smoke rising, isolated on a pure black background",
+  "r_min": 0.02,
+  "r_max": 0.1,
+  "rise": 0.4,
+  "keyframe_stride": 8,
+  "composite": "over",
+  "align": "hit",
+  "lead_frames": 0,
+  "voice_gate": "attack",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.02,
+  "tail_frames": 32,
+  "smoke_albedo": 0.85,
+  "scene": {
+   "prompt": "ainvfxfluid, the flame of {subject} is blown out, a thin curl of grey smoke rises from the wick and drifts away, the light in the scene dims a little, static camera, realistic phone video",
+   "r_min": 0.0,
+   "r_max": 0.1,
+   "direction": 0.0,
+   "resting": 0.09,
+   "bend": 0.0,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "",
+   "single": "",
+   "small": ""
+  }
+ },
+ "inputs": {
+  "plate_sha": "0121f538101e1e0d",
+  "voice_sha": "a664a52c345a222f",
+  "point": [
+   0.615,
+   0.33
+  ],
+  "seed": 2,
+  "offset_s": 0.0,
+  "face": false,
+  "direction": 0.0,
+  "subject": "the two candles in glasses",
+  "cue": "voice",
+  "drawn": false,
+  "describe": "the candle in the tall glass is blown out, then the small candle in the short glass is blown out, one after the other, and thin smoke rises from each wick",
+  "sources": [
+   [
+    0.623,
+    0.33
+   ],
+   [
+    0.7959,
+    0.56
+   ]
+  ],
+  "holds": null
+ },
+ "voice": {
+  "onsets_s": [
+   1.049,
+   1.969
+  ],
+  "hero_onset_s": 1.969,
+  "active_intervals": [
+   [
+    46,
+    50
+   ]
+  ],
+  "voice_end_frame": 50,
+  "peak_frame": 48,
+  "source": "voice"
+ },
+ "guide": {
+  "effect": "blow_out",
+  "size": [
+   1920,
+   1088
+  ],
+  "point": [
+   0.623,
+   0.33
+  ],
+  "scale": 0.8,
+  "length": 89,
+  "anchor_frame": 8,
+  "voice_end": 42,
+  "tail": "scene",
+  "canvas": true,
+  "keyframes": [
+   0,
+   1,
+   9,
+   17,
+   25,
+   33,
+   41,
+   49,
+   57,
+   65,
+   73,
+   81,
+   88
+  ],
+  "mode": "scene",
+  "start": 8,
+  "direction": 0.0,
+  "events": [
+   {
+    "at": 17,
+    "end": 24,
+    "peak": 0.7724563764183359,
+    "size": 0.9994381144838855,
+    "energy": 3.6522181694667295
+   },
+   {
+    "at": 39,
+    "end": 45,
+    "peak": 0.7731246957547898,
+    "size": 0.9517830648521585,
+    "energy": 2.5368654397676935
+   }
+  ],
+  "dropped": [],
+  "notes": [],
+  "strokes": null,
+  "sources": [
+   [
+    0.623,
+    0.33
+   ],
+   [
+    0.7959,
+    0.56
+   ]
+  ]
+ },
+ "render": {
+  "renderer": "comfy",
+  "seconds": 68.48,
+  "prompt": "ainvfxfluid, the candle in the tall glass is blown out, then the small candle in the short glass is blown out, one after the other, and thin smoke rises from each wick, the light in the scene reacts to it, static camera, realistic phone video",
+  "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA, image-to-video from the plate frame",
+  "start_frame": 8,
+  "length": 89
+ },
+ "plate": {
+  "still": false,
+  "frames": 205,
+  "shot_frames": 205,
+  "size": [
+   1920,
+   1080
+  ],
+  "point": [
+   0.623,
+   0.33
+  ]
+ },
+ "hits": [
+  {
+   "frame": 25,
+   "size": 0.999,
+   "strength": 0.772,
+   "merged": false
+  },
+  {
+   "frame": 47,
+   "size": 0.952,
+   "strength": 0.773,
+   "merged": false
+  }
+ ],
+ "dropped_hits": [],
+ "scale": 0.8,
+ "matte": {
+  "source": "auto",
+  "found": true,
+  "coverage": 0.0089
+ },
+ "alignment": {
+  "mode": "scene",
+  "painted_hit": 17,
+  "model_onset": 20,
+  "auto_shift": -3,
+  "clamped": false,
+  "retime_frames": 0,
+  "offset": 5,
+  "lead": 0,
+  "hit_frame": 25,
+  "warp": null
+ },
+ "measured": {
+  "model_early_frames": -3,
+  "residual_frames": 0,
+  "stops_with_voice": false,
+  "stop_latency_frames": null,
+  "stopped_within_plate": null
+ },
+ "transfer": {
+  "residual": 0.0153,
+  "inside": 0.011,
+  "gain": [
+   1.024,
+   1.023,
+   1.024
+  ],
+  "plate_moves": true,
+  "accepted": true,
+  "reason": "",
+  "exposure": 0.978
+ },
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "warnings": [],
+ "retimed": {
+  "from": "candles_call__voices_s2",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 64.4
+}

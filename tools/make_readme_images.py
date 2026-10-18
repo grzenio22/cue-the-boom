@@ -17,13 +17,13 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cuesync" / "src"))
 from cuesync.media import read_video  # noqa: E402
 
-REAL = [  # shot on real footage, frames after its hit, label
-    ("real_candles_glasses__fwoooom", 30, "“fwoooOOOM”"),
+REAL = [  # shot on real footage, frames after its (biggest) hit, label
+    ("real_voice_lanterns_call", 3, "“pf, pf, BOOM”: one per lantern"),
+    ("real_dino_books__fwoooom", 20, "“fwoooOOOM”"),
+    ("real_voice_pumpkins_kaboom", 8, "“ka-BOOM”: one per pumpkin"),
     ("real_lanterns__kaboom", 10, "“KA-BOOM”"),
-    ("real_candle_stool__pf", 12, "“pf.”"),
     ("real_trex_photo__fwoooom", 24, "“fwoooOOOM”"),
-    ("real_firepit__fwoooom", 24, "“fwoooOOOM”"),
-    ("real_jack_photo__kaboom", 12, "“KA-BOOM”"),
+    ("real_voice_jack_huw2k8", 8, "“Powf”"),
 ]
 STAND_INS = [  # shot, frames after its hit, label
     ("jackolantern_kitchen__ka-boom__fire_burst", 12, "“KA-BOOM”"),
@@ -46,9 +46,26 @@ def font(size: int):
 
 
 def frame_after_hit(d: Path, name: str, after: int) -> Image.Image:
-    hit = json.loads((d / "receipt.json").read_text())["alignment"]["hit_frame"]
+    """A frame ``after`` frames past the shot's hit (a rhythm's biggest one)."""
+    rc = json.loads((d / "receipt.json").read_text())
+    hit = max(rc["hits"], key=lambda h: h["size"])["frame"] if rc.get("hits") else rc["alignment"]["hit_frame"]
     frames = read_video(d / name).frames
     return Image.fromarray(frames[min(max(hit + after, 0), len(frames) - 1)])
+
+
+def picture_16x9(d: Path, im: Image.Image) -> Image.Image:
+    """The shot without the cue ribbon under it, as a 16:9 band: all of a landscape shot, or, of a portrait one, the
+    band around where the effect comes from."""
+    rc = json.loads((d / "receipt.json").read_text())
+    pw, ph = rc["plate"]["size"]
+    w, h = im.width, int(round(ph * im.width / pw))  # the shipped shot may be scaled down; the ribbon is under h
+    band = int(w * 9 / 16)
+    if band >= h:
+        return im.crop((0, 0, w, min(h, band)))
+    ys = [p[1] for p in rc["inputs"].get("sources") or [rc["plate"]["point"]]]  # call and response: between its sources
+    cy = int(sum(ys) / len(ys) * h)
+    top = min(max(cy - band // 3, 0), h - band)
+    return im.crop((0, top, w, top + band))
 
 
 def main() -> int:
@@ -62,8 +79,7 @@ def main() -> int:
     real = Image.new("RGB", (tw * 3, th * 2))
     d = ImageDraw.Draw(real)
     for i, (shot, after, label) in enumerate(REAL):
-        im = frame_after_hit(root / shot, "final.mp4", after)
-        im = im.crop((0, 0, im.width, int(im.width * 9 / 16)))  # the shot, without the cue ribbon under it
+        im = picture_16x9(root / shot, frame_after_hit(root / shot, "final.mp4", after))
         x, y = (i % 3) * tw, (i // 3) * th
         real.paste(im.resize((tw, th), Image.Resampling.LANCZOS), (x, y))
         d.text((x + 14, y + th - 16), label, font=f, fill=(255, 255, 255), anchor="ls", stroke_width=3, stroke_fill=(0, 0, 0))

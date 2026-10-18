@@ -30,7 +30,7 @@
    "bend": 0.2,
    "shake": 0.0,
    "flash": 0.0,
-   "rhythm": "short separate bursts of bright orange fire, with dark pauses between them and the last burst the longest,",
+   "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them, dark pauses between them and the last burst the longest,",
    "single": "a long roaring jet of bright orange fire",
    "small": ""
   }
@@ -50,6 +50,7 @@
   "cue": "voice",
   "drawn": false,
   "describe": null,
+  "sources": null,
   "holds": null
  },
  "voice": {
@@ -133,7 +134,8 @@
   ],
   "dropped": [],
   "notes": [],
-  "strokes": null
+  "strokes": null,
+  "sources": null
  },
  "render": {
   "renderer": "comfy",
@@ -216,11 +218,16 @@
   "stopped_within_plate": true
  },
  "transfer": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
  "warnings": [],
  "retimed": {
   "from": "toy_desk__pf-pf-ka-boom__fire_breath",
   "hit_shift_frames": 0,
   "stop_frame": null
  },
- "seconds_total": 12.6
+ "seconds_total": 17.0
 }

@@ -50,6 +50,7 @@
   "cue": "voice",
   "drawn": false,
   "describe": null,
+  "sources": null,
   "holds": null
  },
  "voice": {
@@ -111,7 +112,8 @@
   ],
   "dropped": [],
   "notes": [],
-  "strokes": null
+  "strokes": null,
+  "sources": null
  },
  "render": {
   "renderer": "comfy",
@@ -151,7 +153,8 @@
   "retime_frames": 0,
   "offset": 14,
   "lead": 0,
-  "hit_frame": 24
+  "hit_frame": 24,
+  "warp": null
  },
  "measured": {
   "model_early_frames": 7,
@@ -161,6 +164,16 @@
   "stopped_within_plate": false
  },
  "transfer": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
  "warnings": [],
- "seconds_total": 8.1
+ "retimed": {
+  "from": "mug_counter__hissss__steam_jet",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 13.3
 }

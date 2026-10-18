@@ -1,4 +1,5 @@
 import Gallery from "@/components/Gallery";
+import Hook from "@/components/Hook";
 import Studio from "@/components/Studio";
 
 export default function Home() {
@@ -7,6 +8,7 @@ export default function Home() {
       <p className="muted">Open Source Higgsfield · open weights · LTX-2.5 + ComfyUI</p>
       <h1>Cue the Boom</h1>
       <p className="lede">Draw where. Cue it with a sound. The scene reacts.</p>
+      <Hook />
       <p className="muted">
         Put fire, smoke or steam into your own shot exactly where it should come from (tap it, or draw it) and
         when it should happen: say it (<em>pf.</em>, <em>KA-BOOM</em>, <em>fwoooOOOM</em>, <em>hissss</em>), lock it to a sound

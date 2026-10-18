@@ -1,5 +1,5 @@
 {
-  "about": "Marked by eye, frame by frame, on each shot's raw render (render.mp4, before any re-timing): the first frame where the effect is clearly there, or for a blow-out the first frame with no flame left. One number per painted hit; null where the model merged the hit into its neighbour (no onset of its own) or the start can't be called. Keys are <folder>/<shot>: scene = samples/made_ahead/scene (the gallery shots, real_* on real stock footage); before_fixes, other_seeds, dropped and real = samples/timing_set/ (renders from before the burst and die-down fixes, takes with other seeds, a rhythm the model merged that was dropped from the gallery, and real-footage renders not in the gallery). 'calibration': the renders the pipeline's onset threshold was fitted on. 'held_out': renders it was not fitted on (extra takes with other seeds, the shots re-rendered after it was set, and a second batch of real footage rendered after the real-footage fixes). The first seven real shots are calibration: the flame-out and scene-step fixes were made on them. Real-footage nulls: steam added over a cup's or a mug's own steam too faint to call, and a candle the model never blew out.",
+  "about": "Marked by eye, frame by frame, on each shot's raw render (render.mp4, before any re-timing): the first frame where the effect is clearly there, or for a blow-out the first frame with no flame left. One number per painted hit; null where the model merged the hit into its neighbour (no onset of its own) or the start can't be called. Keys are <folder>/<shot>: scene = samples/made_ahead/scene (the gallery shots, real_* on real stock footage); before_fixes, other_seeds, dropped and real = samples/timing_set/ (renders from before the burst and die-down fixes, takes with other seeds, a rhythm the model merged that was dropped from the gallery, and real-footage renders not in the gallery). 'calibration': the renders the pipeline's onset threshold was fitted on. 'held_out': renders it was not fitted on (extra takes with other seeds, the shots re-rendered after it was set, and a second batch of real footage rendered after the real-footage fixes). The first seven real shots are calibration: the flame-out and scene-step fixes were made on them. Real-footage nulls: steam added over a cup's or a mug's own steam too faint to call, and a candle the model never blew out. The real_voice_* shots (real footage cued by real people's recorded voices) were marked blind: two annotators each marked every hit without seeing the pipeline's measurements, and a third decided wherever they disagreed by more than a frame (two shots).",
   "calibration": {
     "before_fixes/jackolantern_kitchen__ka-boom__fire_burst": [
       9
@@ -166,6 +166,32 @@
       13,
       30,
       52
+    ],
+    "scene/real_voice_lanterns_call": [
+      2,
+      27,
+      51
+    ],
+    "scene/real_voice_candles_call": [
+      16,
+      48
+    ],
+    "scene/real_voice_pumpkins_kaboom": [
+      6,
+      27
+    ],
+    "scene/real_voice_jack_unfa": [
+      11,
+      27
+    ],
+    "scene/real_voice_jack_sadiquecat": [
+      13
+    ],
+    "scene/real_voice_jack_jedimichael": [
+      9
+    ],
+    "scene/real_voice_jack_huw2k8": [
+      10
     ]
   }
 }

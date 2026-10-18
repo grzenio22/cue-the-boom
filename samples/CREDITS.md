@@ -24,3 +24,18 @@ themselves are not in this repository.
 | `timing_set/real/candle_photo__pf` | [Candle Burning](https://commons.wikimedia.org/wiki/File:Candle_Burning.JPG) | Nanda93 | Public domain |
 | `timing_set/real/mug_photo__hissss` | [Coffee steaming in a mug](https://commons.wikimedia.org/wiki/File:Coffee_steaming_in_a_mug.jpg) | PedanticNarrativeController | CC0 1.0 |
 | `timing_set/real/dragon__fwoooom` | [A Dragon Figurine](https://www.pexels.com/video/a-dragon-figurine-8710886/) | RDNE Stock project | Pexels License |
+
+## Real voices
+
+The `made_ahead/scene/real_voice_*` shots are cued by recordings of real people's voices, cut and placed as
+a performance (each shot's receipt lists its hits). The recordings are CC0 on Freesound; the plates are
+credited above.
+
+| Recording | Author | Licence | Shots |
+|---|---|---|---|
+| [Powf.wav](https://freesound.org/people/huw2k8/sounds/459936/) | huw2k8 | CC0 1.0 | `made_ahead/scene/real_voice_jack_huw2k8` |
+| [MouthBooms.wav](https://freesound.org/people/Jedimichael/sounds/491216/) | Jedimichael | CC0 1.0 | `made_ahead/scene/real_voice_lanterns_call`, `made_ahead/scene/real_voice_jack_jedimichael` |
+| [blowing out candle.wav](https://freesound.org/people/Reitanna/sounds/242867/) | Reitanna | CC0 1.0 | `made_ahead/scene/real_voice_candles_call` |
+| [Various short blows/puffs of air from male mouth](https://freesound.org/people/rykenn/sounds/432170/) | rykenn | CC0 1.0 | `made_ahead/scene/real_voice_lanterns_call`, `made_ahead/scene/real_voice_candles_call` |
+| [Boom (vocal)](https://freesound.org/people/Sadiquecat/sounds/802505/) | Sadiquecat | CC0 1.0 | `made_ahead/scene/real_voice_jack_sadiquecat` |
+| [TF2 Demoman "Ka-Boom!" taunt (own voice)](https://freesound.org/people/unfa/sounds/245604/) | unfa | CC0 1.0 | `made_ahead/scene/real_voice_pumpkins_kaboom`, `made_ahead/scene/real_voice_jack_unfa` |

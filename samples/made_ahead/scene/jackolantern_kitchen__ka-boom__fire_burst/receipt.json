@@ -50,6 +50,7 @@
   "cue": "voice",
   "drawn": false,
   "describe": null,
+  "sources": null,
   "holds": null
  },
  "voice": {
@@ -117,7 +118,8 @@
   ],
   "dropped": [],
   "notes": [],
-  "strokes": null
+  "strokes": null,
+  "sources": null
  },
  "render": {
   "renderer": "comfy",
@@ -157,7 +159,8 @@
   "retime_frames": 0,
   "offset": 13,
   "lead": 1,
-  "hit_frame": 25
+  "hit_frame": 25,
+  "warp": null
  },
  "measured": {
   "model_early_frames": 4,
@@ -167,7 +170,16 @@
   "stopped_within_plate": null
  },
  "transfer": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
  "warnings": [],
- "retimed": null,
- "seconds_total": 101.2
+ "retimed": {
+  "from": "jackolantern_kitchen__ka-boom__fire_burst",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 17.8
 }

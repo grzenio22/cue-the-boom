@@ -50,6 +50,7 @@
   "cue": "voice",
   "drawn": false,
   "describe": null,
+  "sources": null,
   "holds": null
  },
  "voice": {
@@ -112,7 +113,8 @@
   ],
   "dropped": [],
   "notes": [],
-  "strokes": null
+  "strokes": null,
+  "sources": null
  },
  "render": {
   "renderer": "comfy",
@@ -152,7 +154,8 @@
   "retime_frames": 0,
   "offset": 12,
   "lead": 0,
-  "hit_frame": 24
+  "hit_frame": 24,
+  "warp": null
  },
  "measured": {
   "model_early_frames": 5,
@@ -162,7 +165,16 @@
   "stopped_within_plate": true
  },
  "transfer": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
  "warnings": [],
- "retimed": null,
- "seconds_total": 81.4
+ "retimed": {
+  "from": "kuri_photo__fwoooom",
+  "hit_shift_frames": 0,
+  "stop_frame": null
+ },
+ "seconds_total": 13.0
 }
