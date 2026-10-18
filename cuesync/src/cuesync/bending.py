@@ -131,6 +131,21 @@ def emitter_at(track: dict, k: int) -> tuple[np.ndarray, np.ndarray, float]:
     return np.asarray(track["xy"][k], np.float64), u / max(float(np.hypot(*u)), 1e-6), float(track["scale"][k])
 
 
+def anchored(track: dict, k: int, tap: tuple[float, float]) -> dict:
+    """The track with its emitter moved to where the performer tapped on frame ``k`` (``tap`` in px), carried with the
+    hand from there: the tap kept as an offset in the hand's own frame (along its direction and across it, in hand
+    sizes), so it moves, turns and scales with the hand. A tracker's palm point is the landmarks' middle, which for an
+    upturned palm seen from the side lies inside the hand, not on the palm the fire should rise from."""
+    p, u, s = emitter_at(track, k)
+    d = np.asarray(tap, np.float64) - p
+    a, b = float(d @ u) / max(s, 1e-6), float(d @ np.array([-u[1], u[0]])) / max(s, 1e-6)
+    xy = []
+    for t in range(len(track["xy"])):
+        pt, ut, st = emitter_at(track, t)
+        xy.append([float(v) for v in pt + st * (a * ut + b * np.array([-ut[1], ut[0]]))])
+    return track | {"xy": xy, "anchor": {"frame": int(k), "along": round(a, 3), "across": round(b, 3)}}
+
+
 def angle_of(u) -> float:
     """A unit direction as degrees clockwise from straight up (the studio's ``direction``)."""
     return math.degrees(math.atan2(float(u[0]), -float(u[1])))
@@ -259,15 +274,20 @@ def air_puff(h: int, w: int, ref: tuple, seed: int = 0, frames: int = 14) -> np.
     rng = np.random.default_rng(seed)
     q = 4
     hq, wq = max(2, h // q), max(2, w // q)
-    noise = cv2.GaussianBlur(rng.random((hq, wq)).astype(np.float32), (0, 0), max(1.0, 0.08 * s0 / q))
-    noise = (noise - noise.min()) / max(float(np.ptp(noise)), 1e-6)
+    noise = cv2.GaussianBlur(rng.random((hq, wq)).astype(np.float32), (0, 0), max(1.0, 0.04 * s0 / q))
+    n_ = max(3, int(0.6 * s0 / q) | 1)  # streaked along the aim: dust flung out, not a soft glow
+    line = np.zeros((n_, n_), np.float32)
+    cv2.line(line, (int(n_ / 2 - u0[0] * n_ / 2), int(n_ / 2 - u0[1] * n_ / 2)),
+             (int(n_ / 2 + u0[0] * n_ / 2), int(n_ / 2 + u0[1] * n_ / 2)), 1.0, 1)
+    noise = cv2.filter2D(noise, -1, line / max(float(line.sum()), 1.0))
+    noise = np.clip((noise - noise.mean()) / max(float(noise.std()), 1e-6) * 0.5 + 0.5, 0, 1)
     yy, xx = np.mgrid[:hq, :wq].astype(np.float32) * q
     out = np.zeros((frames, h, w, 3), np.uint8)
     for k in range(frames):
         a = k / (frames - 1)
         c = p0 + u0 * (3.0 * s0) * (1 - (1 - a) ** 2)  # out fast, slowing
         r = s0 * (0.35 + 1.1 * a)
-        blob = np.exp(-((xx - c[0]) ** 2 + (yy - c[1]) ** 2) / (2 * r * r)) * (0.55 + 0.45 * noise)
+        blob = np.exp(-((xx - c[0]) ** 2 + (yy - c[1]) ** 2) / (2 * r * r)) * (0.25 + 0.75 * noise)
         dens = 0.55 * (1 - a) ** 1.5 * min(1.0, (k + 1) / 2)
         y = cv2.resize(np.clip(blob * dens, 0, 1).astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
         out[k] = np.clip(255 * y[..., None] ** (1 / 2.2) * np.array([0.82, 0.84, 0.88]), 0, 255).astype(np.uint8)
@@ -315,6 +335,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     snaps = [snap_launch(f, track.get("events", [])) for f in hits]  # each hit on its own strike, when close
     snap = snaps[hits.index(hero)]
     k_launch = snap["frame"]
+    track = anchored(track, k_launch, (spec.point[0] * w, spec.point[1] * h))  # where you tapped, carried on the hand
     gains = [float(np.clip((v / max(max(loud), 1e-6)) ** 0.5, 0.35, 1.0)) for v in loud]
 
     auto = None
