@@ -207,6 +207,7 @@ SMEAR_PX = 3.0  # each slice is smeared over its share of the history in steps t
 # on a fast turn the far end travels further than the jet is long, and slices (however thin) left gaps between them,
 # regular lobes when they were half a frame apart, a dotted screen when there were hundreds
 MAX_SMEAR = 48
+SHOULDER = 0.7  # linear light: fire over a lit hand rolls off from here towards white instead of clipping to it
 
 
 def _strip(level0: float, g: tuple, lo: float, hi: float, box: tuple) -> tuple | None:
@@ -235,9 +236,9 @@ def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, s
     hand swings on: one pose for the whole element made it a strip swung on a pivot, and one remap with a pose per pixel
     tore it apart on a fast turn. There are as many slices as it takes for the far end to move at most SLICE_PX between
     neighbours (a still hand needs few, a whip a few hundred, each warped only where it is), their weights overlap and
-    sum to 1. Each slice is smeared over its own share of the history (and with ``blur`` half a frame more, as a
-    180-degree shutter would), in as many steps as it takes for its far edge to move at most SMEAR_PX: a stream thrown
-    on a fast turn is stretched along its path, not broken into pieces."""
+    sum to 1. Each slice is smeared over its own share of the history (a quarter of a frame with ``blur``: the
+    shutter's own smear), in as many steps as it takes for its far edge to move at most SMEAR_PX: a stream thrown on a
+    fast turn is stretched along its path, not broken into pieces."""
     h, w = frame.shape[:2]
     p0, u0, s0 = ref
     lo_t = -np.inf if since is None else float(since)
@@ -249,7 +250,7 @@ def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, s
     box = (max(0, 4 * xs.min() - 4), min(w, 4 * xs.max() + 8), max(0, 4 * ys.min() - 4), min(h, 4 * ys.max() + 8))
     reach = max(LENGTH * s0, 1.0)
     pose = lambda c: pose_forward(ref, track, max(t - c, lo_t), size)  # noqa: E731
-    n = 2 * lag + 1 if lag > 0 else 1
+    n = (4 if blur else 2) * lag + 1 if lag > 0 else 1  # a quarter of a frame apart (half without blur)
     tip = np.array([p0[0] + u0[0] * reach, p0[1] + u0[1] * reach, 1.0])
     g = (u0[0] * lag / reach, u0[1] * lag / reach)
     level0 = -(p0[0] * g[0] + p0[1] * g[1])  # level(x, y) = level0 + g . (x, y): 0 at the emitter, lag at the far end
@@ -267,7 +268,8 @@ def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, s
             lev = np.clip(level0 + g[0] * xx + g[1] * yy, 0, lag)
             part = part * np.clip(1.0 - np.abs(lev - c) / step, 0.0, 1.0)[..., None]
         ph, pw = part.shape[:2]
-        a, z = max(0.0, c - step / 2), min(float(lag), c + step / 2) + (0.5 if blur else 0.0)  # its share of the history
+        a, z = max(0.0, c - step / 2), min(float(lag), c + step / 2)  # its share of the history: no more (a whole frame
+        # each smeared the far end of a fast swing into a featureless brushstroke), no less (gaps between slices)
         far = np.hypot(*(pose(z) @ tip - pose(a) @ tip)) * min(1.0, (c + step) / max(lag, 1e-6))  # its far edge's path
         m = int(np.clip(np.ceil(far / SMEAR_PX), 1, MAX_SMEAR)) if z > a else 1
         times = np.linspace(a, z, m) if m > 1 else ((a + z) / 2,)
@@ -579,6 +581,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             alpha = np.stack([cv2.resize(np.clip(fx._lum(small[i]) * 4.0, 0, 1), (w, h)) for i in range(a0, b1)])
             fx.heat_haze(P, alpha, seed=spec.seed, out=P, frame0=a0)
         fx.flash(P, [off + ign - a0 for off, _, _ in plays], [g for _, g, _ in plays], out=P)
+        if eff.fluid == "fire":  # a shoulder, not a clip: the root over a lit palm went flat white
+            np.copyto(P, SHOULDER + (1.0 - SHOULDER) * np.tanh((P - SHOULDER) / (1.0 - SHOULDER)), where=P > SHOULDER)
         out[a:b] = gam(P[a - a0: b - a0])
     plate = element = small = None  # (a 10 s 1080p plate and its render are 2 GB: let them go before the finishing copies)
     if effect == "smoke_puff":  # the air blast: a pressure front out of the palm
