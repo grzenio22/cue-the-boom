@@ -203,48 +203,86 @@ def pose_inverse(ref: tuple, track: dict, t: int, size: float = 1.0) -> np.ndarr
     return cv2.invertAffineTransform(pose_forward(ref, track, t, size))
 
 
+SMEAR_PX = 3.0  # each slice is smeared over its share of the history in steps the far end moves at most this far:
+# on a fast turn the far end travels further than the jet is long, and slices (however thin) left gaps between them,
+# regular lobes when they were half a frame apart, a dotted screen when there were hundreds
+MAX_SMEAR = 48
+
+
+def _strip(level0: float, g: tuple, lo: float, hi: float, box: tuple) -> tuple | None:
+    """The rows and columns of ``box`` (x0, x1, y0, y1) where level0 + g . (x, y) lies in [lo, hi] (a straight strip)."""
+    x0, x1, y0, y1 = box
+    gx, gy = g
+    if abs(gx) >= abs(gy):  # columns from the strip's two edges at the box's top and bottom
+        xs = [(v - level0 - gy * y) / gx for v in (lo, hi) if np.isfinite(v) for y in (y0, y1)]
+        if len(xs) < 4:  # one side open: it runs to the box's edge that way
+            xs += [x0 if (gx > 0) == (not np.isfinite(lo)) else x1]
+        a, b = max(x0, int(np.floor(min(xs))) - 1), min(x1, int(np.ceil(max(xs))) + 2)
+        return None if a >= b else (a, b, y0, y1)
+    ys = [(v - level0 - gx * x) / gy for v in (lo, hi) if np.isfinite(v) for x in (x0, x1)]
+    if len(ys) < 4:
+        ys += [y0 if (gy > 0) == (not np.isfinite(lo)) else y1]
+    a, b = max(y0, int(np.floor(min(ys))) - 1), min(y1, int(np.ceil(max(ys))) + 2)
+    return None if a >= b else (x0, x1, a, b)
+
+
 def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, size: float = 1.0,
                  blur: bool = True, since: int | None = None) -> np.ndarray:
     """An element frame (float32, over black, at the plate's size, rendered with the emitter at ``ref``) carried onto
-    plate frame ``t`` with its emission history: in slices along its length, its base on the emitter's pose now and
+    plate frame ``t`` with its emission history: in thin slices along its length, its base on the emitter's pose now and
     each slice further along on the pose the emitter had when that part left the hand, up to ``lag`` frames before for
     the far end (never before ``since``, the strike). Fire already thrown keeps flying the way it was thrown while the
     hand swings on: one pose for the whole element made it a strip swung on a pivot, and one remap with a pose per pixel
-    tore it apart on a fast turn. The slices are half a frame apart (with ``blur``; a frame without), overlap (their
-    weights sum to 1) and so also smear the element over the hand's motion, as a 180-degree shutter would; each is
-    warped only where it is."""
+    tore it apart on a fast turn. There are as many slices as it takes for the far end to move at most SLICE_PX between
+    neighbours (a still hand needs few, a whip a few hundred, each warped only where it is), their weights overlap and
+    sum to 1. Each slice is smeared over its own share of the history (and with ``blur`` half a frame more, as a
+    180-degree shutter would), in as many steps as it takes for its far edge to move at most SMEAR_PX: a stream thrown
+    on a fast turn is stretched along its path, not broken into pieces."""
     h, w = frame.shape[:2]
     p0, u0, s0 = ref
-    lo = -np.inf if since is None else float(since)
+    lo_t = -np.inf if since is None else float(since)
     out = np.zeros_like(frame)
     lit = frame[::4, ::4].max(-1) > 1e-4  # where the element is, from a quarter-size look
     ys, xs = np.nonzero(lit)
     if ys.size == 0:
         return out
-    ey0, ey1, ex0, ex1 = max(0, 4 * ys.min() - 4), min(h, 4 * ys.max() + 8), max(0, 4 * xs.min() - 4), min(w, 4 * xs.max() + 8)
-    sub = frame[ey0:ey1, ex0:ex1]
-    yy, xx = np.mgrid[ey0:ey1, ex0:ex1].astype(np.float32)
-    n = (2 * lag if blur else lag) + 1 if lag > 0 else 1
-    level = np.clip(((xx - p0[0]) * u0[0] + (yy - p0[1]) * u0[1]) * (lag / max(LENGTH * s0, 1.0)), 0, lag)
+    box = (max(0, 4 * xs.min() - 4), min(w, 4 * xs.max() + 8), max(0, 4 * ys.min() - 4), min(h, 4 * ys.max() + 8))
+    reach = max(LENGTH * s0, 1.0)
+    pose = lambda c: pose_forward(ref, track, max(t - c, lo_t), size)  # noqa: E731
+    n = 2 * lag + 1 if lag > 0 else 1
+    tip = np.array([p0[0] + u0[0] * reach, p0[1] + u0[1] * reach, 1.0])
+    g = (u0[0] * lag / reach, u0[1] * lag / reach)
+    level0 = -(p0[0] * g[0] + p0[1] * g[1])  # level(x, y) = level0 + g . (x, y): 0 at the emitter, lag at the far end
     step = lag / (n - 1) if n > 1 else 1.0
-    for c in np.linspace(0.0, lag, n):
-        wgt = np.clip(1.0 - np.abs(level - c) / step, 0.0, 1.0) if n > 1 else np.ones_like(level)
-        rows, cols = np.nonzero(wgt.any(1))[0], np.nonzero(wgt.any(0))[0]
-        if rows.size == 0:
+    for i, c in enumerate(np.linspace(0.0, lag, n)):
+        lo = -np.inf if i == 0 else c - step  # the first slice takes all behind the emitter, the last all beyond
+        hi = np.inf if i == n - 1 else c + step
+        b = _strip(level0, g, lo, hi, box) if n > 1 else box
+        if b is None:
             continue
-        r0, r1, c0, c1 = rows[0], rows[-1] + 1, cols[0], cols[-1] + 1
-        part = sub[r0:r1, c0:c1] * wgt[r0:r1, c0:c1, None]
-        A = pose_forward(ref, track, max(t - c, lo), size)
-        A[:, 2] += A[:, 0] * (ex0 + c0) + A[:, 1] * (ey0 + r0)  # from the slice's own corner
+        x0, x1, y0, y1 = b
+        part = frame[y0:y1, x0:x1]
+        if n > 1:
+            yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+            lev = np.clip(level0 + g[0] * xx + g[1] * yy, 0, lag)
+            part = part * np.clip(1.0 - np.abs(lev - c) / step, 0.0, 1.0)[..., None]
         ph, pw = part.shape[:2]
-        corners = np.array([[0, 0, 1], [pw, 0, 1], [0, ph, 1], [pw, ph, 1]], np.float64) @ A.T
-        dx0, dy0 = max(0, int(np.floor(corners[:, 0].min())) - 1), max(0, int(np.floor(corners[:, 1].min())) - 1)
-        dx1, dy1 = min(w, int(np.ceil(corners[:, 0].max())) + 2), min(h, int(np.ceil(corners[:, 1].max())) + 2)
-        if dx1 <= dx0 or dy1 <= dy0:
-            continue
-        A[:, 2] -= (dx0, dy0)
-        out[dy0:dy1, dx0:dx1] += cv2.warpAffine(part, A.astype(np.float32), (dx1 - dx0, dy1 - dy0),
-                                                flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        a, z = max(0.0, c - step / 2), min(float(lag), c + step / 2) + (0.5 if blur else 0.0)  # its share of the history
+        far = np.hypot(*(pose(z) @ tip - pose(a) @ tip)) * min(1.0, (c + step) / max(lag, 1e-6))  # its far edge's path
+        m = int(np.clip(np.ceil(far / SMEAR_PX), 1, MAX_SMEAR)) if z > a else 1
+        times = np.linspace(a, z, m) if m > 1 else ((a + z) / 2,)
+        for cc in times:
+            A = pose(cc)
+            A[:, 2] += A[:, 0] * x0 + A[:, 1] * y0  # from the slice's own corner
+            corners = np.array([[0, 0, 1], [pw, 0, 1], [0, ph, 1], [pw, ph, 1]], np.float64) @ A.T
+            dx0, dy0 = max(0, int(np.floor(corners[:, 0].min())) - 1), max(0, int(np.floor(corners[:, 1].min())) - 1)
+            dx1, dy1 = min(w, int(np.ceil(corners[:, 0].max())) + 2), min(h, int(np.ceil(corners[:, 1].max())) + 2)
+            if dx1 <= dx0 or dy1 <= dy0:
+                continue
+            A[:, 2] -= (dx0, dy0)
+            out[dy0:dy1, dx0:dx1] += cv2.warpAffine(part, A.astype(np.float32), (dx1 - dx0, dy1 - dy0),
+                                                    flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
+                                                    borderValue=0) * (1.0 / len(times))
     return out
 
 
@@ -468,7 +506,14 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         run = run + 1 if src[t] == "lost" else 0
         lost[t] = run
 
-    fade = (root_fade(h, w, ref, ROOT_FADE_HANDS.get(effect, ROOT_FADE * LENGTH)) * border_fade(h, w))[..., None]
+    fade = root_fade(h, w, ref, ROOT_FADE_HANDS.get(effect, ROOT_FADE * LENGTH)) * border_fade(h, w)
+    if eff.fluid == "steam":  # vapour thins out as it spreads: dense at the palm, a third as dense at its far end
+        p0_, u0_, s0_ = ref
+        yy_, xx_ = np.mgrid[:h, :w].astype(np.float32)
+        along_ = ((xx_ - p0_[0]) * u0_[0] + (yy_ - p0_[1]) * u0_[1]) / max(0.5 * LENGTH * s0_, 1.0)
+        fade = fade * np.clip(1.0 - 0.67 * along_, 0.33, 1.0)
+        del yy_, xx_, along_
+    fade = fade[..., None]
 
     def element_at(t: int) -> np.ndarray | None:
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
@@ -520,7 +565,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 al = np.clip(E.max(-1) / 0.35, 0.0, 0.9)[..., None]
                 P[j] = P[j] * (1.0 - al) + np.clip(E / np.maximum(al, 1e-3), 0, 1) * al
             elif eff.fluid == "steam":  # steam scatters the room's light: laid over, never brighter than its white
-                al = np.clip(fx._lum(E) / 0.5, 0.0, 0.7)[..., None]  # translucent: a dense render read as cotton wool
+                al = np.clip(fx._lum(E) / 0.6, 0.0, 0.55)[..., None]  # translucent: a dense render read as cotton wool
                 P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), max(0.9 * white, 0.45)) * al
             else:
                 P[j] = P[j] + E
