@@ -12,7 +12,9 @@ Beats (all times in seconds; text may use \\n):
   a clip may add "speed": 8 (silent while sped up) and "note": "sped up x8" (a tag at the top right),
   "crop": [x0, y0, x1, y1] (fractions, to zoom in), and "audio_src" + "audio_from" + "audio_at" (another file's
   sound, from audio_from s in it, starting audio_at s into the beat), "wave": true (the beat's sound drawn under
-  the clip, a playhead running along it) and "pops": [[t, "KA-BOOM"], ...] (the noise word, big, at t s)
+  the clip, a playhead running along it) and "pops": [[t, "KA-BOOM"], ...] (the noise word, big, at t s), "marks":
+  [[t, x, y, "1"], ...] (a numbered ring on the clip at x, y as fractions, from t s: where a hit goes off) and
+  "headline" / "subline" (a title over the clip itself, top left)
       (an image may add "crop" too; "split": [0.4] cuts a wide image at those fractions of its width and stacks
       the parts as rows)
   {"type": "versus", "shot": "runs/.../shot", "start": 0.4, "dur": 2.4, "speed": 1, "labels": ["...", "..."],
@@ -133,15 +135,33 @@ def pop(d: ImageDraw.ImageDraw, cx: int, cy: int, t: float, pops: list) -> None:
             d.text((cx, cy), word, font=font(size, True), fill=ACCENT, anchor="mm", stroke_width=7, stroke_fill=(0, 0, 0))
 
 
-def read_window(src: str | Path, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray]:
+def mark(d: ImageDraw.ImageDraw, x0: int, y0: int, w: int, h: int, t: float, marks: list) -> None:
+    """A numbered ring where each hit goes off: it springs up as the hit is heard and stays, quieter, after."""
+    for at, x, y, label in marks or []:
+        age = t - float(at)
+        if age < 0:
+            continue
+        r = int(46 * (1.4 - 0.4 * min(1.0, age / 0.2)))
+        cx, cy = x0 + int(float(x) * w), y0 + int(float(y) * h)
+        col = ACCENT if age < 0.9 else (200, 150, 60)
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col, width=6 if age < 0.9 else 3)
+        d.text((cx + r + 8, cy - r), str(label), font=font(52 if age < 0.9 else 40, True), fill=col, anchor="lt",
+               stroke_width=5, stroke_fill=(0, 0, 0))
+
+
+def read_window(src: str | Path, t0: float, t1: float, every: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
     """The frames of a video shown from t0 to t1 s, with their timestamps, decoded from a seek near t0 (a long
-    screen recording is never decoded, or held, whole)."""
+    screen recording is never decoded, or held, whole). ``every``: keep one frame per that many seconds (a
+    stretch played sped up shows no more; holding all of 84 s of a screen recording took 6 GB)."""
     import av
 
     frames, times = [], []
     with av.open(str(src)) as c:
         st = c.streams.video[0]
         st.thread_type = "AUTO"
+        if every:  # keep frames closer than the step shown, minus one source frame, so none it shows is dropped
+            rate = float(st.average_rate or st.guessed_rate or 24)
+            every = max(0.0, every - 1.0 / rate)
         if t0 > 2.0:
             c.seek(int((t0 - 2.0) / st.time_base), stream=st, backward=True)
         for fr in c.decode(st):
@@ -151,6 +171,8 @@ def read_window(src: str | Path, t0: float, t1: float) -> tuple[np.ndarray, np.n
                 break
             if fr.time < t0 - 0.25:  # before the window: keep only the latest, shown until the window's first frame
                 frames, times = [fr.to_ndarray(format="rgb24")], [fr.time]
+                continue
+            if every and times and times[-1] >= t0 and fr.time - times[-1] < every:
                 continue
             frames.append(fr.to_ndarray(format="rgb24"))
             times.append(fr.time)
@@ -163,7 +185,7 @@ class Clip:
     recording's uneven frame rate is fine). A sped-up stretch is silent."""
 
     def __init__(self, src: str, start: float, dur: float, speed: float = 1.0, crop: list[float] | None = None):
-        self.frames, self.times = read_window(src, start, start + dur * speed)
+        self.frames, self.times = read_window(src, start, start + dur * speed, every=speed / FPS if speed > 1 else 0.0)
         if crop:  # [x0, y0, x1, y1] as fractions: zoom in on part of a screen recording
             h, w = self.frames.shape[1:3]
             x0, y0, x1, y1 = int(crop[0] * w) // 2 * 2, int(crop[1] * h) // 2 * 2, int(crop[2] * w) // 2 * 2, int(crop[3] * h) // 2 * 2
@@ -206,7 +228,7 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
         d.text((W // 2, 110), b.get("title", "Built with"), font=font(64, True), fill=FG, anchor="mm")
         for k, line in enumerate(b["lines"]):
             sub = line.startswith("  ")
-            d.text((520 + (50 if sub else 0), 200 + k * 60), line.strip(), font=font(38), fill=MUTED if sub or line.startswith("·") else FG)
+            d.text((W // 2, 210 + k * 76), line.strip(), font=font(44), fill=MUTED if sub or line.startswith("·") else FG, anchor="ma")
         if b.get("url"):
             d.text((W // 2, H - 130), b["url"], font=font(60, True), fill=ACCENT, anchor="mm")
         stamp(img, b.get("stamp"))
@@ -255,7 +277,12 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
                     wave(d, 90, H // 2 + 130, max(200, x0 - 180), 110, env, i)
                 else:  # to the right of the clip
                     wave(d, x0 + im.width + 70, y0 + im.height - 220, W - 120 - (x0 + im.width + 70), 110, env, i)
+            mark(d, x0, y0, im.width, im.height, i / FPS, b.get("marks"))
             pop(d, x0 + im.width // 2, y0 + int(im.height * 0.8), i / FPS, b.get("pops"))
+            if b.get("headline"):  # the title over the shot itself, not on a card of its own
+                d.text((x0 + 40, y0 + 30), b["headline"], font=font(88, True), fill=FG, stroke_width=6, stroke_fill=(0, 0, 0))
+                if b.get("subline"):
+                    d.text((x0 + 44, y0 + 140), b["subline"], font=font(44, True), fill=ACCENT, stroke_width=5, stroke_fill=(0, 0, 0))
             if b.get("side"):  # the label heads the side text (the shot carries its own effect label)
                 y = H // 2 - 120
                 if b.get("label"):
