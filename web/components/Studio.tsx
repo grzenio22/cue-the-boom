@@ -5,7 +5,7 @@ import DrawPad from "@/components/DrawPad";
 import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
 import ShotPanel from "@/components/ShotPanel";
-import TapPoint from "@/components/TapPoint";
+import TapPoint, { MAX_SOURCES } from "@/components/TapPoint";
 import { atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
 interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null }
@@ -31,6 +31,8 @@ export default function Studio() {
   const [point, setPoint] = useState<[number, number] | null>(null);
   const [pointSet, setPointSet] = useState(false);
   const [direction, setDirection] = useState<number | null>(null);
+  const [more, setMore] = useState<[number, number][]>([]); // call and response: the later hits' sources
+  const [adding, setAdding] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [takes, setTakes] = useState<Take[]>([]);
@@ -49,6 +51,8 @@ export default function Studio() {
     setPlate(p);
     setPoint(p.point);
     setDirection(p.direction);
+    setMore([]);
+    setAdding(false);
     setPointSet(p.point !== null); // a sample comes with its spot; it can still be moved
     setDrawing(false);
     setStrokes([]);
@@ -60,7 +64,7 @@ export default function Studio() {
   const sceneLive = health?.modes.includes("scene") ?? false;
   const madeAheadScene = !sceneLive && (health?.made_ahead?.includes("scene") ?? false);
   // with the GPU offline, the sample noises whose scene shot was made ahead of time (at the sample's own spot)
-  const ready = madeAheadScene && plate?.sample && atSampleSpot(plate.point, point, plate.direction, direction)
+  const ready = madeAheadScene && plate?.sample && more.length === 0 && atSampleSpot(plate.point, point, plate.direction, direction)
     ? Object.keys(plate.scene ?? {}).filter((k) => /\.(wav|mp3|m4a|ogg|webm)$/.test(k)) : [];
   // with the GPU offline, a sample's own drawing still plays: it was rendered ahead of time
   const replay = madeAheadScene && !!plate?.drawn?.length;
@@ -70,6 +74,7 @@ export default function Studio() {
   };
   // a drawing says where it comes from (its first point); in tap mode the tapped point wins
   const where: [number, number] | null = drawing && strokes.length ? strokes[0].points[0] : point;
+  const sources: [number, number][] = !drawing && point && more.length ? [point, ...more] : [];
   const cue = current?.performance;
 
   if (apiError && !health) {
@@ -114,7 +119,20 @@ export default function Studio() {
               ) : (
                 <>
                   <p className="muted">Tap where it comes from: a toy&apos;s mouth, a candle&apos;s wick, the coffee in a mug. Drag from there to aim it (a breath, a jet).</p>
-                  <TapPoint src={plate.url} value={point} onChange={setPoint} direction={direction} onDirection={setDirection} />
+                  <TapPoint src={plate.url} value={point} onChange={setPoint} direction={direction} onDirection={setDirection}
+                    more={more} adding={adding} onMore={(m) => { setMore(m); if (m.length >= MAX_SOURCES - 1) setAdding(false); }} />
+                  {sceneLive && (
+                    <div className="row">
+                      <button className={adding ? "" : "secondary"} aria-pressed={adding} disabled={!point || more.length >= MAX_SOURCES - 1}
+                        onClick={() => setAdding((a) => !a)}>
+                        {adding ? `Tap the thing for hit ${more.length + 2}` : more.length ? "Add another" : "One thing per hit"}
+                      </button>
+                      {more.length > 0 && <button className="secondary" onClick={() => { setMore([]); setAdding(false); }}>Back to one source</button>}
+                      <span className="muted">{more.length
+                        ? `${more.length + 1} sources: your rhythm fires them in order, one per hit (pf, pf, KA-BOOM).`
+                        : "Call and response: tap a different thing for each hit of a rhythm."}</span>
+                    </div>
+                  )}
                   {madeAheadScene && plate.sample && plate.point && !atSampleSpot(plate.point, point, plate.direction, direction) && (
                     <div className="row">
                       <span className="muted">Off the sample&apos;s marked spot, Into the scene needs the GPU (offline right now): this makes an instant shot.</span>
@@ -123,12 +141,13 @@ export default function Studio() {
                   )}
                 </>
               )}
-              <div className="row"><button disabled={drawing ? strokes.length === 0 : !point} onClick={() => setPointSet(true)}>{drawing ? "That's where it goes" : "That's the spot"}</button></div>
+              <div className="row"><button disabled={drawing ? strokes.length === 0 : !point} onClick={() => setPointSet(true)}>{drawing ? "That's where it goes" : more.length ? "Those are the sources" : "That's the spot"}</button></div>
             </>
           ) : (
             <div className="row">
               {where && <Spot src={plate.url} at={where} />}
-              <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
+              <span className="chip">{drawing && strokes.length ? `drawn (${strokes.length} stroke${strokes.length === 1 ? "" : "s"})`
+                : sources.length ? `${sources.length} sources, one per hit` : direction != null ? `source set, aimed ${direction}°` : "source set"}</span>
               <button className="secondary" disabled={rendering} onClick={() => setPointSet(false)}>{drawing ? "Change the drawing" : plate.drawn?.length ? "Move it, or draw it" : "Move it"}</button>
               {madeAheadScene && plate.sample && plate.point && !drawing && !atSampleSpot(plate.point, point, plate.direction, direction) && (
                 <button className="secondary" disabled={rendering} onClick={() => { setPoint(plate.point); setDirection(plate.direction); }}
@@ -160,7 +179,7 @@ export default function Studio() {
 
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
-          strokes={drawing ? strokes : []} initialJob={current.job} onBusy={setRendering}
+          strokes={drawing ? strokes : []} sources={sources} initialJob={current.job} onBusy={setRendering}
           effects={effects} modes={health?.modes ?? []} madeAheadScene={madeAheadScene}
           onDone={(job, effect) => {
             const id = current.id; // this take, even if the user has moved on to another before it finishes

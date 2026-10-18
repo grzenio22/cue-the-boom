@@ -262,6 +262,34 @@ def test_a_held_drawn_scene_shot_needs_no_voice(scene_client, tmp_path, make_vid
     assert r.prompts[-1].startswith("ainvfxfluid, smoke pours out of the box,")
 
 
+def test_call_and_response_sources_go_through_the_api(scene_client, tmp_path, make_video):
+    client, r = scene_client
+    plate = make_video(tmp_path, n=72, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))
+    sources = [[0.25, 0.7], [0.5, 0.5], [0.75, 0.3]]
+    holds = [[0.5, 0.65], [1.1, 1.25], [1.7, 2.1]]  # pf, pf, KA-BOOM pressed on the button
+    with open(plate, "rb") as p:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
+                        data={"effect": "fire_burst", "mode": "scene", "cue": "hold", "holds": json.dumps(holds),
+                              "sources": json.dumps(sources)}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    rc = done["receipt"]
+    assert rc["inputs"]["sources"] == sources and rc["plate"]["point"] == sources[0]
+    assert rc["guide"]["sources"] == sources
+
+    def refused(**data):
+        with open(plate, "rb") as p:
+            return client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
+                               data={"effect": "fire_burst", "cue": "hold", "holds": json.dumps(holds), **data}).status_code
+
+    assert refused(mode="scene", sources=json.dumps([[0.5, 0.5]])) == 400  # one source is just a point
+    assert refused(mode="scene", sources=json.dumps([[0.5, 0.5], [1.5, 0.5]])) == 400  # off the frame
+    assert refused(mode="scene", sources="[[0.5]]") == 400
+    assert refused(mode="instant", sources=json.dumps(sources)) == 400  # it is an in-scene render
+    assert refused(mode="scene", sources=json.dumps(sources),
+                   strokes=json.dumps([{"points": [[0.3, 0.6], [0.6, 0.4]], "width": 0.08}])) == 400
+
+
 def test_cue_inputs_are_checked(scene_client, tmp_path, make_video, make_wav):
     client, _ = scene_client
     plate = make_video(tmp_path, n=24, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))

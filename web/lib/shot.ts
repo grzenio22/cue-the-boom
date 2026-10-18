@@ -28,7 +28,7 @@ export interface Receipt {
   alignment?: { model_onset?: number | null; auto_shift?: number; hit_frame?: number; retime_frames?: number };
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
   warnings?: string[];
-  inputs?: { cue?: CueKind; drawn?: boolean; describe?: string | null };
+  inputs?: { cue?: CueKind; drawn?: boolean; describe?: string | null; sources?: [number, number][] | null };
   // hit_error_frames: an element shot's hit, measured on the shot; residual_frames: what a scene shot's re-time
   // could not take out (older scene receipts call it hit_error_frames)
   measured: { onset_error_frames?: number | null; hit_error_frames?: number | null; residual_frames?: number | null; stop_latency_frames: number | null; stops_with_voice: boolean; model_early_frames?: number | null };
@@ -227,6 +227,7 @@ export async function submitShot(args: {
   holds?: [number, number][] | null;
   strokes?: Stroke[] | null;
   describe?: string | null;
+  sources?: [number, number][] | null; // call and response: one source per hit, in order (the first is the point)
 }): Promise<JobStatus> {
   const form = new FormData();
   if ("sample" in args.plate) form.append("plate_sample", args.plate.sample);
@@ -237,6 +238,7 @@ export async function submitShot(args: {
   if (args.holds && args.holds.length) form.append("holds", JSON.stringify(args.holds));
   if (args.mode === "scene" && args.strokes && args.strokes.length) form.append("strokes", JSON.stringify(args.strokes));
   if (args.mode === "scene" && args.describe) form.append("describe", args.describe);
+  if (args.mode === "scene" && args.sources && args.sources.length >= 2) form.append("sources", JSON.stringify(args.sources));
   if (args.face) form.append("face", args.face, `face.${args.faceExt}`);
   if (args.timing) form.append("timing", new Blob([JSON.stringify(args.timing)], { type: "application/json" }), "timing.json");
   form.append("effect", args.effect);

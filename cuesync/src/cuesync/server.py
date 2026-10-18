@@ -266,7 +266,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      scale: float | None = Form(None), element: str | None = Form(None),
                      direction: float | None = Form(None), subject: str | None = Form(None),
                      cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
-                     describe: str | None = Form(None), object: str | None = Form(None)):  # noqa: A002
+                     describe: str | None = Form(None), object: str | None = Form(None),  # noqa: A002
+                     sources: str | None = Form(None)):
         from .cues import SOURCES
         from .scene import Strokes
 
@@ -292,6 +293,16 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             if parsed is None:
                 raise HTTPException(400, "strokes need at least one point")
         describe = " ".join((describe or "").split())[:200] or None
+        source_list = None  # call and response: one source per hit of a rhythm, in order
+        if sources:
+            try:
+                source_list = [(float(a), float(b)) for a, b in json.loads(sources)]
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(400, f"sources must be a JSON list of [x, y] points: {exc}") from None
+            if not 2 <= len(source_list) <= 4 or any(not (0 <= a <= 1 and 0 <= b <= 1) for a, b in source_list):
+                raise HTTPException(400, "sources: 2 to 4 points, each with x and y in [0, 1]")
+            if stroke_data:
+                raise HTTPException(400, "send sources or a drawing, not both")
         auto = effect == "auto"
         try:
             eff = load_effect("fireball" if auto else effect)
@@ -299,8 +310,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             raise HTTPException(400, f"unknown effect {effect!r}: {exc}") from None
         if mode not in ("scene", "render", "instant"):
             raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
-        if mode != "scene" and (stroke_data or describe):
-            raise HTTPException(400, "drawing and describing the effect need scene mode")
+        if mode != "scene" and (stroke_data or describe or source_list):
+            raise HTTPException(400, "drawing, describing the effect and several sources need scene mode")
         if mode == "scene" and eff.scene is None:
             raise HTTPException(400, f"{effect!r} has no scene mode")
         if mode != "scene" and not auto and effect not in ELEMENT_EFFECTS:
@@ -368,7 +379,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             if drawn_sample:
                 describe = drawn_sample.get("describe")  # rendered live, it says what the sample said
         if (plate_sample and sample_voice and face is None and timing is None and offset_s is None and scale is None
-                and element is None and x is not None and y is not None and not auto
+                and element is None and x is not None and y is not None and not auto and not source_list
                 and (not stroke_data or drawn_sample) and (not describe or drawn_sample)):
             hit = cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
                                       direction if mode == "scene" else None))
@@ -403,6 +414,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         point = (x, y) if x is not None and y is not None else tuple(t.get("emission_point") or (0.5, 0.7))
+        if source_list:
+            point = source_list[0]
         if not (0 <= point[0] <= 1 and 0 <= point[1] <= 1):
             raise HTTPException(400, "x and y must be in [0, 1]")
         if scale is not None and not 0.4 <= scale <= 2.0:
@@ -411,7 +424,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                         seed=seed, offset_s=offset_s, face=face_path, face_offset_s=t.get("face_offset_s"), label=label,
                         scale=scale, element=element if mode == "instant" else None,
                         mode="scene" if mode == "scene" else "element", direction=direction, subject=subject,
-                        cue=cue, holds=hold_list, strokes=stroke_data, describe=describe,
+                        cue=cue, holds=hold_list, strokes=stroke_data, describe=describe, sources=source_list,
                         **(shot_defaults or {}))
         if auto_gesture:
             spec.extra["gesture"] = auto_gesture

@@ -190,6 +190,21 @@ def _strokes(text: str) -> Strokes | None:
     return Strokes.parse(data)
 
 
+def _sources(text: str) -> list[tuple[float, float]] | None:
+    import json as _json
+
+    if not text or not text.strip():
+        return None
+    try:
+        pts = [(float(a), float(b)) for a, b in _json.loads(text)]
+    except (ValueError, TypeError):
+        pts = []
+    if not 2 <= len(pts) <= 4 or any(not (0 <= a <= 1 and 0 <= b <= 1) for a, b in pts):
+        raise ValueError("Paint Scene: sources must be 2 to 4 points as JSON, like [[0.42, 0.72], [0.64, 0.58], [0.43, 0.3]] "
+                         "(x and y from 0 to 1, one per hit of the rhythm, in order)")
+    return pts
+
+
 class CueSyncPaintScene:
     """Cue sheet + plate -> an in-scene guide: the plate painted in flat colour zones on every keyframe, the
     effect painted at its source going its way, timed and sized by the voice. Feed the guide to the fluid
@@ -215,6 +230,8 @@ class CueSyncPaintScene:
                                               "The drawing is where the effect goes; the cue fills it."}),
             "describe": ("STRING", {"default": "", "multiline": True,
                                     "tooltip": "Your own words for what happens (replaces the effect's prompt)."}),
+            "sources": ("STRING", {"default": "", "tooltip": "Call and response: a source per hit of a rhythm, JSON "
+                                                             "[[x, y], ...] in order (2 to 4). Overrides x and y."}),
         }}
 
     RETURN_TYPES = ("VIDEO", "IMAGE", "STRING", "CUESYNC_SCENE")
@@ -222,7 +239,7 @@ class CueSyncPaintScene:
     FUNCTION = "run"
     CATEGORY = CATEGORY
 
-    def run(self, cue, plate, effect, x, y, aim, direction, subject, max_seconds, strokes="", describe=""):
+    def run(self, cue, plate, effect, x, y, aim, direction, subject, max_seconds, strokes="", describe="", sources=""):
         from cuesync.transfer import is_still
 
         eff = load_effect(effect)
@@ -232,8 +249,13 @@ class CueSyncPaintScene:
         start, length = plan_window(cue_s, eff, None if still else len(frames))
         size = scene_size(frames.shape[2], frames.shape[1])
         drawn = _strokes(strokes)
+        pts = _sources(sources)
+        if pts and drawn:
+            raise ValueError("Paint Scene: use sources or strokes, not both")
+        if pts:
+            x, y = pts[0]
         sp = paint_scene_guide(cue_s, eff, (x, y), frames[:1] if still else frames, start=start, length=length,
-                               direction=direction if aim else None, size=size, strokes=drawn)
+                               direction=direction if aim else None, size=size, strokes=drawn, sources=pts)
         from PIL import Image as _Image
         first = np.asarray(_Image.fromarray(frames[min(max(start, 0), len(frames) - 1)]).resize(size, _Image.Resampling.LANCZOS))
         silence = {"waveform": torch.zeros(1, 1, int(round(length / FPS * SR))), "sample_rate": SR}
