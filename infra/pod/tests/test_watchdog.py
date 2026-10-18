@@ -1,6 +1,7 @@
 """Runs the real idle-watchdog.sh against a fake Runpod API, with seconds instead of minutes."""
 import os
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -72,15 +73,36 @@ def run(tmp_path):
     procs = []
 
     def start(api, **env):
+        # Hermetic: an idle GPU (this machine's own GPU may be busy) and no ComfyUI (a tunnel may forward :8188).
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir(exist_ok=True)
+        (bin_dir / "nvidia-smi").write_bytes(b"#!/bin/sh\necho 0\n")
         e = {**os.environ, "RUNPOD_POD_ID": "pod123", "RUNPOD_API_KEY": "pod-scoped", "CUE_API_BASE": api.url, "CUE_GRAPHQL_URL": api.url + "/graphql",
-             "CUE_STATE_DIR": (tmp_path / "state").as_posix(), "CUE_TMP": tmp_path.as_posix(), "CUE_POLL_SECONDS": "1",
-             "PATH": os.environ["PATH"], **env}
-        p = subprocess.Popen([BASH, str(SCRIPT)], env=e, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+             "CUE_COMFY_URL": api.url + "/no-comfy", "CUE_STATE_DIR": (tmp_path / "state").as_posix(), "CUE_TMP": tmp_path.as_posix(),
+             "CUE_POLL_SECONDS": "1", "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"], **env}
+        p = subprocess.Popen([BASH, str(SCRIPT)], env=e, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             start_new_session=os.name != "nt")
         procs.append(p)
         return p
 
     yield start
     for p in procs:
+        kill_tree(p)
+
+
+def kill_tree(p: subprocess.Popen) -> None:
+    """Stop the watchdog and everything it started. Git's bash.exe is a launcher that runs the script in a child
+    bash, so killing only the launcher left the script looping forever (dozens piled up across test runs)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        p.wait(timeout=10)
+    except subprocess.TimeoutExpired:
         p.kill()
 
 

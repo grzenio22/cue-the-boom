@@ -21,6 +21,7 @@ POLL="${CUE_POLL_SECONDS:-60}"
 IDLE_LIMIT_S="${CUE_IDLE_SECONDS:-$(( IDLE_MINUTES * 60 ))}"
 API="${CUE_API_BASE:-https://api.runpod.io/v2}/pods/$POD"
 GRAPHQL="${CUE_GRAPHQL_URL:-https://api.runpod.io/graphql}"
+COMFY="${CUE_COMFY_URL:-http://127.0.0.1:8188}"
 UA="cue-the-boom-watchdog"
 # The pod-scoped key Runpod injects; fall back to the container's init environment.
 KEY="${RUNPOD_API_KEY:-$(tr '\0' '\n' < /proc/1/environ 2>/dev/null | sed -n 's/^RUNPOD_API_KEY=//p')}"
@@ -44,7 +45,7 @@ log "armed: pod $POD key=$([ -n "$KEY" ] && echo yes || echo NO)" \
     "idle limit $(( IDLE_LIMIT_S / 60 )) min, deadline $(date -u -d "@$deadline" +%FT%TZ)"
 
 comfy_busy() {
-  curl -fsS --max-time 5 http://127.0.0.1:8188/queue 2>/dev/null | timeout 5 python3 -c '
+  curl -fsS --max-time 5 "$COMFY/queue" 2>/dev/null | timeout 5 python3 -c '
 import json, sys
 q = json.load(sys.stdin)
 sys.exit(0 if q.get("queue_running") or q.get("queue_pending") else 1)' 2>/dev/null
