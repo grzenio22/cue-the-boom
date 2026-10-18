@@ -24,13 +24,13 @@ Load Video (your plate) ──────────────────�
 | **CueSync Object Matte** | images, x, y, model; optional plan | MASK | Element mode: SAM 2.1 (Apache-2.0) segments the object under the point; it stays in front of the effect. |
 | **CueSync Composite** | plate, element, cue, plan, max_seconds; optional voice, object_mask | VIDEO | Element mode: aligns, gates and composites in linear light onto the untouched plate. |
 
-Whole-shot workflows: [`workflows/cue_the_boom_scene.json`](../workflows/cue_the_boom_scene.json) (scene mode; drag it onto the ComfyUI canvas) and [`workflows/cue_the_boom.json`](../workflows/cue_the_boom.json) (element mode), each with an `.api.json` twin for the Comfy SDK. Put your noise and your clip in `ComfyUI/input` as `voice.wav` and `plate.mp4`, or pick them in Load Audio and Load Video. Plates are rendered at their own size, long side at most 1920 px (a 1080x1920 phone clip renders at 1088x1920).
+Whole-shot workflows: [`workflows/cue_the_boom_scene.json`](../workflows/cue_the_boom_scene.json) (scene mode; drag it onto the ComfyUI canvas) and [`workflows/cue_the_boom.json`](../workflows/cue_the_boom.json) (element mode), each with an `.api.json` twin for the Comfy SDK. Put your noise and your clip in `ComfyUI/input` as `voice.wav` and `plate.mp4`, or pick them in Load Audio and Load Video; to start from a sample, copy `samples/voices/ka-boom.wav` and `samples/plates/jackolantern_kitchen.mp4` there and set Paint Scene's x to 0.48 and y to 0.39. Plates are rendered at their own size, long side at most 1920 px (a 1080x1920 phone clip renders at 1088x1920).
 
 **Requires:** ComfyUI v0.41 or later, [ComfyUI-LTXVideo](https://github.com/Lightricks/ComfyUI-LTXVideo), and the LTX-2.5 models and ainvfx-fluid listed in [`build/model-files.md`](../build/model-files.md). A scene render fits a 32 GB card (tested with the GPU held to 31.5 GiB free: about 3 minutes a render, against about 1 minute on a 96 GB card).
 
 ## Install
 
-Clone the whole repository into `ComfyUI/custom_nodes/` (or paste its URL into ComfyUI-Manager's "Install via Git URL"); the nodes then use the `cuesync` library and the effects right next to them:
+Clone the whole repository into `ComfyUI/custom_nodes/` (or paste its URL into ComfyUI-Manager's "Install via Git URL"), next to [ComfyUI-LTXVideo](https://github.com/Lightricks/ComfyUI-LTXVideo); the nodes then use the `cuesync` library and the effects right next to them:
 
 ```bash
 cd ComfyUI/custom_nodes
@@ -38,7 +38,7 @@ git clone https://github.com/grzenio22/cue-the-boom
 pip install -r cue-the-boom/requirements.txt
 ```
 
-Use the Python that runs ComfyUI: with the Windows portable build that is `..\python_embeded\python.exe -m pip install -r cue-the-boom\requirements.txt`.
+Use the Python that runs ComfyUI: with the Windows portable build, from `ComfyUI\custom_nodes` that is `..\..\python_embeded\python.exe -m pip install -r cue-the-boom\requirements.txt`.
 
 To install this folder on its own instead, copy it into `custom_nodes/` and install `cuesync` with it (its `install.py` does this for ComfyUI-Manager):
 
