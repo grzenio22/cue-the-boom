@@ -241,6 +241,7 @@ TRACK_MAX = 0.25  # a tracked camera may move this share of the width (or scale/
 COLOUR_MIN, COLOUR_SPAN = 0.08, 0.20  # linear light: near the effect, a change this big replaces the plate
 FAR = 0.12  # share of the short side: further than this from the effect, a change of brightness is the camera's exposure
 CRUSHED = 0.004  # linear luminance: an 8-bit frame this dark has no texture left to compare, only quantisation
+DARK_PLATE = 0.02  # linear luminance: a plate this dark takes the render's change added, not swapped in
 UNSEEN = (0.002, 0.004)  # linear luminance: where the render and the scene are both darker than this, a change of
 # structure is noise in the black, not content (it swapped a dark background for the render's slightly bluer one)
 LIGHT_EPS = 0.004  # linear light added to both sides of a light ratio, so dark noise can't make a gain
@@ -568,7 +569,11 @@ def transfer(plate: np.ndarray, render: np.ndarray, index: list[int | None], reg
         if hand_f is not None:
             Mm = Mm * (1.0 - hand_f)
         M3 = Mm[..., None]
-        out[f] = gam(pl * L * (1.0 - M3) + gl * M3)
+        # where the plate is near black, what the render changed is added to it rather than replacing it: the render's
+        # black is never quite the plate's (a navy disc showed around a fireball over a black studio background)
+        dark = np.clip(1.0 - (pl @ _LUMA)[..., None] / DARK_PLATE, 0.0, 1.0)
+        repl = gl * (1.0 - dark) + (pl + np.maximum(gl - rlf, 0.0)) * dark
+        out[f] = gam(pl * L * (1.0 - M3) + repl * M3)
         res_in.append(float(sdiff[reg_f].mean()) if reg_f.any() else 0.0)
         ok = stat_f & trusted
         res_out.append(float(sdiff[ok].mean()) if ok.any() else 0.0)

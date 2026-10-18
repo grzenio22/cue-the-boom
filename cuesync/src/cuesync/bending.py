@@ -142,11 +142,14 @@ def towards_words(direction: float) -> str:
     return "upwards" if uy < -0.7 else "downwards" if uy > 0.7 else "to the left" if ux < 0 else "to the right"
 
 
-def ignition_frame(element: np.ndarray, floor: int) -> int | None:
-    """The element frame where it ignites: the first whose light above its black is IGNITION of the brightest's."""
+def ignition_frame(element: np.ndarray, floor: int, burst: bool = False) -> int | None:
+    """The element frame where it ignites: the first whose light above its black is IGNITION of the brightest's; for a
+    burst, the frame it grows fastest (a "BOOM" is a whoomph, its beat the blast, not the first spark)."""
     lum = np.array([max(0.0, float(f[::4, ::4].astype(np.float32).mean()) - floor) for f in element])
     if lum.max() <= 0:
         return None
+    if burst and len(lum) > 2:
+        return int(np.argmax(np.diff(lum))) + 1
     return int(np.argmax(lum >= IGNITION * lum.max()))
 
 
@@ -163,7 +166,8 @@ def pose_inverse(ref: tuple, track: dict, t: int, size: float = 1.0) -> np.ndarr
     return cv2.invertAffineTransform(fwd)
 
 
-def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, size: float = 1.0) -> np.ndarray:
+def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, size: float = 1.0,
+                 blur: bool = True) -> np.ndarray:
     """An element frame (float32, over black, at the plate's size, rendered with the emitter at ``ref``) carried onto
     plate frame ``t``: its base follows the emitter now, a point further along it follows where the emitter was up to
     ``lag`` frames before (a flame's tip trails the hand). One remap, each pixel taking the lag level of how far along
@@ -176,14 +180,21 @@ def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, s
     for k in range(lag + 1):
         A = pose_inverse(ref, track, t - k, size).astype(np.float32)
         maps.append((A[0, 0] * xx + A[0, 1] * yy + A[0, 2], A[1, 0] * xx + A[1, 1] * yy + A[1, 2]))
-    mx, my = maps[0]
-    along = (mx - p0[0]) * u0[0] + (my - p0[1]) * u0[1]  # how far along the element (in its own frame) this pixel is
-    level = np.clip(np.rint(along / reach * lag), 0, lag).astype(np.int32)
-    for k in range(1, lag + 1):
-        sel = level == k
-        mx = np.where(sel, maps[k][0], mx)
-        my = np.where(sel, maps[k][1], my)
-    return cv2.remap(frame, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    mx0, my0 = maps[0]
+    along = (mx0 - p0[0]) * u0[0] + (my0 - p0[1]) * u0[1]  # how far along the element (in its own frame) this pixel is
+    level = np.clip(along / reach * lag, 0, lag)  # fractional: neighbouring lags blend (whole steps tore a sweep apart)
+    k0 = np.minimum(np.floor(level).astype(np.int32), max(lag - 1, 0))
+    frac = (level - k0).astype(np.float32)
+    mxs, mys = np.stack([m[0] for m in maps]), np.stack([m[1] for m in maps])
+    k1 = np.minimum(k0 + 1, lag)
+    pick = lambda a, k: np.take_along_axis(a, k[None], 0)[0]  # noqa: E731
+    mx = pick(mxs, k0) * (1 - frac) + pick(mxs, k1) * frac
+    my = pick(mys, k0) * (1 - frac) + pick(mys, k1) * frac
+    out = cv2.remap(frame, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    if blur and lag > 0:  # half a frame of the hand's own motion, as a 180-degree shutter would smear it
+        hx, hy = 0.5 * (mx + pick(mxs, k1)), 0.5 * (my + pick(mys, k1))
+        out = 0.5 * (out + cv2.remap(frame, hx, hy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0))
+    return out
 
 
 def root_fade(h: int, w: int, ref: tuple) -> np.ndarray:
@@ -237,6 +248,30 @@ def point_light(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, t: 
     near = 1.0 / (1.0 + (r / (1.5 * s)) ** 2) * (mask if mask is not None else 0.0)
     gain = min(power * 25.0, 1.5)
     return plate_lin + plate_lin * (gain * (0.6 * room + 1.4 * near))[..., None] * colour.astype(np.float32)
+
+
+def air_puff(h: int, w: int, ref: tuple, seed: int = 0, frames: int = 14) -> np.ndarray:
+    """The air blast's visible part, made rather than rendered (uint8 [frames, h, w, 3] over black): a puff of dust
+    that leaves the palm along its aim, travels about three hands while it spreads and thins out, gone in about half a
+    second. An air blast is a short event; a rendered smoke cloud parked one hand from the palm for two seconds. The
+    pressure front that bends what is behind it is fx_light.air_wave."""
+    p0, u0, s0 = ref
+    rng = np.random.default_rng(seed)
+    q = 4
+    hq, wq = max(2, h // q), max(2, w // q)
+    noise = cv2.GaussianBlur(rng.random((hq, wq)).astype(np.float32), (0, 0), max(1.0, 0.08 * s0 / q))
+    noise = (noise - noise.min()) / max(float(np.ptp(noise)), 1e-6)
+    yy, xx = np.mgrid[:hq, :wq].astype(np.float32) * q
+    out = np.zeros((frames, h, w, 3), np.uint8)
+    for k in range(frames):
+        a = k / (frames - 1)
+        c = p0 + u0 * (3.0 * s0) * (1 - (1 - a) ** 2)  # out fast, slowing
+        r = s0 * (0.35 + 1.1 * a)
+        blob = np.exp(-((xx - c[0]) ** 2 + (yy - c[1]) ** 2) / (2 * r * r)) * (0.55 + 0.45 * noise)
+        dens = 0.55 * (1 - a) ** 1.5 * min(1.0, (k + 1) / 2)
+        y = cv2.resize(np.clip(blob * dens, 0, 1).astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+        out[k] = np.clip(255 * y[..., None] ** (1 / 2.2) * np.array([0.82, 0.84, 0.88]), 0, 255).astype(np.uint8)
+    return out
 
 
 def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mask_path: str | Path | None = None,
@@ -315,13 +350,17 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                                size=scene_size(w, h), multi_hit=False)
         write_guide(sp.guide, out_dir / "guide.mp4", fps=FPS)
         prompt = BENDING_PROMPTS.get(effect, eff.prompt).replace("{towards}", towards_words(aim))
-        say("rendering", 0.2, f"Rendering the {eff.fluid} over black with LTX-2.5")
-        seconds = renderer(out_dir / "guide.mp4", prompt, spec.seed, out_dir / "element.mp4")
-        element = read_video(out_dir / "element.mp4").frames
+        if effect == "smoke_puff":  # the air blast is made, not rendered: a puff that leaves and is gone
+            element, seconds, prompt = air_puff(h, w, ref, spec.seed), 0.0, "(made, not rendered: an air blast)"
+            write_video(out_dir / "element.mp4", element, fps=FPS, crf=16)
+        else:
+            say("rendering", 0.2, f"Rendering the {eff.fluid} over black with LTX-2.5")
+            seconds = renderer(out_dir / "guide.mp4", prompt, spec.seed, out_dir / "element.mp4")
+            element = read_video(out_dir / "element.mp4").frames
     if element.shape[1:3] != (h, w):
         element = np.stack([cv2.resize(f, (w, h), interpolation=cv2.INTER_AREA) for f in element])
     floor = estimate_black_level(element)
-    ign = ignition_frame(element, floor)
+    ign = ignition_frame(element, floor, burst=eff.behaviour == "burst")
     if ign is None:
         raise ValueError("the render shows no element to carry")
     # each hit fires the element: its ignition on that hit's strike, as big and as bright as the hit is loud
@@ -332,8 +371,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     from . import fx_light as fx
 
     lag = LAG_FRAMES.get(effect, 3)
+    pre = 3 if eff.behaviour == "burst" else PREGLOW  # a burst's build-up is short
     src = list(track.get("src") or []) + ["mp"] * n
     floor_lin = float(lin(np.full((1, 1, 3), floor, np.uint8))[0, 0, 0])
+    if ign >= pre + 3:  # the render's own black, pixel by pixel, from before anything shows (one value for the whole
+        # frame left the painted root's lifted box behind); a render lit from its start keeps the single value
+        floor_lin = np.maximum(lin(np.min(element[: ign - pre], axis=0)), floor_lin)
     lost, run = np.zeros(n, int), 0
     for t in range(n):
         run = run + 1 if src[t] == "lost" else 0
@@ -347,13 +390,13 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         acc = None
         for off, gain, size in plays:
             e = t - off
-            if not ign - PREGLOW <= e < len(element):
+            if not ign - pre <= e < len(element):
                 continue
             E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None) * fade, track, ref, t, lag, size) * gain
             if e < ign:  # the build-up, coming up to the ignition
-                E *= (e - (ign - PREGLOW) + 1) / (PREGLOW + 1)
-            elif ign < PREGLOW and e < PREGLOW:  # a render lit from its first frame: bring it up rather than pop it on
-                E *= (e + 1) / (PREGLOW + 1)
+                E *= (e - (ign - pre) + 1) / (pre + 1)
+            elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
+                E *= (e + 1) / (pre + 1)
             acc = E if acc is None else np.maximum(acc, E)  # two plays overlapping: the brighter shows, not both added
         if acc is None:
             return None
@@ -389,8 +432,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             if eff.fluid == "smoke":  # smoke is laid over; fire is light, added; steam is lit vapour, screened
                 al = np.clip(E.max(-1) / 0.35, 0.0, 0.9)[..., None]
                 P[j] = P[j] * (1.0 - al) + np.clip(E / np.maximum(al, 1e-3), 0, 1) * al
-            elif eff.fluid == "steam":
-                P[j] = 1.0 - (1.0 - np.clip(P[j], 0, 1)) * (1.0 - np.clip(E, 0, 1))
+            elif eff.fluid == "steam":  # steam scatters the room's light: laid over, never brighter than its white
+                al = np.clip(fx._lum(E) / 0.35, 0.0, 0.85)[..., None]
+                P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), 0.9 * white) * al
             else:
                 P[j] = P[j] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers

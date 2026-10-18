@@ -116,3 +116,15 @@ def test_a_bending_shot_is_performed_again_with_no_new_render(tmp_path, make_vid
     assert len(r.prompts) == 1 and rc["performed_again"]["no_new_render"]  # rendered once, played twice
     assert len(rc["hits"]) == 3 and rc["hits"][1]["gain"] == 1.0 and rc["hits"][0]["gain"] < 1.0  # quieter, smaller
     assert res.receipt["effect"]["id"] == "fire_burst"  # the element's own effect, whatever the new take sounds like
+
+
+def test_an_air_blast_is_made_not_rendered_and_is_gone_in_half_a_second():
+    from cuesync.bending import air_puff
+
+    ref = (np.array([60.0, 64.0]), np.array([1.0, 0.0]), 20.0)
+    puff = air_puff(128, 256, ref, seed=1)
+    lum = puff.reshape(len(puff), -1, 3).mean((1, 2))
+    centre = [float(np.argwhere(f[..., 0] > 0.5 * f[..., 0].max())[:, 1].mean()) for f in puff[:10]]
+    assert len(puff) <= 14 and lum[-1] < 0.3 * lum.max()  # short, and thinned out by its end
+    assert centre[9] > centre[0] + 30  # it travels along the aim
+    assert np.array_equal(puff, air_puff(128, 256, ref, seed=1))  # the same for the same seed

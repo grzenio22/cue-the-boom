@@ -45,7 +45,7 @@ _GRAIN, _HAZE, _AIR, _SHAKE = 1, 2, 3, 4  # mixed into each seed, so one seed gi
 # most NEAR hand scales: the brief's 1 / (1 + (r / 1.5 scale)^2) once the element is as big as WP3 renders a
 # fireball, steeper for a smaller one, as a candle lights only the fingers near it); on the rest of the shot R = FAR.
 PUSH = 0.5  # the light sits this far in front of the emitter, along its direction (inside the flame, not the skin)
-NEAR, NEAR_MIN, FAR = 1.5, 0.3, 6.0  # the hand's light: the element's radius, held to [NEAR_MIN, NEAR]; the room's:
+NEAR, NEAR_MIN, FAR = 1.5, 0.3, 2.5  # the hand's light: the element's radius, held to [NEAR_MIN, NEAR]; the room's:
 # as if it stood FAR behind the flame (a wall about 60 cm behind a hand), so weak but reaching across the frame
 HAND_GAIN, ROOM_GAIN = 2.0, 1.5  # over a matte-white ball's light (fitted by eye on the cupped-palm plate): the
 # critiques ask for light that is bright at the blow and reaches further than first instinct
@@ -60,7 +60,7 @@ GLOW, GLOW_RADIUS = 0.03, 1.0  # the flame's own light scattered in the air and 
 # What each fluid throws: the colour temperatures its light is held to, how bright it is against fire (steam only
 # scatters light, it makes none) and how much it glows. Smoke throws none and only veils (SMOKE_*).
 FLUIDS = {"fire": {"kelvin": (2000.0, 2700.0), "gain": 1.0, "glow": 1.0},
-          "steam": {"kelvin": (7000.0, 10000.0), "gain": 0.4, "glow": 0.5}}
+          "steam": {"kelvin": (7000.0, 10000.0), "gain": 0.0, "glow": 0.0}}  # steam scatters light, it makes none
 SMOKE_VEIL, SMOKE_FULL = 0.12, 0.2  # thick smoke (this linear luminance over black) veils a tenth of what is behind it
 
 # The camera.

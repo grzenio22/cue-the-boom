@@ -64,7 +64,10 @@ def test_light_never_darkens(fluid, with_matte):
     assert out.dtype == np.float32 and out.shape == plate.shape
     assert float((plate - out).max()) <= 0.0  # max darkening = 0, exactly, in linear light...
     assert int((gam(plate).astype(int) - gam(out)).max()) <= 0  # ... and in the 8-bit picture
-    assert float((out - plate).max()) > 0.05  # and it does light something
+    if fluid == "steam":  # steam scatters the room's light and makes none (it lit the nearest fingertip pink-white)
+        assert float((out - plate).max()) == 0.0
+    else:
+        assert float((out - plate).max()) > 0.05  # fire does light something
 
 
 def test_light_never_darkens_an_hdr_or_negative_plate():
