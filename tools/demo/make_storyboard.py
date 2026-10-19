@@ -60,7 +60,7 @@ beats = [
          caption="Rendered once, carried on the tracked hand, matted, and lit by its own fire.",
          vo="how9", vo_at=0.0, stamp=MINE + " · half speed"),
     # 4b. one take, uncut: the camera walks from a hallway into a kitchen, the flame stays in the palm
-    dict(type="clip", src=f"{G2}/IMG_6668_flame_plume_s2_again/composite.mp4", start=1.9, dur=4.8, fill=True, wave=True,
+    dict(type="clip", src=f"{G2}/IMG_6668_flame_plume_s2_again/composite.mp4", start=2.3, dur=4.4, fill=True, wave=True,
          crop=band(0.42), headline="One take, uncut", subline="It stays in your palm.", stamp=MINE + " · the camera walking"),
     # 6. the studio on the author's own clip, each step full frame
     dict(type="clip", src=OWN, start=7.0, dur=2.6, fill=True, crop=[0.078, 0.208, 0.578, 0.583], chip="Tap your palm, drag to aim",
@@ -83,9 +83,10 @@ beats = [
     dict(type="image", src=str(V9 / "pipeline.png"), dur=3.0, zoom=1.0),
     # 9. end on the shot, and the claim
     dict(type="clip", src=f"{R}/pf_pf_boom/composite.mp4", start=0.5, dur=3.2, fill=True, wave=True, crop=band(0.42),
+         audio_src=str(V10 / "credits_crackle.wav"), audio_at=2.4,  # the fire's crackle from the BOOM's tail on
          pop_x=0.8, pop_y=0.5, pops=[[0.71, "pf"], [1.08, "pf"], [2.17, "BOOM"]], headline="Render the fire once.",
          subline="Your voice decides when, how big, how long.", stamp=MINE),
-    dict(type="credits", dur=4.2, title="Cue the Boom", audio_src=str(V10 / "credits_crackle.wav"), audio_gain=0.8, lines=[
+    dict(type="credits", dur=4.2, title="Cue the Boom", audio_src=str(V10 / "credits_crackle.wav"), audio_from=0.8, lines=[
         "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google", "ComfyUI + Comfy SDK · Comfy Org",
         "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
         "The author's own hand, voice and phone · stock footage: Pexels, Pixabay", "Voices · rykenn, unfa and others (CC0, Freesound)",

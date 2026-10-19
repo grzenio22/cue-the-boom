@@ -159,8 +159,8 @@
   {
    "type": "clip",
    "src": "runs/takes/gpu2/IMG_6668_flame_plume_s2_again/composite.mp4",
-   "start": 1.9,
-   "dur": 4.8,
+   "start": 2.3,
+   "dur": 4.4,
    "fill": true,
    "wave": true,
    "crop": [
@@ -352,6 +352,8 @@
     1,
     0.7364
    ],
+   "audio_src": "runs\\demo_v10\\credits_crackle.wav",
+   "audio_at": 2.4,
    "pop_x": 0.8,
    "pop_y": 0.5,
    "pops": [
@@ -377,7 +379,7 @@
    "dur": 4.2,
    "title": "Cue the Boom",
    "audio_src": "runs\\demo_v10\\credits_crackle.wav",
-   "audio_gain": 0.8,
+   "audio_from": 0.8,
    "lines": [
     "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google",
     "ComfyUI + Comfy SDK · Comfy Org",

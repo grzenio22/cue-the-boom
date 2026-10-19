@@ -378,7 +378,8 @@ def held_frames(d: int, ign: int, rel: int, end: int, hold: int, x: int = SUSTAI
         return burning(at(d))
     r = d - stop
     if end - rel <= x:  # a render that burns to its last frame has no letting go: it dies down from where it was
-        return [] if r >= LETGO else [(f, wt * (1.0 - (r + 1) / (LETGO + 1))) for f, wt in burning(at(stop - 1 + r))]
+        return [] if r >= LETGO else [(f, wt * (1.0 - r / LETGO) ** 2) for f, wt in burning(at(stop - 1 + r))]
+        # (on a curve: faded in a straight line, its last frames were a translucent yellow-green sheet over the palm)
     if at(stop - 1) + 1 == body:  # as long as rendered: its own letting go, uncut
         return [(rel + r, 1.0)] if rel + r < end else []
     if rel + r >= end:
