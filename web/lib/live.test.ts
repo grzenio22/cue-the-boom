@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { liveHand, onsetStep, type OnsetState, playLook } from "./live";
+import { liveHand, onsetStep, type OnsetState, playLook, thrownAt } from "./live";
 
 const still: OnsetState = { floor: -60, top: -20, prev: -60, since: null, lastHit: -1, peak: -90 };
 
@@ -63,5 +63,14 @@ describe("the hand, live", () => {
     expect(h.dir[1]).toBeLessThan(-0.9);
     expect(h.tip[1]).toBeLessThan(140);
     expect(h.scale).toBeCloseTo(Math.hypot(100 - 95, 300 - 220), 0);
+  });
+});
+
+describe("thrownAt", () => {
+  it("leaves a thrown fireball where it left the hand, rising as it burns out", () => {
+    expect(thrownAt([100, 200], 50, 0)).toEqual([100, 200]);
+    const [x, y] = thrownAt([100, 200], 50, 500); // 12 frames later: 0.3 hands up
+    expect(x).toBe(100);
+    expect(y).toBeCloseTo(200 - 0.025 * 50 * 12, 5);
   });
 });

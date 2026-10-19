@@ -367,8 +367,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     def library_list():
         """The hand elements rendered ahead of time, for the studio's live preview to play on your hand as you
         perform: each one's pose in its render (ref: where the emitter is, which way, how big a hand), its ignition,
-        where its steady burn ends (release) and its last lit frame (end), and its black level."""
-        from .bending import LIBRARY_EFFECTS, element_span, ignition_frame, library_dir
+        where its steady burn ends (release) and its last lit frame (end), its black level, and how big it plays
+        against hand for hand (fit: from a palm, from the fingertips; cuesync.bending.library_fit)."""
+        from .bending import LIBRARY_EFFECTS, element_span, ignition_frame, library_dir, library_fit
         from .composite import estimate_black_level
         from .media import read_video
 
@@ -384,7 +385,10 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             rel, end = element_span(el, floor, ign)
             live[e] = {"effect": e, "behaviour": rc["effect"]["behaviour"], "url": f"/api/library/{e}/element.mp4",
                        "size": [int(el.shape[2]), int(el.shape[1])], "fps": 24, "ignition": int(ign), "release": int(rel),
-                       "end": int(end), "floor": int(floor), "ref": rc["bending"]["ref"]}
+                       "end": int(end), "floor": int(floor), "ref": rc["bending"]["ref"],
+                       "fit": library_fit(el, floor, ign, (np.asarray(rc["bending"]["ref"]["xy"], np.float64),
+                                                           np.asarray(rc["bending"]["ref"]["dir"], np.float64),
+                                                           float(rc["bending"]["ref"]["scale"])), rc["effect"]["behaviour"])}
         return list(live.values())
 
     @app.get("/api/library/{effect}/element.mp4")

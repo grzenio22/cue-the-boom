@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AUDIO_CONSTRAINTS } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
-import { type LiveElement, liveHand, onsetStep, type OnsetState, playLook } from "@/lib/live";
+import { type LiveElement, liveHand, onsetStep, type OnsetState, playLook, RELEASE_MS, thrownAt } from "@/lib/live";
 
 // MediaPipe's hand landmarker in the browser (Apache-2.0), its runtime and model from Google's own hosting
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
@@ -11,7 +11,10 @@ const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/h
 const MAX_REC_S = 8;
 const HOLD_HAND_FRAMES = 5;
 
-interface Play { el: LiveElement; video: HTMLVideoElement; gain: number; size: number; held: boolean; letGo: number | null }
+interface Play {
+  el: LiveElement; video: HTMLVideoElement; gain: number; size: number; held: boolean; letGo: number | null;
+  fit: number; born: number; left: { at: [number, number]; scale: number; t: number } | null; // (thrown: where it left the hand)
+}
 type Landmarks = { x: number; y: number }[];
 /** What one start of the preview holds, so closing (or failing, or leaving the page) at any moment of it, loading
  * included, lets go of the camera, the microphone, the tracker and the videos. */
@@ -106,14 +109,15 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       let lostFor = 1e9;
       const ctx = canvas.current?.getContext("2d");
       if (!ctx || gone()) { teardown(ses); return; }
-      const fire = (effect: string, gain: number, size: number, held: boolean) => {
+      const fire = (effect: string, gain: number, size: number, held: boolean, tip = false) => {
         const slot = pool.find((p) => p.el.effect === effect && !p.busy);
         if (!slot) return null;
         slot.busy = true;
         slot.v.currentTime = Math.max(0, (slot.el.ignition - (held ? 0 : 1)) / slot.el.fps);
         slot.v.playbackRate = held ? 1 : 1 / Math.max(0.5, size); // a smaller blast is over sooner
         void slot.v.play();
-        const p: Play = { el: slot.el, video: slot.v, gain, size, held, letGo: null };
+        const fit = (tip ? slot.el.fit?.tip : slot.el.fit?.palm) ?? 1; // as big as the shot will play it
+        const p: Play = { el: slot.el, video: slot.v, gain, size, held, letGo: null, fit, born: performance.now(), left: null };
         plays.push(p);
         return p;
       };
@@ -141,7 +145,7 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
         const hand = lostFor <= HOLD_HAND_FRAMES ? lastHand : null;
         if (step.hit && hand) {
           const look = playLook(step.hit.db, onset.top);
-          fire("fire_burst", look.gain, look.size, false);
+          fire("fire_burst", look.gain, look.size, false, hand.pointing);
         }
         if (step.holding && hand && !heldPlay) {
           heldPlay = fire(hand.pointing ? "fire_breath" : "flame_plume", 1, 1, true);
@@ -163,11 +167,15 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
             if (p === heldPlay) heldPlay = null;
             continue;
           }
-          if (!hand) continue;
+          const now = performance.now();
+          if (p.el.behaviour === "burst" && !p.left && hand && now - p.born >= RELEASE_MS) { // a fireball leaves the hand
+            p.left = { at: hand.pointing ? hand.tip : hand.palm, scale: hand.scale, t: now };
+          }
+          if (!hand && !p.left) continue;
           const jet = p.el.behaviour === "jet";
-          const at = jet ? hand.tip : hand.palm;
-          const k = (hand.scale / p.el.ref.scale) * p.size;
-          const turn = jet ? Math.atan2(hand.dir[1], hand.dir[0]) - Math.atan2(p.el.ref.dir[1], p.el.ref.dir[0]) : 0;
+          const at = p.left ? thrownAt(p.left.at, p.left.scale, now - p.left.t) : jet ? hand!.tip : hand!.palm;
+          const k = ((p.left ? p.left.scale : hand!.scale) / p.el.ref.scale) * p.size * p.fit;
+          const turn = jet ? Math.atan2(hand!.dir[1], hand!.dir[0]) - Math.atan2(p.el.ref.dir[1], p.el.ref.dir[0]) : 0;
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
           ctx.globalAlpha = Math.min(1, p.gain * fading);

@@ -583,3 +583,79 @@ def test_a_cropped_clips_track_says_where_its_frame_sits_in_the_clip(tmp_path, m
     track.write_text(json.dumps(track_of(4, 160, 90, lambda t: (80, 45))))
     note_crop(track, clip, (0.5, 0.5), None)
     assert json.loads(track.read_text())["box"] == pytest.approx([0.0, 0.125, 1.0, 0.875], abs=0.01)
+
+
+def test_a_flame_and_a_fireball_play_as_big_as_they_should_on_this_hand_from_what_they_draw():
+    """A render guided to SIZE's reach drew a palm-high flame: it is played at FIT's size, measured on what it draws,
+    within the frame's room, and never smaller than rendered."""
+    from cuesync.bending import FIT, FIT_MOST, drawn_extent, fit_play
+
+    w, h = 400, 600
+    E = np.zeros((h, w, 3), np.float32)
+    E[200:300, 180:220] = 0.5  # a flame 100 px tall on a 100 px hand, standing on the emitter at (200, 300)
+    ref = (np.array([200.0, 300.0]), np.array([0.0, -1.0]), 100.0)
+    hgt, diam, far = drawn_extent([E], ref)
+    assert hgt == pytest.approx(1.0, abs=0.07) and far == pytest.approx(1.0, abs=0.04)  # (it stands on the emitter)
+    tr = track_of(60, w, h, lambda t: (200, 500), d=(0.0, -1.0), scale=100.0, gesture="Open_Palm")
+    play, how = fit_play("plume", (hgt, diam, far), tr, 0, w, h)
+    assert play == pytest.approx(FIT["plume"] / hgt, rel=0.01) and how["as"] == "plume"  # 2.8 hands tall
+    low = track_of(60, w, h, lambda t: (200, 120), d=(0.0, -1.0), scale=100.0, gesture="Open_Palm")
+    assert fit_play("plume", (hgt, diam, far), low, 0, w, h)[0] == pytest.approx(1.0)  # no room above: as rendered
+    assert fit_play("plume", (0.1, 0.1, 0.1), tr, 0, w, h)[0] == FIT_MOST  # a speck is not blown up past FIT_MOST
+
+
+def test_a_fireball_leaves_the_fist_on_the_strike_and_flies_on_rising():
+    """After the strike the fireball no longer moves with the fist: frozen where it left it, thrown on along the
+    strike's direction (slowing) and rising."""
+    from cuesync.bending import RELEASE_AFTER, THROW, thrown_pose
+
+    w, h = 400, 200
+    tr = track_of(40, w, h, lambda t: (100 + 10 * min(t, 12) - 15 * max(0, t - 12), 100), d=(1.0, 0.0), scale=20.0)
+    el = np.zeros((h, w, 3), np.float32)
+    el[95:105, 95:105] = 1.0  # on the emitter as rendered on frame 0
+    ref = emitter_at(tr, 0)
+    since = 10
+    a = warp_element(el, tr, ref, since + RELEASE_AFTER + 1, 2, since=since, thrown=True)
+    b = warp_element(el, tr, ref, since + 20, 2, since=since, thrown=True)
+    xa = np.argwhere(a[..., 0] > 0.5)[:, 1].mean()
+    xb, yb = np.argwhere(b[..., 0] > 0.5)[:, 1].mean(), np.argwhere(b[..., 0] > 0.5)[:, 0].mean()
+    k = 100 + 10 * (since + RELEASE_AFTER)  # where the fist was when it let go
+    assert k < xa < k + THROW * 20 and k + 0.8 * THROW * 20 < xb <= k + THROW * 20 + 1  # flying on, slowing
+    assert yb < 100 - 5  # rising
+    assert np.allclose(thrown_pose(ref, tr, since, since + RELEASE_AFTER), np.array([[1, 0, k - 100], [0, 1, 0]]))
+    x_at = lambda f: (f[..., 0].sum(0) * np.arange(w)).sum() / f[..., 0].sum()  # noqa: E731
+    held = warp_element(el, tr, ref, since + 6, 2, since=since)  # not thrown (a flame): on the fist, gone back with it
+    assert x_at(held) < x_at(warp_element(el, tr, ref, since + 6, 2, since=since, thrown=True)) - 40
+
+
+def test_a_lit_rooms_camera_sees_a_flames_core_white_and_its_light_never_outshines_it():
+    from cuesync.bending import LIGHT_CAP, bleed, cap_light, fire_hdr, shoulder
+
+    core = np.array([[[0.97, 0.80, 0.30]]], np.float32)  # a render's hottest fire, R clipped already
+    tip = np.array([[[0.30, 0.06, 0.004]]], np.float32)
+    assert np.allclose(fire_hdr(core, 0.0), core, atol=1e-3)  # a dark room: as rendered
+    lit_core, lit_tip = fire_hdr(core, 0.5)[0, 0], fire_hdr(tip, 0.5)[0, 0]
+    assert lit_core.sum() > 2.0 * core.sum() and lit_tip.sum() < 1.3 * tip.sum()  # the core, not the tips
+    P = lit_core[None, None].copy()
+    bleed(P, lit_core[None, None])
+    shoulder(P)
+    assert P[0, 0].min() > 0.9  # through warm white to white, not lemon
+    plate = np.full((4, 4, 3), 0.3, np.float32)
+    E = np.zeros((4, 4, 3), np.float32)
+    E[0, 0] = (1.0, 0.5, 0.1)  # body luminance ~0.58
+    P = plate + 0.8  # the fire's light, uncapped
+    cap_light(P, plate, E)
+    from cuesync.fx_light import _lum
+
+    assert float(_lum(P).max()) <= LIGHT_CAP * float(_lum(E[0, 0])) + 0.31
+
+
+def test_a_palm_flames_foot_comes_up_out_of_the_palm_unevenly_and_rises():
+    from cuesync.bending import FOOT, foot_fade
+
+    box = (0, 200, 0, 200)
+    f0 = foot_fade(box, (100, 150), (0.0, -1.0), 100.0, 0)
+    assert f0[150:, :].max() == 0.0 and f0[:150 - int(FOOT * 100 * 2.5), :].min() > 0.99  # none below, all above
+    row = f0[150 - int(FOOT * 50)]  # half way up its foot: broken, not a line
+    assert row.std() > 0.05
+    assert not np.allclose(foot_fade(box, (100, 150), (0.0, -1.0), 100.0, 5), f0)  # the noise rises with the flame

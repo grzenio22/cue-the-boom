@@ -5,6 +5,15 @@ export interface LiveElement {
   effect: string; behaviour: string; url: string; size: [number, number]; fps: number;
   ignition: number; release: number; end: number; floor: number;
   ref: { xy: [number, number]; dir: [number, number]; scale: number };
+  fit?: { palm: number; tip: number } | null; // how big it plays against hand for hand (cuesync.bending.library_fit)
+}
+
+export const RELEASE_MS = 42; // a fireball leaves the hand a frame after its strike (cuesync.bending.RELEASE_AFTER)...
+export const RISE = 0.025; // ...and rises this many hands a frame (at 24 a second) as it burns out (RISE)
+
+/** Where a thrown fireball is, ``ms`` after it left the hand at ``at`` (a hand of ``scale`` px): it rises. */
+export function thrownAt(at: [number, number], scale: number, ms: number): [number, number] {
+  return [at[0], at[1] - RISE * scale * Math.max(0, ms) * 0.024];
 }
 
 type P = { x: number; y: number };
