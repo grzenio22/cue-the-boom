@@ -127,9 +127,11 @@ export default function Studio() {
 
   const prepKey = point ? `${point[0].toFixed(4)},${point[1].toFixed(4)}@${aimFrame}` : "";
   const shown = prep && prep.key === prepKey ? prep : null; // (a new tap or frame makes it stale)
+  // the followed hand, where your tap goes on it and the way you aim it now (the arrow can turn after it was followed)
+  const followed = shown?.track && point ? carried(shown.track, aimFrame, point, aim?.angle ?? direction) : null;
   const follow = async () => { // your tap, followed through the clip before anything is made
     if (!plate || !point || !("file" in plate.source)) { setPointSet(true); return; }
-    const key = prepKey, at = point, k = aimFrame, angle = aim?.angle ?? direction;
+    const key = prepKey, at = point, k = aimFrame;
     setPrep({ key, id: null, track: null, error: null });
     try {
       const form = new FormData();
@@ -146,7 +148,7 @@ export default function Studio() {
         if (st.status === "error") throw new Error(st.error ?? "the tracker stopped");
         if (st.files["hand_track.json"]) {
           const track = (await (await fetch(st.files["hand_track.json"])).json()) as HandTrack;
-          setPrep((was) => (was && was.key === key ? { key, id: job.id, track: carried(track, k, at, angle), error: null } : was));
+          setPrep((was) => (was && was.key === key ? { key, id: job.id, track, error: null } : was));
           return;
         }
         await new Promise((res) => setTimeout(res, 500));
@@ -251,7 +253,7 @@ export default function Studio() {
                 <span className="muted">{(aimFrame / 24).toFixed(1)} s</span>
               </label>
               <AimOverlay src={plate.url} frame={Math.min(playing ?? aimFrame, frames - 1)} value={playing === null ? aim : null}
-                track={shown?.track ?? undefined}
+                track={followed ?? undefined}
                 onChange={(v) => { setPlaying(null); setAim(v); setPoint([v.x, v.y]); setDirection(v.angle); }} />
               {!shown ? (
                 <div className="row"><button disabled={!point} onClick={() => void follow()}>That&apos;s my hand</button></div>
