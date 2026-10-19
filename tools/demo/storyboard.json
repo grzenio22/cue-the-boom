@@ -2,297 +2,461 @@
  "beats": [
   {
    "type": "clip",
-   "src": "runs/real/heldout/lanterns__kaboom/composite.mp4",
-   "start": 0.35,
-   "dur": 2.6,
+   "src": "runs/takes/gpu/IMG_6658_fire_burst_s2_c5/composite.mp4",
+   "start": 0.6,
+   "dur": 2.9,
+   "fill": true,
    "wave": true,
+   "crop": [
+    0,
+    0.42,
+    1,
+    0.7364
+   ],
+   "pop_x": 0.8,
+   "pop_y": 0.5,
    "pops": [
     [
-     0.733,
-     "KA-BOOM"
+     2.07,
+     "BOOM"
     ]
    ],
-   "stamp": "real stock clip (Pixabay) · synthetic noise · LTX-2.5 + ainvfx-fluid, open weights"
+   "headline": "Cue the Boom",
+   "subline": "Make the noise. Throw fire.",
+   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
   },
   {
-   "type": "title",
+   "type": "turns",
+   "headline": "One render. Perform it again.",
+   "subline": "0 new renders",
+   "panels": [
+    {
+     "src": "runs/takes/gpu/IMG_6658_fire_burst_s2_c5/composite.mp4",
+     "start": 1.9,
+     "dur": 1.4,
+     "crop": [
+      0,
+      0.36,
+      1,
+      0.92
+     ],
+     "label": "BOOM",
+     "pops": [
+      [
+       0.77,
+       "BOOM"
+      ]
+     ]
+    },
+    {
+     "src": "runs/takes/rhythms/pf_pf_boom/composite.mp4",
+     "start": 0.9,
+     "dur": 2.3,
+     "crop": [
+      0,
+      0.36,
+      1,
+      0.92
+     ],
+     "label": "pf · pf · BOOM",
+     "pops": [
+      [
+       0.31,
+       "pf"
+      ],
+      [
+       0.68,
+       "pf"
+      ],
+      [
+       1.77,
+       "BOOM"
+      ]
+     ]
+    },
+    {
+     "src": "runs/takes/rhythms/pf_x4/composite.mp4",
+     "start": 0.8,
+     "dur": 2.3,
+     "crop": [
+      0,
+      0.36,
+      1,
+      0.92
+     ],
+     "label": "pf pf pf PF",
+     "pops": [
+      [
+       0.24,
+       "pf"
+      ],
+      [
+       0.78,
+       "pf"
+      ],
+      [
+       1.24,
+       "pf"
+      ],
+      [
+       1.7,
+       "PF"
+      ]
+     ]
+    }
+   ],
+   "stamp": "the author's own hand · the author's pf and BOOM, re-cut into new rhythms · one LTX-2.5 render",
+   "dur": 6.0,
+   "vo": "runs\\demo_v9\\vo9\\again9.wav",
+   "vo_at": 1.1
+  },
+  {
+   "type": "clip",
+   "src": "runs/takes/gpu/IMG_6653_fire_breath_c5/composite.mp4",
+   "start": 1.55,
+   "dur": 0.9,
+   "fill": true,
+   "wave": true,
+   "crop": [
+    0,
+    0.29,
+    1,
+    0.6064
+   ],
+   "pops": [
+    [
+     0.0,
+     "fwooooOOM"
+    ]
+   ],
+   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
+  },
+  {
+   "type": "clip",
+   "src": "runs/takes/gpu/IMG_6652_fire_burst_c5/composite.mp4",
+   "start": 1.2,
    "dur": 1.6,
-   "text": "Cue the Boom",
-   "sub": "Draw where. Cue it with a sound. The scene reacts."
-  },
-  {
-   "type": "clip",
-   "src": "runs/real/heldout/trex_photo__fwoooom/composite.mp4",
-   "start": 0.45,
-   "dur": 2.6,
+   "fill": true,
    "wave": true,
+   "crop": [
+    0,
+    0.44,
+    1,
+    0.7564
+   ],
    "pops": [
     [
-     0.55,
-     "fwoooOOOM"
+     0.63,
+     "BOOM"
     ]
    ],
-   "stamp": "real stock photo (Pixabay), animated by LTX-2.5 · synthetic noise",
-   "caption": "On a photo: LTX-2.5 brings it to life, timed by the noise."
+   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
   },
   {
-   "type": "clip",
-   "src": "runs/real/final/pumpkins_tap__fwoooom/composite.mp4",
-   "start": 0.45,
-   "dur": 2.6,
-   "wave": true,
-   "pops": [
-    [
-     0.55,
-     "fwoooOOOM"
-    ]
+   "type": "triptych",
+   "srcs": [
+    "runs\\demo_v9\\how_render_slow.mp4",
+    "runs\\demo_v9\\how_carried_slow.mp4",
+    "runs\\demo_v9\\nolight_slow.mp4",
+    "runs\\demo_v9\\hero_slow.mp4"
    ],
-   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed",
-   "caption": "On a clip: its own pixels stay, and the fire lights them."
-  },
-  {
-   "type": "clip",
-   "src": "runs/real/final/cake_candle__pf/composite.mp4",
-   "start": 0.5,
-   "dur": 2.6,
-   "wave": true,
-   "pops": [
-    [
-     0.5,
-     "pf."
-    ]
-   ],
-   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed",
-   "caption": "Blown out, it stays out."
-  },
-  {
-   "type": "versus",
-   "shot": "runs/real/heldout/table_pumpkin__fwoooom",
-   "start": 0.1,
-   "dur": 2.4,
-   "speed": 1.0,
-   "cue_at": 1.0,
    "labels": [
-    "LTX-2.5, as it comes",
-    "the finished shot"
+    "LTX-2.5, over black",
+    "on your hand",
+    "light off",
+    "light on"
    ],
-   "caption": "LTX-2.5 started it 11 frames early; CueSync moved it onto the noise.",
-   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed"
-  },
-  {
-   "type": "versus",
-   "shot": "runs/real/heldout/table_pumpkin__fwoooom",
-   "start": 0.25,
-   "dur": 3.3,
-   "speed": 0.3333333333333333,
-   "cue_at": 1.0,
-   "labels": [
-    "LTX-2.5, as it comes",
-    "the finished shot"
-   ],
-   "caption": "Slowed down: the render 0.46 s early, the shot on the noise.",
-   "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed",
-   "note": "slowed ×3"
-  },
-  {
-   "type": "clip",
-   "src": "runs/demo/studio_live/studio.webm",
-   "start": 1.9,
-   "dur": 3.2,
-   "speed": 2.1,
-   "crop": [
-    0.205,
-    0.0,
-    0.785,
-    1.0
-   ],
-   "side": "1. Pick a shot.\nIts spot is set;\ntap to move it.",
-   "note": "the studio · sped up ×2",
-   "stamp": "the studio's sample plates: stand-ins made with LTX-2.5"
-  },
-  {
-   "type": "clip",
-   "src": "runs/demo/studio_live/studio.webm",
-   "start": 10.3,
-   "dur": 5.0,
-   "crop": [
-    0.205,
-    0.0,
-    0.785,
-    1.0
-   ],
-   "audio_src": "runs/demo/live_dino_final.mp4",
-   "audio_from": 0.0,
-   "audio_at": 0.47,
-   "side": "2. Cue it: make the noise\nwhile the clip plays.\n(Here: a synthetic\nsample noise.)",
-   "note": "real time",
-   "stamp": "a scripted take: a synthetic sample noise fed to the microphone input · no person yet"
-  },
-  {
-   "type": "clip",
-   "src": "runs/demo/studio_live/studio.webm",
-   "start": 16.0,
-   "dur": 2.0,
-   "speed": 42,
-   "crop": [
-    0.205,
-    0.0,
-    0.785,
-    1.0
-   ],
-   "side": "3. Into the scene:\nLTX-2.5 renders it from\nyour plate's frame.",
-   "note": "82 s in total on one GPU · sped up ×42",
-   "stamp": "LTX-2.5 image-to-video + ainvfx-fluid, with the painted guide"
-  },
-  {
-   "type": "clip",
-   "src": "runs/demo/live_dino_final.mp4",
-   "start": 0.3,
-   "dur": 3.8,
-   "label": "that take",
-   "side": "As long and as loud\nas the noise,\nthen it dies down.",
-   "stamp": "stand-in plate (LTX-2.5) · synthetic noise · the shot from that take"
-  },
-  {
-   "type": "clip",
-   "src": "runs/demo/studio_live/studio.webm",
-   "start": 106.6,
-   "dur": 1.6,
-   "crop": [
-    0.205,
-    0.0,
-    0.785,
-    1.0
-   ],
-   "side": "4. Drag the hit\nto re-time it.",
-   "note": "real time"
-  },
-  {
-   "type": "clip",
-   "src": "runs/demo/studio_live/studio.webm",
-   "start": 120.3,
+   "start": 0.4,
    "dur": 3.6,
-   "crop": [
-    0.205,
-    0.0,
-    0.785,
-    1.0
-   ],
-   "side": "Composited again\nfrom the same render:\nno new render.",
-   "note": "12 s later"
+   "audio": 3,
+   "caption": "Rendered once, carried on the tracked hand, matted, and lit by its own fire.",
+   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid) · half speed",
+   "vo": "runs\\demo_v9\\vo9\\how9.wav",
+   "vo_at": 0.0
   },
   {
    "type": "clip",
-   "src": "runs/demo/studio_draw/studio.webm",
-   "start": 4.8,
-   "dur": 5.0,
-   "speed": 2.3,
-   "crop": [
-    0.205,
-    0.0,
-    0.785,
-    1.0
-   ],
-   "side": "Or draw where it goes,\nthen cue it.",
-   "note": "sped up ×2.3",
-   "stamp": "drawn in the studio · the cue: a synthetic sample noise fed to the microphone input"
-  },
-  {
-   "type": "clip",
-   "src": "runs/demo/live_pumpkin_final.mp4",
-   "start": 0.8,
-   "dur": 4.2,
-   "label": "draw it + “fwoooOOOM”",
-   "side": "The noise fills the drawing;\nwhen it stops, it dies down.",
-   "stamp": "stand-in plate (LTX-2.5) · synthetic noise · the shot from that take"
-  },
-  {
-   "type": "clip",
-   "src": "runs/warp/toy_desk__pf-pf-ka-boom__fire_breath/composite.mp4",
-   "start": 0.4,
-   "dur": 3.4,
+   "src": "runs/bending/two/v12/both/composite.mp4",
+   "start": 1.8,
+   "dur": 3.35,
    "wave": true,
    "pops": [
     [
-     0.642,
+     0.7,
      "pf"
     ],
     [
-     1.308,
-     "pf"
+     1.45,
+     "ka"
     ],
     [
-     2.1,
-     "KA-BOOM"
+     1.95,
+     "BOOM"
     ]
    ],
-   "side": "A rhythm: every hit\nthe model keeps apart\nis re-timed to its beat.",
-   "stamp": "stand-in plate (LTX-2.5) · synthetic noise · re-timed hit by hit"
+   "headline": "Call and response",
+   "subline": "As big as it is loud.",
+   "stamp": "real stock clip (Pexels) · CC0 voices · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
   },
   {
    "type": "clip",
-   "src": "runs/real/heldout/lanterns__kaboom/breakdown.mp4",
-   "start": 0.4,
-   "dur": 4.0,
-   "caption": "Your sound sets the hit. LTX-2.5 renders it; CueSync moves the real onset onto your cue."
-  },
-  {
-   "type": "image",
-   "src": "media/timing.png",
-   "dur": 5.0,
-   "zoom": 1.02,
-   "caption": "47 of 54 hits land within a frame of the cue. Straight from the model: 4.",
-   "stamp": "marked by eye on 50 renders, 19 of them real footage · all cued by synthetic sample noises"
-  },
-  {
-   "type": "image",
-   "src": "media/comfyui-scene-workflow.png",
-   "dur": 1.5,
-   "zoom": 1.0,
-   "caption": "The same shot as one ComfyUI workflow."
-  },
-  {
-   "type": "image",
-   "src": "media/comfyui-scene-workflow.png",
+   "src": "runs\\demo_v9/studio_own3/studio.mp4",
+   "start": 7.0,
+   "dur": 2.6,
+   "fill": true,
    "crop": [
-    0.0,
-    0.0,
-    0.662,
-    0.489
+    0.078,
+    0.208,
+    0.578,
+    0.583
    ],
+   "chip": "Tap your palm, drag to aim",
+   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)",
+   "vo": "runs\\demo_v9\\vo9\\studio9a.wav",
+   "vo_at": 0.1
+  },
+  {
+   "type": "clip",
+   "src": "runs\\demo_v9/studio_own3/studio.mp4",
+   "start": 10.1,
+   "dur": 1.0,
+   "fill": true,
+   "crop": [
+    0.031,
+    0.486,
+    0.717,
+    1.0
+   ],
+   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
+  },
+  {
+   "type": "clip",
+   "src": "runs\\demo_v9/studio_own3/studio.mp4",
+   "start": 23.4,
+   "dur": 3.4,
+   "fill": true,
+   "crop": [
+    0.052,
+    0.181,
+    0.615,
+    0.603
+   ],
+   "chip": "It follows your hand before anything is made",
+   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)",
+   "vo": "runs\\demo_v9\\vo9\\studio9c.wav",
+   "vo_at": 0.2
+  },
+  {
+   "type": "clip",
+   "src": "runs\\demo_v9/studio_own3/studio.mp4",
+   "start": 33.0,
+   "dur": 2.9,
+   "fill": true,
+   "crop": [
+    0.078,
+    0.5,
+    0.634,
+    0.917
+   ],
+   "chip": "Make the noise while it plays",
+   "pop_x": 0.74,
+   "pop_y": 0.52,
+   "audio_src": "runs\\demo_v9/studio_say_own.wav",
+   "audio_from": 3.23,
+   "audio_gain": 4.0,
+   "wave": true,
+   "wave_box": [
+    0.53,
+    0.16,
+    0.42,
+    0.13
+   ],
+   "stamp_top": true,
+   "pops": [
+    [
+     0.87,
+     "pf"
+    ],
+    [
+     1.27,
+     "pf"
+    ],
+    [
+     2.27,
+     "BOOM"
+    ]
+   ],
+   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
+  },
+  {
+   "type": "clip",
+   "src": "runs\\demo_v9/studio_own3/studio.mp4",
+   "start": 37.4,
+   "dur": 0.9,
+   "fill": true,
+   "crop": [
+    0.06,
+    0.27,
+    0.79,
+    0.82
+   ],
+   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)",
+   "vo": "runs\\demo_v9\\vo9\\studio9b.wav",
+   "vo_at": 0.1
+  },
+  {
+   "type": "clip",
+   "src": "runs\\demo_v9/studio_own3/studio.mp4",
+   "start": 38.3,
    "dur": 2.2,
-   "zoom": 1.04,
-   "caption": "Your cue and your plate in: CueSync Analyze Sound, CueSync Paint Scene."
+   "speed": 15.5,
+   "fill": true,
+   "crop": [
+    0.06,
+    0.27,
+    0.79,
+    0.82
+   ],
+   "note": "sped up x15: about a minute on a laptop CPU",
+   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
+  },
+  {
+   "type": "clip",
+   "src": "runs/jobs/fd58657de8da/composite.mp4",
+   "start": 0.8,
+   "dur": 2.6,
+   "fill": true,
+   "wave": true,
+   "crop": [
+    0,
+    0.42,
+    1,
+    0.7364
+   ],
+   "chip": "Your shot",
+   "pops": [
+    [
+     0.53,
+     "pf"
+    ],
+    [
+     0.95,
+     "pf"
+    ],
+    [
+     1.99,
+     "BOOM"
+    ]
+   ],
+   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
+  },
+  {
+   "type": "clip",
+   "src": "runs/round10/shots/held_together__pf-pf-boom/composite.mp4",
+   "start": 0.6,
+   "dur": 5.0,
+   "wave": true,
+   "marks": [
+    [
+     0.4,
+     0.42,
+     0.72,
+     "1"
+    ],
+    [
+     1.07,
+     0.64,
+     0.58,
+     "2"
+    ],
+    [
+     1.78,
+     0.43,
+     0.3,
+     "3"
+    ]
+   ],
+   "pops": [
+    [
+     0.4,
+     "pf"
+    ],
+    [
+     1.07,
+     "pf"
+    ],
+    [
+     1.78,
+     "BOOM"
+    ]
+   ],
+   "headline": "Or tap anything in your shot",
+   "subline": "One sound, one source.",
+   "stamp": "real stock clip (Pixabay), held on its first frame · real people's voices (CC0, Freesound) · LTX-2.5 + ainvfx-fluid",
+   "vo": "runs\\demo_v7\\vo7\\scene7.wav",
+   "vo_at": 1.9
   },
   {
    "type": "image",
-   "src": "media/comfyui-scene-workflow.png",
+   "src": "runs\\demo_v9\\pipeline.png",
+   "dur": 4.6,
+   "zoom": 1.0,
+   "vo": "runs\\demo_v9\\vo9\\pipe9.wav",
+   "vo_at": 1.3
+  },
+  {
+   "type": "image",
+   "src": "runs\\demo_v9\\comfy.png",
+   "dur": 4.4,
+   "zoom": 1.0
+  },
+  {
+   "type": "clip",
+   "src": "runs/takes/rhythms/pf_pf_boom/composite.mp4",
+   "start": 0.5,
+   "dur": 3.2,
+   "fill": true,
+   "wave": true,
    "crop": [
-    0.534,
-    0.535,
-    0.955,
-    0.72
+    0,
+    0.42,
+    1,
+    0.7364
    ],
-   "dur": 1.8,
-   "zoom": 1.04,
-   "caption": "Code MIT / Apache-2.0; open weights only, through the Comfy SDK."
+   "pop_x": 0.8,
+   "pop_y": 0.5,
+   "pops": [
+    [
+     0.71,
+     "pf"
+    ],
+    [
+     1.08,
+     "pf"
+    ],
+    [
+     2.17,
+     "BOOM"
+    ]
+   ],
+   "headline": "Render the fire once.",
+   "subline": "Your voice decides when, how big, how long.",
+   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
   },
   {
    "type": "credits",
-   "dur": 5.0,
+   "dur": 4.2,
    "title": "Cue the Boom",
    "lines": [
-    "LTX-2.5 · Lightricks",
-    "ainvfx-fluid · AInVFX / Adrien Toupet",
-    "SAM 2.1 · Meta",
+    "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google",
     "ComfyUI + Comfy SDK · Comfy Org",
-    "Real footage · Pexels, Pixabay, Wikimedia Commons",
-    "  · authors in samples/CREDITS.md",
-    "Open weights only, self-hosted on a rented GPU",
-    "Some sample plates: stand-ins made with LTX-2.5",
-    "Noises: synthetic, until real ones are recorded"
-   ],
-   "url": "github.com/grzenio22/cue-the-boom"
+    "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
+    "The author's own hand, voice and phone · stock footage: Pexels, Pixabay",
+    "Voices · rykenn, unfa and others (CC0, Freesound)",
+    "Narration · Kokoro-82M, a synthetic voice    Foley · synthesised per shot",
+    "Open weights only, self-hosted on one rented GPU",
+    "Film your hand. Make the noise. Throw fire."
+   ]
   }
  ]
 }

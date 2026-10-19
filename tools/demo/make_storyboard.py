@@ -1,122 +1,113 @@
-"""Write tools/demo/storyboard.json from the shots it uses: every time a noise word pops or a cue line is drawn
-comes from that shot's receipt (when its noise is heard on the shot's timeline), not from a hand-typed number.
+"""The demo's storyboard (v9, the cut submitted). Its footage is the author's own takes and their renders, made with
+this repository's tools and kept outside it (runs/: the phone clips, runs/takes/rhythms.py's and nolight.py's
+performances, the studio recorded with tools/demo/record_studio.py --hd); the cards come from tools/demo/*_card.py.
 
-    python tools/demo/make_storyboard.py
+Demo v9, after the v8 reviews: the author's portrait takes fill the frame (no pillarbox), the hero's one render
+performed three ways right after it, the studio legible (recorded at twice the pixels, on the author's own clip:
+upload, tap the palm, perform, make the shot), light off / light on, and a readable pipeline.
+Writes tools/demo/storyboard.json for tools/demo/build_demo.py.
+
+    python tools/demo/make_storyboard.py && python tools/demo/build_demo.py tools/demo/storyboard.json -o runs/demo_v9/demo_v9.mp4
 """
-
-from __future__ import annotations
 
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-STUDIO, CROP = "runs/demo/studio_live/studio.webm", [0.205, 0.0, 0.785, 1.0]
-NOISE = {"blow_out": "pf.", "fire_burst": "KA-BOOM"}  # the word for each shot's noise (default: fwoooOOOM)
+V9, V8, V7, V6 = Path("runs/demo_v9"), Path("runs/demo_v8"), Path("runs/demo_v7"), Path("runs/demo_v6")
+VO, VO_DIR = {}, {}
+for d in (V6 / "vo", V7 / "vo7", V8 / "vo8", V9 / "vo9"):
+    for k, s in json.loads((d / "durations.json").read_text(encoding="utf-8")).items():
+        VO[k], VO_DIR[k] = s, d
+G, R = "runs/takes/gpu", "runs/takes/rhythms"
+HERO = f"{G}/IMG_6658_fire_burst_s2_c5/composite.mp4"
+MINE = "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
+STOCK = "real stock clip (Pexels) · CC0 voices · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
+LANTERNS = "real stock clip (Pixabay), held on its first frame · real people's voices (CC0, Freesound) · LTX-2.5 + ainvfx-fluid"
+STUDIO = "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
+OWN = f"{V9}/studio_own3/studio.mp4"  # (1920x1440: the edit crops it)
+SRC = {"1": (0.42, 0.72), "2": (0.64, 0.58), "3": (0.43, 0.30)}
+WIDE = 9 / 16 * 1080 / 1920  # a 16:9 window of a 1080x1920 phone clip, as a share of its height
 
 
-def receipt(shot: str) -> dict:
-    return json.loads((ROOT / shot / "receipt.json").read_text())
+def band(y0: float) -> list[float]:
+    return [0, y0, 1, round(y0 + WIDE, 4)]
 
 
-def heard(shot: str) -> list[float]:
-    """When each hit's noise is heard on the shot's timeline (s): its hit frame plus the effect's lead (a burst is
-    shown a frame before its sound)."""
-    rc = receipt(shot)
-    lead = int(rc["alignment"].get("lead", 0))
-    frames = [h["frame"] for h in rc["hits"]] if rc.get("hits") else [rc["alignment"]["hit_frame"]]
-    return [(f + lead) / 24 for f in frames]
+TALL = [0, 0.36, 1, 0.92]  # the hand and the fire above it, for a panel
+beats = [
+    # 1. the hook: the author's palm, the author's BOOM, filling the frame, no narration over it
+    dict(type="clip", src=HERO, start=0.6, dur=2.9, fill=True, wave=True, crop=band(0.42), pop_x=0.8, pop_y=0.5,
+         pops=[[2.07, "BOOM"]], headline="Cue the Boom", subline="Make the noise. Throw fire.", stamp=MINE),
+    # 2. right after it, the same render performed three ways
+    dict(type="turns", headline="One render. Perform it again.", subline="0 new renders", vo="again9", vo_at=1.1,
+         panels=[dict(src=HERO, start=1.9, dur=1.4, crop=TALL, label="BOOM", pops=[[0.77, "BOOM"]]),
+                 dict(src=f"{R}/pf_pf_boom/composite.mp4", start=0.9, dur=2.3, crop=TALL, label="pf · pf · BOOM",
+                      pops=[[0.31, "pf"], [0.68, "pf"], [1.77, "BOOM"]]),
+                 dict(src=f"{R}/pf_x4/composite.mp4", start=0.8, dur=2.3, crop=TALL, label="pf pf pf PF",
+                      pops=[[0.24, "pf"], [0.78, "pf"], [1.24, "pf"], [1.7, "PF"]])],
+         stamp="the author's own hand · the author's pf and BOOM, re-cut into new rhythms · one LTX-2.5 render"),
+    # 3. first person: a roar, a flamethrower from the fingertip; a finger gun
+    dict(type="clip", src=f"{G}/IMG_6653_fire_breath_c5/composite.mp4", start=1.55, dur=0.9, fill=True, wave=True,
+         crop=band(0.29), pops=[[0.0, "fwooooOOM"]], stamp=MINE),  # only the stretch where the flame leaves the finger
+    dict(type="clip", src=f"{G}/IMG_6652_fire_burst_c5/composite.mp4", start=1.2, dur=1.6, fill=True, wave=True,
+         crop=band(0.44), pops=[[0.63, "BOOM"]], stamp=MINE),
+    # 4. how: rendered once over black, carried on the tracked hand, light off / light on
+    dict(type="triptych", srcs=[str(V9 / f"{n}_slow.mp4") for n in ("how_render", "how_carried", "nolight", "hero")],
+         labels=["LTX-2.5, over black", "on your hand", "light off", "light on"], start=0.4, dur=3.6, audio=3,
+         caption="Rendered once, carried on the tracked hand, matted, and lit by its own fire.",
+         vo="how9", vo_at=0.0, stamp=MINE + " · half speed"),
+    # 5. call and response: each sound fires its own hand, as big as it is loud
+    dict(type="clip", src="runs/bending/two/v12/both/composite.mp4", start=1.8, dur=3.35, wave=True,
+         pops=[[0.7, "pf"], [1.45, "ka"], [1.95, "BOOM"]], headline="Call and response", subline="As big as it is loud.",
+         stamp=STOCK),
+    # 6. the studio on the author's own clip, each step full frame
+    dict(type="clip", src=OWN, start=7.0, dur=2.6, fill=True, crop=[0.078, 0.208, 0.578, 0.583], chip="Tap your palm, drag to aim",
+         vo="studio9a", vo_at=0.1, stamp=STUDIO),
+    dict(type="clip", src=OWN, start=10.1, dur=1.0, fill=True, crop=[0.031, 0.486, 0.717, 1.0], stamp=STUDIO),
+    dict(type="clip", src=OWN, start=23.4, dur=3.4, fill=True, crop=[0.052, 0.181, 0.615, 0.603],
+         chip="It follows your hand before anything is made", vo="studio9c", vo_at=0.2, stamp=STUDIO),
+    dict(type="clip", src=OWN, start=33.0, dur=2.9, fill=True, crop=[0.078, 0.5, 0.634, 0.917], chip="Make the noise while it plays",
+         pop_x=0.74, pop_y=0.52, audio_src=f"{V9}/studio_say_own.wav", audio_from=3.23, audio_gain=4.0, wave=True,
+         wave_box=[0.53, 0.16, 0.42, 0.13], stamp_top=True,
+         pops=[[0.87, "pf"], [1.27, "pf"], [2.27, "BOOM"]], stamp=STUDIO),
+    dict(type="clip", src=OWN, start=37.4, dur=0.9, fill=True, crop=[0.06, 0.27, 0.79, 0.82], vo="studio9b", vo_at=0.1,
+         stamp=STUDIO),
+    dict(type="clip", src=OWN, start=38.3, dur=2.2, speed=15.5, fill=True, crop=[0.06, 0.27, 0.79, 0.82],
+         note="sped up x15: about a minute on a laptop CPU", stamp=STUDIO),
+    dict(type="clip", src="runs/jobs/fd58657de8da/composite.mp4", start=0.8, dur=2.6, fill=True, wave=True, crop=band(0.42),
+         chip="Your shot", pops=[[0.53, "pf"], [0.95, "pf"], [1.99, "BOOM"]], stamp=STUDIO),
+    # 7. the scene: one sound, one source
+    dict(type="clip", src="runs/round10/shots/held_together__pf-pf-boom/composite.mp4", start=0.6, dur=5.0, wave=True,
+         marks=[[t, *SRC[k], k] for t, k in ((0.4, "1"), (1.07, "2"), (1.78, "3"))],
+         pops=[[0.4, "pf"], [1.07, "pf"], [1.78, "BOOM"]], headline="Or tap anything in your shot",
+         subline="One sound, one source.", vo="scene7", vo_at=1.9, stamp=LANTERNS),
+    # 8. how it's made, readable; then the ComfyUI graph itself, close up
+    dict(type="image", src=str(V9 / "pipeline.png"), dur=4.6, zoom=1.0, vo="pipe9", vo_at=0.2),
+    dict(type="image", src=str(V9 / "comfy.png"), dur=4.4, zoom=1.0),
+    # 9. end on the shot, and the claim
+    dict(type="clip", src=f"{R}/pf_pf_boom/composite.mp4", start=0.5, dur=3.2, fill=True, wave=True, crop=band(0.42),
+         pop_x=0.8, pop_y=0.5, pops=[[0.71, "pf"], [1.08, "pf"], [2.17, "BOOM"]], headline="Render the fire once.",
+         subline="Your voice decides when, how big, how long.", stamp=MINE),
+    dict(type="credits", dur=4.2, title="Cue the Boom", lines=[
+        "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google", "ComfyUI + Comfy SDK · Comfy Org",
+        "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
+        "The author's own hand, voice and phone · stock footage: Pexels, Pixabay", "Voices · rykenn, unfa and others (CC0, Freesound)",
+        "Narration · Kokoro-82M, a synthetic voice    Foley · synthesised per shot",
+        "Open weights only, self-hosted on one rented GPU", "Film your hand. Make the noise. Throw fire."]),
+]
 
-
-def real(shot: str, start: float, dur: float, caption: str | None, stamp: str, word: str | None = None) -> dict:
-    """A real-footage shot, clean (no burned-in labels), its sound drawn under it and its noise word popping."""
-    rc = receipt(shot)
-    word = word or NOISE.get(rc["effect"]["id"], "fwoooOOOM")
-    b = {"type": "clip", "src": f"{shot}/composite.mp4", "start": start, "dur": dur, "wave": True,
-         "pops": [[round(t - start, 3), word] for t in heard(shot)], "stamp": stamp}
-    if caption:
-        b["caption"] = caption
-    return b
-
-
-def versus(shot: str, before: float, after: float, speed: float, caption: str, note: str | None = None) -> dict:
-    t = heard(shot)[0]
-    b = {"type": "versus", "shot": shot, "start": round(t - before, 3), "dur": round((before + after) / speed, 2),
-         "speed": speed, "cue_at": round(t, 3), "labels": ["LTX-2.5, as it comes", "the finished shot"],
-         "caption": caption, "stamp": "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed"}
-    if note:
-        b["note"] = note
-    return b
-
-
-def main() -> None:
-    pump = "runs/real/heldout/table_pumpkin__fwoooom"
-    early = int(receipt(pump)["alignment"]["auto_shift"])
-    rhythm = "runs/warp/toy_desk__pf-pf-ka-boom__fire_breath"
-    beats = [
-        real("runs/real/heldout/lanterns__kaboom", 0.35, 2.6, None,
-             "real stock clip (Pixabay) · synthetic noise · LTX-2.5 + ainvfx-fluid, open weights"),
-        {"type": "title", "dur": 1.6, "text": "Cue the Boom", "sub": "Draw where. Cue it with a sound. The scene reacts."},
-        real("runs/real/heldout/trex_photo__fwoooom", 0.45, 2.6, "On a photo: LTX-2.5 brings it to life, timed by the noise.",
-             "real stock photo (Pixabay), animated by LTX-2.5 · synthetic noise"),
-        real("runs/real/final/pumpkins_tap__fwoooom", 0.45, 2.6, "On a clip: its own pixels stay, and the fire lights them.",
-             "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed"),
-        real("runs/real/final/cake_candle__pf", 0.5, 2.6, "Blown out, it stays out.",
-             "real stock clip (Pexels) · synthetic noise · the clip's own pixels, plus what changed"),
-        versus(pump, 0.9, 1.5, 1.0, f"The same render, shifted {early} frames: LTX-2.5 started it early, CueSync moved it onto the noise."),
-        versus(pump, 0.75, 0.35, 1 / 3, f"Slowed down: the render {early / 24:.2f} s early, the shot on the noise.", "slowed ×3"),
-        {"type": "clip", "src": STUDIO, "start": 1.9, "dur": 3.2, "speed": 2.1, "crop": CROP,
-         "side": "1. Pick a shot.\nIts spot is set;\ntap to move it.", "note": "the studio · sped up ×2",
-         "stamp": "the studio's sample plates: stand-ins made with LTX-2.5"},
-        {"type": "clip", "src": STUDIO, "start": 10.3, "dur": 5.0, "crop": CROP, "audio_src": "runs/demo/live_dino_final.mp4",
-         "audio_from": 0.0, "audio_at": 0.47, "side": "2. Cue it: make the noise\nwhile the clip plays.\n(Here: a synthetic\nsample noise.)",
-         "note": "real time · scripted take", "stamp": "a synthetic sample noise fed to the microphone input · no person yet"},
-        {"type": "clip", "src": STUDIO, "start": 16.0, "dur": 2.0, "speed": 42, "crop": CROP,
-         "side": "3. Into the scene:\nLTX-2.5 renders it from\nyour plate's frame.", "note": "82 s in total on one GPU · sped up ×42",
-         "stamp": "LTX-2.5 image-to-video + ainvfx-fluid, with the painted guide"},
-        {"type": "clip", "src": "runs/demo/live_dino_final.mp4", "start": 0.3, "dur": 3.8, "label": "that take",
-         "side": "As long and as loud\nas the noise,\nthen it dies down.",
-         "stamp": "stand-in plate (LTX-2.5) · synthetic noise · the shot from that take"},
-        {"type": "clip", "src": STUDIO, "start": 106.6, "dur": 1.6, "crop": CROP, "side": "4. Drag the hit\nto re-time it.",
-         "note": "real time"},
-        {"type": "clip", "src": STUDIO, "start": 120.3, "dur": 3.6, "crop": CROP,
-         "side": "Composited again\nfrom the same render:\nno new render.", "note": "12 s later"},
-        {"type": "clip", "src": "runs/demo/studio_draw/studio.webm", "start": 4.8, "dur": 5.0, "speed": 2.3, "crop": CROP,
-         "side": "Or draw where it goes,\nthen cue it.", "note": "sped up ×2.3",
-         "stamp": "drawn in the studio · the cue: a synthetic sample noise fed to the microphone input"},
-        {"type": "clip", "src": "runs/demo/live_pumpkin_final.mp4", "start": 0.8, "dur": 4.2, "label": "draw it + “fwoooOOOM”",
-         "side": "The noise fills the drawing;\nwhen it stops, it dies down.",
-         "stamp": "stand-in plate (LTX-2.5) · synthetic noise · the shot from that take"},
-        {"type": "clip", "src": f"{rhythm}/composite.mp4", "start": 0.4, "dur": 3.4, "wave": True,
-         "pops": [[round(t - 0.4, 3), w] for t, w in zip(heard(rhythm), ("pf", "pf", "KA-BOOM"))],
-         "side": "A rhythm: every hit\nthe model keeps apart\nis re-timed to its beat.",
-         "stamp": "stand-in plate (LTX-2.5) · synthetic noise · re-timed hit by hit"},
-        {"type": "clip", "src": "runs/real/heldout/lanterns__kaboom/breakdown.mp4", "start": 0.4, "dur": 4.0,
-         "caption": "Your sound sets the hit. LTX-2.5 renders it; CueSync moves the real onset onto your cue."},
-        {"type": "image", "src": "media/timing.png", "dur": 5.0, "zoom": 1.02,
-         "caption": "47 of 54 measurable hits land within a frame of the cue (47 of all 64 asked for). Straight from the model: 4.",
-         "stamp": "marked by eye on 50 renders, 19 of them real footage · all cued by synthetic sample noises"},
-        {"type": "image", "src": "media/comfyui-scene-workflow.png", "dur": 1.5, "zoom": 1.0,
-         "caption": "The same shot as one ComfyUI workflow."},
-        {"type": "image", "src": "media/comfyui-scene-workflow.png", "crop": [0.0, 0.0, 0.662, 0.489], "dur": 2.2, "zoom": 1.04,
-         "caption": "Your cue and your plate in: CueSync Analyze Sound, CueSync Paint Scene."},
-        {"type": "image", "src": "media/comfyui-scene-workflow.png", "crop": [0.534, 0.535, 0.955, 0.72], "dur": 1.8, "zoom": 1.04,
-         "caption": "Code MIT / Apache-2.0; open weights only, through the Comfy SDK."},
-        {"type": "credits", "dur": 5.0, "title": "Cue the Boom", "lines": [
-            "LTX-2.5 · Lightricks",
-            "ainvfx-fluid · AInVFX / Adrien Toupet",
-            "SAM 2.1 · Meta",
-            "ComfyUI + Comfy SDK · Comfy Org",
-            "Real footage · Pexels, Pixabay, Wikimedia Commons",
-            "  · authors in samples/CREDITS.md",
-            "Open weights only, self-hosted on a rented GPU",
-            "Some sample plates: stand-ins made with LTX-2.5",
-            "Noises: synthetic, until real ones are recorded",
-        ], "url": "github.com/grzenio22/cue-the-boom"},
-    ]
-    out = ROOT / "tools/demo/storyboard.json"
-    out.write_text(json.dumps({"beats": beats}, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"{len(beats)} beats, {sum(float(b.get('dur', 3)) for b in beats):.1f} s -> {out}")
-
-
-if __name__ == "__main__":
-    main()
+t, said_until = 0.0, 0.0
+for b in beats:
+    if b["type"] == "turns":
+        b["dur"] = round(sum(float(q["dur"]) for q in b["panels"]), 3)
+    if "vo" in b:
+        name = b.pop("vo")
+        start = max(t + float(b.pop("vo_at", 0.15)), said_until + 0.3)
+        b["vo"], b["vo_at"] = str(VO_DIR[name] / f"{name}.wav"), round(start - t, 3)
+        said_until = start + VO[name]
+        if start - t > b["dur"]:
+            print(f"  {name} starts after its beat ends ({start - t:.1f} s into a {b['dur']} s beat)")
+    t += float(b["dur"])
+over = said_until - t
+(Path(__file__).parent / "storyboard.json").write_text(json.dumps({"beats": beats}, indent=1, ensure_ascii=False), encoding="utf-8")
+print(f"{len(beats)} beats, {t:.1f} s; narration ends at {said_until:.1f} s" + (f" ({over:.1f} s past the end!)" if over > 0 else ""))
