@@ -224,7 +224,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       )}
       {hand && !handOffline && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
-          fireball, a hiss from a palm steam, a pf a blast of air. {sceneLive
+          fireball, a hiss from a palm steam, a pf a pop of fire. {sceneLive
             ? "Rendered once over black on the GPU (~1 min), then carried on your hand."
             : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand (a minute or two on a laptop CPU)."}</p>
       )}
@@ -284,7 +284,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           ))}
           {effect === AUTO_EFFECT && kind && (Object.keys(kinds.find((k) => k.id === kind)?.scene ?? {}).length
             ? <span className="muted">your cue does to it what it would to a {kinds.find((k) => k.id === kind)?.title.replace(/^an? /, "")}</span>
-            : <span className="muted">the sound picks it: a boom bursts, a whoosh is a jet of fire where you aim it (a plume if you don&apos;t), a hiss is steam, a puff is a blast of air</span>)}
+            : <span className="muted">the sound picks it: a boom bursts, a whoosh is a jet of fire where you aim it (a plume if you don&apos;t), a hiss is steam, a puff is a pop of fire (or a blast of air, on the badge)</span>)}
         </div>
       )}
       {!hand && mode === "scene" && !plate.sample && (

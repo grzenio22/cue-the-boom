@@ -8,7 +8,9 @@ def test_the_hand_and_the_sound_pick_the_element():
     assert bending_effect("whoosh", "Pointing_Up")[0] == "fire_breath"
     assert bending_effect("hiss", "Open_Palm")[0] == "steam_jet"
     assert bending_effect("hiss", "Open_Palm", steam=False)[0] == "smoke_puff"
-    assert bending_effect("puff", "Open_Palm")[0] == "smoke_puff"  # "pf" from a palm: a blast of air
+    assert bending_effect("puff", "Open_Palm")[0] == "fire_burst"  # "pf" from a palm: a pop of fire (the hand throws fire)
+    assert bending_effect("puff", None)[0] == "fire_burst" and bending_effect("puff", "Thumb_Up")[0] == "fire_burst"
+    assert bending_effect("puff", None, lit=True)[0] == "blow_out"  # (a flame already burning there is blown out)
     assert bending_effect("boom", "Open_Palm")[0] == "fire_burst"  # "BOOM" from a palm: a fireball
     assert bending_effect("boom", "Closed_Fist")[0] == "fire_burst"
     assert bending_effect("boom", "Victory", hits=3, span_s=1.2)[0] == "fire_breath"  # jab, jab, strike from the fingers

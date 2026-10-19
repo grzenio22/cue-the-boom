@@ -488,6 +488,11 @@ def test_the_clips_own_sound_is_a_cue(tmp_path):
     write_video(silent, np.zeros((24, 64, 48, 3), np.uint8), fps=24, audio=np.zeros(SR, np.float32))
     with pytest.raises(CueError):
         load_cue("clip", plate=silent)
+    room = tmp_path / "room.mp4"  # a clip with only room tone in it (-55 dBFS): no sound to cue from, not a "pf"
+    write_video(room, np.zeros((48, 64, 48, 3), np.uint8), fps=24,
+                audio=(0.0004 * np.random.default_rng(1).standard_normal(2 * SR)).astype(np.float32))
+    with pytest.raises(CueError, match="silent"):
+        load_cue("clip", plate=room)
 
 
 def test_a_drifting_render_is_rejected_and_a_lit_table_keeps_its_texture():

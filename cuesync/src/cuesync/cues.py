@@ -58,6 +58,9 @@ def cue_from_holds(holds: list[tuple[float, float]], duration_s: float, fps: int
                     extra={"source": "hold"}, active_intervals=intervals)
 
 
+CLIP_QUIET = 0.005  # a clip whose loudest moment is under this (-46 dBFS) has no sound in it to cue from
+
+
 def load_cue(source: str, *, plate: Path, voice: Path | None = None, offset_s: float = 0.0,
              holds: list[tuple[float, float]] | None = None, duration_s: float = 10.0, fps: int = 24,
              sr: int = 48000) -> Cue:
@@ -76,8 +79,8 @@ def load_cue(source: str, *, plate: Path, voice: Path | None = None, offset_s: f
         except Exception as exc:
             raise CueError("your clip has no sound to lock to; perform it or press and hold instead") from exc
         samples = samples[: int(round(duration_s * sr))]  # only the part of the clip the shot uses
-        if samples.size == 0 or float(np.abs(samples).max()) < 1e-4:
-            raise CueError("your clip is silent; perform it or press and hold instead")
+        if samples.size == 0 or float(np.abs(samples).max()) < CLIP_QUIET:  # (room tone is not a cue: a silent clip's
+            raise CueError("your clip is silent; perform it or press and hold instead")  # hum fired on its noise)
         try:
             cue = analyze(samples, sr, offset_s=0.0, fps=fps)
         except NoOnsetError as exc:

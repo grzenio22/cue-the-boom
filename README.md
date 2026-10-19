@@ -139,7 +139,7 @@ To try it on a sample, copy `samples/voices/fwoooom.wav` to `ComfyUI/input/voice
 
 ## From your hand (element bending)
 
-Film your own hand, tap where the fire leaves it (fingertips, palm), drag to aim, and cue it: a long "fffff" from pointed fingers is a flamethrower, "KA-BOOM" from an open palm a fireball, a palm "hissss" steam, a "pf" a blast of air. The sound and the hand's gesture pick the effect; a tap on the badge changes it.
+Film your own hand, tap where the fire leaves it (fingertips, palm), drag to aim, and cue it: a long "fffff" from pointed fingers is a flamethrower, "KA-BOOM" from an open palm a fireball, a palm "hissss" steam, a "pf" a pop of fire. The sound and the hand's gesture pick the effect; a tap on the badge changes it.
 
 The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA learned static sources, so the hand isn't regenerated). Then it is carried on your hand frame by frame:
 - **Tracking:** MediaPipe and optical flow follow the hand you tapped.

@@ -115,10 +115,13 @@ def bending_effect(kind: str | None, gesture: str | None, hits: int = 1, span_s:
             return "flame_plume", "an open palm and a swelling voice: a flame rising from it"
         if kind == "boom":
             return "fire_burst", "a palm strike with a boom: a fireball" + (" per strike" if combo else "")
-        return "smoke_puff", "an open palm and a puff: a blast of air"
+        return "fire_burst", "an open palm and a pf: a pop of fire, as big as it is loud"  # (a hand throws fire: the
+        # air blast and steam are a tap on the badge away)
     if gesture == "Closed_Fist" and kind in ("boom", "puff"):
         return "fire_burst", "a fist's strike: a burst" + (" per strike" if combo else "")
-    why = "the hand's gesture isn't one we read" if gesture is None else f"{gesture} with a {kind}: by the sound alone"
+    why = "the hand's gesture isn't one we read" if gesture is None else "by the sound alone"
+    if kind == "puff" and not lit:  # a hand's pf, whatever the hand is doing: a pop of fire
+        return "fire_burst", why + ": a pf, a pop of fire"
     return effect_for_kind(kind, True, lit, aimed=True, rhythm=hits >= 2), why
 
 
