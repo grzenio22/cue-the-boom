@@ -871,3 +871,15 @@ def test_a_finished_shot_becomes_a_vertical_reel_to_share(tmp_path, make_video, 
     shared = client.post(f"/api/jobs/{s['id']}/share").json()
     reel = read_video(Path(str(tmp_path / "jobs" / s["id"] / "share.mp4"))).frames
     assert "share.mp4" in shared["files"] and reel.shape[1:3] == (1280, 720)  # 9:16, to post
+
+
+def test_the_live_preview_gets_the_library_elements_with_their_poses(tmp_path):
+    """Try it live plays the hand elements rendered ahead of time on your hand: each with its pose in its render and its
+    frames (ignition, the end of its steady burn, its last lit frame), and the video itself."""
+    client = TestClient(create_app(None, tmp_path / "jobs"))
+    lib = client.get("/api/library").json()
+    assert {e["effect"] for e in lib} >= {"fire_burst", "fire_breath", "flame_plume"}
+    for e in lib:
+        assert 0 <= e["ignition"] < e["release"] <= e["end"] and len(e["ref"]["xy"]) == 2 and e["ref"]["scale"] > 0
+        assert client.get(e["url"]).status_code == 200
+    assert client.get("/api/library/nope/element.mp4").status_code == 404

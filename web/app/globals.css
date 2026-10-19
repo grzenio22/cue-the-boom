@@ -79,3 +79,5 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .film { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 560px; }
 .film video { width: 100%; max-height: 60vh; background: #000; border-radius: 12px; object-fit: contain; }
 .film video.mirror { transform: scaleX(-1); }
+.film.live { max-width: 960px; }
+.film canvas { width: 100%; background: #000; border-radius: 12px; display: block; }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import FilmIt from "@/components/FilmIt";
+import Live from "@/components/Live";
 import type { DrawnSample, SamplePlate, SceneMap, Source } from "@/lib/shot";
 
 export interface PickedPlate {
@@ -76,6 +77,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
           Use your own clip
           <input type="file" accept="video/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
         </label>
+        <Live onTake={(file, url) => void onFile(file, true, url)} />
         <FilmIt onTake={(file, url) => void onFile(file, true, url)} />
         <span className="muted">Your hand, or a thing (a pumpkin, a mug, a toy), filmed with the phone held still, 1-15 s (the
           shot uses the first 10 s).</span>

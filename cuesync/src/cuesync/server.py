@@ -11,6 +11,7 @@ POST /api/hands/prepare     your tapped hand followed through your clip before a
 GET  /api/jobs/{id}/files/{name}   final.mp4, composite.mp4, breakdown.mp4, guide.mp4, element.mp4, receipt.json
 GET  /api/samples           sample plates and noises (try it without a camera or a microphone)
 GET  /api/gallery           sample shots made ahead of time (cuesync precompute); a matching request is answered at once
+GET  /api/library           the hand elements rendered ahead of time, with their poses (the studio's live preview)
 POST /api/compare           two finished shots side by side, synced on the voice
 POST /api/jobs/{id}/retime  move the hit / the stop of a finished shot and composite it again (no new render)
 Full renders go through one worker in order (one GPU); instant shots have their own worker (CPU).
@@ -340,6 +341,41 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     @app.get("/api/gallery")
     def gallery_list():
         return [g.public() for g in gallery]
+
+    live: dict[str, dict] = {}
+
+    @app.get("/api/library")
+    def library_list():
+        """The hand elements rendered ahead of time, for the studio's live preview to play on your hand as you
+        perform: each one's pose in its render (ref: where the emitter is, which way, how big a hand), its ignition,
+        where its steady burn ends (release) and its last lit frame (end), and its black level."""
+        from .bending import LIBRARY_EFFECTS, element_span, ignition_frame, library_dir
+        from .composite import estimate_black_level
+        from .media import read_video
+
+        lib = library_dir()
+        for e in LIBRARY_EFFECTS if lib is not None else ():
+            d = lib / e
+            if e in live or not (d / "element.mp4").exists():
+                continue
+            rc = json.loads((d / "receipt.json").read_text())
+            el = read_video(d / "element.mp4").frames
+            floor = estimate_black_level(el)
+            ign = ignition_frame(el, floor, burst=rc["effect"]["behaviour"] == "burst") or 0
+            rel, end = element_span(el, floor, ign)
+            live[e] = {"effect": e, "behaviour": rc["effect"]["behaviour"], "url": f"/api/library/{e}/element.mp4",
+                       "size": [int(el.shape[2]), int(el.shape[1])], "fps": 24, "ignition": int(ign), "release": int(rel),
+                       "end": int(end), "floor": int(floor), "ref": rc["bending"]["ref"]}
+        return list(live.values())
+
+    @app.get("/api/library/{effect}/element.mp4")
+    def library_element(effect: str):
+        from .bending import LIBRARY_EFFECTS, library_dir
+
+        lib = library_dir()
+        if lib is None or effect not in LIBRARY_EFFECTS or not (lib / effect / "element.mp4").exists():
+            raise HTTPException(404, "no such element")
+        return FileResponse(lib / effect / "element.mp4", media_type="video/mp4")
 
     @app.get("/api/samples/{kind}/{name}")
     def sample_file(kind: str, name: str):
