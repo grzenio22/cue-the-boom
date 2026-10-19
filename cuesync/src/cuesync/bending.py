@@ -565,11 +565,20 @@ def holdout_box(track: dict, t: int, h: int, w: int) -> tuple[int, int, int, int
     return (max(0, int(p[1] - r)), min(h, int(p[1] + r) + 1), max(0, int(p[0] - r)), min(w, int(p[0] + r) + 1))
 
 
+def matte_box(m: np.ndarray) -> tuple[int, int, int, int]:
+    """(y0, y1, x0, x1): where the hand matte (uint8 or float) is, from a quarter-size look; empty when it is nowhere."""
+    ys, xs = np.nonzero(m[::4, ::4] > (8 if m.dtype == np.uint8 else 0.03))
+    if ys.size == 0:
+        return 0, 0, 0, 0
+    h, w = m.shape[:2]
+    return max(0, 4 * ys.min() - 4), min(h, 4 * ys.max() + 8), max(0, 4 * xs.min() - 4), min(w, 4 * xs.max() + 8)
+
+
 def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None,
                  box: tuple[int, int, int, int] | None = None) -> np.ndarray:
-    """Where the hand hides the element's root (float 0..1): within a quarter of a hand size of the emitter, the hand
-    itself (its matte; without one, the side behind the fingertips, coming in over 0.3 of a hand size so the base fades
-    into the hand instead of being cut off along a line), so the flame leaves the fingers rather than sitting on them.
+    """Where the hand hides the element (float 0..1): its matte, wherever it is behind the emitter; without one, within
+    a quarter of a hand size of the emitter, the side behind the fingertips, coming in over 0.3 of a hand size so the
+    base fades into the hand instead of being cut off along a line. The flame leaves the fingers, not sits on them.
     With ``box`` (holdout_box) only that part of the frame, as a patch (``mask`` is the whole frame's either way)."""
     p, u, s = emitter_at(track, t)
     y0, y1, x0, x1 = box or (0, h, 0, w)
@@ -578,9 +587,10 @@ def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None,
     dx, dy = xx - p[0], yy - p[1]
     disc = np.clip(1.0 - (np.hypot(dx, dy) - 0.25 * s) / max(0.25 * s, 1.0), 0, 1)
     back = -(dx * u[0] + dy * u[1])  # how far behind the emitter, along its direction
-    if mask is not None:  # the hand where it is behind the emitter: the fingers in front of a flame's root hide it, the
-        # palm the flame rises in front of doesn't (the whole matte put fire in a cupped hand behind it)
-        return disc * mask * np.clip(0.5 + back / max(0.3 * s, 1.0), 0, 1)
+    if mask is not None:  # the hand and arm wherever they are behind the emitter, nearer the camera than the fire it
+        # threw: the fingers in front of a flame's root hide it, the palm the flame rises in front of doesn't (the
+        # whole matte put fire in a cupped hand behind it), and a first-person arm hides the flame swung across it
+        return mask * np.clip(0.5 + back / max(0.3 * s, 1.0), 0, 1)
     return disc * np.clip(back / max(0.3 * s, 1.0), 0, 1)
 
 
@@ -589,7 +599,9 @@ def left_frame(track: dict, w: int, h: int) -> tuple[dict, np.ndarray]:
     shot and the trackers only guess at it (their guesses swung a pointing hand round as it went out, and the fire
     with it): its pose is held where it went out, and ``gone`` counts the frames since (0 while it is in)."""
     n = len(track["xy"])
-    xy, d, sc = [list(map(float, v)) for v in track["xy"]], [list(map(float, v)) for v in track["dir"]],         [float(v) for v in track["scale"]]
+    xy = [list(map(float, v)) for v in track["xy"]]
+    d = [list(map(float, v)) for v in track["dir"]]
+    sc = [float(v) for v in track["scale"]]
     gone, last = np.zeros(n, int), None
     for t in range(n):
         m = 0.5 * sc[t]
@@ -785,7 +797,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     from . import fx_light as fx
 
     lag = LAG_FRAMES.get(effect, 3)
-    pre = 3 if eff.behaviour == "burst" else PREGLOW  # a burst's build-up is short
+    pre = 0 if eff.behaviour == "burst" else PREGLOW  # a burst is the blast itself: it is there at once (the model's frames
+    # before it caught were a grey-white square on the palm)
     src = list(track.get("src") or []) + ["mp"] * n
     floor_lin = float(lin(np.full((1, 1, 3), floor, np.uint8))[0, 0, 0])
     if ign >= pre + 3:  # the render's own black, pixel by pixel, from before anything shows (one value for the whole
@@ -880,10 +893,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
                 grow = 1.0
             E = warp_element(source(e), track, ref, t, lag, size * grow, since=off + ign, cam=cam) * gain
-            if e < ign:  # the build-up, coming up to the ignition: its fire only (the model's grey haze before the
-                # flame catches showed as a grey blob on the palm)
+            if e < ign:  # the build-up, coming up to the ignition: its fire only, orange or white-hot (the model's
+                # dim grey haze before the flame catches showed as a grey blob on the palm)
+                warm = np.clip(3.0 * (E[..., 0] - E[..., 2]) / np.maximum(E[..., 0], 1e-4) - 1.0, 0.0, 1.0)
                 E *= ((e - (ign - pre) + 1) / (pre + 1)
-                      * np.clip(2.0 * (E[..., 0] - E[..., 2]) / np.maximum(E[..., 0], 1e-4), 0.0, 1.0))[..., None]
+                      * np.maximum(warm, np.clip((fx._lum(E) - 0.35) / 0.3, 0.0, 1.0)))[..., None]
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
                 E *= (e + 1) / (pre + 1)
             acc = E if acc is None else np.maximum(acc, E)  # two plays overlapping: the brighter shows, not both added
@@ -899,7 +913,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         if lost[t] > 8:  # the hand is gone: let the element go rather than freeze it
             E *= max(0.0, 1.0 - (lost[t] - 8) / LOST_FADE)
         m_t = None if mask is None else mask[min(t, len(mask) - 1)]
-        y0, y1, x0, x1 = box = holdout_box(track, t, h, w)
+        y0, y1, x0, x1 = box = holdout_box(track, t, h, w) if m_t is None else matte_box(m_t)
         if y1 > y0 and x1 > x0:
             hold = root_holdout(track, t, h, w, None if m_t is None else m_t.astype(np.float32) / 255.0, box)
             E[y0:y1, x0:x1] *= (1.0 - hold)[..., None]

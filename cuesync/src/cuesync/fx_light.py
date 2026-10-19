@@ -335,8 +335,8 @@ def light_plate(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, mas
     xs, ys = np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32)[:, None]
 
     def one(f: int) -> None:
-        if power[f] <= 0 or look["gain"] <= 0:
-            out[f] = plate_lin[f]
+        if power[f] <= 0 or look["gain"] <= 0 or float(element_lin[f].max()) <= 0:  # (smoothed over its neighbours,
+            out[f] = plate_lin[f]  # the light came on a frame before its flame: a palm glowing before the fire)
             return
         (x0, y0), (ux, uy), sf = xy[f].astype(np.float32), u[f].astype(np.float32), np.float32(s[f])
         room = cv2.resize(room_f[f], (w, h), interpolation=cv2.INTER_LINEAR) * np.float32(ROOM_GAIN * look["gain"])
