@@ -227,5 +227,5 @@ def test_a_shot_sounds_like_its_effect_on_the_frame_it_shows():
     assert np.abs(loud).max() <= 0.9  # the cue and the Foley together never clip
     from types import SimpleNamespace
 
-    water = SimpleNamespace(id="water_splash", fluid="water", behaviour="burst")  # nothing to synthesise it with
-    assert soundtrack(silent, water, n, np.zeros(n), [20], [1.0], None, seed=1) is silent  # then the cue alone
+    plasma = SimpleNamespace(id="plasma_burst", fluid="plasma", behaviour="burst")  # nothing to synthesise it with
+    assert soundtrack(silent, plasma, n, np.zeros(n), [20], [1.0], None, seed=1) is silent  # then the cue alone
