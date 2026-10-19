@@ -1312,7 +1312,7 @@ def track_emitter(video_path_or_frames, fps: float | None = None, emitter: str =
     src, conf = ["none"] * T, np.zeros(T)
     gesture_mp = ["None"] * T
     label = "Right"
-    finger = None
+    finger, on_tip = None, False  # on_tip: the click is on a fingertip (the element comes out of a digit)
     if anchor is not None:
         chosen = follow_hand(scene, anchor)
         if seed is not None:
@@ -1325,6 +1325,8 @@ def track_emitter(video_path_or_frames, fps: float | None = None, emitter: str =
                 best = min(near, key=lambda t: np.min(np.linalg.norm(chosen[t]["frame_lm"][tips, :2] - seed[1:],
                                                                      axis=-1)))
                 finger = clicked_finger(chosen[best]["frame_lm"], seed, emitter)
+                lm_ = chosen[best]["frame_lm"]
+                on_tip = bool(np.min(np.linalg.norm(lm_[tips, :2] - seed[1:], axis=-1)) < 0.35 * float(hand_size(lm_)))
                 if finger is not None:
                     note(f"the click is on landmark {finger[1]} (MediaPipe's name for that digit, frame {best}), not "
                          f"the {emitter} tip: the emitter rides that finger")
@@ -1351,8 +1353,10 @@ def track_emitter(video_path_or_frames, fps: float | None = None, emitter: str =
     typical = float(np.median(scale_raw[tracked])) if tracked.any() else 1.0
     events = find_extensions(speed_raw, typical, fps, tracked)
     gesture = _spread_gestures(gesture_mp, src, np.nan_to_num(L))
-    for t in range(T):  # a fingertip emitter's digit held out: pointing (where MediaPipe names nothing)
-        if tracked[t] and gesture_mp[t] == "None" and gesture[t] in ("None", "Open_Palm"):
+    for t in range(T):  # a fingertip emitter's digit held out: pointing (where MediaPipe names nothing); an open palm
+        # only when the click was on a fingertip (a hiss follows the fingertips, and every open palm hissing at the
+        # camera became two fingers pointing, and a flamethrower)
+        if tracked[t] and gesture_mp[t] == "None" and (gesture[t] == "None" or gesture[t] == "Open_Palm" and on_tip):
             g = pointing_gesture(np.nan_to_num(L[t]), emitter, finger)
             gesture[t] = g or gesture[t]
     in_view = tracked & np.array([tracked[t] and inside_share(L[t], (W, H)) >= 0.8 for t in range(T)])

@@ -448,6 +448,17 @@ def test_track_has_the_frozen_schema_and_lost_frames_hold_the_last_emitter():
     json.dumps(tr)  # plain JSON all the way down
 
 
+def test_an_open_palm_followed_by_its_fingertips_stays_an_open_palm_unless_a_finger_was_clicked():
+    T = 20
+    frames = textured_clip(T=T)
+    dets = [[det(square_hand(t), gesture="None")] for t in range(T)]  # MediaPipe names nothing; all four fingers out
+    tr = ht.track_emitter(frames, 24.0, "two_finger", detections=dets)  # (a hiss follows the fingertips)
+    assert set(tr["gesture"]) == {"Open_Palm"}  # not two fingers pointing: no flamethrower out of an open palm
+    tip = square_hand(10)[8, :2]
+    tr = ht.track_emitter(frames, 24.0, "two_finger", detections=dets, seed=(10, *tip))  # clicked on the index tip
+    assert tr["gesture"][10] == "Victory"  # the two fingers the element leaves, held out: pointing
+
+
 def shaken_clip(T=30, W=640, H=360, textured=True, seed=3):
     """A hand held still in a room while the camera shakes (a random walk of up to 4 px a frame): frames, the camera's
     offsets per frame, MediaPipe-like detections of the hand (its landmarks shaking a little more, on their own) and
