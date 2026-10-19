@@ -216,8 +216,12 @@ def towards_words(direction: float) -> str:
 
 def ignition_frame(element: np.ndarray, floor: int, burst: bool = False) -> int | None:
     """The element frame where it ignites: the first whose light above its black is IGNITION of the brightest's; for a
-    burst, the frame it grows fastest (a "BOOM" is a whoomph, its beat the blast, not the first spark)."""
+    burst, the frame it grows fastest (a "BOOM" is a whoomph, its beat the blast, not the first spark). An element too
+    small to lift a frame's mean over its black (a palm's flame on a landscape canvas, a hundredth of it, read as an
+    empty render) is measured by its light where it is, pixels over the black."""
     lum = np.array([max(0.0, float(f[::4, ::4].astype(np.float32).mean()) - floor) for f in element])
+    if lum.max() <= 0:
+        lum = np.array([float(np.clip(f[::4, ::4].astype(np.float32) - floor, 0.0, None).mean()) for f in element])
     if lum.max() <= 0:
         return None
     if burst and len(lum) > 2:
@@ -916,9 +920,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         p_hit, u_hit, s_hit = emitter_at(track, k_launch)
         hands, most = SIZE.get(eff.behaviour, (LENGTH, 0.6))
         reach = min(hands * s_hit, most * min(w, h))
-        # a burst is rendered on a landscape canvas whatever the clip's shape (on a portrait one the model drew a narrow
-        # fountain of sparks, seed after seed), in its middle, and placed on the hand by its pose (fit_element)
-        rw, rh = (max(w, h), min(w, h)) if eff.behaviour == "burst" else (w, h)
+        # a burst or a flame is rendered on a landscape canvas whatever the clip's shape (on a portrait one the model drew
+        # a narrow fountain of sparks for a fireball, seed after seed, and a thin tan wisp for a palm's flame), in its
+        # middle, and placed on the hand by its pose (fit_element)
+        rw, rh = (max(w, h), min(w, h)) if eff.behaviour in ("burst", "plume") else (w, h)
         start_at = p_hit if (rw, rh) == (w, h) else np.array([rw / 2, rh / 2]) - u_hit * reach / 2
         ref = (render_spot(start_at, u_hit, reach, rw, rh), u_hit, s_hit)  # rendered where it fits, carried onto the hand
         aim = angle_of(u_hit)

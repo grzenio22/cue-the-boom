@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from cuesync.bending import emitter_at, ignition_frame, make_bending_shot, warp_element
 from cuesync.media import read_video, write_video
@@ -166,9 +167,11 @@ def test_performing_again_puts_a_render_of_another_size_where_the_first_shot_did
     assert abs(fire_x(again.composite) - fire_x(first.composite)) < 2
 
 
-def test_a_burst_on_a_portrait_clip_is_rendered_landscape_and_carried_onto_the_hand(tmp_path, make_video, make_wav):
-    """On a portrait canvas the model drew a narrow fountain of sparks for a fireball: a burst renders landscape, and
-    still lands on the hand."""
+@pytest.mark.parametrize("effect", ["fire_burst", "flame_plume"])
+def test_a_burst_or_a_flame_on_a_portrait_clip_is_rendered_landscape_and_carried_onto_the_hand(tmp_path, make_video,
+                                                                                              make_wav, effect):
+    """On a portrait canvas the model drew a narrow fountain of sparks for a fireball, and a thin wisp for a palm's
+    flame: both render landscape, and still land on the hand."""
     w, h, n = 128, 256, 72
     plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30))
     sr = 48000
@@ -178,13 +181,15 @@ def test_a_burst_on_a_portrait_clip_is_rendered_landscape_and_carried_onto_the_h
     track_path = tmp_path / "hand_track.json"
     track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (40.0, 200.0), d=(0.0, -1.0))))
     r = GuideAsElement()
-    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, sr), effect="fire_burst", point=(40 / w, 200 / h),
+    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, sr), effect=effect, point=(40 / w, 200 / h),
                     mode="scene", plate_size=(w, h), max_plate_s=3.0)
     res = make_bending_shot(spec, r, tmp_path / "shot", track_path)
     guide = read_video(tmp_path / "shot" / "guide.mp4").frames
     assert guide.shape[2] > guide.shape[1]  # landscape
-    k = res.receipt["bending"]["hits"][0]["frame"] + 4
-    fire = np.maximum(read_video(res.composite).frames[k].astype(float).mean(-1) - 60, 0)
+    comp = read_video(res.composite).frames.astype(float).mean(-1)
+    hit = res.receipt["bending"]["hits"][0]["frame"]
+    k = max(range(hit, len(comp)), key=lambda i: np.maximum(comp[i] - 60, 0).sum())  # (a flame grows in; a burst is at once)
+    fire = np.maximum(comp[k] - 60, 0)
     ys, xs = np.nonzero(fire)
     assert xs.size and abs(float(np.average(xs, weights=fire[ys, xs])) - 40) < 20  # above the hand, where it was tapped
     assert float(np.average(ys, weights=fire[ys, xs])) < 200
@@ -466,3 +471,12 @@ def test_a_tap_with_no_hand_is_said_and_a_lost_one_is_followed_again_from_a_clea
     assert len(calls) == 2 and calls[1][0] == 39  # followed again from the frame it was seen most surely
     frame, point = bending.retapped(track, 5, (0.275, 0.5))
     assert frame == 39 and abs(point[0] - 89.0 / 200) < 0.01  # the tap carried onto that frame, with the hand
+
+
+def test_a_small_flame_on_a_big_black_canvas_still_ignites():
+    """A palm's flame on a landscape canvas, a hundredth of it, never lifted a frame's mean over its black: the render
+    read as empty. It is measured where it is."""
+    el = np.zeros((20, 216, 384, 3), np.uint8)
+    for i in range(6, 20):
+        el[i, 150:150 + 2 * (i - 5), 190:196] = (255, 150, 40)  # a thin flame growing from frame 6
+    assert ignition_frame(el, 3) is not None and 6 <= ignition_frame(el, 3) <= 9
