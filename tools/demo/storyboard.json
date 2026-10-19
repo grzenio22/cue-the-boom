@@ -341,38 +341,30 @@
   },
   {
    "type": "clip",
-   "src": "runs/takes/rhythms/pf_pf_boom/composite.mp4",
-   "start": 0.5,
-   "dur": 3.2,
+   "src": "runs/takes/live_feed/live_IMG_6660.mp4",
+   "start": 0.3,
+   "dur": 2.6,
    "fill": true,
    "wave": true,
    "crop": [
     0,
-    0.42,
+    0.3,
     1,
-    0.7364
+    0.8625
    ],
    "audio_src": "runs\\demo_v10\\credits_crackle.wav",
-   "audio_at": 2.4,
-   "pop_x": 0.8,
-   "pop_y": 0.5,
+   "audio_at": 2.0,
    "pops": [
     [
-     0.71,
-     "pf"
-    ],
-    [
-     1.08,
-     "pf"
-    ],
-    [
-     2.17,
-     "BOOM"
+     0.75,
+     "fffff"
     ]
    ],
-   "headline": "Render the fire once.",
-   "subline": "Your voice decides when, how big, how long.",
-   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
+   "pop_x": 0.82,
+   "pop_y": 0.4,
+   "headline": "Try it live",
+   "subline": "Your camera. Fire as you say it.",
+   "stamp": "Try it live in the browser (MediaPipe's hand landmarker), fed the author's phone clip and its sound in place of a webcam and a microphone · a flame rendered ahead with LTX-2.5"
   },
   {
    "type": "credits",

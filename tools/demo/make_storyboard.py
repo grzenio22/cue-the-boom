@@ -81,11 +81,13 @@ beats = [
     # 8. how it's made, readable; then the ComfyUI graph itself, close up
     dict(type="image", src=str(V9 / "comfy.png"), dur=2.6, zoom=1.0, vo="pipe10b", vo_at=0.2),
     dict(type="image", src=str(V9 / "pipeline.png"), dur=3.0, zoom=1.0),
-    # 9. end on the shot, and the claim
-    dict(type="clip", src=f"{R}/pf_pf_boom/composite.mp4", start=0.5, dur=3.2, fill=True, wave=True, crop=band(0.42),
-         audio_src=str(V10 / "credits_crackle.wav"), audio_at=2.4,  # the fire's crackle from the BOOM's tail on
-         pop_x=0.8, pop_y=0.5, pops=[[0.71, "pf"], [1.08, "pf"], [2.17, "BOOM"]], headline="Render the fire once.",
-         subline="Your voice decides when, how big, how long.", stamp=MINE),
+    # 9. end live: the studio's browser preview, fed the author's take (a webcam recording replaces it)
+    dict(type="clip", src="runs/takes/live_feed/live_IMG_6660.mp4", start=0.3, dur=2.6, fill=True, wave=True,
+         crop=[0, 0.3, 1, 0.8625], audio_src=str(V10 / "credits_crackle.wav"), audio_at=2.0, pops=[[0.75, "fffff"]],
+         pop_x=0.82, pop_y=0.4,
+         headline="Try it live", subline="Your camera. Fire as you say it.",
+         stamp="Try it live in the browser (MediaPipe's hand landmarker), fed the author's phone clip and its sound in place "
+               "of a webcam and a microphone · a flame rendered ahead with LTX-2.5"),
     dict(type="credits", dur=4.2, title="Cue the Boom", audio_src=str(V10 / "credits_crackle.wav"), audio_from=0.8, lines=[
         "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google", "ComfyUI + Comfy SDK · Comfy Org",
         "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
