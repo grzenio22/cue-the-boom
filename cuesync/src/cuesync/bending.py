@@ -322,14 +322,40 @@ def element_span(element: np.ndarray, floor: float, ign: int) -> tuple[int, int]
     return rel, max(rel, ign + int(seen[-1]) + 1 if seen.size else len(element))
 
 
-def held_frames(d: int, ign: int, rel: int, end: int, hold: int, x: int = SUSTAIN_XFADE) -> list[tuple[int, float]]:
+GROWN_SHARE, GROW_FAST = 0.6, 6  # a held render played again is grown once it burns at this share of its steady body,
+# and gets there in at most this many frames: a palm's flame that took 1.4 s to catch in its own take was still a
+# candle when a short new fffff ended
+
+
+def grown_frame(element: np.ndarray, floor: float, ign: int, rel: int) -> int:
+    """The first frame from the ignition where a held render burns at GROWN_SHARE of its steady body (element_span's
+    measure); the ignition itself when it never gets there."""
+    lit = np.array([float(np.clip(f[::8, ::8].max(-1).astype(np.float32) - floor - 2, 0, None).mean())
+                    for f in element[ign:rel]])
+    if not lit.size:
+        return ign
+    top = float(np.percentile(lit, 75))
+    on = np.nonzero(lit >= GROWN_SHARE * top)[0] if top > 0 else []
+    return ign + int(on[0]) if len(on) else ign
+
+
+def held_frames(d: int, ign: int, rel: int, end: int, hold: int, x: int = SUSTAIN_XFADE,
+                grown: int | None = None) -> list[tuple[int, float]]:
     """The render's frames, with their weights, that a held hit plays ``d`` frames after its ignition, for a voice
     that holds ``hold`` frames: its body as rendered; looped while the voice holds on past it (the loop's end
     cross-faded into its start); and from wherever the voice stops, its letting go ([] once that has burned out).
-    A take as long as the render's plays it as rendered."""
+    A take as long as the render's plays it as rendered. ``grown`` (grown_frame): a render slower than GROW_FAST to
+    catch runs through its catching in GROW_FAST frames, then on from there."""
     body = rel - ign
     stop = max(int(hold), 1)
-    looping = stop > body and body > 2 * x + 2  # (too short a body to loop: it holds its last frame)
+    g = 0 if grown is None else int(np.clip(grown - ign, 0, max(body - 1, 0)))
+    ahead = g - GROW_FAST if g > GROW_FAST else 0  # the frames of its catching skipped
+
+    def at(k: int) -> int:
+        """Body frame k of the voice's hold, on the render's own time."""
+        return k if not ahead or k < 0 else (k * g) // GROW_FAST if k < GROW_FAST else k + ahead
+
+    looping = at(stop - 1) + 1 > body and body > 2 * x + 2  # (too short a body to loop: it holds its last frame)
 
     def burning(k: int) -> list[tuple[int, float]]:
         """Body frame k. Looping, the steady burn after the catching runs from A = ign + lead to rel and round again:
@@ -348,18 +374,18 @@ def held_frames(d: int, ign: int, rel: int, end: int, hold: int, x: int = SUSTAI
     if d < 0:
         return [(ign + d, 1.0)]
     if d < stop:
-        return burning(d)
+        return burning(at(d))
     r = d - stop
     if end - rel <= x:  # a render that burns to its last frame has no letting go: it dies down from where it was
-        return [] if r >= LETGO else [(f, wt * (1.0 - (r + 1) / (LETGO + 1))) for f, wt in burning(stop - 1 + r)]
-    if stop == body:  # as long as rendered: its own letting go, uncut
+        return [] if r >= LETGO else [(f, wt * (1.0 - (r + 1) / (LETGO + 1))) for f, wt in burning(at(stop - 1 + r))]
+    if at(stop - 1) + 1 == body:  # as long as rendered: its own letting go, uncut
         return [(rel + r, 1.0)] if rel + r < end else []
     if rel + r >= end:
         return []
     if r >= x:
         return [(rel + r, 1.0)]
     w = (r + 1) / (x + 1)
-    return [(f, wt * (1.0 - w)) for f, wt in burning(stop - 1)] + [(rel + r, w)]
+    return [(f, wt * (1.0 - w)) for f, wt in burning(at(stop - 1))] + [(rel + r, w)]
 
 
 def hold_of(frame: int, sounding: list[tuple[int, int]]) -> int | None:
@@ -978,10 +1004,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     # a render played again (your take again, or one made ahead) holds a jet or a plume as long as this voice holds
     # it, and lets it go when the voice stops: as rendered it lasted as long as the take it was made for
     held = old is not None and eff.behaviour in ("jet", "plume")
-    rel = end_ = ign
+    rel = end_ = grown = ign
     holds: list[int] = []
     if held:
         rel, end_ = element_span(element, floor, ign)
+        grown = grown_frame(element, floor, ign, rel)
         sounding = cue.intervals()
         holds = [hold_of(s_["frame"], sounding) or (rel - ign) for s_ in snaps]
     if only_hits:
@@ -1086,7 +1113,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         for k_, (off, gain, size) in enumerate(plays):
             e = t - off
             if held and e >= ign:  # held as long as the voice holds it, then let go
-                picks = held_frames(e - ign, ign, rel, end_, holds[k_])
+                picks = held_frames(e - ign, ign, rel, end_, holds[k_], grown=grown)
                 if not picks or max(f for f, _ in picks) >= len(element):
                     continue
             else:

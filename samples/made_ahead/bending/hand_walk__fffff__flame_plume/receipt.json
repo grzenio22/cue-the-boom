@@ -1,0 +1,126 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "flame_plume",
+  "anchor": "first",
+  "behaviour": "plume",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire, isolated on a pure black background",
+  "r_min": 0.03,
+  "r_max": 0.3,
+  "rise": 0.55,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 9,
+  "release_smoke": 10,
+  "holdout_below": 0.02,
+  "tail_frames": 24,
+  "smoke_albedo": 0.4,
+  "scene": {
+   "prompt": "ainvfxfluid, a tall roaring flame bursts up out of {subject}, the fire lights up the surroundings with flickering warm orange light, then it dies down into a wisp of smoke, static camera, realistic phone video",
+   "r_min": 0.12,
+   "r_max": 0.6,
+   "direction": 0.0,
+   "resting": 0.0,
+   "bend": 0.0,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "",
+   "single": "",
+   "small": "",
+   "clean": true,
+   "variants": []
+  }
+ },
+ "inputs": {
+  "point": [
+   0.41203703703703703,
+   0.6453125
+  ],
+  "seed": 1,
+  "offset_s": 0.0,
+  "cue": "clip"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "ainvfxfluid, a tall clean flame rising from a point, a bright core and licking edges, isolated on a pure black background",
+  "guide_scale": 0.746
+ },
+ "bending": {
+  "track": "hand_track.json",
+  "mask": "hand_mask.npz",
+  "k_hit": 57,
+  "tap_frame": 40,
+  "aim": null,
+  "k_launch": 57,
+  "ignition": 11,
+  "offset": 46,
+  "lag_frames": 5,
+  "snap": {
+   "cue": 57,
+   "motion": 39,
+   "frame": 57,
+   "used": "cue",
+   "mismatch": false
+  },
+  "hits": [
+   {
+    "frame": 57,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 57,
+     "motion": 39,
+     "frame": 57,
+     "used": "cue",
+     "mismatch": false
+    }
+   },
+   {
+    "frame": 60,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 60,
+     "motion": 39,
+     "frame": 60,
+     "used": "cue",
+     "mismatch": false
+    }
+   }
+  ],
+  "ref": {
+   "xy": [
+    960.0,
+    781.59
+   ],
+   "dir": [
+    0.0,
+    -1.0
+   ],
+   "scale": 268.43
+  },
+  "loud_ref": 0.5513,
+  "held": null,
+  "performed_again": null,
+  "instant": null,
+  "camera": "handheld: thrown fire moves with the room",
+  "charge": {
+   "from": 35,
+   "release": 57,
+   "seconds": 0.92
+  }
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 58.8
+}

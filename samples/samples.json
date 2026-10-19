@@ -32,6 +32,28 @@
   }
  },
  "plates": {
+  "hand_walk.mp4": {
+   "title": "Your hand: a flame through the house",
+   "point": [
+    0.412,
+    0.645
+   ],
+   "hand": {
+    "frame": 40
+   },
+   "note": "the author's own hand, walking from a hallway into a kitchen in one take; its flame was made ahead of time: hold your own fffff and it burns as long as you do, with no GPU"
+  },
+  "hand_punch.mp4": {
+   "title": "Your hand: a punch",
+   "point": [
+    0.575,
+    0.42
+   ],
+   "hand": {
+    "frame": 68
+   },
+   "note": "the author's own punch, filmed on a phone; its fireball was made ahead of time: time your own BOOM to the punch with no GPU"
+  },
   "hand_palm.mp4": {
    "title": "Your hand: open palm",
    "point": [

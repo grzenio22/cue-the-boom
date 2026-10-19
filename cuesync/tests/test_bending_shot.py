@@ -503,3 +503,15 @@ def test_an_element_made_ahead_for_a_close_up_hand_plays_as_big_as_a_render_for_
     assert 2.5 < c < 2.8  # (486 px wanted against 182)
     assert library_size("burst", 268.0, 1080, 268.0, 1080) == pytest.approx(1.0)  # its own hand: as rendered
     assert library_size("jet", 256.0, 1088, 268.0, 1080) == pytest.approx(0.96, abs=0.02)  # a jet was capped alike
+
+
+def test_a_slow_catching_held_render_played_again_reaches_its_body_at_once():
+    """A palm's flame that took 1.4 s to catch in its own take was still a candle when a new, short fffff ended: played
+    again, a render slower than GROW_FAST to catch runs through its catching in GROW_FAST frames, then on from there."""
+    from cuesync.bending import GROW_FAST, held_frames
+
+    ign, rel, end = 10, 100, 100
+    frames = [held_frames(d, ign, rel, end, hold=20, grown=40)[0][0] for d in range(20)]
+    assert frames[0] == ign and frames[GROW_FAST] == 40  # caught in GROW_FAST frames...
+    assert frames[19] == 40 + 19 - GROW_FAST and all(b > a for a, b in zip(frames, frames[1:]))  # ...then on, in order
+    assert [held_frames(d, ign, rel, end, hold=20, grown=13)[0][0] for d in range(20)] == list(range(ign, ign + 20))

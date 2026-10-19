@@ -69,7 +69,9 @@ function HandChips({ job }: { job: JobStatus }) {
     <div className="row">
       <span className="chip">{b.instant ? "instant: an LTX-2.5 element rendered ahead of time, carried on your hand (no GPU)"
         : b.performed_again ? "performed again on the same render: no new render"
-        : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)` : "made, not rendered: an air blast"}</span>
+        : job.effect === "smoke_puff" || r.render.prompt?.startsWith("(made") ? "made, not rendered: an air blast"
+        : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)`
+        : "rendered over black ahead of time on open weights (LTX-2.5)"}</span>
       <span className="chip">carried on your hand frame by frame, and lighting it from where it is</span>
       {b.hits.length > 1 && <span className="chip">{b.hits.length} hits, each on its own strike, as big as it was loud</span>}
       {b.snap.used === "motion" && <span className="chip">launched on your hand&apos;s strike</span>}
