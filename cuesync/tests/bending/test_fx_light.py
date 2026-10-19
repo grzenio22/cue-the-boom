@@ -94,8 +94,9 @@ def test_light_is_strong_on_the_hand_and_weak_elsewhere():
     plate, element, track, matte = scene(n=1)
     plate[:] = 0.2  # a flat grey wall: only the light differs
     added = (fx.light_plate(plate, element, track, matte) - plate)[0] @ fx._LUMA
-    s, (x0, y0), (ux, uy) = track["scale"][0], track["xy"][0], track["dir"][0]
-    px, py = x0 + fx.PUSH * s * ux, y0 + fx.PUSH * s * uy
+    s = track["scale"][0]
+    y = element[0] @ fx._LUMA  # round the flame's own middle
+    py, px = (np.indices(y.shape) * y).reshape(2, -1).sum(1) / y.sum()
     r = np.hypot(np.arange(W)[None, :] - px, np.arange(H)[:, None] - py)
     ring = (r > 1.0 * s) & (r < 1.5 * s) & (_ahead(track, 0) > -fx.FEATHER * s)
     on, off = ring & (matte[0] > 0.99), ring & (matte[0] == 0)
@@ -103,6 +104,57 @@ def test_light_is_strong_on_the_hand_and_weak_elsewhere():
     assert added[on].mean() > 4 * added[off].mean() > 0
     far = (r > 5 * s) & (_ahead(track, 0) > 0)
     assert 0 < added[far].max() < 0.25 * added[on].mean()  # light still reaches far, faintly
+
+
+def test_the_light_comes_from_where_the_flame_is():
+    """A fireball lifting off the palm leaves it dimmer; a flame off to one side lights what is under it, not what is
+    as far from the hand on the other side (a light at the hand lit both alike)."""
+    plate, element, track, matte = scene(n=1)
+    plate[:] = 0.2
+    s, (x0, y0), (ux, uy) = track["scale"][0], track["xy"][0], track["dir"][0]
+    palm = (int(x0 - 0.6 * s * ux), int(y0 - 0.6 * s * uy))
+
+    def lit_at(centres, where):
+        el = np.zeros_like(element)
+        for c in centres:
+            cv2.circle(el[0], tuple(int(v) for v in c), int(0.5 * s), (0.9, 0.5, 0.1), -1)
+        return float(((fx.light_plate(plate, el, track, matte) - plate)[0] @ fx._LUMA)[where[1], where[0]])
+
+    near = lit_at([(x0 + 0.8 * s * ux, y0 + 0.8 * s * uy)], palm)
+    lifted = lit_at([(x0 + 2.5 * s * ux, y0 + 2.5 * s * uy)], palm)
+    assert near > 2.5 * lifted > 0
+    a, b = (0.15 * W, 0.3 * H), (0.85 * W, 0.3 * H)  # the flame at a; b mirrors it across the hand
+    under_a, under_b = (int(a[0]), int(a[1] + s)), (int(b[0]), int(b[1] + s))
+    track_up = dict(track, xy=[[W / 2, 0.9 * H]], dir=[[0.0, -1.0]])  # (the hand below both: nothing is past it)
+    side = np.zeros_like(element)
+    cv2.circle(side[0], tuple(int(v) for v in a), int(0.5 * s), (0.9, 0.5, 0.1), -1)
+    lit = (fx.light_plate(plate, side, track_up, None) - plate)[0] @ fx._LUMA
+    assert lit[under_a[1], under_a[0]] > 4 * lit[under_b[1], under_b[0]]
+
+
+def test_a_plates_white_is_where_the_camera_puts_white():
+    plate = np.full((2, 90, 160, 3), 0.002, np.float32)  # black velvet, and a lit hand the brightest thing in it
+    plate[:, 30:60, 60:100] = 0.15
+    assert fx.plate_white(plate) == fx.EXPOSED_WHITE  # the hand is not white paint
+    assert fx.plate_white(np.zeros_like(plate)) == fx.EXPOSED_WHITE
+    plate[:, :20] = 1.3  # a plate with highlights brighter than that: its own
+    assert fx.plate_white(plate) == pytest.approx(1.3, rel=0.01)
+
+
+def test_a_warm_key_light_is_partly_taken_out_of_what_the_fire_lights():
+    """Skin under a warm key reads as red paint; the fire's light on it is kept from going salmon (KEY_WB), and a
+    surface in shadow still shows its texture when lit (SHADOW_ALBEDO)."""
+    plate = np.full((2, 90, 160, 3), 0.002, np.float32)
+    plate[:, 30:60, 60:100] = (0.31, 0.10, 0.066)  # the two-palm plate's skin
+    tint = fx.plate_tint(plate)
+    assert float(tint @ fx._LUMA) == pytest.approx(1.0, abs=1e-4) and tint[0] > tint[1] > tint[2]
+    assert np.allclose(fx.plate_tint(np.zeros_like(plate)), 1.0)
+    skin = fx.albedo(plate[0, 40, 80], fx.plate_white(plate), tint)
+    raw = plate[0, 40, 80] / fx.plate_white(plate)
+    assert skin[1] / skin[0] > raw[1] / raw[0]  # less red than the key light painted it
+    dark = np.float32([[0.002, 0.002, 0.002], [0.004, 0.004, 0.004]])
+    a = fx.albedo(dark, fx.plate_white(plate), np.ones(3, np.float32))
+    assert a[1, 0] > 1.3 * a[0, 0] > 0  # a fold a little lighter in the shadow stays lighter under the fire
 
 
 def test_light_breathes_with_the_element_and_has_its_colour():
@@ -154,12 +206,12 @@ def test_light_in_place_matches():
 
 def test_a_clip_done_in_chunks_matches_it_done_whole():
     plate, element, track, matte = scene()
-    white = fx.plate_white(plate)
-    whole = fx.light_plate(plate, element, track, matte, white=white)
+    white, tint = fx.plate_white(plate), fx.plate_tint(plate)
+    whole = fx.light_plate(plate, element, track, matte, white=white, tint=tint)
     for a in (1, 5):  # chunks overlapping their neighbours by a frame: the frames inside them match exactly
         part = fx.light_plate(plate[a - 1:a + 5], element[a - 1:a + 5], {k: v[a - 1:a + 5] if isinstance(v, list) else v
                                                                           for k, v in track.items()}, matte[a - 1:a + 5],
-                              white=white)
+                              white=white, tint=tint)
         np.testing.assert_array_equal(part[1:-1], whole[a:a + 4])
     alpha = np.clip(element.max(-1) / 0.3, 0, 1)
     np.testing.assert_array_equal(np.concatenate([fx.heat_haze(plate[a:a + 5], alpha[a:a + 5], 3, frame0=a)

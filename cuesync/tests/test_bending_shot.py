@@ -118,6 +118,93 @@ def test_a_bending_shot_is_performed_again_with_no_new_render(tmp_path, make_vid
     assert res.receipt["effect"]["id"] == "fire_burst"  # the element's own effect, whatever the new take sounds like
 
 
+def test_performing_again_puts_a_render_of_another_size_where_the_first_shot_did(tmp_path, make_video, make_wav):
+    """A 96 px tall plate renders at 128 (as 1080 renders at 1088): the render is placed by its pose. Its receipt must
+    say where the emitter is in the render as saved, or performing it again moves the fire off the hand."""
+    w, h, n = 256, 96, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30))
+    sr = 48000
+    t = np.arange(int(0.25 * sr)) / sr
+    x = np.random.default_rng(3).normal(0, 0.001, 3 * sr).astype(np.float32)
+    x[sr: sr + t.size] += (0.6 * np.sin(2 * np.pi * 120 * t) * np.exp(-6 * t)).astype(np.float32)
+    voice = make_wav(tmp_path, x, sr)
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (60.0, 70.0), d=(0.0, -1.0))))
+    spec = ShotSpec(plate=plate, voice=voice, effect="fire_burst", point=(60 / w, 70 / h), mode="scene",
+                    plate_size=(w, h), max_plate_s=3.0)
+    first = make_bending_shot(spec, GuideAsElement(), tmp_path / "one", track_path)
+    again = make_bending_shot(spec, GuideAsElement(), tmp_path / "again", track_path, element_from=first.out_dir)
+    k = first.receipt["bending"]["hits"][0]["frame"] + 4
+    base = read_video(plate).frames[k].astype(float).mean(-1)
+
+    def fire_x(path):
+        f = np.maximum(read_video(path).frames[k].astype(float).mean(-1) - base - 20, 0)
+        return float((f * np.arange(w)).sum() / f.sum())
+
+    assert abs(fire_x(again.composite) - fire_x(first.composite)) < 2
+
+
+def test_a_burst_on_a_portrait_clip_is_rendered_landscape_and_carried_onto_the_hand(tmp_path, make_video, make_wav):
+    """On a portrait canvas the model drew a narrow fountain of sparks for a fireball: a burst renders landscape, and
+    still lands on the hand."""
+    w, h, n = 128, 256, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30))
+    sr = 48000
+    t = np.arange(int(0.25 * sr)) / sr
+    x = np.random.default_rng(3).normal(0, 0.001, 3 * sr).astype(np.float32)
+    x[sr: sr + t.size] += (0.6 * np.sin(2 * np.pi * 120 * t) * np.exp(-6 * t)).astype(np.float32)
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (40.0, 200.0), d=(0.0, -1.0))))
+    r = GuideAsElement()
+    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, sr), effect="fire_burst", point=(40 / w, 200 / h),
+                    mode="scene", plate_size=(w, h), max_plate_s=3.0)
+    res = make_bending_shot(spec, r, tmp_path / "shot", track_path)
+    guide = read_video(tmp_path / "shot" / "guide.mp4").frames
+    assert guide.shape[2] > guide.shape[1]  # landscape
+    k = res.receipt["bending"]["hits"][0]["frame"] + 4
+    fire = np.maximum(read_video(res.composite).frames[k].astype(float).mean(-1) - 60, 0)
+    ys, xs = np.nonzero(fire)
+    assert xs.size and abs(float(np.average(xs, weights=fire[ys, xs])) - 40) < 20  # above the hand, where it was tapped
+    assert float(np.average(ys, weights=fire[ys, xs])) < 200
+
+
+def test_a_hit_plays_as_big_as_it_is_loud_in_db():
+    """The cue's envelope is in dB (54 dB over 0..1): a "pf" 12 dB under the "BOOM" plays about half its size."""
+    from cuesync.bending import hit_looks
+
+    (g0, s0), (g1, s1) = hit_looks([0.9 - 12 / 54, 0.9])
+    assert (g1, s1) == (1.0, 1.0)
+    assert 0.45 <= s0 <= 0.55 and s0 < g0 < 1.0
+
+
+def test_a_hand_that_leaves_the_frame_is_held_where_it_went_out():
+    from cuesync.bending import left_frame
+
+    tr = track_of(10, 200, 100, lambda t: (100 - 30 * t, 50), d=(-1.0, 0.0), scale=20.0)
+    tr["dir"][6:] = [[1.0, 0.0]] * 4  # the trackers' guesses once it is gone: turned round
+    held, gone = left_frame(tr, 200, 100)
+    assert list(gone) == [0, 0, 0, 0, 1, 2, 3, 4, 5, 6]  # out past half a hand (x < -10) from frame 4
+    assert held["xy"][9] == held["xy"][3] and held["dir"][9] == [-1.0, 0.0]
+
+
+def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav):
+    """Added alone, fire on a white wall went white on white; its soot keeps it orange."""
+    w, h, n = 256, 128, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (235, 235, 230))
+    sr = 48000
+    t = np.arange(int(0.25 * sr)) / sr
+    x = np.random.default_rng(3).normal(0, 0.001, 3 * sr).astype(np.float32)
+    x[sr: sr + t.size] += (0.6 * np.sin(2 * np.pi * 120 * t) * np.exp(-6 * t)).astype(np.float32)
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (128.0, 100.0), d=(0.0, -1.0))))
+    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, sr), effect="fire_burst", point=(0.5, 100 / h), mode="scene",
+                    plate_size=(w, h), max_plate_s=3.0)
+    res = make_bending_shot(spec, GuideAsElement(), tmp_path / "shot", track_path)
+    k = res.receipt["bending"]["hits"][0]["frame"] + 4
+    f = read_video(res.composite).frames[k].astype(int)
+    assert (f[..., 0] - f[..., 2]).max() > 80  # orange against the white, somewhere
+
+
 def test_an_air_blast_is_made_not_rendered_and_is_gone_in_half_a_second():
     from cuesync.bending import air_puff
 

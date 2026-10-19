@@ -2,12 +2,13 @@
 
 In element bending the effect is rendered over black with its emitter held still, then warped onto the tracked hand
 (WP3). The light the model baked into that render was thrown from where the hand was when it rendered, so none of it
-is kept: the shot is lit again here, deterministically, from the track. A point light sits half a hand in front of
-the emitter. Its brightness is the warped element's own (its luminance summed, so the light flickers exactly as the
-flame does, never with a random wiggle) and its colour the element's, held to what a flame (2000-2700 K) or steam (a
-cool white) can throw. A surface at distance r from a glowing ball of summed radiance P and radius a receives
-P / (pi (r^2 + a^2)) (exact for a sphere, softened inside it): the hand and arm (the hand matte, WP2) take that
-strongly, and everything else weakly and widely, as a wall a few hands behind the flame would (its depth added to r).
+is kept: the shot is lit again here, deterministically, from the warped element itself. Every lit pixel of the flame
+is a little lamp: a surface at distance r in the picture and d in front of it receives its luminance over
+pi (r^2 + d^2), summed over the whole flame (a convolution of the flame's own image). So the light moves where the
+flame is (a fireball lifting off the palm leaves it dimmer), falls off from its root, flickers exactly as the flame
+does, and two flames light what is near each. The hand and arm (the hand matte, WP2) sit HAND_DEPTH of the flame's
+radius from it and take it strongly; everything else stands FAR behind it, as a wall a few hands back would, and takes it weakly
+and widely. Its colour is the element's, held to what a flame (2000-2700 K) or steam (a cool white) can throw.
 Nothing is lit behind the hand: past the hand, in the half-space the emitter faces away from, the light is 0. It is
 added in linear light as the plate's own colour times the light (a surface reflects what falls on it), so the plate
 keeps its texture under it and nothing ever gets darker. Smoke throws no light; it only veils a little.
@@ -40,22 +41,26 @@ THREADS = min(4, os.cpu_count() or 1)  # frames are done independently: this cha
 _GRAIN, _HAZE, _AIR, _SHAKE = 1, 2, 3, 4  # mixed into each seed, so one seed gives each effect its own noise
 
 # The light. Distances are in hand scales (the track's |wrist - middle knuckle|), so they grow as the hand nears the
-# camera. A surface of the plate's colour c at distance r from the light gains c / white * P / (pi (r^2 + R^2)),
-# i.e. c / white * level / (1 + (r / R)^2) with level = P / (pi R^2): on the hand R is the element's own radius (at
-# most NEAR hand scales: the brief's 1 / (1 + (r / 1.5 scale)^2) once the element is as big as WP3 renders a
-# fireball, steeper for a smaller one, as a candle lights only the fingers near it); on the rest of the shot R = FAR.
-PUSH = 0.5  # the light sits this far in front of the emitter, along its direction (inside the flame, not the skin)
-NEAR, NEAR_MIN, FAR = 1.0, 0.3, 2.5  # the hand's light: the element's radius, held to [NEAR_MIN, NEAR]; the room's:
-# as if it stood FAR behind the flame (a wall about 60 cm behind a hand), so weak but reaching across the frame
-HAND_GAIN, ROOM_GAIN = 3.5, 2.0  # over a matte-white ball's light (fitted by eye on the cupped-palm plate): the
-# critiques ask for light that is bright at the blow and reaches further than first instinct
-FEATHER = 1.0  # behind the emitter, off the hand, the light fades out over this distance (soft, so the edge of the
+# camera. A surface of the plate's colour c gains c / white * gain * sum_p Y(p) / (pi (r^2 + d^2)) over the flame's
+# pixels p at distance r: d is how far in front of the flame it stands.
+HAND_DEPTH, FAR = 0.5, 2.5  # the hand: half the flame's own radius from it (the palm right under a fireball takes about
+# twice its brightness whatever its size; a candle lights only the skin next to it); the room: FAR hand scales behind
+# the flame (a wall about 60 cm behind a hand), so weak but reaching across the frame
+HAND_GAIN, ROOM_GAIN = 2.0, 2.0  # over that physical light (fitted by eye on the cupped-palm and two-palm plates)
+EXPOSED_WHITE = 0.8  # linear: where a camera puts a white surface (and cuesync.media puts an HDR clip's diffuse white).
+# A plate's white is this, or its own brightest if brighter: on a dark stage the lit hand is the brightest thing, and
+# read as white paint it took several times the light skin does; on a white wall, read as half white, skin went black
+FIELD_MAX = 480  # px: the light is worked out on a copy of the element at most this long (it is smooth)
+KEY_WB = 0.3  # the plate's own key light taken this far out of a surface's colour before the fire's light falls on it:
+# skin under a warm key read as red paint, and fire on it went salmon instead of gold
+SHADOW_ALBEDO = 0.5  # a surface in shadow reflects at least this much of how bright it reads in the picture (gamma):
+# a black suit off the key light is not black paint, and lit by a fireball its folds show
+FEATHER = 2.0  # behind the emitter, off the hand, the light fades out over this distance (soft, so the edge of the
 # hand's shadow is no line across the wall); past it nothing is lit
 ARM_HALF = 0.5  # with no matte: the hand and forearm are taken to be a band this wide either side of the line back
 MAX_LIGHT = 4.0  # the light may brighten a surface this much at most (+2.3 stops: a hand inside a fireball)
-ALBEDO_FLOOR = 0.01  # a pixel too dark to read a colour from still reflects this much (a shadow is not black paint)
-MIN_WHITE = 0.05  # linear: a plate's white is never taken to be darker than this (a black plate is not white paint)
-GLOW, GLOW_RADIUS = 0.07, 1.0  # the flame's own light scattered in the air and lens: a wide halo, visible on black (the
+ALBEDO_FLOOR = 0.005  # a pixel too dark to read a colour from still reflects this much (a shadow is not black paint)
+GLOW, GLOW_RADIUS = 0.035, 1.0  # the flame's own light scattered in the air and lens: a wide halo, visible on black (the
 # critiques: without it the flame sat on the plate like a sticker; no lens flares), blurred by this many of its radii
 # What each fluid throws: the colour temperatures its light is held to, how bright it is against fire (steam only
 # scatters light, it makes none) and how much it glows. Smoke throws none and only veils (SMOKE_*).
@@ -228,30 +233,92 @@ def element_light(element_lin: np.ndarray, fluid: str = "fire",
 
 
 def plate_white(plate_lin: np.ndarray, frames: int = 8) -> float:
-    """The plate's white, in linear light: about what a white surface under the scene's own light reads (the 99.5th
-    percentile of luminance over a few frames at a quarter size, never under MIN_WHITE). The plate over it is read as
-    each surface's colour, which is what the light multiplies."""
+    """The plate's white, in linear light: what a white surface under the scene's own light reads, EXPOSED_WHITE as
+    a camera exposes it, or the plate's own brightest if that is brighter (the 99.9th percentile of luminance over a
+    few frames at a quarter size). The plate over it is read as each surface's colour, which is what the light
+    multiplies."""
     n, h, w = plate_lin.shape[:3]
     picks = np.unique(np.linspace(0, n - 1, min(n, frames)).round().astype(int))
     tops = [np.percentile(_lum(cv2.resize(plate_lin[f], (max(1, w // 4), max(1, h // 4)), interpolation=cv2.INTER_AREA)),
-                          99.5) for f in picks]
-    return float(max(np.median(tops), MIN_WHITE))
+                          99.9) for f in picks]
+    return float(max(np.median(tops), EXPOSED_WHITE))
+
+
+def plate_tint(plate_lin: np.ndarray, frames: int = 8) -> np.ndarray:
+    """The colour of the plate's own key light, at luminance 1: the mean colour of its brightest surfaces (the top
+    half percent of luminance over a few frames at a quarter size). White for a plate with no light to read."""
+    n, h, w = plate_lin.shape[:3]
+    picks = np.unique(np.linspace(0, n - 1, min(n, frames)).round().astype(int))
+    tops = []
+    for f in picks:
+        px = cv2.resize(plate_lin[f], (max(1, w // 4), max(1, h // 4)), interpolation=cv2.INTER_AREA).reshape(-1, 3)
+        y = _lum(px)
+        tops.append(px[y >= np.percentile(y, 99.5)].mean(0))
+    c = np.maximum(np.median(tops, axis=0), 0).astype(np.float32)
+    y = float(c @ _LUMA)
+    return c / y if y > 1e-6 else np.ones(3, np.float32)
+
+
+def albedo(plate_lin: np.ndarray, white: float, tint: np.ndarray) -> np.ndarray:
+    """Each surface's colour as the light multiplies it: the plate over its white, at least SHADOW_ALBEDO of how bright
+    it reads in the picture (a surface in shadow is not black paint), the key light's tint partly taken out."""
+    p = np.maximum(plate_lin, 0)
+    a = np.maximum(p * np.float32(1 / white), np.float32(SHADOW_ALBEDO) * np.minimum(p, 1) ** np.float32(1 / 2.2))
+    return a / (np.maximum(tint, 1e-3) ** np.float32(KEY_WB)).astype(np.float32) + np.float32(ALBEDO_FLOOR)
+
+
+def spread(y: np.ndarray, depths: list[float]) -> list[np.ndarray]:
+    """For each depth d (px of ``y``'s grid): at every pixel x, the light the glowing image ``y`` (h, w, luminance)
+    throws onto a surface d in front of it, sum_p y(p) / (pi (|x - p|^2 + d^2)). A convolution, by FFT, padded so
+    nothing wraps round the frame's edge."""
+    h, w = y.shape
+    hh, ww = 2 * h, 2 * w
+    dy = np.minimum(np.arange(hh), hh - np.arange(hh)).astype(np.float64)[:, None] ** 2
+    dx = np.minimum(np.arange(ww), ww - np.arange(ww)).astype(np.float64)[None, :] ** 2
+    f = np.fft.rfft2(y.astype(np.float64), (hh, ww))
+    return [np.maximum(np.fft.irfft2(f * np.fft.rfft2(1.0 / (np.pi * (dx + dy + d * d))), (hh, ww))[:h, :w], 0)
+            .astype(np.float32) for d in depths]
+
+
+def light_fields(element_lin: np.ndarray, s: np.ndarray, size: tuple[int, int]) -> tuple[np.ndarray, np.ndarray, float]:
+    """Per frame, the element's light on the hand (HAND_DEPTH of its radius from it, at most a hand) and on the room
+    (FAR hands behind it), before gain: two (n, hf, wf) fields on a grid at most FIELD_MAX long, and that grid's px per
+    plate px. ``s`` is the hand scale per frame in plate px, ``size`` the plate's (h, w). Smoothed over 2 frames, zero-phase, as the flame's colour is,
+    so light and flame breathe together and the light never lags."""
+    n, he, we = element_lin.shape[:3]
+    k = min(1.0, FIELD_MAX / float(max(he, we)))
+    hf, wf = max(1, int(round(he * k))), max(1, int(round(we * k)))
+    per = np.sqrt(hf * wf / float(size[0] * size[1]))  # field px per plate px
+    hand, room = np.zeros((n, hf, wf), np.float32), np.zeros((n, hf, wf), np.float32)
+
+    def one(f: int) -> None:
+        y = _lum(element_lin[f])  # (each pixel's mean luminance: the sum in the grid's own px is the same light)
+        y = y if (hf, wf) == (he, we) else cv2.resize(y, (wf, hf), interpolation=cv2.INTER_AREA)
+        total = float(y.sum(dtype=np.float64))
+        if total <= 0:
+            return
+        r = np.sqrt(total ** 2 / max(float(np.dot(y.ravel(), y.ravel())), 1e-12) / np.pi)  # its radius (element_light's)
+        hand[f], room[f] = spread(y, [max(HAND_DEPTH * min(r, s[f] * per), 1.0), FAR * s[f] * per])
+
+    _each(n, one)
+    return _smooth2(hand).astype(np.float32), _smooth2(room).astype(np.float32), per
 
 
 def light_plate(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, mask: np.ndarray | None = None,
                 fluid: str = "fire", seed: int = 0, out: np.ndarray | None = None,
-                white: float | None = None) -> np.ndarray:
+                white: float | None = None, tint: np.ndarray | None = None) -> np.ndarray:
     """The plate lit by the element: float32 [T, H, W, 3], linear. Never darker than ``plate_lin`` anywhere (fire,
     steam); for smoke, a slight veil where it is thick and no light.
 
-    ``element_lin`` is the warped element over black [T, h, w, 3] (any size: only its light is used), ``track`` the
-    hand_track.json dict, ``mask`` the hand matte [T, H, W] (float 0..1 or uint8) or None (then a band back from the
-    emitter stands in for the arm). The light sits PUSH hands in front of the emitter; it lights the matte strongly
-    (radius: the element's own, at most NEAR hands) and the whole shot weakly (radius FAR); off the matte, behind the
+    ``element_lin`` is the warped element over black [T, h, w, 3] (any size of the same frame: only its light is used),
+    ``track`` the hand_track.json dict, ``mask`` the hand matte [T, H, W] (float 0..1 or uint8) or None (then a band
+    back from the emitter stands in for the arm). Every pixel of the flame lights what is near it (``spread``): the
+    matte strongly (HAND_DEPTH of the flame's radius from it), the whole shot weakly (FAR hands behind it); off the matte, behind the
     emitter's plane, it fades out over FEATHER hand scales and is exactly 0 beyond (the hand's far side). ``seed`` is
     unused: the light has no random part, its flicker is the element's own. ``out`` may be ``plate_lin`` itself, to
-    light it in place. A clip lit in chunks: pass each the whole plate's ``plate_white`` as ``white`` and overlap the
-    chunks by a frame (the light is smoothed over its neighbours), and each frame is lit as in the whole clip."""
+    light it in place. A clip lit in chunks: pass each the whole plate's ``plate_white`` and ``plate_tint`` as ``white``
+    and ``tint`` and overlap the chunks by a frame (the light is smoothed over its neighbours), and each frame is lit as
+    in the whole clip."""
     n, h, w = plate_lin.shape[:3]
     if len(element_lin) != n or (mask is not None and len(mask) != n):
         raise ValueError(f"the plate has {n} frames, the element {len(element_lin)}, the mask "
@@ -262,25 +329,24 @@ def light_plate(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, mas
         return _veil(plate_lin, element_lin, s, out)
     look = FLUIDS[fluid]
     power, radius, colour = element_light(element_lin, fluid, size=(h, w))
-    power *= look["gain"] / np.pi
-    radius = np.clip(radius, NEAR_MIN * s, NEAR * s).astype(np.float32)
+    hand_f, room_f, _ = light_fields(element_lin, s, (h, w)) if look["gain"] > 0 else (None, None, 1.0)
     white = plate_white(plate_lin) if white is None else float(white)
+    tint = plate_tint(plate_lin) if tint is None else np.asarray(tint, np.float32)
     xs, ys = np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32)[:, None]
 
     def one(f: int) -> None:
-        if power[f] <= 0:
+        if power[f] <= 0 or look["gain"] <= 0:
             out[f] = plate_lin[f]
             return
         (x0, y0), (ux, uy), sf = xy[f].astype(np.float32), u[f].astype(np.float32), np.float32(s[f])
-        r2 = (xs - (x0 + PUSH * sf * ux)) ** 2 + (ys - (y0 + PUSH * sf * uy)) ** 2
-        room = (ROOM_GAIN * power[f]) / (r2 + (FAR * sf) ** 2)
-        hand = (HAND_GAIN * power[f]) / (r2 + radius[f] ** 2)
+        room = cv2.resize(room_f[f], (w, h), interpolation=cv2.INTER_LINEAR) * np.float32(ROOM_GAIN * look["gain"])
+        hand = cv2.resize(hand_f[f], (w, h), interpolation=cv2.INTER_LINEAR) * np.float32(HAND_GAIN * look["gain"])
         seen = np.clip(1 + ((xs - x0) * ux + (ys - y0) * uy) * (1 / (FEATHER * sf)), 0, 1)  # 0: past the hand
         m = _matte(mask, f) if mask is not None else arm_matte((x0, y0), (ux, uy), sf, w, h)
         reach = seen + m * (1 - seen)  # where light can get to: in front of the hand, and the hand itself
         light = np.minimum(room * reach + hand * m, MAX_LIGHT)
         k = light[..., None] * colour[f]  # the light's colour and strength, per pixel
-        lit = plate_lin[f] + (np.maximum(plate_lin[f], 0) * (1 / white) + ALBEDO_FLOOR) * k
+        lit = plate_lin[f] + albedo(plate_lin[f], white, tint) * k
         if GLOW > 0:  # the faint halo the flame casts in the air around it, kept off the hand's far side too
             q = 8
             small = cv2.resize(element_lin[f], (max(1, w // q), max(1, h // q)), interpolation=cv2.INTER_AREA)
