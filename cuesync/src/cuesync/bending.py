@@ -176,21 +176,27 @@ def anchored(track: dict, k: int, tap: tuple[float, float], aim: float | None = 
     tap kept as an offset from them in the hand's own frame (along its direction and across it, in hand sizes), so
     it moves, turns and scales with the hand; on the tracker's emitter when the track has no landmarks. A tracker's
     palm point is the landmarks' middle, which for an upturned palm seen from the side lies inside the hand, not on
-    the palm the fire should rise from. ``aim``: the studio's aim arrow on frame ``k`` (degrees clockwise from up);
-    the direction turns by the same angle on every frame, so the aim too is carried with the hand."""
+    the palm the fire should rise from. A tap on a frame the hand wasn't seen on (blurred by a finger gun's recoil,
+    say) goes on the part of the hand nearest it on the nearest frame it was seen: measured from the hand where it
+    was before or after, it landed 0.7 hands off the fingertip. ``aim``: the studio's aim arrow on frame ``k`` (degrees
+    clockwise from up); the direction turns by the same angle on every frame, so the aim too is carried with the
+    hand."""
     k = int(np.clip(k, 0, len(track["xy"]) - 1))
     p, u, s = emitter_at(track, k)
     tap_ = np.asarray(tap, np.float64)
     L = filled_landmarks(track)
+    lms = track.get("landmarks") or []
+    seen = k < len(lms) and lms[k] is not None
     if L is not None:
-        dist = np.linalg.norm(L[k] - tap_, axis=-1)
-        near = np.argsort(dist)[:CARRY_NEAREST]
+        k_ = k if seen else min((t for t, lm in enumerate(lms) if lm is not None), key=lambda t: abs(t - k))
+        dist = np.linalg.norm(L[k_] - tap_, axis=-1)
+        near = np.argsort(dist)[:CARRY_NEAREST if seen else 1]
         wts = 1.0 / (dist[near] + 0.05 * max(s, 1e-6)) ** 2
         wts = wts / wts.sum()
         base = [wts @ L[t][near] for t in range(len(L))]
     else:
         near, base = [], [emitter_at(track, t)[0] for t in range(len(track["xy"]))]
-    d = tap_ - base[k]
+    d = tap_ - base[k] if seen or L is None else np.zeros(2)
     a, b = float(d @ u) / max(s, 1e-6), float(d @ np.array([-u[1], u[0]])) / max(s, 1e-6)
     turn = 0.0 if aim is None else (aim - angle_of(u) + 180.0) % 360.0 - 180.0
     c, sn = math.cos(math.radians(turn)), math.sin(math.radians(turn))

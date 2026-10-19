@@ -1049,9 +1049,22 @@ def gate(chosen: list[dict | None], emitter: str, finger: tuple[int, int] | None
     T = len(chosen)
     labels = [c["label"] for c in chosen if c is not None]
     label = max(set(labels), key=labels.count) if labels else "Right"
-    good = np.array([c is not None for c in chosen])  # (whatever its label: following already prefers the same hand,
-    # and MediaPipe calls an upturned palm the other hand; dropped for that, a palm carried through a house was lost
-    # for 66 of its 161 frames)
+    # The other hand's label is kept where it is the same hand followed on: in a run of frames followed one after
+    # another that also has frames with this label (MediaPipe calls an upturned palm the other hand; dropped for that,
+    # a palm carried through a house was lost for 66 of its 161 frames). A run with only the other label is the other
+    # hand, or a false find taken up across a gap (one 41 frames off, kept, put a finger gun's track on the floor).
+    good = np.array([c is not None and c["label"] == label for c in chosen])
+    t = 0
+    while t < T:
+        if chosen[t] is None:
+            t += 1
+            continue
+        e = t
+        while e < T and chosen[e] is not None:
+            e += 1
+        if good[t:e].any():
+            good[t:e] = True
+        t = e
     sign = 1.0 if label == "Right" else -1.0
     pts = np.full((T, 2, 2), np.nan)
     scale = np.full(T, np.nan)

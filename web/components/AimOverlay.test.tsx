@@ -207,6 +207,16 @@ describe("carried", () => {
     expect(Math.hypot(c.xy[1][0] - 55, c.xy[1][1] - 50)).toBeLessThan(1); // curled: still on the fingertip, not in the air
     expect(c.xy[2]).toEqual(c.xy[1]); // lost: where it was last seen
   });
+  it("puts a tap on a frame the hand wasn't seen on onto the part of it nearest the tap, where it was seen nearest", () => {
+    const hand = Array.from({ length: 21 }, (_, j) => (j === 8 ? [60, 40, 0] : [50, 70 + j, 0]));
+    const t: HandTrack = {
+      W: 100, H: 100, xy: [[50, 70], [50, 70], [50, 70]], dir: [[0, -1], [0, -1], [0, -1]], scale: [10, 10, 10],
+      src: ["hold", "hold", "mp"], landmarks: [null, null, hand], // blurred until frame 2
+    };
+    const c = carried(t, 0, [0.6, 0.2]); // tapped above the fingertip on frame 0, where the hand was a blur
+    expect(c.xy[2][0]).toBeCloseTo(60); // on the fingertip, not 20 px above it in the air
+    expect(c.xy[2][1]).toBeCloseTo(40);
+  });
   it("says how much of the clip the hand was lost on", () => {
     expect(lostShare({ W: 1, H: 1, xy: [], dir: [], src: ["mp", "lost", "lost", "hold"] })).toBe(0.5);
   });

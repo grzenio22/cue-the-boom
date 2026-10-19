@@ -284,9 +284,11 @@ def test_gate_drops_a_jump_off_the_path_but_not_a_flipped_handedness():
     chosen[5] = det(hand((200.0 + 10 * 5, 250.0 - 70.0)))  # 0.9 sizes off the path
     for t in range(8, 13):  # the same hand followed on, MediaPipe calling it the other one (as it does an upturned palm)
         chosen[t] = det(hand((200.0 + 10 * t, 250.0)), label="Left")
+    chosen[14] = None
+    chosen[15] = det(hand((200.0 + 10 * 15, 250.0)), label="Left")  # alone across a gap, only the other label
     good, label = ht.gate(chosen, "index_tip")
     assert label == "Right"
-    assert list(np.flatnonzero(~good)) == [5]
+    assert list(np.flatnonzero(~good)) == [5, 14, 15]
 
 
 # ------------------------------------------------------------------ filling, and the whole track without MediaPipe

@@ -480,3 +480,15 @@ def test_a_small_flame_on_a_big_black_canvas_still_ignites():
     for i in range(6, 20):
         el[i, 150:150 + 2 * (i - 5), 190:196] = (255, 150, 40)  # a thin flame growing from frame 6
     assert ignition_frame(el, 3) is not None and 6 <= ignition_frame(el, 3) <= 9
+
+
+def test_a_tap_on_a_frame_the_hand_was_not_seen_on_goes_on_the_part_of_it_nearest():
+    """A finger gun's recoil blurred the hand on the tapped frame: measured from where the hand was first seen, the tap
+    landed 0.7 hands off the fingertip. It goes on the part of the hand nearest it, on the nearest frame it was seen."""
+    from cuesync.bending import anchored
+
+    hand = [[60.0, 40.0, 0.0] if j == 8 else [50.0, 70.0 + j, 0.0] for j in range(21)]
+    tr = track_of(3, 100, 100, lambda t: (50, 70), d=(0.0, -1.0), scale=10.0)
+    tr["src"], tr["landmarks"] = ["hold", "hold", "mp"], [None, None, hand]
+    a = anchored(tr, 0, (60.0, 20.0))  # tapped above the fingertip on frame 0, where the hand was a blur
+    assert np.allclose(a["xy"][2], (60, 40), atol=0.01) and a["anchor"]["on"] == [8]

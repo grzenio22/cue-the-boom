@@ -32,16 +32,20 @@ export function carried(track: HandTrack, k: number, tap: [number, number], aim:
   let last = lms.find((lm) => lm != null) ?? null;
   const L = last ? track.xy.map((_, t) => (last = lms[t] ?? last) as number[][]) : null;
   let base = (t: number): [number, number] => { const q = at(t); return [q.x, q.y]; };
+  // a tap on a frame the hand wasn't seen on goes on the part of it nearest the tap, on the nearest frame it was seen
+  const seen = lms[clamp(k)] != null;
+  let k2 = clamp(k), gap = Infinity;
+  if (!seen) lms.forEach((lm, t) => { if (lm && Math.abs(t - k) < gap) { gap = Math.abs(t - k); k2 = t; } });
   if (L) {
-    const near = L[clamp(k)].map((q, j) => ({ j, d: Math.hypot(q[0] - tx, q[1] - ty) }))
-      .sort((u, v) => u.d - v.d).slice(0, CARRY_NEAREST);
+    const near = L[k2].map((q, j) => ({ j, d: Math.hypot(q[0] - tx, q[1] - ty) }))
+      .sort((u, v) => u.d - v.d).slice(0, seen ? CARRY_NEAREST : 1);
     const w = near.map((e) => 1 / (e.d + 0.05 * p.s) ** 2), sum = w.reduce((u, v) => u + v, 0);
     base = (t) => {
       const lm = L[clamp(t)];
       return near.reduce<[number, number]>((acc, e, i) => [acc[0] + (w[i] / sum) * lm[e.j][0], acc[1] + (w[i] / sum) * lm[e.j][1]], [0, 0]);
     };
   }
-  const [bx, by] = base(k), dx = tx - bx, dy = ty - by;
+  const [bx, by] = base(k), dx = !L || seen ? tx - bx : 0, dy = !L || seen ? ty - by : 0;
   const a = (dx * p.ux + dy * p.uy) / p.s, b = (-dx * p.uy + dy * p.ux) / p.s; // along, across (y down)
   const turn = aim === null ? 0 : (wrap(aim - (Math.atan2(p.ux, -p.uy) * 180) / Math.PI) * Math.PI) / 180;
   const c = Math.cos(turn), sn = Math.sin(turn);
