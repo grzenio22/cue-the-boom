@@ -1110,10 +1110,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 out_[y0:y1, x0:x1] = cv2.GaussianBlur(out_[y0:y1, x0:x1], (0, 0), DEFOCUS * min(h, w) / 1080)
         return out_
 
+    faded: dict[int, float] = {}  # plate frame -> its element's strength as played (a held flame dying down: under 1)
+
     def element_at(t: int) -> np.ndarray | None:
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
         held out; None when none is on (before its build-up, after it ends)."""
-        acc = None
+        acc, strength = None, 0.0
         for k_, (off, gain, size) in enumerate(plays):
             e = t - off
             if held and e >= ign:  # held as long as the voice holds it, then let go
@@ -1126,6 +1128,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
                     continue
                 picks = [(e, 1.0)]
+            strength = max(strength, min(1.0, sum(wt for _, wt in picks)))
             grow = min(1.0, GROW_FROM + (1.0 - GROW_FROM) * max(0.0, e - ign + pre) / (pre + GROW_FRAMES))
             if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
                 grow = 1.0
@@ -1143,8 +1146,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             ember = ember_at(t)
             if ember is not None:
                 acc = ember if acc is None else np.maximum(acc, ember)
+                strength = 1.0  # (the ember sets its own strength by its gain)
         if acc is None:
             return None
+        faded[t] = strength
         E = acc
         if src[t] == "before":  # the hand hasn't come in yet
             return None
@@ -1230,6 +1235,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                     core = np.clip((cv2.GaussianBlur(fx._lum(E0), (0, 0), h / 1080) - c0) / (c1 - c0), 0.0, 1.0)
                     core = cv2.erode(core * core * (3.0 - 2.0 * core), np.ones((3, 3), np.uint8))
                     a_ = a_ + day * day * (3.0 - 2.0 * day) * core * (1.0 - a_)
+                a_ *= faded.get(i, 1.0)  # (the soot dies down with its flame: a flame faded to a tenth still hid the
+                # palm in full, and that darkening under its last faint yellow read as a grey-green ghost)
                 a_ = cv2.GaussianBlur(a_, (0, 0), 1.5 * h / 1080)
                 P[j] = P[j] * (1.0 - SOOT * a_)[..., None] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers

@@ -342,8 +342,8 @@
   {
    "type": "clip",
    "src": "runs/takes/live_feed/live_IMG_6660.mp4",
-   "start": 0.3,
-   "dur": 2.6,
+   "start": 0.6,
+   "dur": 2.3,
    "fill": true,
    "wave": true,
    "crop": [
@@ -353,10 +353,10 @@
     0.8625
    ],
    "audio_src": "runs\\demo_v10\\credits_crackle.wav",
-   "audio_at": 2.0,
+   "audio_at": 1.7,
    "pops": [
     [
-     0.75,
+     0.45,
      "fffff"
     ]
    ],

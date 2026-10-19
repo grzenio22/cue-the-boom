@@ -82,8 +82,8 @@ beats = [
     dict(type="image", src=str(V9 / "comfy.png"), dur=2.6, zoom=1.0, vo="pipe10b", vo_at=0.2),
     dict(type="image", src=str(V9 / "pipeline.png"), dur=3.0, zoom=1.0),
     # 9. end live: the studio's browser preview, fed the author's take (a webcam recording replaces it)
-    dict(type="clip", src="runs/takes/live_feed/live_IMG_6660.mp4", start=0.3, dur=2.6, fill=True, wave=True,
-         crop=[0, 0.3, 1, 0.8625], audio_src=str(V10 / "credits_crackle.wav"), audio_at=2.0, pops=[[0.75, "fffff"]],
+    dict(type="clip", src="runs/takes/live_feed/live_IMG_6660.mp4", start=0.6, dur=2.3, fill=True, wave=True,
+         crop=[0, 0.3, 1, 0.8625], audio_src=str(V10 / "credits_crackle.wav"), audio_at=1.7, pops=[[0.45, "fffff"]],
          pop_x=0.82, pop_y=0.4,
          headline="Try it live", subline="Your camera. Fire as you say it.",
          caption="Fed a phone clip and its sound: tracked live, flame rendered ahead.",
