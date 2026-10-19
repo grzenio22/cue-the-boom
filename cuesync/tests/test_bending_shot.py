@@ -659,3 +659,32 @@ def test_a_palm_flames_foot_comes_up_out_of_the_palm_unevenly_and_rises():
     row = f0[150 - int(FOOT * 50)]  # half way up its foot: broken, not a line
     assert row.std() > 0.05
     assert not np.allclose(foot_fade(box, (100, 150), (0.0, -1.0), 100.0, 5), f0)  # the noise rises with the flame
+
+
+def test_an_element_made_not_rendered_is_made_on_its_hit_with_no_renderer(tmp_path, make_video, make_wav, monkeypatch):
+    """An explosion (cuesync.bending.MADE) needs no render: its module makes it from the plate, the hand's track and
+    the voice's timeline, and the shot is written with its receipt as for a rendered element."""
+    from cuesync import explosion
+
+    w, h, n = 128, 256, 48
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (60, 55, 50))
+    sr = 48000
+    t = np.arange(int(0.25 * sr)) / sr
+    x = np.random.default_rng(3).normal(0, 0.001, 2 * sr).astype(np.float32)
+    x[sr // 2: sr // 2 + t.size] += (0.6 * np.sin(2 * np.pi * 120 * t) * np.exp(-6 * t)).astype(np.float32)
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (64.0, 160.0), d=(0.0, -1.0), gesture="Closed_Fist")))
+    el = np.full((40, 128, 128, 3), 4, np.uint8)
+    yy, xx = np.mgrid[:128, :128]
+    for k in range(5, 40):
+        el[k][(xx - 64) ** 2 + (yy - 64) ** 2 <= min(40, 4 + 5 * (k - 5)) ** 2] = (255, 160, 40)
+    monkeypatch.setattr(explosion, "library_element", lambda: el)
+    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, sr), effect="explosion", point=(64 / w, 160 / h),
+                    mode="scene", plate_size=(w, h), max_plate_s=2.0)
+    res = make_bending_shot(spec, None, tmp_path / "shot", track_path)
+    r = res.receipt
+    assert r["effect"]["made"] == "explosion" and r["effect"]["form"] == "fist" and r["render"]["seconds"] == 0.0
+    hit = r["bending"]["hits"][0]["frame"]
+    comp = read_video(res.composite).frames.astype(float).mean(axis=(1, 2, 3))
+    assert comp[hit] > comp[max(0, hit - 3)] + 15  # it goes off on its hit
+    assert res.final.exists() and (tmp_path / "shot" / "poster.jpg").exists()

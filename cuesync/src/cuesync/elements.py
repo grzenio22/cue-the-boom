@@ -23,6 +23,8 @@ FORMS = {  # element -> its forms (the hand picks one: cuesync.bending.bending_e
     "lightning": ("arc", "ball"),  # from the fingertips; crackling in an open palm
     "water": ("orb", "whip"),  # gathered into a ball over the palm; a stream that follows the hand
     "air": ("ball", "blast"),  # a spinning ball over the palm; a push of air out of it
+    "explosion": ("fist", "palm"),  # thrown ahead of a punch; bloomed past a thrust palm (a fireball rendered ahead,
+    # the rest made: cuesync.explosion)
 }
 
 

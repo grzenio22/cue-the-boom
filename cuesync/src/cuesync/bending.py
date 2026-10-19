@@ -1164,6 +1164,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         effect, why = bending_effect(h_["kind"], g, hits=len(hits), span_s=span, snap=snapped)
         effect = effect or "fire_burst"
         auto = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
+    if effect in MADE:  # lightning, water, air, an explosion: made here, not rendered over black
+        return made_shot(spec, out_dir, effect, plate, track, mask, c, env_all, snaps, looks, k_launch, tap_k, arrow,
+                         auto or picked, old, element_from, instant, track_path, mask_path, say, t0)
     eff = load_effect(effect)
     if eff.behaviour == "plume":  # a flame standing on the hand burns straight up, however the hand turns (it tipped over
         # sideways on a turning fist, like a lighter's never does)
@@ -1538,6 +1541,81 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                     "charge": None if not charge else {"from": int(charge[0]), "release": int(charge[1]),
                                                        "seconds": round((charge[1] - charge[0]) / FPS, 2)}},
         "auto": auto or picked, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
+    }
+    (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
+    say("done", 1.0, "Done")
+    return ShotResult(out_dir=out_dir, final=final_path, composite=comp_path, breakdown=None, receipt=receipt)
+
+
+MADE = {  # effect -> (its module, its form): elements made from the plate, the hand's track and the voice
+    # (cuesync.elements' contract), not rendered over black by LTX-2.5
+    "lightning_arc": ("lightning", "arc"), "lightning_ball": ("lightning", "ball"),
+    "water_orb": ("water", "orb"), "water_whip": ("water", "whip"),
+    "air_ball": ("air", "ball"), "air_blast": ("air", "blast"),
+    "explosion": ("explosion", "fist"),  # (a palm's when the hand is open on its strike)
+}
+MADE_FOLEY = {"explosion": ("fire", "burst")}  # its Foley as one of sfx_synth's (the others: the voice alone, for now)
+
+
+def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, mask: np.ndarray | None, c, env_all,
+              snaps: list[dict], looks: list[tuple[float, float]], k_launch: int, tap_k: int, arrow: float | None,
+              auto: dict | None, old: dict | None, element_from, instant: bool, track_path, mask_path, say, t0: float):
+    """A shot of an element made rather than rendered (MADE): the voice's timeline (each hit on its strike, as big as
+    it is loud; where the voice holds) handed with the plate, the hand's track and its matte to the element's module,
+    then the Foley under it, the shot and its receipt written as for a rendered element."""
+    import importlib
+    import time
+    import types
+
+    from . import __version__
+    from .elements import Timeline
+    from .media import write_video
+    from .pipeline import FINISH_PRESET, FPS, SOUND, ShotResult, _finalise, mix_foley, place_audio, foley
+
+    n = len(plate)
+    module, form = MADE[effect]
+    if effect == "explosion" and gesture_at(track, k_launch) == "Open_Palm":
+        form = "palm"
+    env = np.zeros(n)
+    m = min(n, np.asarray(env_all).size)
+    env[:m] = np.asarray(env_all, np.float64)[:m]
+    cam = camera_path(plate, mask, track)  # a handheld camera: what the element leaves in the room moves with it
+    timeline = Timeline(n=n, energy=env, hits=[int(s_["frame"]) for s_ in snaps], sizes=[float(sz) for _, sz in looks],
+                        holds=[(int(a), int(b)) for a, b in c.cue.intervals()], tap_frame=int(tap_k), aim=arrow,
+                        camera=cam)
+    say("compositing", 0.3, f"Making the {module} on your hand")
+    frames = importlib.import_module(f".{module}", __package__).render(plate, track, mask, timeline, form,
+                                                                        seed=spec.seed, progress=say)
+    say("finishing", 0.85, "Adding the sound and the cue ribbon")
+    audio = place_audio(c.samples, c.offset_s, n)
+    if effect in MADE_FOLEY:
+        fluid, behaviour = MADE_FOLEY[effect]
+        eff = types.SimpleNamespace(id=effect, fluid=fluid, behaviour=behaviour)
+        audio = mix_foley(audio, [foley(eff, n, env, timeline.hits, [g for g, _ in looks], c.cue.voice_end_frame,
+                                        spec.seed)])
+    out_dir = Path(out_dir)
+    comp_path, final_path = out_dir / "composite.mp4", out_dir / "final.mp4"
+    k_poster = int(np.clip(k_launch + 8, 0, n - 1))
+    cv2.imwrite(str(out_dir / "poster.jpg"), cv2.cvtColor(np.ascontiguousarray(frames[k_poster]), cv2.COLOR_RGB2BGR),
+                [cv2.IMWRITE_JPEG_QUALITY, 85])
+    write_video(comp_path, frames, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
+    write_video(final_path, _finalise(frames, env, spec.label or effect.replace("_", " "), None), fps=FPS, audio=audio,
+                crf=16, preset=FINISH_PRESET)
+    receipt = {
+        "cuesync": __version__, "mode": "bending",
+        "effect": {"id": effect, "made": module, "form": form, "fluid": module, "behaviour": form},
+        "inputs": {"point": list(spec.point), "seed": spec.seed, "offset_s": spec.offset_s, "cue": c.source},
+        "render": {"seconds": 0.0, "prompt": f"(made, not rendered: cuesync.{module})", "guide_scale": 1.0},
+        "bending": {"track": str(track_path), "mask": None if mask is None else str(mask_path), "k_hit": int(k_launch),
+                    "tap_frame": int(tap_k), "aim": None if arrow is None else round(float(arrow), 2),
+                    "k_launch": int(k_launch), "hits": [{"frame": int(f), "gain": round(g, 3), "size": round(sz, 3),
+                                                         "snap": sn} for f, (g, sz), sn in
+                                                        zip(timeline.hits, looks, snaps)],
+                    "holds": [list(v) for v in timeline.holds],
+                    "performed_again": None if old is None or instant else {"from": str(element_from),
+                                                                            "no_new_render": True},
+                    "camera": "locked" if cam is None else "handheld: what it leaves moves with the room"},
+        "auto": auto, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
     say("done", 1.0, "Done")

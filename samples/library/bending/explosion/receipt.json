@@ -1,0 +1,11 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "made-ahead",
+ "effect": {"id": "explosion", "made": "explosion", "fluid": "fire", "behaviour": "burst"},
+ "render": {
+  "prompt": "ainvfxfluid, fireball explosion rolling into thick black smoke, isolated on a pure black background",
+  "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA",
+  "size": [576, 1024],
+  "note": "the fireball the explosion plays (cuesync.explosion measures its blast and radius on the render itself)"
+ }
+}
