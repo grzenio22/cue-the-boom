@@ -213,7 +213,7 @@ def analyze(samples: np.ndarray, sr: int = 48000, *, offset_s: float = 0.0, fps:
     k = max(1, min(10, power_in.size))  # quietest 100 ms of the take = its room tone
     noise_floor = max(float(np.sqrt(np.convolve(power_in, np.ones(k) / k, mode="valid").min())), 1e-6)
     if peak_rms < 1e-3:
-        raise NoOnsetError("recording is silent below 11 kHz")
+        raise NoOnsetError("your take is silent: no sound reached the microphone (is it muted, or another input picked?)")
     if peak_rms < 10 ** (SILENCE_OVER_FLOOR_DB / 20) * noise_floor and peak_rms * math.sqrt(2.0) < 10 ** (-30 / 20):
         # quiet AND flat: room tone or hum with nobody performing. (A loud steady sound that fills the
         # whole take is still accepted, so a performance that starts at sample 0 isn't rejected.)
