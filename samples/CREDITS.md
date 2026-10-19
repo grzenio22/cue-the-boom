@@ -1,8 +1,9 @@
 # Real footage
 
 The `made_ahead/scene/real_*` shots and the renders in `timing_set/real/` were made on real stock video and
-photos. Each one is processed (the effect rendered into it by LTX-2.5 with ainvfx-fluid); the source clips
-themselves are not in this repository.
+photos. Each one is processed (the effect rendered into it by LTX-2.5 with ainvfx-fluid); those source clips
+themselves are not in this repository. The one exception is the sample hand: `plates/hand_cupped.mp4` is the
+Pexels clip itself (at 720p), so a hand of your own can be tried with no camera.
 
 | Shots | Source | Author | Licence |
 |---|---|---|---|
