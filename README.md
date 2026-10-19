@@ -50,7 +50,7 @@ cuesync bend --plate samples/plates/hand_cupped.mp4 --voice samples/voices/pf-pf
   --again samples/made_ahead/bending/hand_cupped__kaboom__fire_burst --offset-s 0.6
 ```
 
-`runs/bend/final.mp4` shows "pf, pf, KA-BOOM" as three fireballs in the palm, one on each beat, each as big as it was loud, with no new render. It takes about two minutes on a laptop CPU. Swap in a recording of your own noise; a hum before the "BOOM" charges an ember first.
+`runs/bend/final.mp4` shows "pf, pf, KA-BOOM" as three fireballs in the palm, one on each beat, each as big as it was loud, with no new render. It takes about a minute on a laptop CPU. Swap in a recording of your own noise; a hum before the "BOOM" charges an ember first.
 
 **The studio, no GPU.** In two terminals:
 
@@ -149,7 +149,7 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 
 **Perform it again** plays the same render on a new rhythm, with no new render.
 
-**Without a GPU:** pick the sample *Your hand: cupped palm* in the studio, perform any rhythm (or pick a sample noise), and its fireball, made ahead of time, fires on each of your hits (about two minutes on a laptop CPU). `cuesync bend --again` does the same from the command line ([Try it](#try-it)).
+**Without a GPU:** pick the sample *Your hand: cupped palm* in the studio, perform any rhythm (or pick a sample noise), and its fireball, made ahead of time, fires on each of your hits (about a minute on a laptop CPU). `cuesync bend --again` does the same from the command line ([Try it](#try-it)).
 
 **From the command line, on your own clip** (GPU and the two helper environments below):
 

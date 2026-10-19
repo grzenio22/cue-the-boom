@@ -208,7 +208,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       </div>}
       {handOffline && !replayOf && (
         <p className="muted">The GPU is offline: your take plays this hand&apos;s fireball, made ahead of time, on each of your hits.
-          No new render; ready in about two minutes.</p>
+          No new render; ready in about a minute.</p>
       )}
       {hand && !handOffline && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
@@ -319,7 +319,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           {again && onReplay && (
             <div className="row">
               <button onClick={() => onReplay(again, replayWith)}>Perform it again</button>
-              <span className="muted">{bent ? "a new rhythm on the same hand take: no new render, ready in about two minutes"
+              <span className="muted">{bent ? "a new rhythm on the same hand take: no new render, ready in about a minute"
                 : "a new rhythm or another voice on the same render: no new render, ready in about 20 s"}</span>
             </div>
           )}

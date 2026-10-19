@@ -481,12 +481,23 @@ def root_fade(h: int, w: int, ref: tuple, length: float) -> np.ndarray:
     return np.clip(along / max(length, 1.0), 0, 1).astype(np.float32)
 
 
-def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None) -> np.ndarray:
+def holdout_box(track: dict, t: int, h: int, w: int) -> tuple[int, int, int, int]:
+    """(y0, y1, x0, x1): the only part of the frame root_holdout can touch (half a hand round the emitter)."""
+    p, _, s = emitter_at(track, t)
+    r = 0.5 * s + 2
+    return (max(0, int(p[1] - r)), min(h, int(p[1] + r) + 1), max(0, int(p[0] - r)), min(w, int(p[0] + r) + 1))
+
+
+def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None,
+                 box: tuple[int, int, int, int] | None = None) -> np.ndarray:
     """Where the hand hides the element's root (float 0..1): within a quarter of a hand size of the emitter, the hand
     itself (its matte; without one, the side behind the fingertips, coming in over 0.3 of a hand size so the base fades
-    into the hand instead of being cut off along a line), so the flame leaves the fingers rather than sitting on them."""
+    into the hand instead of being cut off along a line), so the flame leaves the fingers rather than sitting on them.
+    With ``box`` (holdout_box) only that part of the frame, as a patch (``mask`` is the whole frame's either way)."""
     p, u, s = emitter_at(track, t)
-    yy, xx = np.mgrid[:h, :w].astype(np.float32)
+    y0, y1, x0, x1 = box or (0, h, 0, w)
+    yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+    mask = None if mask is None else mask[y0:y1, x0:x1]
     dx, dy = xx - p[0], yy - p[1]
     disc = np.clip(1.0 - (np.hypot(dx, dy) - 0.25 * s) / max(0.25 * s, 1.0), 0, 1)
     back = -(dx * u[0] + dy * u[1])  # how far behind the emitter, along its direction
@@ -711,8 +722,25 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         en = float(energy[min(i, charge[1] - charge[0] - 1)])
         size = EMBER_SIZE[0] + (EMBER_SIZE[1] - EMBER_SIZE[0]) * en ** 0.7  # (grows early: the hum is heard building)
         gain = (0.45 + 1.0 * en) * float(flicker[i])  # a hot core, brighter than the fire it becomes * (1.0 if t < charge[1] else (charge[1] + 3 - t) / 4)
-        E = warp_element(np.clip(lin(element[k]) - floor_lin, 0.0, None) * fade, track, ref, t, 0, size, blur=False)
+        E = warp_element(source(k), track, ref, t, 0, size, blur=False)
         return E * gain
+
+    lit_box: dict[int, tuple[int, int, int, int] | None] = {}
+
+    def source(e: int) -> np.ndarray:
+        """Render frame e, linear, its black taken off and its root faded: worked out only where it is lit (most of a
+        render over black is black, and this ran on every pixel of every frame for every hit)."""
+        if e not in lit_box:
+            look = element[e][::4, ::4].max(-1) > floor + 2
+            ys, xs = np.nonzero(look)
+            lit_box[e] = None if ys.size == 0 else (max(0, 4 * ys.min() - 4), min(h, 4 * ys.max() + 8),
+                                                     max(0, 4 * xs.min() - 4), min(w, 4 * xs.max() + 8))
+        out_ = np.zeros((h, w, 3), np.float32)
+        if lit_box[e] is not None:
+            y0, y1, x0, x1 = lit_box[e]
+            fl = floor_lin[y0:y1, x0:x1] if np.ndim(floor_lin) else floor_lin
+            out_[y0:y1, x0:x1] = np.clip(lin(element[e][y0:y1, x0:x1]) - fl, 0.0, None) * fade[y0:y1, x0:x1]
+        return out_
 
     def element_at(t: int) -> np.ndarray | None:
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
@@ -722,8 +750,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             e = t - off
             if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
                 continue
-            E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None) * fade, track, ref, t, lag, size,
-                             since=off + ign, cam=cam) * gain
+            E = warp_element(source(e), track, ref, t, lag, size, since=off + ign, cam=cam) * gain
             if e < ign:  # the build-up, coming up to the ignition
                 E *= (e - (ign - pre) + 1) / (pre + 1)
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
@@ -738,8 +765,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         E = acc
         if lost[t] > 8:  # the hand is gone: let the element go rather than freeze it
             E *= max(0.0, 1.0 - (lost[t] - 8) / LOST_FADE)
-        m_t = None if mask is None else mask[min(t, len(mask) - 1)].astype(np.float32) / 255.0
-        return E * (1.0 - root_holdout(track, t, h, w, m_t))[..., None]
+        m_t = None if mask is None else mask[min(t, len(mask) - 1)]
+        y0, y1, x0, x1 = box = holdout_box(track, t, h, w)
+        if y1 > y0 and x1 > x0:
+            hold = root_holdout(track, t, h, w, None if m_t is None else m_t.astype(np.float32) / 255.0, box)
+            E[y0:y1, x0:x1] *= (1.0 - hold)[..., None]
+        return E
 
     q = 8  # the light (cuesync.fx_light) needs only a small copy of each frame's element
     white = fx.plate_white(np.stack([lin(plate[i]) for i in np.linspace(0, n - 1, 8).astype(int)]))
@@ -764,7 +795,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             E = made[i]
             if E is None:
                 continue
-            E = fx.grain(E[None], noise, seed=spec.seed, frame0=i)[0]
+            look = E[::4, ::4].max(-1) > 1e-4  # grain only where the element is
+            ys_, xs_ = np.nonzero(look)
+            if ys_.size:
+                y0, y1 = max(0, 4 * ys_.min() - 4), min(h, 4 * ys_.max() + 8)
+                x0, x1 = max(0, 4 * xs_.min() - 4), min(w, 4 * xs_.max() + 8)
+                E[y0:y1, x0:x1] = fx.grain(E[None, y0:y1, x0:x1], noise, seed=spec.seed, frame0=i)[0]
             j = i - a0
             if eff.fluid == "smoke":  # smoke is laid over; fire is light, added; steam is lit vapour, screened
                 al = np.clip(E.max(-1) / 0.35, 0.0, 0.9)[..., None]
