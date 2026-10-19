@@ -144,7 +144,8 @@ class JobQueue:
                 elif job.replay:
                     replay_scene_shot(job.replay["src"], job.spec, job.dir, say)
                 elif job.mode == "bending":
-                    bending_job(job.spec, self.renderers[mode], job.dir, progress=say)
+                    reuse = job.spec.extra.pop("reuse", None)
+                    bending_job(job.spec, self.renderers[mode], job.dir, progress=say, reuse=Path(reuse) if reuse else None)
                 else:
                     make_shot(job.spec, self.renderers[mode], job.dir, progress=say)
                 job.status = "done"
@@ -281,7 +282,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      direction: float | None = Form(None), subject: str | None = Form(None),
                      cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
                      describe: str | None = Form(None), object: str | None = Form(None),  # noqa: A002
-                     sources: str | None = Form(None), frame: int | None = Form(None)):
+                     sources: str | None = Form(None), frame: int | None = Form(None), reuse: str | None = Form(None)):
         from .bending import BENDING_PROMPTS  # the elements a hand can throw
         from .cues import SOURCES
         from .scene import Strokes
@@ -471,6 +472,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             spec.extra["gesture"] = auto_gesture
         if mode == "bending":  # the hand you tapped, on the frame you tapped it (its sound and gesture pick "auto")
             spec.extra["tap_frame"] = int(frame or 0)
+            was = jq.jobs.get(reuse) if reuse else None  # another effect for the same take: its hand as tracked
+            if was is not None and was.status == "done" and (was.dir / "hand_track.json").exists():
+                spec.extra["reuse"] = str(was.dir)
         elif auto:  # the noise decides: its gesture through the plate's own map, or (no map) what the sound is
             from .pipeline import auto_effect
 

@@ -258,6 +258,7 @@ export async function submitShot(args: {
   describe?: string | null;
   sources?: [number, number][] | null; // call and response: one source per hit, in order (the first is the point)
   frame?: number | null; // from your hand: the frame (24 fps) the hand was tapped on
+  reuse?: string | null; // from your hand, another effect for the same take: that shot's tracked hand is reused
 }): Promise<JobStatus> {
   const form = new FormData();
   if ("sample" in args.plate) form.append("plate_sample", args.plate.sample);
@@ -278,6 +279,7 @@ export async function submitShot(args: {
   form.append("mode", args.mode);
   if ((args.mode === "scene" || args.mode === "bending") && args.direction != null) form.append("direction", String(args.direction));
   if (args.mode === "bending" && args.frame != null) form.append("frame", String(args.frame));
+  if (args.mode === "bending" && args.reuse) form.append("reuse", args.reuse);
   if (args.mode === "scene" && args.subject) form.append("subject", args.subject);
   if (args.object && !("sample" in args.plate)) form.append("object", args.object);
   return json<JobStatus>(await fetch("/api/jobs", { method: "POST", body: form }));

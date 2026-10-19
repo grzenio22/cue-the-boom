@@ -934,10 +934,13 @@ def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: in
     return track, mask if ok else None
 
 
-def bending_job(spec, renderer, out_dir: Path, progress=None):
+def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None = None):
     """The studio's bending shot from your clip: the plate as the pipeline loads it (kept, so performing it again reads
     the same frames), the hand you tapped (``spec.point`` on frame ``spec.extra["tap_frame"]``) tracked and matted, then
-    make_bending_shot, aimed by ``spec.direction`` when you drew the arrow. ``spec`` is updated to the loaded plate."""
+    make_bending_shot, aimed by ``spec.direction`` when you drew the arrow. ``spec`` is updated to the loaded plate.
+    ``reuse``: an earlier bending shot of the same clip and tap (another effect picked on the badge): its loaded plate,
+    track and matte are taken as they are, so only the new element is rendered."""
+    import shutil
     from .gestures import heard
     from .media import write_video
     from .pipeline import FPS, SR, load_plate, shot_cue
@@ -945,6 +948,19 @@ def bending_job(spec, renderer, out_dir: Path, progress=None):
     out_dir = Path(out_dir)
     (out_dir / "in").mkdir(parents=True, exist_ok=True)
     say = progress or (lambda stage, frac, msg: None)
+    if reuse is not None and (Path(reuse) / "hand_track.json").exists() and (Path(reuse) / "in" / "plate24.mp4").exists():
+        reuse = Path(reuse)
+        rc = json.loads((reuse / "receipt.json").read_text())
+        shutil.copyfile(reuse / "in" / "plate24.mp4", out_dir / "in" / "plate24.mp4")
+        for name in ("hand_track.json", "hand_mask.npz"):
+            if (reuse / name).exists():
+                shutil.copyfile(reuse / name, out_dir / name)
+        spec.plate, spec.point = out_dir / "in" / "plate24.mp4", tuple(rc["inputs"]["point"])
+        spec.extra["tap_frame"] = rc["bending"].get("tap_frame", spec.extra.get("tap_frame"))
+        mask = out_dir / "hand_mask.npz"
+        say("reading", 0.05, "Your hand as it was tracked for the last shot")
+        return make_bending_shot(spec, renderer, out_dir, out_dir / "hand_track.json", mask if mask.exists() else None,
+                                 progress, tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)
     say("reading", 0.02, "Reading your clip")
     frames, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size)
     n, h, w = frames.shape[:3]

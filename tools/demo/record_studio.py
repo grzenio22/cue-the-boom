@@ -76,6 +76,10 @@ def main() -> int:
     ap.add_argument("--brush", default="medium", help="the brush to draw with, as the studio labels it")
     ap.add_argument("--describe", help="type this into 'Say what happens'")
     ap.add_argument("--retime", type=float, default=0.03, help="drag the hit by this share of the ribbon (0: don't)")
+    ap.add_argument("--hand", action="store_true", help="the plate is a hand: its spot (GPU offline: Perform it) or "
+                                                       "tap --point and drag to aim at --aim degrees (live)")
+    ap.add_argument("--aim", type=float, default=0.0, help="with --hand, live: the aim, degrees clockwise from up")
+    ap.add_argument("--again", help="after the shot: Perform it again with this sample noise (no new render)")
     ap.add_argument("--chromium", help="a Chromium executable (default: Playwright's)")
     ap.add_argument("-o", "--out", default="runs/demo/studio")
     a = ap.parse_args()
@@ -121,7 +125,29 @@ def main() -> int:
             page.get_by_text(a.plate, exact=True).first.wait_for(timeout=30000)
             r.click(page.get_by_text(a.plate, exact=True).first, pause=1.2)
             r.click(page.get_by_role("button", name="Move it"), pause=1.5)  # the spot comes with the sample: show it
-        if a.draw:
+        if a.hand:  # your hand: the sample's spot made ahead of time, or tap it and drag to aim
+            perform = page.get_by_role("button", name="Perform it", exact=True)
+            if perform.count():
+                r.mark("hand")
+                r.click(perform, pause=1.0)
+            else:
+                import math
+
+                aim = page.locator("section").filter(has=page.get_by_role("heading", name="2. Where does it come from?")).locator("video").first
+                aim.scroll_into_view_if_needed()
+                page.wait_for_function("v => v.videoWidth > 0", arg=aim.element_handle(), timeout=30000)
+                box = aim.bounding_box()
+                x, y = (float(v) for v in a.point.split(","))
+                px, py = box["x"] + x * box["width"], box["y"] + y * box["height"]
+                page.mouse.move(px, py, steps=18)
+                r.pause(0.3)
+                r.mark("hand")
+                page.mouse.down()
+                page.mouse.move(px + 90 * math.sin(math.radians(a.aim)), py - 90 * math.cos(math.radians(a.aim)), steps=16)
+                page.mouse.up()
+                r.pause(1.2)
+                r.click(page.get_by_role("button", name="That's my hand"), pause=1.0)
+        elif a.draw:
             r.click(page.get_by_role("radio", name="Draw it"), pause=1.0)
             r.click(page.get_by_role("radio", name=a.brush), pause=0.6)
             pad = page.locator('canvas[aria-label="your drawing"]')
@@ -137,7 +163,7 @@ def main() -> int:
             page.mouse.up()
             r.pause(1.2)
             r.click(page.get_by_role("button", name="That's where it goes"), pause=1.0)
-        else:
+        elif not a.hand:
             r.click(page.get_by_role("button", name="That's the spot"), pause=1.0)
         r.mark("cue")
         if a.say:
@@ -185,6 +211,15 @@ def main() -> int:
                                    timeout=120000)
             r.mark("retimed")
             page.locator("video.result").scroll_into_view_if_needed()
+            r.pause(6.0)
+        if a.again:  # a new rhythm on the same render
+            r.click(page.get_by_role("button", name="Perform it again"), pause=1.2)
+            r.mark("again")
+            r.click(page.locator("button", has_text=a.again).first, pause=0.5)
+            page.locator("progress").first.wait_for(timeout=60000)  # the replay starts...
+            page.wait_for_function("() => !document.querySelectorAll('progress').length", timeout=900000)  # ...and ends
+            r.mark("again_done")
+            page.locator("video.result").last.scroll_into_view_if_needed()
             r.pause(6.0)
         r.mark("end")
         video = page.video.path()

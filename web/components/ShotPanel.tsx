@@ -137,7 +137,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [view, setView] = useState<View>("final.mp4");
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
 
-  const make = async (pick?: string) => {
+  const make = async (pick?: string, reuse?: string) => {
     const eff = pick ?? effect;
     setBusy(true);
     setJob(null);
@@ -147,7 +147,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing,
           together: replayWith })
         : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
-          timing: performance.timing, effect: eff, point, seed, mode, direction, frame: hand?.frame ?? null, subject: subject.trim() || null, object: kind,
+          timing: performance.timing, effect: eff, point, seed, mode, direction, frame: hand?.frame ?? null, reuse: reuse ?? null, subject: subject.trim() || null, object: kind,
           cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
           describe: describe.trim() || null, sources: several ? sources : null });
       setGuideUrl(null);
@@ -312,7 +312,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           <video key={view} src={job.files[view]} poster={job.files["poster.jpg"]} controls autoPlay playsInline className="result" />
           {bent ? <HandChips job={job} /> : <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />}
           {bent && auto && !job.receipt?.bending?.performed_again && (
-            <EffectBadge choices={HAND_EFFECTS} names={HAND_LABELS} onPick={(id) => { setEffect(id); void make(id); }}
+            <EffectBadge choices={HAND_EFFECTS} names={HAND_LABELS} onPick={(id) => { setEffect(id); void make(id, job.id); }}
               detected={{ effect: auto.picked, kind: auto.heard, gesture: auto.hand, confidence: auto.hand ? 0.8 : 0.4,
                 mismatch: !!job.receipt?.bending?.snap.mismatch }} />
           )}

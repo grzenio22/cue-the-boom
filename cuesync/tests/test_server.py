@@ -619,7 +619,7 @@ def test_a_shot_from_your_hand_is_tracked_carried_and_performed_again(tmp_path, 
     seen = {}
 
     def fake_prepare(plate, out_dir, tap, frame, emitter, say=None):  # the tracker's subprocess: a still hand at the tap
-        seen.update(tap=tap, frame=frame, emitter=emitter)
+        seen.update(tap=tap, frame=frame, emitter=emitter, calls=seen.get("calls", 0) + 1)
         t = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": emitter, "hand": "right", "xy": [list(tap)] * 72,
              "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72, "conf": [1.0] * 72, "src": ["mp"] * 72,
              "speed": [0.0] * 72, "landmarks": [None] * 72, "gesture": ["Open_Palm"] * 72, "events": []}
@@ -652,6 +652,10 @@ def test_a_shot_from_your_hand_is_tracked_carried_and_performed_again(tmp_path, 
     assert done["status"] == "done", done.get("error")
     assert done["receipt"]["bending"]["performed_again"]["no_new_render"] and len(r.prompts) == 1
     assert len(done["receipt"]["bending"]["hits"]) == 2
+    other = post(effect="fire_breath", frame="12", reuse=s["id"]).json()  # the badge: another effect, same take
+    done = wait(client, other["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["effect"]["id"] == "fire_breath" and len(r.prompts) == 2 and seen["calls"] == 1  # not tracked again
 
 
 def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_path, make_video, make_wav):
