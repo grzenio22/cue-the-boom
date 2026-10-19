@@ -5,7 +5,7 @@ the hand is, its gesture and its strikes, frame by frame) meets the performance 
 
 - **Which element** (``bending_effect``): what the sound is (``gestures.heard``: a boom, a whoosh, a hiss, a puff) and
   what the hand is doing at the hit. Two fingers or a pointing finger with a long "ffff" or "fwooom" is a flamethrower;
-  an open palm hissing is steam (or a blast of air, without steam); a fist's strike with a "BOOM" is a burst, a palm's
+  an open palm with a held "ffff" is a flame burning in it; a fist's strike with a "BOOM" is a burst, a palm's
   too (a fireball out of the palm); an unvoiced "pf" from a palm is a blast of air; a snap blows out the candle you
   tapped. A combo of booms is a burst per strike. A hand doing nothing recognisable leaves it to the sound alone.
 - **When** (``snap_launch``): the element goes off on the arm's lock (the strike's extension) when the voice's hit is
@@ -95,10 +95,10 @@ def gesture_at(track: dict, frame: int, around: int = 3) -> str | None:
 
 
 def bending_effect(kind: str | None, gesture: str | None, hits: int = 1, span_s: float = 0.0, snap: bool = False,
-                   lit: bool = False, steam: bool = True) -> tuple[str | None, str]:
+                   lit: bool = False) -> tuple[str | None, str]:
     """(effect, why) for a hand in the shot. ``kind``: the take's sound (gestures.heard); ``gesture``: the hand's at
     the hit (gesture_at); ``hits``/``span_s``: how many hits the take has and how long from the first to the last;
-    ``snap``: the track saw a finger snap; ``lit``: a flame burns at the tapped spot; ``steam``: steam may be picked.
+    ``snap``: the track saw a finger snap; ``lit``: a flame burns at the tapped spot.
     None when there is no sound to read (the caller falls back to its own default)."""
     if snap:
         return "blow_out", "a snap: the candle goes out"
@@ -111,8 +111,9 @@ def bending_effect(kind: str | None, gesture: str | None, hits: int = 1, span_s:
         if kind == "boom":
             return ("fire_breath", "strikes from the fingertips") if combo else ("fire_burst", "a boom from the fingertips")
     if gesture == "Open_Palm":
-        if kind == "hiss":
-            return ("steam_jet", "an open palm hissing: steam") if steam else ("smoke_puff", "an open palm hissing: a blast of air")
+        if kind == "hiss":  # a held "fffff" over a palm is a flame in it (as Try it live shows it; steam is a tap on the
+            # badge away)
+            return "flame_plume", "an open palm and a held fffff: a flame burning in it"
         if kind == "whoosh":
             return "flame_plume", "an open palm and a swelling voice: a flame rising from it"
         if kind == "boom":

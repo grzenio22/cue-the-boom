@@ -1049,7 +1049,9 @@ def gate(chosen: list[dict | None], emitter: str, finger: tuple[int, int] | None
     T = len(chosen)
     labels = [c["label"] for c in chosen if c is not None]
     label = max(set(labels), key=labels.count) if labels else "Right"
-    good = np.array([c is not None and c["label"] == label for c in chosen])
+    good = np.array([c is not None for c in chosen])  # (whatever its label: following already prefers the same hand,
+    # and MediaPipe calls an upturned palm the other hand; dropped for that, a palm carried through a house was lost
+    # for 66 of its 161 frames)
     sign = 1.0 if label == "Right" else -1.0
     pts = np.full((T, 2, 2), np.nan)
     scale = np.full(T, np.nan)
@@ -1157,7 +1159,14 @@ def redetect(clip: Clip, L: np.ndarray, src: list[str], conf: np.ndarray, rtm=No
             guess = cam.to_frame(here, t)
             kp, sc = look(t, _box(guess))
             kp = kp - offset(start)
-            if _accept_rtm(kp, sc, palm_centre(guess), float(hand_scale(guess)), W, H):
+            ok = _accept_rtm(kp, sc, palm_centre(guess), float(hand_scale(guess)), W, H)
+            if not ok and prev is not None:  # a strike stops dead where the arm locks: also where the hand last was
+                # (carried on at its speed, the look overshot a thrown fist and lost it at the hit)
+                guess = cam.to_frame(cam.to_scene(L[ref], ref), t)
+                kp, sc = look(t, _box(guess))
+                kp = kp - offset(start)
+                ok = _accept_rtm(kp, sc, palm_centre(guess), float(hand_scale(guess)), W, H)
+            if ok:
                 put(t, kp, sc, L[ref, :, 2])
                 prev, ref, misses = ref, t, 0
             else:
@@ -1407,13 +1416,17 @@ def track_emitter(video_path_or_frames, fps: float | None = None, emitter: str =
 
 
 def _spread_gestures(gesture_mp: list[str], src: list[str], L: np.ndarray | None = None) -> list[str]:
-    """MediaPipe's gesture where it saw the hand and named one; else the gesture read off the landmarks
-    (landmark_gesture); across a filled gap, the nearest named one within 3 frames. "None" where the hand is lost."""
+    """MediaPipe's gesture where it saw the hand and named one, unless the landmarks clearly read all four fingers out
+    or all four in (Open_Palm, Closed_Fist): its classifier called an upturned open palm "Victory" or "Thumb_Up", and a
+    flamethrower came out of it; else the gesture read off the landmarks (landmark_gesture); across a filled gap, the
+    nearest named one within 3 frames. "None" where the hand is lost."""
     T = len(src)
     out = list(gesture_mp)
     for t in range(T):
-        if src[t] == "mp" and out[t] == "None" and L is not None:
-            out[t] = landmark_gesture(L[t])
+        if src[t] == "mp" and L is not None:
+            g = landmark_gesture(L[t])
+            if out[t] == "None" or g in ("Open_Palm", "Closed_Fist"):
+                out[t] = g if g != "None" else out[t]
     named = [t for t in range(T) if src[t] == "mp" and out[t] != "None"]
     for t in range(T):
         if src[t] in ("rtm", "flow", "tapir", "interp"):

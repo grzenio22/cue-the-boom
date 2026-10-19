@@ -119,9 +119,14 @@ def test_gestures_are_read_off_the_landmarks_when_clear():
     assert ht.landmark_gesture(three) == "None"
     # MediaPipe's own label wins where it names one; the landmarks fill in its "None"s
     src = ["mp", "mp", "flow", "lost"]
-    L = np.stack([hand(), hand(fist=True), hand(fist=True), hand()])
+    L = np.stack([vee, hand(fist=True), hand(fist=True), hand()])
     assert ht._spread_gestures(["Victory", "None", "None", "None"], src, L) == ["Victory", "Closed_Fist",
                                                                                "Closed_Fist", "None"]
+    # ...unless the landmarks clearly read all four fingers out, or all four in: MediaPipe called an upturned open palm
+    # "Victory" (and a flamethrower came out of it) and a fist "Thumb_Up"
+    L = np.stack([hand(), hand(fist=True), three])
+    assert ht._spread_gestures(["Victory", "Thumb_Up", "Victory"], ["mp"] * 3, L) == ["Open_Palm", "Closed_Fist",
+                                                                                      "Victory"]
 
 
 def test_a_click_names_the_digit_the_element_comes_out_of():
@@ -274,13 +279,14 @@ def test_auto_picks_the_hand_most_in_view_not_the_one_seen_longest():
     assert dets[f][k]["label"] == "Left"
 
 
-def test_gate_drops_a_jump_off_the_path_and_the_other_handedness():
-    chosen = [det(hand((200.0 + 10 * t, 250.0))) for t in range(12)]
+def test_gate_drops_a_jump_off_the_path_but_not_a_flipped_handedness():
+    chosen = [det(hand((200.0 + 10 * t, 250.0))) for t in range(16)]
     chosen[5] = det(hand((200.0 + 10 * 5, 250.0 - 70.0)))  # 0.9 sizes off the path
-    chosen[8] = det(hand((280.0, 250.0)), label="Left")
+    for t in range(8, 13):  # the same hand followed on, MediaPipe calling it the other one (as it does an upturned palm)
+        chosen[t] = det(hand((200.0 + 10 * t, 250.0)), label="Left")
     good, label = ht.gate(chosen, "index_tip")
     assert label == "Right"
-    assert list(np.flatnonzero(~good)) == [5, 8]
+    assert list(np.flatnonzero(~good)) == [5]
 
 
 # ------------------------------------------------------------------ filling, and the whole track without MediaPipe
