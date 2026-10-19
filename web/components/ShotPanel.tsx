@@ -5,7 +5,7 @@ import type { Performance } from "@/components/Performer";
 import EffectBadge from "@/components/EffectBadge";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
+import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, MADE_EFFECTS, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -69,6 +69,8 @@ function HandChips({ job }: { job: JobStatus }) {
     <div className="row">
       <span className="chip">{b.instant ? "instant: an LTX-2.5 element rendered ahead of time, carried on your hand (no GPU)"
         : b.performed_again ? "performed again on the same render: no new render"
+        : job.effect === "explosion" ? "a fireball rendered ahead with LTX-2.5, its blast made from your hand and your voice"
+        : job.effect && MADE_EFFECTS.includes(job.effect) ? `made, not rendered: ${(HAND_LABELS[job.effect] ?? job.effect).toLowerCase()} from your hand and your voice, on this computer (no GPU)`
         : job.effect === "smoke_puff" || r.render.prompt?.startsWith("(made") ? "made, not rendered: an air blast"
         : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)`
         : "rendered over black ahead of time on open weights (LTX-2.5)"}</span>
@@ -228,7 +230,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       )}
       {hand && !handOffline && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
-          fireball, a held fffff over a palm a flame in it (steam on the badge), a pf a pop of fire. {sceneLive
+          fireball, a held fffff over a palm a flame in it (steam on the badge), a pf a pop of fire. Lightning, water, air and an
+          explosion are made on this computer from your hand and your voice: choose them yourself. {sceneLive
             ? "Rendered once over black on the GPU (~1 min), then carried on your hand."
             : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand (a minute or two on a laptop CPU)."}</p>
       )}

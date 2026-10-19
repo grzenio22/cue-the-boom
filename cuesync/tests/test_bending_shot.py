@@ -684,6 +684,7 @@ def test_an_element_made_not_rendered_is_made_on_its_hit_with_no_renderer(tmp_pa
     res = make_bending_shot(spec, None, tmp_path / "shot", track_path)
     r = res.receipt
     assert r["effect"]["made"] == "explosion" and r["effect"]["form"] == "fist" and r["render"]["seconds"] == 0.0
+    assert r["bending"]["snap"]["used"] in ("cue", "motion")  # (the studio reads it from every hand shot)
     hit = r["bending"]["hits"][0]["frame"]
     comp = read_video(res.composite).frames.astype(float).mean(axis=(1, 2, 3))
     assert comp[hit] > comp[max(0, hit - 3)] + 15  # it goes off on its hit

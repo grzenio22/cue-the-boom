@@ -58,10 +58,15 @@ export interface Receipt {
 export type Mode = "instant" | "render" | "scene" | "bending";
 
 /** What a hand can throw (element bending), in the order the badge cycles them. */
-export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "steam_jet", "smoke_puff"];
+export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "explosion", "lightning_arc", "lightning_ball",
+  "water_orb", "water_whip", "air_ball", "air_blast", "steam_jet"];
 export const HAND_LABELS: Record<string, string> = {
   fire_breath: "Flamethrower", fire_burst: "Fireball", flame_plume: "Flame in the palm", steam_jet: "Steam", smoke_puff: "Air blast",
+  explosion: "Explosion", lightning_arc: "Lightning", lightning_ball: "Ball lightning", water_orb: "Water orb",
+  water_whip: "Water whip", air_ball: "Air ball", air_blast: "Air blast",
 };
+/** The elements made on your computer from your hand and your voice (cuesync.bending.MADE): no render, no GPU. */
+export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball", "water_orb", "water_whip", "air_ball", "air_blast"];
 
 /** A drawn stroke: points in normalised video coordinates, brush width as a share of the frame width. */
 export interface Stroke { points: [number, number][]; width: number }
@@ -175,6 +180,13 @@ export const EFFECT_LABELS: Record<string, { name: string; cue: string }> = {
   wick_flare: { name: "Flare-up", cue: "fwoooOOOM" },
   blow_out: { name: "Blow it out", cue: "pf. · pfffff" },
   fire_burst: { name: "Fire burst", cue: "pf. · KA-BOOM" },
+  explosion: { name: "Explosion", cue: "KA-BOOM" },
+  lightning_arc: { name: "Lightning", cue: "zzzzz · tsst!" },
+  lightning_ball: { name: "Ball lightning", cue: "zzzzzz" },
+  water_orb: { name: "Water orb", cue: "shhhhh · sploosh" },
+  water_whip: { name: "Water whip", cue: "shhhhh" },
+  air_ball: { name: "Air ball", cue: "hoooooo" },
+  air_blast: { name: "Air blast", cue: "HOO!" },
 };
 
 export const AUTO_EFFECT = "auto";
