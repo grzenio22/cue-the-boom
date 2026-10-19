@@ -104,6 +104,7 @@ KNUCKLE_ROW = 0.85  # index to little knuckle (3D), same units
 SG_WINDOW_24 = 7  # Savitzky-Golay window at 24 fps (scaled with fps, kept odd: 9 at 30)
 SG_ORDER = 2
 HOLD_WINDOW_24 = 15  # ...and while the hand holds still (0.6 s: longer starts to round off a slow drift)
+FALLBACK_TURN = math.pi  # radians a second: guessed landmarks cannot turn as freely as a measured hand
 STILL, MOVING = 0.5, 1.5  # hand sizes a second: slower holds (the long window), faster moves (the 7-frame one)
 EXT_DROP = 0.3  # an arm has locked once its speed falls under this share of the peak...
 EXT_WITHIN = 6  # ...within this many frames of it (at 24 fps)
@@ -404,6 +405,28 @@ def adaptive_smooth(x: np.ndarray, still: np.ndarray, valid: np.ndarray, cuts, f
     long = smooth_track(x, valid, cuts, sg_window(fps, HOLD_WINDOW_24))
     w = np.asarray(still, np.float64).reshape((-1,) + (1,) * (x.ndim - 1))
     return w * long + (1 - w) * short
+
+
+def steady_direction(angle: np.ndarray, src: list[str], fps: float) -> np.ndarray:
+    """Limit fallback turns from the last measured direction, in scene radians. RTMPose and flow can place the
+    emitter well while blurring the knuckle-to-tip vector beyond use; after smoothing, allow at most half a turn a
+    second until MediaPipe sees it again. Its measured turns stay untouched. Before the first measurement, work
+    backward from it; never carry a direction across a lost stretch or constrain a run with no measured direction."""
+    out = np.asarray(angle, np.float64).copy()
+    valid = np.array([s not in ("hold", "lost") for s in src])
+    for lo, hi, _, _ in smooth_pieces(valid):
+        measured = [t for t in range(lo, hi) if src[t] == "mp"]
+        if not measured:
+            continue
+        first = measured[0]
+        for order, step in ((range(first - 1, lo - 1, -1), -1), (range(first + 1, hi), 1)):
+            for t in order:
+                if src[t] == "mp":
+                    continue
+                prev = out[t - step]
+                delta = (out[t] - prev + np.pi) % (2 * np.pi) - np.pi
+                out[t] = prev + np.clip(delta, -FALLBACK_TURN / fps, FALLBACK_TURN / fps)
+    return out
 
 
 # ------------------------------------------------------------------ strikes
@@ -1254,6 +1277,23 @@ def track_emitter(video_path_or_frames, fps: float | None = None, emitter: str =
         note(f"second look around the click: the hand on {sum(bool(e) for e in extra)} frames "
              f"({time.perf_counter() - clock:.1f}s)")
     anchor = _pick_anchor(dets, hand, seed, mirrored, (W, H))
+    if seed is not None and anchor is None and detections is None:
+        # A blurred click can precede the first clear hand by more than SEED_FRAMES. Restart the crop pass on the
+        # nearest detection within twice that time, so its backward pass can see the clicked hand. That detection
+        # is only a starting place: accept the result only if it supplies a hand near the ORIGINAL click within
+        # the original radius and time window. A hand elsewhere in the clip is never enough on its own.
+        candidates = [(abs(t - seed[0]), float(np.linalg.norm(palm_centre(h["lm"]) - seed[1:])), t, k)
+                      for t, hands in enumerate(dets) if abs(t - seed[0]) <= 2 * SEED_FRAMES
+                      for k, h in enumerate(hands)]
+        if candidates:
+            _, _, t, k = min(candidates)
+            retry = seeded_look(clip, (t, *palm_centre(dets[t][k]["lm"])))
+            merged = [_dedupe(list(dets[f]) + retry[f]) for f in range(T)]
+            recovered = _pick_anchor(merged, hand, seed, mirrored, (W, H))
+            if recovered is not None:
+                dets, anchor = merged, recovered
+                note(f"click recovered by looking back from frame {t}: anchored on frame {anchor[0]} "
+                     f"({time.perf_counter() - clock:.1f}s)")
     if seed is not None and anchor is None:
         note(f"no hand near the click ({seed[1]:.0f}, {seed[2]:.0f}) within {SEED_FRAMES} frames of frame {seed[0]}: "
              f"MediaPipe found none there, even looking again; the track holds the click")
@@ -1319,6 +1359,7 @@ def track_emitter(video_path_or_frames, fps: float | None = None, emitter: str =
     for fl, fh, ol, oh in smooth_pieces(tracked, cuts):
         seg = np.unwrap(angle_raw[fl:fh])  # each piece unwrapped on its own, so none averages across +-pi
         ang[ol:oh] = adaptive_smooth(seg, still[fl:fh], np.ones(fh - fl, bool), [], fps)[ol - fl:oh - fl]
+    ang = steady_direction(ang, src, fps)
     lms = adaptive_smooth(lms_raw.reshape(T, -1), still, tracked, cuts, fps).reshape(T, 21, 3)
     # ... and back into each frame's px.
     xy, scale, lms = cam.to_frame(xy), scale * zoom, cam.to_frame(lms)

@@ -183,6 +183,35 @@ def test_a_held_hand_is_smoothed_harder_than_a_moving_one_without_lag():
     assert np.abs(out[66:80, 0] - path[66:80, 0]).mean() < 4.0  # the sweep isn't dragged behind
 
 
+def test_fallback_direction_takes_the_short_turn_across_pi():
+    angles = np.radians([179.0, -179.0, -178.0])
+    out = ht.steady_direction(angles, ["mp", "flow", "rtm"], 24.0)
+    assert np.allclose(np.degrees(out), [179.0, 181.0, 182.0])
+
+
+def test_fallback_direction_before_the_first_measurement_is_limited_backward():
+    angles = np.radians([90.0, 90.0, 0.0, 20.0])
+    out = ht.steady_direction(angles, ["flow", "rtm", "mp", "mp"], 24.0)
+    assert np.allclose(np.degrees(out), [15.0, 7.5, 0.0, 20.0])  # both measured directions stay exact
+
+
+@pytest.mark.parametrize("gap", ["lost", "hold"])
+def test_fallback_direction_does_not_carry_a_measurement_across_a_gap(gap):
+    angles = np.radians([0.0, 90.0, -80.0, 140.0, 150.0])
+    out = ht.steady_direction(angles, ["mp", "flow", gap, "flow", "rtm"], 24.0)
+    assert np.allclose(np.degrees(out), [0.0, 7.5, -80.0, 140.0, 150.0])
+
+
+@pytest.mark.parametrize("fps", [12.0, 24.0, 48.0])
+def test_fallback_direction_turns_at_the_same_rate_at_different_frame_rates(fps):
+    n = int(fps / 4)
+    angles = np.radians([0.0] + [90.0] * n)
+    src = ["mp"] + ["rtm", "flow", "interp", "tapir"] * n
+    out = ht.steady_direction(angles, src[:n + 1], fps)
+    assert np.degrees(out[-1]) == pytest.approx(45.0)  # a quarter second at half a turn a second
+    assert np.allclose(np.degrees(np.diff(out)), 180.0 / fps)
+
+
 # ------------------------------------------------------------------ strikes
 
 
@@ -271,6 +300,107 @@ def textured_clip(T=40, W=640, H=360, speed=6.0, seed=0):
 def square_hand(t, speed=6.0):
     """A 'hand' riding the square of textured_clip: landmarks on its texture, wrist low, fingers up."""
     return hand((160.0 + speed * t, 220.0), size=40.0)
+
+
+@pytest.mark.parametrize("near_click", [True, False])
+def test_a_blurred_click_retries_from_a_clear_hand_but_still_requires_the_original_click(monkeypatch, near_click):
+    T = 40
+    frames = textured_clip(T=T, speed=0)
+    lm = square_hand(0)
+    seed = (10, *ht.palm_centre(lm))
+    dets = [[det(lm)] if t == 30 else [] for t in range(T)]  # clear, but outside the click's first search
+    found = lm if near_click else hand((500.0, 220.0), size=40.0)
+    looks = []
+
+    def seeded_look(clip, click):
+        looks.append(click)
+        return [[] for _ in range(T)] if len(looks) == 1 else [[det(found)] for _ in range(T)]
+
+    monkeypatch.setattr(ht, "mediapipe_hands", lambda clip: dets)
+    monkeypatch.setattr(ht, "seeded_look", seeded_look)
+    monkeypatch.setattr(ht, "redetect", lambda *args, **kwargs: 0)
+    tr = ht.track_emitter(frames, 24.0, "palm", seed=seed)
+    assert len(looks) == 2 and looks[0] == seed
+    assert looks[1][0] == 30 and np.allclose(looks[1][1:], ht.palm_centre(lm))
+    if near_click:
+        assert tr["src"] == ["mp"] * T
+        assert np.allclose(tr["xy"], ht.emitter_points(lm, "palm")[0], atol=0.01)
+    else:
+        assert tr["src"] == ["lost"] * T  # a clearer hand elsewhere does not replace the clicked hand
+        assert np.allclose(tr["xy"], seed[1:], atol=0.01)
+
+
+def test_a_blurred_click_does_not_retry_from_a_hand_too_far_away_in_time(monkeypatch):
+    T = 40
+    frames = textured_clip(T=T, speed=0)
+    lm = square_hand(0)
+    seed = (10, *ht.palm_centre(lm))
+    dets = [[det(lm)] if t == 35 else [] for t in range(T)]  # more than twice the click's search window away
+    looks = []
+
+    def seeded_look(clip, click):
+        looks.append(click)
+        return [[] for _ in range(T)]
+
+    monkeypatch.setattr(ht, "mediapipe_hands", lambda clip: dets)
+    monkeypatch.setattr(ht, "seeded_look", seeded_look)
+    tr = ht.track_emitter(frames, 24.0, "palm", seed=seed)
+    assert looks == [seed] and tr["src"] == ["lost"] * T
+
+
+def test_a_click_with_an_anchor_needs_no_recovery_look(monkeypatch):
+    T = 16
+    frames = textured_clip(T=T, speed=0)
+    lm = square_hand(0)
+    seed = (10, *ht.palm_centre(lm))
+    looks = []
+
+    def seeded_look(clip, click):
+        looks.append(click)
+        return [[] for _ in range(T)]
+
+    monkeypatch.setattr(ht, "mediapipe_hands", lambda clip: [[det(lm)] for _ in range(T)])
+    monkeypatch.setattr(ht, "seeded_look", seeded_look)
+    monkeypatch.setattr(ht, "redetect", lambda *args, **kwargs: 0)
+    tr = ht.track_emitter(frames, 24.0, "palm", seed=seed)
+    assert looks == [seed] and tr["src"] == ["mp"] * T
+
+
+def test_fallback_directions_stay_near_the_last_measured_hand(monkeypatch):
+    frames = textured_clip(T=16)
+    dets = [[det(square_hand(t))] if t < 7 else [] for t in range(16)]
+
+    def redetect(clip, L, src, conf, **kwargs):
+        for t, degrees in ((7, 70), (9, 110)):
+            lm = square_hand(t)
+            a = np.radians(degrees)
+            R = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+            lm[:, :2] = (lm[:, :2] - lm[8, :2]) @ R.T + lm[8, :2]
+            L[t], src[t], conf[t] = lm, "rtm", 0.5
+        return 2
+
+    monkeypatch.setattr(ht, "redetect", redetect)  # distorted landmarks from the fallback network
+    tr = ht.track_emitter(frames, 24.0, "index_tip", detections=dets)
+    assert tr["src"][6:10] == ["mp", "rtm", "flow", "rtm"]
+    d = np.asarray(tr["dir"])
+    a = np.degrees(np.arccos(np.clip(d[7:10] @ d[6] / np.linalg.norm(d[7:10], axis=1)
+                                   / np.linalg.norm(d[6]), -1, 1)))
+    assert a.max() < 30, a  # a blurred exit must not swing the element around
+
+
+def test_measured_directions_keep_a_real_fast_turn():
+    frames = textured_clip(T=16)
+    dets = []
+    for t in range(16):
+        lm = square_hand(t)
+        a = np.radians(9 * t)
+        R = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
+        lm[:, :2] = (lm[:, :2] - lm[8, :2]) @ R.T + lm[8, :2]
+        dets.append([det(lm)])
+    tr = ht.track_emitter(frames, 24.0, "index_tip", detections=dets)
+    assert tr["src"] == ["mp"] * 16
+    a = np.unwrap(np.arctan2(*np.asarray(tr["dir"])[:, ::-1].T))
+    assert np.allclose(np.degrees(np.diff(a)), 9.0, atol=0.1)
 
 
 def test_gaps_are_flowed_drawn_straight_lost_or_held():

@@ -63,6 +63,7 @@ IGNITION = 0.15  # an element has ignited once its light is this share of its br
 LOST_FADE = 4  # frames over which an element fades out once the hand has been lost for more than 8
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
 # a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
+ROOT_ROUND = 0.15  # how far the root's fade curves back at the sides, in its own length over its width squared
 ROOT_FADE_SHARE = {"steam_jet": 0.05}  # steam has no nozzle to hide: over the full fade it started a hand from the palm
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
@@ -216,13 +217,12 @@ SHOULDER = 0.7  # linear light: fire over a lit hand rolls off from here towards
 LOUD_DB = (60.0, 40.0)  # a hit this many dB under the loudest is 10x dimmer, and 10x smaller: "pf" 12 dB under "BOOM"
 # plays half its size (the cue's envelope is in dB; read as amplitude, it was nine tenths of it)
 HIT_SIZE = (0.45, 1.0)  # the smallest and largest a hit plays the element, against the loudest hit's
-SOOT, SOOT_FULL, SOOT_GAMMA = 0.92, 0.1, 0.7  # a flame is not light alone: where it is this bright (linear) its soot
-# and glare hide 92 % of what is behind it, so on a white wall it keeps its shape and colour (added alone, it went white
-# on white); over a dark plate there is little behind it to hide, and it looks as added
-SOOT_FROM = 0.012  # linear: fainter than this is the render's own haze, not fire, and hides nothing (it greyed a box
-# on the palm before the ignition)
-DAY_GAIN = 0.3  # and over a bright room it is this much brighter than rendered (the render was exposed over black; a
-# flame doesn't dim with the room, and seen against a white wall at the render's own level it read as orange paint)
+SOOT, SOOT_DARK = 0.9, 0.02  # a flame is not light alone: where it outshines what is behind it (its luminance over
+# that's, plus SOOT_DARK) its glare and soot hide up to 90 % of it, so on a white wall it keeps its shape; where it is
+# dimmer than the wall it only adds (hiding it there drew a rusty outline round the flame and turned sparks to dirt)
+SOOT_FROM = 0.012  # linear: fainter than this is the render's own haze, not fire
+DAY_GAIN = 1.6  # and over a bright room it is up to this much brighter than rendered (2.6 times over a white wall): the
+# render was exposed over black, and a flame doesn't dim with the room; at the render's own level it read as orange paint
 
 
 def shoulder(P: np.ndarray) -> None:
@@ -513,11 +513,14 @@ def border_fade(h: int, w: int, share: float = 0.06) -> np.ndarray:
 
 def root_fade(h: int, w: int, ref: tuple, length: float) -> np.ndarray:
     """(h, w) float32 in the element's own frame: 0 at and behind the emitter, rising to 1 ROOT_FADE of the reach along
-    it, so the element comes up from nothing just past the fingertips."""
+    it, so the element comes up from nothing just past the fingertips. The edge curves back at the sides (ROOT_ROUND):
+    a straight one cut a wide fireball's base flat along a line."""
     p0, u0, s0 = ref
     yy, xx = np.mgrid[:h, :w].astype(np.float32)
     along = (xx - p0[0]) * u0[0] + (yy - p0[1]) * u0[1]
-    return np.clip(along / max(length, 1.0), 0, 1).astype(np.float32)
+    across = (xx - p0[0]) * u0[1] - (yy - p0[1]) * u0[0]
+    length = max(length, 1.0)
+    return np.clip((along - ROOT_ROUND * across * across / length) / length, 0, 1).astype(np.float32)
 
 
 def fit_element(element: np.ndarray, ref: tuple, h: int, w: int) -> tuple[np.ndarray, tuple]:
@@ -877,8 +880,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
                 grow = 1.0
             E = warp_element(source(e), track, ref, t, lag, size * grow, since=off + ign, cam=cam) * gain
-            if e < ign:  # the build-up, coming up to the ignition
-                E *= (e - (ign - pre) + 1) / (pre + 1)
+            if e < ign:  # the build-up, coming up to the ignition: its fire only (the model's grey haze before the
+                # flame catches showed as a grey blob on the palm)
+                E *= ((e - (ign - pre) + 1) / (pre + 1)
+                      * np.clip(2.0 * (E[..., 0] - E[..., 2]) / np.maximum(E[..., 0], 1e-4), 0.0, 1.0))[..., None]
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
                 E *= (e + 1) / (pre + 1)
             acc = E if acc is None else np.maximum(acc, E)  # two plays overlapping: the brighter shows, not both added
@@ -944,12 +949,14 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             elif eff.fluid == "steam":  # steam scatters the room's light: laid over, never brighter than its white
                 al = np.clip(fx._lum(E) / 0.6, 0.0, 0.55)[..., None]  # translucent: a dense render read as cotton wool
                 P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), max(0.9 * white, 0.45)) * al
-            else:  # fire is light, added, and its soot and glare hide some of what is behind it
-                a_ = np.clip((fx._lum(E) - SOOT_FROM) / SOOT_FULL, 0.0, 1.0) ** SOOT_GAMMA
-                cover = float(a_.sum())
+            else:  # fire is light, added, and where it outshines what is behind it, it hides it
+                on = np.clip((fx._lum(E) - SOOT_FROM) / 0.35, 0.0, 1.0)
+                cover = float(on.sum())
                 if cover > 0:  # how bright the room is behind it
-                    behind = float((fx._lum(P[j]) * a_).sum()) / cover
+                    behind = float((fx._lum(P[j]) * on).sum()) / cover
                     E = E * np.float32(1.0 + DAY_GAIN * min(1.0, behind / fx.EXPOSED_WHITE))
+                a_ = np.clip(fx._lum(E) / (fx._lum(np.maximum(P[j], 0.0)) + SOOT_DARK), 0.0, 1.0)
+                a_ = cv2.GaussianBlur(a_, (0, 0), 1.5 * h / 1080)
                 P[j] = P[j] * (1.0 - SOOT * a_)[..., None] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers
             alpha = np.stack([cv2.resize(np.clip(fx._lum(small[i - a0]) * 4.0, 0, 1), (w, h)) for i in range(a0, b1)])
