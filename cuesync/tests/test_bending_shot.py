@@ -515,3 +515,71 @@ def test_a_slow_catching_held_render_played_again_reaches_its_body_at_once():
     assert frames[0] == ign and frames[GROW_FAST] == 40  # caught in GROW_FAST frames...
     assert frames[19] == 40 + 19 - GROW_FAST and all(b > a for a, b in zip(frames, frames[1:]))  # ...then on, in order
     assert [held_frames(d, ign, rel, end, hold=20, grown=13)[0][0] for d in range(20)] == list(range(ign, ign + 20))
+
+
+def test_a_flame_on_a_portrait_clip_ignites_on_its_hit(tmp_path, make_video, make_wav):
+    """Fitted to a portrait plate, a landscape render's window is padded with black 0, and a black read off that border
+    put a palm's flame on the render's dim first frames, its flame seconds late. The black and the ignition are read on
+    the render as made."""
+    w, h, n = 128, 256, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30))
+    sr = 48000
+    t = np.arange(int(0.25 * sr)) / sr
+    x = np.random.default_rng(3).normal(0, 0.001, 3 * sr).astype(np.float32)
+    x[sr: sr + t.size] += (0.6 * np.sin(2 * np.pi * 120 * t) * np.exp(-6 * t)).astype(np.float32)
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (40.0, 200.0), d=(0.0, -1.0))))
+    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, sr), effect="flame_plume", point=(40 / w, 200 / h),
+                    mode="scene", plate_size=(w, h), max_plate_s=3.0)
+    res = make_bending_shot(spec, GuideAsElement(), tmp_path / "shot", track_path)
+    hit = res.receipt["bending"]["hits"][0]["frame"]
+    assert res.receipt["bending"]["ignition"] > 0  # (not the render's first frame)
+    comp = read_video(res.composite).frames.astype(float).mean(-1)
+    lit = [i for i in range(len(comp)) if np.maximum(comp[i] - 60, 0).sum() > 0]
+    assert lit and lit[0] <= hit + 6  # the flame shows on its hit, not seconds after
+
+
+def test_a_retap_moves_the_taps_frame_with_its_point(tmp_path, monkeypatch):
+    """Followed again from a clearer frame, the tap's point moved there but its frame did not, and performing the shot
+    again (which copies the spec) put the retapped point on the old frame, 1.7 hands off the palm."""
+    import cuesync.bending as bending
+
+    got = {}
+    monkeypatch.setattr(bending, "load_take", lambda spec, out, say: (None, 40, 100, 200, 5))
+    monkeypatch.setattr(bending, "take_emitter", lambda spec, n: "palm")
+    monkeypatch.setattr(bending, "prepare_hand", lambda *a, **k: (tmp_path / "t.json", tmp_path / "m.npz"))
+    monkeypatch.setattr(bending, "retapped", lambda track, k, point: (39, (0.445, 0.5)))
+    monkeypatch.setattr(bending, "carry", lambda spec, *a, **k: got.setdefault("spec", spec))
+    spec = ShotSpec(plate=tmp_path / "p.mp4", voice=None, effect="fire_burst", point=(0.275, 0.5), mode="element",
+                    extra={"tap_frame": 5})
+    bending.bending_job(spec, None, tmp_path / "shot")
+    assert got["spec"].extra["tap_frame"] == 39 and got["spec"].point == (0.445, 0.5)
+
+
+def test_an_instant_shot_performed_again_is_still_sized_for_this_hand(tmp_path, monkeypatch):
+    """Performing an instant shot (an element made ahead, from the library) again dropped its sizing for this hand, and
+    the fire went back to a pilot light."""
+    import cuesync.bending as bending
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "receipt.json").write_text(json.dumps({"bending": {"instant": {"library": str(tmp_path / "lib")},
+                                                             "track": "t.json", "mask": "m.npz", "aim": None}}))
+    got = {}
+    monkeypatch.setattr(bending, "make_bending_shot", lambda *a, **k: got.update(k))
+    spec = ShotSpec(plate=tmp_path / "p.mp4", voice=None, effect="fire_burst", point=(0.5, 0.5), mode="element",
+                    extra={"tap_frame": 5})
+    bending.bending_again(src, spec, tmp_path / "again")
+    assert got["instant"] is True and str(got["element_from"]).endswith("lib")
+
+
+def test_a_cropped_clips_track_says_where_its_frame_sits_in_the_clip(tmp_path, make_video):
+    """A 4:3 webcam take is cropped to 16:9 round the tap; its track's px are the crop's, and the studio's ring sat off
+    the hand until the track said where the crop is."""
+    from cuesync.bending import note_crop
+
+    clip = make_video(tmp_path, n=4, fps=24, w=160, h=120, color_fn=lambda i: (40, 35, 30))
+    track = tmp_path / "hand_track.json"
+    track.write_text(json.dumps(track_of(4, 160, 90, lambda t: (80, 45))))
+    note_crop(track, clip, (0.5, 0.5), None)
+    assert json.loads(track.read_text())["box"] == pytest.approx([0.0, 0.125, 1.0, 0.875], abs=0.01)

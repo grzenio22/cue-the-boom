@@ -23,7 +23,9 @@ export default function FilmIt({ onTake }: { onTake: (file: File, url: string) =
   useEffect(() => {
     if (!open) return;
     let gone = false;
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, frameRate: { ideal: 30 } }, audio: AUDIO_CONSTRAINTS })
+    // 16:9 where the camera has it (left to itself a webcam gives 4:3, and the shot crops that to 16:9)
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, frameRate: { ideal: 30 }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: AUDIO_CONSTRAINTS })
       .then((s) => {
         if (gone) { s.getTracks().forEach((t) => t.stop()); return; }
         stop();

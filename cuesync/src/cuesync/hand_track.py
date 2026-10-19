@@ -1338,8 +1338,9 @@ def track_emitter(video_path_or_frames, fps: float | None = None, emitter: str =
                 best = min(near, key=lambda t: np.min(np.linalg.norm(chosen[t]["frame_lm"][tips, :2] - seed[1:],
                                                                      axis=-1)))
                 finger = clicked_finger(chosen[best]["frame_lm"], seed, emitter)
-                lm_ = chosen[best]["frame_lm"]
+                lm_ = chosen[min(near, key=lambda t: abs(t - seed[0]))]["frame_lm"]  # (on the click's own frame: within
                 on_tip = bool(np.min(np.linalg.norm(lm_[tips, :2] - seed[1:], axis=-1)) < 0.35 * float(hand_size(lm_)))
+                # the window some frame of a moving palm put a fingertip under a palm click, and it became a flamethrower)
                 if finger is not None:
                     note(f"the click is on landmark {finger[1]} (MediaPipe's name for that digit, frame {best}), not "
                          f"the {emitter} tip: the emitter rides that finger")

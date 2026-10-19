@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import AimOverlay, { type AimValue, carried, type HandTrack, lostShare } from "@/components/AimOverlay";
+import AimOverlay, { type AimValue, carried, fromTrack, type HandTrack, lostShare } from "@/components/AimOverlay";
 import DrawPad from "@/components/DrawPad";
 import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
@@ -133,7 +133,8 @@ export default function Studio() {
   // the followed hand, where your tap goes on it and the way you aim it now (the arrow can turn after it was followed)
   const retap = shown?.track?.retap;
   const followed = shown?.track && point
-    ? carried(shown.track, retap ? retap.frame : aimFrame, retap ? [retap.x, retap.y] : point, aim?.angle ?? direction) : null;
+    ? carried(shown.track, retap ? retap.frame : aimFrame, retap ? fromTrack(shown.track, [retap.x, retap.y]) : point,
+      aim?.angle ?? direction) : null;
   const follow = async () => { // your tap, followed through the clip before anything is made
     if (!plate || !point || !("file" in plate.source)) { setPointSet(true); return; }
     const key = prepKey, at = point, k = aimFrame;

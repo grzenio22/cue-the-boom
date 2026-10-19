@@ -227,7 +227,8 @@ def ignition_frame(element: np.ndarray, floor: int, burst: bool = False) -> int 
     empty render) is measured by its light where it is, pixels over the black."""
     lum = np.array([max(0.0, float(f[::4, ::4].astype(np.float32).mean()) - floor) for f in element])
     if lum.max() <= 0:
-        lum = np.array([float(np.clip(f[::4, ::4].astype(np.float32) - floor, 0.0, None).mean()) for f in element])
+        lum = np.array([float(np.clip(f[::4, ::4].astype(np.float32) - floor - FLOOR_SPAN, 0.0, None).mean())
+                        for f in element])  # (clearly over the black: an empty render's noise is not an element)
     if lum.max() <= 0:
         return None
     if burst and len(lum) > 2:
@@ -954,14 +955,15 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         # sideways on a turning fist, like a lighter's never does)
         track = track | {"dir": [[0.0, -1.0]] * len(track["dir"])}
 
+    lib_k = 1.0  # an element made ahead for another hand, played as big as a render for this one (library_size)
     if old:  # perform it again: the element as rendered for the earlier take, where its hand was then
         ref = (np.asarray(old["bending"]["ref"]["xy"], np.float64), np.asarray(old["bending"]["ref"]["dir"], np.float64),
                float(old["bending"]["ref"]["scale"]))
         aim, prompt, scale, seconds = angle_of(ref[1]), old["render"]["prompt"], old["render"]["guide_scale"], 0.0
         element = read_video(Path(element_from) / "element.mp4").frames
-        if instant:  # made ahead for another hand: as big as a render for this one would be (library_size)
-            looks = [(g_, s_ * library_size(eff.behaviour, ref[2], min(element.shape[1:3]),
-                                            emitter_at(track, k_launch)[2], min(w, h))) for g_, s_ in looks]
+        if instant:  # (only how big: a hit's own size also sets how long a burst lasts, and as that a library
+            # fireball played three times as slow)
+            lib_k = library_size(eff.behaviour, ref[2], min(element.shape[1:3]), emitter_at(track, k_launch)[2], min(w, h))
     else:
         say("painting", 0.12, "Painting the element where your hand is on the strike")
         p_hit, u_hit, s_hit = emitter_at(track, k_launch)
@@ -992,10 +994,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             seconds = renderer(out_dir / "guide.mp4", prompt, spec.seed, out_dir / "element.mp4")
             element = read_video(out_dir / "element.mp4").frames
     ref_saved = ref  # the emitter's pose in element.mp4 as saved (the receipt's: performing again fits it again)
+    floor = estimate_black_level(element)  # (on the render as made: fitted to a portrait plate, its window's padding is
+    ign = ignition_frame(element, floor, burst=eff.behaviour == "burst")  # black 0, and a black read off that border
+    # put a punch's blast half a second after its BOOM and a palm's flame on the render's dim first frames)
     if element.shape[1:3] != (h, w):  # (a render of another size: placed by its pose, never stretched)
         element, ref = fit_element(element, ref, h, w)
-    floor = estimate_black_level(element)
-    ign = ignition_frame(element, floor, burst=eff.behaviour == "burst")
     if ign is None:
         raise ValueError("the render shows no element to carry")
     # each hit fires the element: its ignition on that hit's strike, as big and as bright as the hit is loud
@@ -1084,7 +1087,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         en = float(energy[min(i, charge[1] - charge[0] - 1)])
         size = EMBER_SIZE[0] + (EMBER_SIZE[1] - EMBER_SIZE[0]) * en ** 0.7  # (grows early: the hum is heard building)
         gain = (0.45 + 1.0 * en) * float(flicker[i])  # a hot core, brighter than the fire it becomes * (1.0 if t < charge[1] else (charge[1] + 3 - t) / 4)
-        E = warp_element(source(k), track, ref, t, 0, size, blur=False)
+        E = warp_element(source(k), track, ref, t, 0, size * lib_k, blur=False)
         return E * gain
 
     lit_box: dict[int, tuple[int, int, int, int] | None] = {}
@@ -1126,7 +1129,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
                 grow = 1.0
             S = source(picks[0][0]) if picks == [(picks[0][0], 1.0)] else sum(wt * source(f) for f, wt in picks)
-            E = warp_element(S, track, ref, t, lag, size * grow, since=off + ign, cam=cam) * gain
+            E = warp_element(S, track, ref, t, lag, size * grow * lib_k, since=off + ign, cam=cam) * gain
             if e < ign:  # the build-up, coming up to the ignition: its fire only, orange or white-hot (the model's
                 # dim grey haze before the flame catches showed as a grey blob on the palm)
                 warm = np.clip(3.0 * (E[..., 0] - E[..., 2]) / np.maximum(E[..., 0], 1e-4) - 1.0, 0.0, 1.0)
@@ -1497,16 +1500,33 @@ def load_take(spec, out_dir: Path, say) -> tuple[Path, int, int, int, int]:
     return loaded, n, h, w, int(np.clip(spec.extra.get("tap_frame") or 0, 0, n - 1))
 
 
+def note_crop(track_path: Path, plate, point, size) -> None:
+    """Write into a track where its frame sits in the clip as uploaded (pipeline.plate_box, fractions of that frame),
+    for the studio to draw it on that clip: a 4:3 webcam take is cropped to 16:9 around the tap, and the track's px
+    are the crop's (the preview ring sat off the hand)."""
+    from .pipeline import plate_box
+
+    try:
+        box = [round(float(v), 5) for v in plate_box(Path(plate), tuple(point), size)]
+        t = json.loads(Path(track_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    t["box"] = box
+    Path(track_path).write_text(json.dumps(t), encoding="utf-8")
+
+
 def prepare_take(spec, out_dir: Path, progress=None, emitter: str = "palm") -> Path:
     """Your tap followed through the clip before any shot is made (the studio draws the hand's path under your aim, and
     says where it lost it), then matted; a shot on the same tap reuses it (bending_job's ``reuse``)."""
     out_dir = Path(out_dir)
     (out_dir / "in").mkdir(parents=True, exist_ok=True)
     say = progress or (lambda stage, frac, msg: None)
+    clip, tapped = spec.plate, tuple(spec.point)  # (as uploaded: load_take moves the spec onto the loaded plate)
     loaded, n, h, w, k = load_take(spec, out_dir, say)
     say("tracking", 0.1, "Finding your hand and following it")
     track = follow_tap(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter, say)
     k, point = retapped(track, k, tuple(spec.point))
+    note_crop(track, clip, tapped, spec.plate_size)
     receipt = {"mode": "hand_prep", "inputs": {"point": list(point)}, "bending": {"tap_frame": k, "emitter": emitter}}
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1), encoding="utf-8")
     say("tracked", 0.5, "Your hand, followed through the clip")
@@ -1557,11 +1577,15 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
         track, mask = out_dir / "hand_track.json", out_dir / "hand_mask.npz"
         say("reading", 0.05, "Your hand as it was followed for your tap")
         return carry(spec, renderer, out_dir, track, mask if mask.exists() else None, progress, spec.extra.get("tap_frame"))
+    clip, tapped = spec.plate, tuple(spec.point)
     loaded, n, h, w, k = load_take(spec, out_dir, say)
     emitter = take_emitter(spec, n)
     say("tracking", 0.05, "Finding your hand and following it")
     track, mask = prepare_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter, say)
     k, spec.point = retapped(track, k, tuple(spec.point))  # (followed again from a clearer frame, the tap carried there)
+    note_crop(track, clip, tapped, spec.plate_size)
+    spec.extra["tap_frame"] = k  # (with its frame: performing again copies this spec, and the point on the old frame
+    # put the fire 1.7 hands off the palm)
     return carry(spec, renderer, out_dir, track, mask, progress, k)
 
 
@@ -1588,4 +1612,5 @@ def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
     # travels with its own track and matte)
     return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),
                              progress, element_from=first, tap_frame=spec.extra.get("tap_frame"),
-                             aim=spec.direction if spec.direction is not None else b.get("aim"))
+                             aim=spec.direction if spec.direction is not None else b.get("aim"),
+                             instant=bool(b.get("instant")))

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import AimOverlay, { aimAngle, type AimValue, carried, type HandTrack, lostRuns, lostShare, trackedAim, turnAngle } from "./AimOverlay";
+import AimOverlay, { fromTrack, aimAngle, type AimValue, carried, type HandTrack, lostRuns, lostShare, trackedAim, turnAngle } from "./AimOverlay";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -216,6 +216,15 @@ describe("carried", () => {
     const c = carried(t, 0, [0.6, 0.2]); // tapped above the fingertip on frame 0, where the hand was a blur
     expect(c.xy[2][0]).toBeCloseTo(60); // on the fingertip, not 20 px above it in the air
     expect(c.xy[2][1]).toBeCloseTo(40);
+  });
+  it("maps a tap on the clip as uploaded into a cropped track's frame, and the track back onto the clip", () => {
+    // a 4:3 clip, its middle 16:9 band the shot's frame (the track's), 100 x 56.25 px
+    const t: HandTrack = { W: 100, H: 56.25, xy: [[50, 28.125]], dir: [[0, -1]], scale: [10], src: ["mp"], box: [0, 0.125, 1, 0.875] };
+    expect(fromTrack(t, [0.5, 0.5])).toEqual([0.5, 0.5]);
+    expect(fromTrack(t, [0.5, 0])[1]).toBeCloseTo(0.125); // the crop's top is an eighth down the clip
+    const c = carried(t, 0, [0.5, 0.125]); // tapped on the clip at the crop's top edge
+    expect(c.xy[0][1]).toBeCloseTo(0); // ...is the track frame's top
+    expect(trackedAim(t, 0)?.y).toBeCloseTo(0.5); // and the tracked point, drawn on the clip, is its middle
   });
   it("says how much of the clip the hand was lost on", () => {
     expect(lostShare({ W: 1, H: 1, xy: [], dir: [], src: ["mp", "lost", "lost", "hold"] })).toBe(0.5);

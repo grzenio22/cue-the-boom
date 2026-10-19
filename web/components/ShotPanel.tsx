@@ -228,7 +228,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       )}
       {hand && !handOffline && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
-          fireball, a hiss from a palm steam, a pf a pop of fire. {sceneLive
+          fireball, a held fffff over a palm a flame in it (steam on the badge), a pf a pop of fire. {sceneLive
             ? "Rendered once over black on the GPU (~1 min), then carried on your hand."
             : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand (a minute or two on a laptop CPU)."}</p>
       )}

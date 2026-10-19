@@ -8,11 +8,25 @@ export interface HandTrack {
   xy: [number, number][]; dir: [number, number][]; src: string[]; W: number; H: number; scale?: number[];
   landmarks?: (number[][] | null)[]; // the hand's 21 points on each frame it was seen (px)
   retap?: { frame: number; x: number; y: number }; // followed again from a clearer frame, the tap carried onto it
+  box?: [number, number, number, number]; // where its frame sits in the clip as uploaded (fractions): the crop the shot uses
+}
+
+/** A point as fractions of the track's frame, as fractions of the clip as uploaded (the track's frame is the crop the
+ * shot uses: a 4:3 webcam take is cropped to 16:9 round the tap). */
+export function fromTrack(track: HandTrack, [x, y]: [number, number]): [number, number] {
+  const b = track.box;
+  return b ? [b[0] + x * (b[2] - b[0]), b[1] + y * (b[3] - b[1])] : [x, y];
+}
+
+/** A point as fractions of the clip as uploaded, as fractions of the track's frame (fromTrack, inverted). */
+export function toTrack(track: HandTrack, [x, y]: [number, number]): [number, number] {
+  const b = track.box;
+  return b ? [(x - b[0]) / Math.max(b[2] - b[0], 1e-6), (y - b[1]) / Math.max(b[3] - b[1], 1e-6)] : [x, y];
 }
 
 const CARRY_NEAREST = 3; // the tap rides the landmarks nearest it (cuesync.bending.CARRY_NEAREST)
 
-/** The track of where you tapped (x, y as fractions, on frame k), carried with the hand: on the landmarks nearest the
+/** The track of where you tapped (x, y as fractions of the clip as uploaded, on frame k), carried with the hand: on the landmarks nearest the
  * tap (a fingertip tapped stays on that fingertip as it curls), kept as an offset from them in the hand's own frame
  * (along its direction and across it, in hand sizes), so it moves, turns and scales with the hand; on the tracker's
  * point when the track has no landmarks. With ``aim`` (degrees clockwise from up, on frame k) its direction turned by
@@ -26,7 +40,7 @@ export function carried(track: HandTrack, k: number, tap: [number, number], aim:
     const [x, y] = track.xy[i], [ux, uy] = track.dir[i] ?? [0, -1], s = track.scale?.[i] ?? 1;
     return { x, y, ux, uy, s: Math.max(s, 1e-6) };
   };
-  const p = at(k), tx = tap[0] * track.W, ty = tap[1] * track.H;
+  const [fx, fy] = toTrack(track, tap), p = at(k), tx = fx * track.W, ty = fy * track.H;
   // each frame's landmarks, a frame without them holding the last ones before (the first found, before any)
   const lms = track.landmarks ?? [];
   let last = lms.find((lm) => lm != null) ?? null;
@@ -104,8 +118,8 @@ export function turnAngle(deg: number, turn: 1 | -1): number {
 export function trackedAim(track: HandTrack, frame: number): AimValue | null {
   if (!track.xy.length) return null;
   const i = Math.min(Math.max(0, Math.round(frame)), track.xy.length - 1);
-  const [x, y] = track.xy[i], [ux, uy] = track.dir[i] ?? [0, -1];
-  return { frame, x: r4(clamp01(x / track.W)), y: r4(clamp01(y / track.H)), angle: wrap(Math.round((Math.atan2(ux, -uy) * 180) / Math.PI)) };
+  const [ux, uy] = track.dir[i] ?? [0, -1], [x, y] = fromTrack(track, [track.xy[i][0] / track.W, track.xy[i][1] / track.H]);
+  return { frame, x: r4(clamp01(x)), y: r4(clamp01(y)), angle: wrap(Math.round((Math.atan2(ux, -uy) * 180) / Math.PI)) };
 }
 
 type Kind = "seen" | "filled" | "lost";
@@ -137,7 +151,7 @@ type At = (x: number, y: number) => { left: number; top: number };
 function Trail({ track, frame, at, r }: { track: HandTrack; frame: number; at: At; r: Rect }) {
   const T = track.xy.length;
   const kinds = track.xy.map((_, i) => kindOf(track.src[i]));
-  const pts = track.xy.map(([x, y]) => at(x / track.W, y / track.H));
+  const pts = track.xy.map(([x, y]) => at(...fromTrack(track, [x / track.W, y / track.H])));
   // a segment is as bad as its worse end
   const segs = runsOf(kinds.slice(1).map((k, i) => (RANK[k] > RANK[kinds[i]] ? k : kinds[i])));
   const strip = { y: r.y + r.height - 9, h: 5 };
@@ -235,7 +249,8 @@ export default function AimOverlay({ src, frame, track, value, onChange }: Props
   };
 
   // the clip's own size once it loads; until then the track's (the same frame)
-  const clip = video && video.w ? video : track ? { w: track.W, h: track.H } : null;
+  const clip = video && video.w ? video : track ? { w: track.W / ((track.box?.[2] ?? 1) - (track.box?.[0] ?? 0)),
+    h: track.H / ((track.box?.[3] ?? 1) - (track.box?.[1] ?? 0)) } : null;
   const r = clip && box && box.w ? contentRect({ width: box.w, height: box.h }, clip.w, clip.h) : null;
   const at: At = (x, y) => (r ? { left: r.x + x * r.width, top: r.y + y * r.height } : { left: 0, top: 0 });
   const aim = value ?? (track ? trackedAim(track, frame) : null);
