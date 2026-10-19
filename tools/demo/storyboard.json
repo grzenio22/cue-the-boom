@@ -2,7 +2,7 @@
  "beats": [
   {
    "type": "clip",
-   "src": "runs/takes/gpu2/IMG_6663_fire_burst/composite.mp4",
+   "src": "runs/takes/gpu2/IMG_6663_fire_burst_comp/composite.mp4",
    "start": 2.15,
    "dur": 1.35,
    "fill": true,
@@ -115,7 +115,7 @@
   },
   {
    "type": "clip",
-   "src": "runs/takes/gpu2/IMG_6660_flame_plume/composite.mp4",
+   "src": "runs/takes/gpu2/IMG_6660_flame_plume_comp/composite.mp4",
    "start": 1.0,
    "dur": 2.4,
    "fill": true,

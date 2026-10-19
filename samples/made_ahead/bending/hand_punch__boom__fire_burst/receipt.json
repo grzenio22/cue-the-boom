@@ -47,7 +47,7 @@
   "cue": "clip"
  },
  "render": {
-  "seconds": 462.5,
+  "seconds": 0.0,
   "prompt": "ainvfxfluid, a short explosive ball of clean bright flame bursting to the left from a point, a white-hot core, quickly dissipating into embers, isolated on a pure black background",
   "guide_scale": 0.801
  },
@@ -58,8 +58,8 @@
   "tap_frame": 68,
   "aim": null,
   "k_launch": 64,
-  "ignition": 8,
-  "offset": 56,
+  "ignition": 20,
+  "offset": 44,
   "lag_frames": 2,
   "snap": {
    "cue": 66,
@@ -106,5 +106,5 @@
   "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
   "foley_gain": 0.65
  },
- "seconds_total": 482.3
+ "seconds_total": 20.8
 }

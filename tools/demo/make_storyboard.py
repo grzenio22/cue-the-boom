@@ -39,7 +39,7 @@ def band(y0: float) -> list[float]:
 TALL = [0, 0.36, 1, 0.92]  # the hand and the fire above it, for a panel
 beats = [
     # 1. the hook: the author's punch, the author's BOOM, filling the frame, no narration over it
-    dict(type="clip", src=f"{G2}/IMG_6663_fire_burst/composite.mp4", start=2.15, dur=1.35, fill=True, wave=True,
+    dict(type="clip", src=f"{G2}/IMG_6663_fire_burst_comp/composite.mp4", start=2.15, dur=1.35, fill=True, wave=True,
          crop=band(0.31), pop_x=0.78, pop_y=0.5, pops=[[0.52, "BOOM"]], headline="Cue the Boom",
          subline="Make the noise. Throw fire.", stamp=MINE),
     # 2. right after it, the same render performed three ways
@@ -52,7 +52,7 @@ beats = [
     # 3. first person: a roar, a flamethrower from the fingertip; a finger gun
     dict(type="clip", src=f"{G}/IMG_6653_fire_breath_c5/composite.mp4", start=1.55, dur=0.9, fill=True, wave=True,
          crop=band(0.29), pops=[[0.0, "fwooooOOM"]], stamp=MINE),  # only the stretch where the flame leaves the finger
-    dict(type="clip", src=f"{G2}/IMG_6660_flame_plume/composite.mp4", start=1.0, dur=2.4, fill=True, wave=True,
+    dict(type="clip", src=f"{G2}/IMG_6660_flame_plume_comp/composite.mp4", start=1.0, dur=2.4, fill=True, wave=True,
          crop=band(0.5), pops=[[0.4, "fffff"]], stamp=MINE),  # a fist opens, a held fffff: a flame in the palm
     # 4. how: rendered once over black, carried on the tracked hand, light off / light on
     dict(type="triptych", srcs=[str(V9 / f"{n}_slow.mp4") for n in ("how_render", "how_carried", "nolight", "hero")],
