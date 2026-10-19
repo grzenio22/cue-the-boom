@@ -240,13 +240,81 @@ def shoulder(P: np.ndarray) -> None:
     np.copyto(P, SHOULDER + (1.0 - SHOULDER) * np.tanh((P - SHOULDER) / (1.0 - SHOULDER)), where=P > SHOULDER)
 
 
-def hit_looks(loud: list[float]) -> list[tuple[float, float]]:
+LOUD_SLACK_DB = 6.0  # performing again, a take within this many dB of the one the render was made for plays it full
+SUSTAIN_XFADE = 6  # frames a held flame's loop, and its letting go, cross-fade over
+LETGO = 10  # frames a held flame dies down over when its render burns to the end (it vanished in a frame)
+
+
+def hit_looks(loud: list[float], ref: float | None = None) -> list[tuple[float, float]]:
     """(gain, size) for each hit from its level on the cue's envelope (54 dB over 0..1): the loudest plays the element
-    as rendered, a quieter one dimmer and smaller, by its dB under the loudest (LOUD_DB, HIT_SIZE)."""
+    as rendered, a quieter one dimmer and smaller, by its dB under the loudest (LOUD_DB, HIT_SIZE). ``ref``: performing
+    again, the loudest hit of the take the element was rendered for (the envelope is absolute dBFS): a new take more
+    than LOUD_SLACK_DB quieter plays it smaller (a lone quiet "pf" on a BOOM's render is a pop, not the BOOM again), a
+    louder one no bigger than rendered."""
     top = max(loud, default=0.0)
+    if ref is not None:
+        top = max(top, ref - LOUD_SLACK_DB / 54.0)
     under = [54.0 * (top - v) for v in loud]
     return [(float(np.clip(10 ** (-d / LOUD_DB[0]), 0.35, 1.0)), float(np.clip(10 ** (-d / LOUD_DB[1]), *HIT_SIZE)))
             for d in under]
+
+
+def element_span(element: np.ndarray, floor: float, ign: int) -> tuple[int, int]:
+    """(release, end) of a held element (a jet, a plume): the frame after its last one still burning at full (it lets
+    go from there) and the frame after its last lit one."""
+    lit = np.array([float(np.clip(f[::8, ::8].max(-1).astype(np.float32) - floor - 2, 0, None).mean()) for f in element])
+    body = lit[ign:]
+    top = float(np.percentile(body, 75)) if body.size else 0.0
+    if top <= 0:
+        return len(element), len(element)
+    on, seen = np.nonzero(body >= 0.6 * top)[0], np.nonzero(body > 0.05 * top)[0]
+    rel = ign + int(on[-1]) + 1 if on.size else len(element)
+    return rel, max(rel, ign + int(seen[-1]) + 1 if seen.size else len(element))
+
+
+def held_frames(d: int, ign: int, rel: int, end: int, hold: int, x: int = SUSTAIN_XFADE) -> list[tuple[int, float]]:
+    """The render's frames, with their weights, that a held hit plays ``d`` frames after its ignition, for a voice
+    that holds ``hold`` frames: its body as rendered; looped while the voice holds on past it (the loop's end
+    cross-faded into its start); and from wherever the voice stops, its letting go ([] once that has burned out).
+    A take as long as the render's plays it as rendered."""
+    body = rel - ign
+
+    def burning(k: int) -> list[tuple[int, float]]:
+        if k < body or body <= 2 * x + 2:  # (too short a body to loop: it holds its last frame)
+            return [(ign + min(k, body - 1), 1.0)]
+        lead = min(x, body // 3)  # the catching isn't looped, only the steady burn after it
+        span = body - lead
+        m = (k - lead) % span
+        if m >= span - x:
+            w = (m - (span - x) + 1) / (x + 1)
+            return [(ign + lead + m, 1.0 - w), (ign + lead + m - (span - x), w)]
+        return [(ign + lead + m, 1.0)]
+
+    if d < 0:
+        return [(ign + d, 1.0)]
+    stop = max(int(hold), 1)
+    if d < stop:
+        return burning(d)
+    r = d - stop
+    if stop == body:  # as long as rendered: its own letting go, uncut
+        return [(rel + r, 1.0)] if rel + r < end else []
+    if end - rel <= x:  # a render that burns to its last frame has no letting go: it dies down from where it was
+        return [] if r >= LETGO else [(f, wt * (1.0 - (r + 1) / (LETGO + 1))) for f, wt in burning(stop - 1 + r)]
+    if rel + r >= end:
+        return []
+    if r >= x:
+        return [(rel + r, 1.0)]
+    w = (r + 1) / (x + 1)
+    return [(f, wt * (1.0 - w)) for f, wt in burning(stop - 1)] + [(rel + r, w)]
+
+
+def hold_of(frame: int, sounding: list[tuple[int, int]]) -> int | None:
+    """Frames the voice holds on after a hit's strike at ``frame``: to the end of the sounding stretch it starts (None
+    when it starts none)."""
+    for a, b in sounding:
+        if a - 3 <= frame < b:
+            return max(1, b - frame)
+    return None
 
 
 def _strip(level0: float, g: tuple, lo: float, hi: float, box: tuple) -> tuple | None:
@@ -772,10 +840,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     tap_k = k_launch if tap_frame is None else int(np.clip(tap_frame, 0, n - 1))
     arrow = aim  # the aim arrow you drew, if you did (kept in the receipt: performing again keeps it)
     track = anchored(track, tap_k, (spec.point[0] * w, spec.point[1] * h), aim)  # where you tapped, carried on the hand
-    looks = hit_looks(loud)
 
     auto = None
     old = json.loads((Path(element_from) / "receipt.json").read_text()) if element_from is not None else None
+    # performing your own take again: as big as it is loud against the take it was rendered for (not a library's)
+    loud_ref = old["bending"].get("loud_ref") if old is not None and not instant else None
+    looks = hit_looks(loud, loud_ref)
     effect = old["effect"]["id"] if old else spec.effect
     if effect == "auto":  # the sound and the hand's gesture at the strike
         h_ = heard(cue, c.samples, SR, c.source)
@@ -833,9 +903,19 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     # each hit fires the element: its ignition on that hit's strike, as big and as bright as the hit is loud
     plays = [(s_["frame"] - ign, g, sz) for s_, (g, sz) in zip(snaps, looks)]
     every = plays  # (the Foley sounds on every hit of the take, whichever hand fires it)
+    # a render played again (your take again, or one made ahead) holds a jet or a plume as long as this voice holds
+    # it, and lets it go when the voice stops: as rendered it lasted as long as the take it was made for
+    held = old is not None and eff.behaviour in ("jet", "plume")
+    rel = end_ = ign
+    holds: list[int] = []
+    if held:
+        rel, end_ = element_span(element, floor, ign)
+        sounding = cue.intervals()
+        holds = [hold_of(s_["frame"], sounding) or (rel - ign) for s_ in snaps]
     if only_hits:
         plays = [plays[i] for i in only_hits if 0 <= i < len(plays)]
         snaps = [snaps[i] for i in only_hits if 0 <= i < len(snaps)]
+        holds = [holds[i] for i in only_hits if 0 <= i < len(holds)]
     offset = k_launch - ign
 
     say("compositing", 0.7, "Carrying the element on your hand")
@@ -930,16 +1010,23 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
         held out; None when none is on (before its build-up, after it ends)."""
         acc = None
-        for off, gain, size in plays:
+        for k_, (off, gain, size) in enumerate(plays):
             e = t - off
-            if eff.behaviour == "burst" and e > ign:  # a smaller blast is over sooner (a fireball lasts as long as it
-                e = ign + int(round((e - ign) / size))  # is big): a "pf" puffs and is gone, a "BOOM" rolls on
-            if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
-                continue
+            if held and e >= ign:  # held as long as the voice holds it, then let go
+                picks = held_frames(e - ign, ign, rel, end_, holds[k_])
+                if not picks or max(f for f, _ in picks) >= len(element):
+                    continue
+            else:
+                if eff.behaviour == "burst" and e > ign:  # a smaller blast is over sooner (a fireball lasts as long as
+                    e = ign + int(round((e - ign) / size))  # it is big): a "pf" puffs and is gone, a "BOOM" rolls on
+                if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
+                    continue
+                picks = [(e, 1.0)]
             grow = min(1.0, GROW_FROM + (1.0 - GROW_FROM) * max(0.0, e - ign + pre) / (pre + GROW_FRAMES))
             if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
                 grow = 1.0
-            E = warp_element(source(e), track, ref, t, lag, size * grow, since=off + ign, cam=cam) * gain
+            S = source(picks[0][0]) if picks == [(picks[0][0], 1.0)] else sum(wt * source(f) for f, wt in picks)
+            E = warp_element(S, track, ref, t, lag, size * grow, since=off + ign, cam=cam) * gain
             if e < ign:  # the build-up, coming up to the ignition: its fire only, orange or white-hot (the model's
                 # dim grey haze before the flame catches showed as a grey blob on the palm)
                 warm = np.clip(3.0 * (E[..., 0] - E[..., 2]) / np.maximum(E[..., 0], 1e-4) - 1.0, 0.0, 1.0)
@@ -1075,6 +1162,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                                             "snap": sn} for (off, g, sz), sn in zip(plays, snaps)],
                     "ref": {"xy": [round(float(v), 2) for v in ref_saved[0]],
                             "dir": [round(float(v), 5) for v in ref_saved[1]], "scale": round(float(ref_saved[2]), 2)},
+                    "loud_ref": round(float(loud_ref if loud_ref is not None else max(loud, default=0.0)), 4),
+                    "held": None if not held else {"release": int(rel), "end": int(end_), "holds": [int(v) for v in holds]},
                     "performed_again": None if old is None or instant else {"from": str(element_from), "no_new_render": True},
                     "instant": None if not instant else {"library": str(element_from), "no_gpu": True},
                     "camera": "locked" if cam is None else "handheld: thrown fire moves with the room",

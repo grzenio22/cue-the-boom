@@ -168,6 +168,77 @@ def test_a_burst_on_a_portrait_clip_is_rendered_landscape_and_carried_onto_the_h
     assert float(np.average(ys, weights=fire[ys, xs])) < 200
 
 
+def test_a_held_flame_loops_while_the_voice_holds_and_lets_go_when_it_stops():
+    from cuesync.bending import held_frames
+
+    ign, rel, end = 10, 40, 52  # 30 frames burning, then 12 letting go
+    as_rendered = [held_frames(d, ign, rel, end, hold=30) for d in range(-3, 45)]
+    assert [p[0][0] for p in as_rendered if p] == list(range(7, 52)) and all(len(p) == 1 for p in as_rendered if p)
+    long = [held_frames(d, ign, rel, end, hold=90) for d in range(110)]
+    assert all(ign <= f < rel for p in long[:90] for f, _ in p)  # burning for as long as the voice holds on
+    assert all(abs(sum(wt for _, wt in p) - 1.0) < 1e-6 for p in long[:90])  # (the loop's seam cross-faded)
+    assert long[97] == [(rel + 7, 1.0)] and long[102] == []  # then its own letting go, and out
+    assert held_frames(12, ign, rel, end, hold=10)[-1][0] == rel + 2  # stopping early lets go from where it was
+    dying = [sum(wt for _, wt in held_frames(d, ign, rel, rel, hold=10)) for d in range(10, 22)]  # no letting go rendered
+    assert all(a > b for a, b in zip(dying, dying[1:10])) and dying[0] > 0.85 and dying[-1] == 0  # dies down, not cut
+
+
+def test_performed_again_a_quiet_take_plays_the_render_smaller_than_the_take_it_was_made_for():
+    from cuesync.bending import hit_looks
+
+    ref = 0.9  # the loudest hit of the take the render was made for
+    [(g, s)] = hit_looks([ref - 18 / 54], ref)  # a lone "pf" 18 dB under that BOOM
+    assert s < 0.6 and g < 1.0
+    assert hit_looks([ref - 4 / 54], ref) == [(1.0, 1.0)]  # within the slack: as rendered
+    assert hit_looks([ref + 0.05], ref) == [(1.0, 1.0)]  # louder: no bigger than rendered
+
+
+class GuideAsKeyframes(GuideAsElement):
+    """Renders 'the element' as its guide, each keyframe held until the next (8 frames) and then gone: it burns as
+    long as the take it was made for."""
+
+    def __call__(self, guide_path, prompt, seed, out_path, image=None):
+        self.prompts.append(prompt)
+        g = read_video(guide_path).frames.copy()
+        last, at = g[0], -99
+        for i in range(len(g)):
+            if g[i].max() > 40:
+                last, at = g[i].copy(), i
+            g[i] = last if i - at < 8 else 0
+        write_video(out_path, g, fps=24)
+        return 0.1
+
+
+def test_a_flamethrower_performed_again_burns_as_long_as_the_new_fffff(tmp_path, make_video, make_wav):
+    import dataclasses
+
+    w, h, n = 256, 128, 96
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30 + (i % 2)))
+    sr = 48000
+
+    def fffff(seconds):  # a hiss from 1 s
+        x = np.random.default_rng(4).normal(0, 0.001, 4 * sr).astype(np.float32)
+        x[sr: sr + int(seconds * sr)] += np.random.default_rng(5).normal(0, 0.15, int(seconds * sr)).astype(np.float32)
+        return make_wav(tmp_path, x, sr)
+
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (60.0, 64.0))))
+    spec = ShotSpec(plate=plate, voice=fffff(0.5), effect="fire_breath", point=(60 / w, 64 / h), mode="scene",
+                    plate_size=(w, h), max_plate_s=4.0)
+    first = make_bending_shot(spec, GuideAsKeyframes(), tmp_path / "one", track_path)
+    again = make_bending_shot(dataclasses.replace(spec, voice=fffff(2.0)), GuideAsKeyframes(), tmp_path / "again",
+                              track_path, element_from=first.out_dir)
+    held = again.receipt["bending"]["held"]
+    assert held and held["holds"][0] > 36  # the new fffff holds on for most of its two seconds
+    k = 24 + 41  # 1.7 s into the fffff: the first take's flame has long burned out
+    base = read_video(plate).frames[k].astype(float)
+
+    def lit(path):
+        return float(np.maximum(read_video(path).frames[k].astype(float) - base - 6, 0).sum())
+
+    assert lit(again.composite) > 3 * lit(first.composite) + 1000
+
+
 def test_a_hit_plays_as_big_as_it_is_loud_in_db():
     """The cue's envelope is in dB (54 dB over 0..1): a "pf" 12 dB under the "BOOM" plays about half its size."""
     from cuesync.bending import hit_looks
