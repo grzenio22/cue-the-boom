@@ -19,7 +19,9 @@ Beats (all times in seconds; text may use \\n):
   [[t, x, y, "1"], ...] (a numbered ring on the clip at x, y as fractions, from t s: where a hit goes off) and
   "headline" / "subline" (a title over the clip itself, top left), "fill": true (the clip, or its crop, fills the
   whole frame, the text over it; a crop of the frame's own shape is not cut further) and "chip": "..." (a step's
-  name, big, top left); "pop_y": where the noise words sit, as a share of the clip's height
+  name, big, top left); "pop_x" / "pop_y": where the noise words sit, as shares of the clip's width and height
+  (beside the fire, not on it); "audio_gain": how much louder audio_src plays (a take said quietly); "wave_box":
+  [x, y, w, h] as shares of the frame, where a filled clip's sound is drawn; "stamp_top": the stamp at the top
       (an image may add "crop" too; "split": [0.4] cuts a wide image at those fractions of its width and stacks
       the parts as rows)
   {"type": "versus", "shot": "runs/.../shot", "start": 0.4, "dur": 2.4, "speed": 1, "labels": ["...", "..."],
@@ -125,9 +127,10 @@ def stacked(src: Image.Image, split: list[float] | None) -> Image.Image:
     return out
 
 
-def stamp(img: Image.Image, text: str | None) -> None:
-    if text:  # what the shot is made of: as readable as the claims it qualifies
-        ImageDraw.Draw(img).text((W - 24, H - 12), text, font=font(32), fill=(214, 210, 202), anchor="rd")
+def stamp(img: Image.Image, text: str | None, top: bool = False) -> None:
+    if text:  # what the shot is made of: as readable as the claims it qualifies (at the top where the UI is under it)
+        ImageDraw.Draw(img).text((W - 24, 12) if top else (W - 24, H - 12), text, font=font(32), fill=(214, 210, 202),
+                                 anchor="ra" if top else "rd")
 
 
 def envelope(audio: np.ndarray, n: int) -> np.ndarray:
@@ -268,7 +271,9 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             src = src.crop((int(c[0] * src.width), int(c[1] * src.height), int(c[2] * src.width), int(c[3] * src.height)))
         src = stacked(src, b.get("split"))
         zoom = float(b.get("zoom", 1.06))
-        for i in range(n):
+        if src.size == (W, H) and zoom == 1.0 and not b.get("caption"):  # a card made for the frame: as it is
+            frames = [np.asarray(src)] * n
+        for i in range(0 if frames else n):
             z = 1.0 + (zoom - 1.0) * i / max(1, n - 1)
             img = Image.new("RGB", (W, H), BG)
             box_h = H - (170 if b.get("caption") else 80)
@@ -287,7 +292,7 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             at = int(float(b.get("audio_at", 0)) * SR)
             if at < audio.size:
                 n_ = min(audio.size - at, a.size)
-                audio[at: at + n_] += a[:n_]
+                audio[at: at + n_] += a[:n_] * float(b.get("audio_gain", 1.0))
         filled = bool(b.get("fill"))
         tall = c.frames.shape[1] > c.frames.shape[2] and not filled  # a portrait clip: its sound goes beside it
         box_h = H - (150 if b.get("caption") else 60) - (130 if b.get("wave") and not tall else 0)
@@ -303,7 +308,10 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             img.paste(im, (x0, y0))
             d = ImageDraw.Draw(img)
             if env is not None:  # the sound: the playhead reaches the noise as the effect hits
-                if filled:
+                if filled and b.get("wave_box"):
+                    bx, by, bw, bh = b["wave_box"]
+                    wave(d, int(bx * W), int(by * H), int(bw * W), int(bh * H), env, i)
+                elif filled:
                     wave(d, 60, H - (190 if b.get("caption") else 120), W - 120, 70, env, i)
                 elif not tall:
                     wave(d, x0, y0 + im.height + 30, im.width, 90, env, i)
@@ -312,7 +320,8 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
                 else:  # to the right of the clip
                     wave(d, x0 + im.width + 70, y0 + im.height - 220, W - 120 - (x0 + im.width + 70), 110, env, i)
             mark(d, x0, y0, im.width, im.height, i / FPS, b.get("marks"))
-            pop(d, x0 + im.width // 2, y0 + int(im.height * float(b.get("pop_y", 0.62 if filled else 0.8))), i / FPS, b.get("pops"))
+            pop(d, x0 + int(im.width * float(b.get("pop_x", 0.5))), y0 + int(im.height * float(b.get("pop_y", 0.62 if filled else 0.8))),
+                i / FPS, b.get("pops"))
             if b.get("chip"):  # the step it shows
                 chip(d, 60, 50, b["chip"])
             if b.get("headline"):  # the title over the shot itself, not on a card of its own
@@ -335,7 +344,7 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
                 tw = d.textlength(b["note"], font=f)
                 d.rounded_rectangle([W - tw - 70, 24, W - 30, 74], radius=12, fill=ACCENT)
                 d.text((W - 50, 49), b["note"], font=f, fill=BG, anchor="rm")
-            stamp(img, b.get("stamp"))
+            stamp(img, b.get("stamp"), top=bool(b.get("stamp_top")))
             frames.append(np.asarray(img))
     elif kind == "versus":  # LTX-2.5's render as it came, beside the finished shot, on the same timeline
         import json as _json
