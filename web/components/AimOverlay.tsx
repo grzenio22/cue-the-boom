@@ -6,28 +6,51 @@ import { contentRect, type Rect } from "@/lib/geometry";
 /** The parts of hand_track.json the aim draws (docs/bending_contracts.md): px in a W x H frame, one entry a frame. */
 export interface HandTrack {
   xy: [number, number][]; dir: [number, number][]; src: string[]; W: number; H: number; scale?: number[];
+  landmarks?: (number[][] | null)[]; // the hand's 21 points on each frame it was seen (px)
   retap?: { frame: number; x: number; y: number }; // followed again from a clearer frame, the tap carried onto it
 }
 
-/** The track of where you tapped (x, y as fractions, on frame k), carried with the hand: kept as an offset in the
- * hand's own frame (along its direction and across it, in hand sizes), so it moves, turns and scales with the hand;
- * with ``aim`` (degrees clockwise from up, on frame k) its direction turned by the same angle on every frame, as the
- * shot carries it (cuesync.bending.anchored). */
+const CARRY_NEAREST = 3; // the tap rides the landmarks nearest it (cuesync.bending.CARRY_NEAREST)
+
+/** The track of where you tapped (x, y as fractions, on frame k), carried with the hand: on the landmarks nearest the
+ * tap (a fingertip tapped stays on that fingertip as it curls), kept as an offset from them in the hand's own frame
+ * (along its direction and across it, in hand sizes), so it moves, turns and scales with the hand; on the tracker's
+ * point when the track has no landmarks. With ``aim`` (degrees clockwise from up, on frame k) its direction turned by
+ * the same angle on every frame, as the shot carries it (cuesync.bending.anchored). */
 export function carried(track: HandTrack, k: number, tap: [number, number], aim: number | null = null): HandTrack {
   const n = track.xy.length;
   if (!n) return track;
+  const clamp = (t: number) => Math.min(Math.max(0, Math.round(t)), n - 1);
   const at = (t: number) => {
-    const i = Math.min(Math.max(0, Math.round(t)), n - 1);
+    const i = clamp(t);
     const [x, y] = track.xy[i], [ux, uy] = track.dir[i] ?? [0, -1], s = track.scale?.[i] ?? 1;
     return { x, y, ux, uy, s: Math.max(s, 1e-6) };
   };
-  const p = at(k), dx = tap[0] * track.W - p.x, dy = tap[1] * track.H - p.y;
+  const p = at(k), tx = tap[0] * track.W, ty = tap[1] * track.H;
+  // each frame's landmarks, a frame without them holding the last ones before (the first found, before any)
+  const lms = track.landmarks ?? [];
+  let last = lms.find((lm) => lm != null) ?? null;
+  const L = last ? track.xy.map((_, t) => (last = lms[t] ?? last) as number[][]) : null;
+  let base = (t: number): [number, number] => { const q = at(t); return [q.x, q.y]; };
+  if (L) {
+    const near = L[clamp(k)].map((q, j) => ({ j, d: Math.hypot(q[0] - tx, q[1] - ty) }))
+      .sort((u, v) => u.d - v.d).slice(0, CARRY_NEAREST);
+    const w = near.map((e) => 1 / (e.d + 0.05 * p.s) ** 2), sum = w.reduce((u, v) => u + v, 0);
+    base = (t) => {
+      const lm = L[clamp(t)];
+      return near.reduce<[number, number]>((acc, e, i) => [acc[0] + (w[i] / sum) * lm[e.j][0], acc[1] + (w[i] / sum) * lm[e.j][1]], [0, 0]);
+    };
+  }
+  const [bx, by] = base(k), dx = tx - bx, dy = ty - by;
   const a = (dx * p.ux + dy * p.uy) / p.s, b = (-dx * p.uy + dy * p.ux) / p.s; // along, across (y down)
   const turn = aim === null ? 0 : (wrap(aim - (Math.atan2(p.ux, -p.uy) * 180) / Math.PI) * Math.PI) / 180;
   const c = Math.cos(turn), sn = Math.sin(turn);
   return {
     ...track,
-    xy: track.xy.map((_, t) => { const q = at(t); return [q.x + q.s * (a * q.ux - b * q.uy), q.y + q.s * (a * q.uy + b * q.ux)]; }),
+    xy: track.xy.map((_, t) => {
+      const q = at(t), [x, y] = base(t);
+      return [x + q.s * (a * q.ux - b * q.uy), y + q.s * (a * q.uy + b * q.ux)];
+    }),
     dir: track.xy.map((_, t) => { const q = at(t); return [q.ux * c - q.uy * sn, q.ux * sn + q.uy * c]; }), // clockwise (y down)
   };
 }

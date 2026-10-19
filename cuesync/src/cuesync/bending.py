@@ -60,7 +60,9 @@ LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a j
 SIZE = {"jet": (6.0, 0.75), "burst": (2.0, 0.45), "plume": (1.8, 0.45), "puff": (2.5, 0.4)}  # per behaviour: its reach in
 # hand sizes, and at most this share of the frame's short side (a close-up hand made a fireball fill the frame)
 IGNITION = 0.15  # an element has ignited once its light is this share of its brightest frame's
-LOST_FADE = 4  # frames over which an element fades out once the hand has been lost for more than 8
+LOST_GRACE, LOST_FADE = 0, 4  # the hand lost (and the picture where it was changed): the element fades out over these
+# frames from where it was last seen (after 8 frames' grace it burned a third of a second beside a swung fist; the
+# track bridges any shorter gap itself, so a lost frame is never a flicker)
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
 # a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
 ROOT_ROUND = 0.15  # how far the root's fade curves back at the sides, in its own length over its width squared
@@ -147,25 +149,57 @@ def emitter_at(track: dict, k: int) -> tuple[np.ndarray, np.ndarray, float]:
     return np.asarray(track["xy"][k], np.float64), u / max(float(np.hypot(*u)), 1e-6), float(track["scale"][k])
 
 
+CARRY_NEAREST = 3  # the tap rides the hand's landmarks nearest it (the nearest counting most), not the tracker's
+# emitter: a fingertip tapped, kept as an offset from the palm point (1.4 hands across), went a hand off the finger
+# into mid-air as it curled into a punch
+
+
+def filled_landmarks(track: dict) -> np.ndarray | None:
+    """[T, 21, 2]: each frame's landmarks (px), a frame without them holding the last ones before (the first found,
+    before any), as the track holds its emitter. None when the track has none."""
+    lms = track.get("landmarks") or []
+    found = [np.asarray(lm, np.float64)[:, :2] for lm in lms if lm is not None]
+    if not found:
+        return None
+    out, last = [], found[0]
+    for t in range(len(track["xy"])):
+        lm = lms[t] if t < len(lms) else None
+        last = last if lm is None else np.asarray(lm, np.float64)[:, :2]
+        out.append(last)
+    return np.stack(out)
+
+
 def anchored(track: dict, k: int, tap: tuple[float, float], aim: float | None = None) -> dict:
     """The track with its emitter moved to where the performer tapped on frame ``k`` (``tap`` in px), carried with the
-    hand from there: the tap kept as an offset in the hand's own frame (along its direction and across it, in hand
-    sizes), so it moves, turns and scales with the hand. A tracker's palm point is the landmarks' middle, which for an
-    upturned palm seen from the side lies inside the hand, not on the palm the fire should rise from. ``aim``: the
-    studio's aim arrow on frame ``k`` (degrees clockwise from up); the direction turns by the same angle on every
-    frame, so the aim too is carried with the hand."""
+    hand from there: on the landmarks nearest the tap (a fingertip tapped stays on that fingertip as it curls), the
+    tap kept as an offset from them in the hand's own frame (along its direction and across it, in hand sizes), so
+    it moves, turns and scales with the hand; on the tracker's emitter when the track has no landmarks. A tracker's
+    palm point is the landmarks' middle, which for an upturned palm seen from the side lies inside the hand, not on
+    the palm the fire should rise from. ``aim``: the studio's aim arrow on frame ``k`` (degrees clockwise from up);
+    the direction turns by the same angle on every frame, so the aim too is carried with the hand."""
+    k = int(np.clip(k, 0, len(track["xy"]) - 1))
     p, u, s = emitter_at(track, k)
-    d = np.asarray(tap, np.float64) - p
+    tap_ = np.asarray(tap, np.float64)
+    L = filled_landmarks(track)
+    if L is not None:
+        dist = np.linalg.norm(L[k] - tap_, axis=-1)
+        near = np.argsort(dist)[:CARRY_NEAREST]
+        wts = 1.0 / (dist[near] + 0.05 * max(s, 1e-6)) ** 2
+        wts = wts / wts.sum()
+        base = [wts @ L[t][near] for t in range(len(L))]
+    else:
+        near, base = [], [emitter_at(track, t)[0] for t in range(len(track["xy"]))]
+    d = tap_ - base[k]
     a, b = float(d @ u) / max(s, 1e-6), float(d @ np.array([-u[1], u[0]])) / max(s, 1e-6)
     turn = 0.0 if aim is None else (aim - angle_of(u) + 180.0) % 360.0 - 180.0
     c, sn = math.cos(math.radians(turn)), math.sin(math.radians(turn))
     xy, dirs = [], []
     for t in range(len(track["xy"])):
-        pt, ut, st = emitter_at(track, t)
-        xy.append([float(v) for v in pt + st * (a * ut + b * np.array([-ut[1], ut[0]]))])
+        _, ut, st = emitter_at(track, t)
+        xy.append([float(v) for v in base[t] + st * (a * ut + b * np.array([-ut[1], ut[0]]))])
         dirs.append([float(ut[0] * c - ut[1] * sn), float(ut[0] * sn + ut[1] * c)])  # clockwise on screen (y down)
-    return track | {"xy": xy, "dir": dirs, "anchor": {"frame": int(k), "along": round(a, 3), "across": round(b, 3),
-                                                      "turn": round(turn, 1)}}
+    return track | {"xy": xy, "dir": dirs, "anchor": {"frame": k, "along": round(a, 3), "across": round(b, 3),
+                                                      "turn": round(turn, 1), "on": [int(j) for j in near]}}
 
 
 def angle_of(u) -> float:
@@ -953,13 +987,14 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     track, gone = left_frame(track, w, h)
     lost, run, seen_at = np.zeros(n, int), 0, 0
     for t in range(n):
-        if src[t] == "lost" and run >= 8 and still_there(plate, track, seen_at, t):
-            src[t] = "hold"  # the tracker lost it, but nothing moved where it was: a still hand, still there
+        if src[t] == "lost" and still_there(plate, track, seen_at, t):
+            src[t] = "hold"  # the tracker lost it, but nothing moved where it was last seen: a still hand, still there
         run = run + 1 if src[t] == "lost" else 0
-        seen_at = t if src[t] != "lost" else seen_at
+        seen_at = t if src[t] not in ("lost", "hold") else seen_at  # (checked on every frame, so against a frame it
+        # was seen on: against the last one held, a slow drift would never be more than a frame's change)
         lost[t] = run
         if gone[t]:  # it left the frame: the fire lets go at once, where the hand went out
-            lost[t] = max(lost[t], 8 + gone[t])
+            lost[t] = max(lost[t], LOST_GRACE + gone[t])
 
     hands_, most_ = SIZE.get(eff.behaviour, (LENGTH, 0.6))
     reach_px = min(hands_ * ref[2], most_ * min(w, h))  # the element's own reach: its root fades over a share of it (a
@@ -1055,8 +1090,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         E = acc
         if src[t] == "before":  # the hand hasn't come in yet
             return None
-        if lost[t] > 8:  # the hand is gone: let the element go rather than freeze it
-            E *= max(0.0, 1.0 - (lost[t] - 8) / LOST_FADE)
+        if lost[t] > LOST_GRACE:  # the hand is gone: let the element go rather than freeze it
+            E *= max(0.0, 1.0 - (lost[t] - LOST_GRACE) / LOST_FADE)
         m_t = None if mask is None else mask[min(t, len(mask) - 1)]
         y0, y1, x0, x1 = box = holdout_box(track, t, h, w) if m_t is None else matte_box(m_t)
         if y1 > y0 and x1 > x0:

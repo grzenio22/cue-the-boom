@@ -195,6 +195,18 @@ describe("carried", () => {
     expect(c.dir[1][0]).toBeCloseTo(-1); // frame 1: the hand points right, so the aim points left
     expect(c.dir[1][1]).toBeCloseTo(0);
   });
+  it("keeps a tapped fingertip on that fingertip as the finger curls, as the shot does", () => {
+    const hand = (tipX: number, tipY: number) => Array.from({ length: 21 }, (_, j) => (j === 8 ? [tipX, tipY, 0] : [50, 60 + j, 0]));
+    const t: HandTrack = {
+      W: 100, H: 100, xy: [[50, 60], [50, 60], [50, 60]], dir: [[0, -1], [0, -1], [0, -1]], scale: [10, 10, 10],
+      src: ["mp", "mp", "lost"], landmarks: [hand(80, 20), hand(55, 50), null], // pointing out, then curled in, then lost
+    };
+    const c = carried(t, 0, [0.8, 0.2]); // tapped on the fingertip
+    expect(c.xy[0][0]).toBeCloseTo(80);
+    expect(c.xy[0][1]).toBeCloseTo(20);
+    expect(Math.hypot(c.xy[1][0] - 55, c.xy[1][1] - 50)).toBeLessThan(1); // curled: still on the fingertip, not in the air
+    expect(c.xy[2]).toEqual(c.xy[1]); // lost: where it was last seen
+  });
   it("says how much of the clip the hand was lost on", () => {
     expect(lostShare({ W: 1, H: 1, xy: [], dir: [], src: ["mp", "lost", "lost", "hold"] })).toBe(0.5);
   });

@@ -339,6 +339,20 @@ def test_the_aim_arrow_turns_the_direction_and_is_carried_with_the_hand():
     assert np.allclose(anchored(tr, 4, (70.0, 50.0))["dir"][4], (1.0, 0.0))  # no arrow: the hand's own direction
 
 
+def test_a_tapped_fingertip_stays_on_the_fingertip_as_it_curls():
+    from cuesync.bending import anchored
+
+    def hand(tip):  # the palm's points still, the index fingertip (8) where given
+        return [list(tip) + [0.0] if j == 8 else [50.0, 60.0 + j, 0.0] for j in range(21)]
+
+    tr = track_of(3, 200, 100, lambda t: (50, 60), d=(0.0, -1.0), scale=10.0)  # the tracker's point: the palm
+    tr["landmarks"] = [hand((80, 20)), hand((55, 50)), None]  # pointing out, curled into a fist, lost
+    a = anchored(tr, 0, (80.0, 20.0))
+    assert np.allclose(a["xy"][0], (80, 20), atol=0.1) and a["anchor"]["on"][0] == 8
+    assert np.hypot(a["xy"][1][0] - 55, a["xy"][1][1] - 50) < 1.0  # on the curled fingertip, not 5 hands up in the air
+    assert a["xy"][2] == a["xy"][1]  # lost: held where it was last seen
+
+
 def test_the_camera_is_followed_when_handheld_and_left_alone_on_a_tripod():
     import cv2
 
