@@ -54,6 +54,17 @@
    },
    "note": "the author's own hand, filmed on a phone; its flamethrower was made ahead of time: hold your own fffff on it with no GPU"
   },
+  "hand_cupped.mp4": {
+   "title": "Your hand: cupped palm",
+   "point": [
+    0.6,
+    0.6
+   ],
+   "hand": {
+    "frame": 60
+   },
+   "note": "a real hand (Pexels); its fireball was made ahead of time: perform your own rhythm on it with no GPU"
+  },
   "pumpkin_kitchen.mp4": {
    "title": "Pumpkin, kitchen",
    "point": [
@@ -219,17 +230,6 @@
     "effect": "blow_out",
     "title": "a snap in the clip · Candle jar"
    }
-  },
-  "hand_cupped.mp4": {
-   "title": "Your hand: cupped palm",
-   "point": [
-    0.6,
-    0.6
-   ],
-   "hand": {
-    "frame": 60
-   },
-   "note": "a real hand (Pexels); its fireball was made ahead of time: perform your own rhythm on it with no GPU"
   }
  }
 }

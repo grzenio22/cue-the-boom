@@ -328,8 +328,14 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     @app.get("/api/samples")
     def samples():
         meta = sample_meta()
+
+        def ordered(kind: str) -> list[str]:  # in samples.json's order (the author's hands first), then the rest
+            files = sample_files(kind)
+            listed = [n for n in meta.get(kind, {}) if n in files]
+            return listed + [n for n in files if n not in listed]
+
         return {kind: [{"name": n, "url": f"/api/samples/{kind}/{n}", **meta.get(kind, {}).get(n, {})}
-                       for n in sample_files(kind)] for kind in ("plates", "voices")}
+                       for n in ordered(kind)] for kind in ("plates", "voices")}
 
     @app.get("/api/gallery")
     def gallery_list():
