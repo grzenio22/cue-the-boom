@@ -22,8 +22,11 @@ export function liveHand(lm: P[]) {
 }
 
 /** The microphone's state between frames: the room's level (floor), the loudest hit so far (top), the level a
- * frame ago, when the current sound began (since), the last hit's time. dB are dBFS of the frame's RMS. */
-export interface OnsetState { floor: number; top: number; prev: number; since: number | null; lastHit: number; peak: number }
+ * frame ago, when the current hit's sound began (since), the last hit's time, and since when a sound has stayed well
+ * over the room (loudSince: a held sound, however gently it began). dB are dBFS of the frame's RMS. */
+export interface OnsetState {
+  floor: number; top: number; prev: number; since: number | null; lastHit: number; peak: number; loudSince?: number | null;
+}
 
 export const HIT_OVER_FLOOR = 15; // a hit is this many dB over the room...
 export const HIT_RISE = 6; // ...rising this much from a frame before...
@@ -43,12 +46,17 @@ export function onsetStep(s: OnsetState, db: number, t: number): { state: OnsetS
     top = Math.max(top, db);
   }
   if (since !== null && db < floor + 8) since = null; // the sound has stopped
+  // held: a sound staying well over the room, measured on its own (a gently started "ffff" has no sharp onset)
+  let loudSince = s.loudSince ?? null;
+  if (db > floor + 12 && db > -55) loudSince = loudSince ?? t;
+  else if (db < floor + 8) loudSince = null;
   top = Math.max(top - 0.002, -40); // the loudest so far, forgotten slowly (about 7 dB a minute at 60 frames a second)
   if (since !== null) {
     peak = Math.max(peak, db);
     top = Math.max(top, peak);
   }
-  return { state: { floor, top, prev: db, since, lastHit, peak }, hit, holding: since !== null && t - since >= HOLD_S && db > floor + 12 };
+  return { state: { floor, top, prev: db, since, lastHit, peak, loudSince }, hit,
+    holding: loudSince !== null && t - loudSince >= HOLD_S && db > floor + 10 };
 }
 
 /** A hit's look against the loudest so far, as the shot plays them (cuesync.bending.hit_looks): 12 dB under it is

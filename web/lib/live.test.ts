@@ -29,6 +29,13 @@ describe("the live preview's microphone", () => {
     expect(holding[30 + 25]).toBe(true);
     expect(holding[95]).toBe(false);
   });
+  it("hears a gently started ffff as held, with no burst", () => {
+    const ramp = Array.from({ length: 30 }, (_, i) => -60 + (35 * i) / 29); // half a second up to -25 dB
+    const { hits, holding } = run([...Array(30).fill(-60), ...ramp, ...Array(60).fill(-25), ...Array(20).fill(-60)]);
+    expect(hits).toEqual([]);
+    expect(holding.slice(60, 120).some(Boolean)).toBe(true);
+    expect(holding[135]).toBe(false); // and let go
+  });
   it("hears two pf's apart as two hits", () => {
     const pf = [...Array(5).fill(-30), ...Array(25).fill(-60)];
     expect(run([...Array(30).fill(-60), ...pf, ...pf]).hits).toEqual([30, 60]);

@@ -12,6 +12,21 @@ const MAX_REC_S = 8;
 
 interface Play { el: LiveElement; video: HTMLVideoElement; gain: number; size: number; held: boolean; letGo: number | null }
 type Landmarks = { x: number; y: number }[];
+/** What one start of the preview holds, so closing (or failing, or leaving the page) at any moment of it, loading
+ * included, lets go of the camera, the microphone, the tracker and the videos. */
+interface Session {
+  over: boolean; stream?: MediaStream; audio?: AudioContext; hands?: { close: () => void }; videos: HTMLVideoElement[];
+  rec?: MediaRecorder | null; keep?: boolean; // keep: a recording stopped to make the shot (not thrown away)
+}
+
+function teardown(s: Session) {
+  s.over = true;
+  if (s.rec?.state === "recording") s.rec.stop();
+  s.stream?.getTracks().forEach((t) => t.stop());
+  if (s.audio && s.audio.state !== "closed") void s.audio.close();
+  s.hands?.close();
+  s.videos.forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
+}
 
 /** Try it live: your hand on the camera, your noise on the microphone, the fire rendered ahead of time (LTX-2.5)
  * thrown from your palm as you make it, as big as it is loud; a held "fffff" holds a flame (pointing: a jet). A
@@ -22,9 +37,10 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState<number | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const run = useRef<{ stop: () => void; record: () => void; stopRecording: () => void } | null>(null);
+  const session = useRef<Session | null>(null);
+  const run = useRef<{ record: () => void; stopRecording: () => void } | null>(null);
 
-  useEffect(() => () => run.current?.stop(), []);
+  useEffect(() => () => { if (session.current) teardown(session.current); }, []);
   useEffect(() => {
     if (recording === null) return;
     if (recording >= MAX_REC_S) { run.current?.stopRecording(); return; }
@@ -35,24 +51,40 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
   const start = async () => {
     setError(null);
     if (!navigator.mediaDevices?.getUserMedia) { setError("No camera here: the page needs localhost or HTTPS."); return; }
+    if (session.current) teardown(session.current);
+    const ses: Session = { over: false, videos: [] };
+    session.current = ses;
+    run.current = null;
     setOpen(true);
     setStatus("Starting the camera…");
+    const gone = () => ses.over; // closed (or started again) while this was loading
+    let step = "The camera or the microphone didn't start";
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: AUDIO_CONSTRAINTS });
+      ses.stream = stream;
+      if (gone()) { teardown(ses); return; }
       const video = document.createElement("video");
+      ses.videos.push(video);
       video.muted = true;
       video.playsInline = true;
       video.srcObject = stream;
       await video.play();
+      if (gone()) { teardown(ses); return; }
       setStatus("Loading the hand tracker…");
+      step = "The hand tracker didn't load (it comes from the internet the first time)";
       const elements = ((await (await fetch("/api/library")).json()) as LiveElement[]);
+      if (gone()) { teardown(ses); return; }
       const byEffect = Object.fromEntries(elements.map((e) => [e.effect, e])) as Record<string, LiveElement>;
       const vision = await import("@mediapipe/tasks-vision");
       const files = await vision.FilesetResolver.forVisionTasks(WASM);
       const hands = await vision.HandLandmarker.createFromOptions(files, {
         baseOptions: { modelAssetPath: MODEL, delegate: "GPU" }, runningMode: "VIDEO", numHands: 1 });
+      ses.hands = hands;
+      if (gone()) { teardown(ses); return; }
+      step = "The microphone didn't start";
       const audio = new AudioContext();
+      ses.audio = audio;
       const analyser = audio.createAnalyser();
       analyser.fftSize = 1024;
       audio.createMediaStreamSource(stream).connect(analyser);
@@ -60,14 +92,14 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       const pool = Object.values(byEffect).flatMap((el) => [0, 1, 2].map(() => {
         const v = document.createElement("video");
         v.src = el.url; v.muted = true; v.playsInline = true; v.preload = "auto";
+        ses.videos.push(v);
         return { el, v, busy: false };
       }));
       const plays: Play[] = [];
       let onset: OnsetState = { floor: -60, top: -20, prev: -90, since: null, lastHit: -1, peak: -90 };
       let lm: Landmarks | null = null;
-      let alive = true;
-      let rec: MediaRecorder | null = null;
-      const ctx = canvas.current!.getContext("2d")!;
+      const ctx = canvas.current?.getContext("2d");
+      if (!ctx || gone()) { teardown(ses); return; }
       const fire = (effect: string, gain: number, size: number, held: boolean) => {
         const slot = pool.find((p) => p.el.effect === effect && !p.busy);
         if (!slot) return null;
@@ -83,7 +115,7 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       setStatus(null);
 
       const frame = () => {
-        if (!alive) return;
+        if (ses.over || !canvas.current) return;
         const W = (canvas.current!.width = video.videoWidth), H = (canvas.current!.height = video.videoHeight);
         ctx.save();
         ctx.translate(W, 0);
@@ -153,14 +185,6 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       };
       requestAnimationFrame(frame);
       run.current = {
-        stop: () => {
-          alive = false;
-          if (rec?.state === "recording") rec.stop();
-          stream.getTracks().forEach((t) => t.stop());
-          void audio.close();
-          hands.close();
-          pool.forEach((p) => { p.v.pause(); p.v.removeAttribute("src"); });
-        },
         record: () => { // the raw take (camera and microphone), for the real shot
           const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
           const r = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
@@ -168,24 +192,35 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
           r.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
           r.onstop = () => {
             setRecording(null);
+            if (!ses.keep) return; // closed while recording: thrown away
             const type = r.mimeType || mime || "video/webm";
             const file = new File(chunks, `my live take.${type.includes("mp4") ? "mp4" : "webm"}`, { type });
-            run.current?.stop();
+            teardown(ses);
             setOpen(false);
             onTake(file, URL.createObjectURL(file));
           };
-          rec = r;
+          ses.rec = r;
           r.start(250);
           setRecording(0);
         },
-        stopRecording: () => { if (rec?.state === "recording") rec.stop(); },
+        stopRecording: () => { if (ses.rec?.state === "recording") { ses.keep = true; ses.rec.stop(); } },
       };
     } catch (e) {
-      setError((e as Error).message);
-      setStatus(null);
+      teardown(ses); // (a camera refused, the tracker or its model not loading: nothing is left running)
+      if (session.current === ses) {
+        setError(`${step}: ${(e as Error).message || "it stopped"}.`);
+        setStatus(null);
+      }
     }
   };
-  const close = () => { run.current?.stop(); run.current = null; setOpen(false); setRecording(null); };
+  const close = () => {
+    if (session.current) teardown(session.current);
+    session.current = null;
+    run.current = null;
+    setOpen(false);
+    setRecording(null);
+    setStatus(null);
+  };
 
   if (!open) {
     return (
@@ -212,7 +247,12 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
           </>
         )}
       </div>
-      {error && <p className="chip bad">{error}</p>}
+      {error && (
+        <div className="row">
+          <span className="chip bad">{error}</span>
+          <button className="secondary" onClick={() => void start()}>Try again</button>
+        </div>
+      )}
     </div>
   );
 }
