@@ -53,6 +53,7 @@ SAM_REVISION = "ee5bba1d82bb8749febdf90f45e84b687142ba03"  # pinned weights, as 
 MP_MODELS = "https://storage.googleapis.com/mediapipe-models/"
 SELFIE_MODEL = MP_MODELS + "image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite"
 HAND_MODEL = MP_MODELS + "hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
+SKIN_COVER = 0.6  # the skin found must cover this much of the hand's own outline, or the segmenter missed the hand
 SELFIE_SKIN, SELFIE_CLOTHES = 2, 4  # selfie multiclass: 0 background, 1 hair, 2 body-skin, 3 face-skin, 4 clothes
 OTHERS_EVERY = 2  # frames between looks for the performer's other hands
 
@@ -456,6 +457,31 @@ def hull_mask(lm: np.ndarray, s: float, shape: tuple[int, int], grow: float = 0.
     return cv2.dilate(m, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1))) > 0
 
 
+FINGERS = ((1, 2, 3, 4), (5, 6, 7, 8), (9, 10, 11, 12), (13, 14, 15, 16), (17, 18, 19, 20))
+FINGER_WIDTH = 0.24  # hand-scales (wrist to the middle knuckle): a finger is about a quarter of the palm's length
+
+
+def bones_mask(lm: np.ndarray, s: float, shape: tuple[int, int]) -> np.ndarray:
+    """The hand drawn from its landmarks (bool, ``shape``): the palm's polygon, each finger a line through its
+    joints a finger wide and running on past the tip, and the wrist's stub of forearm. Unlike the hull it leaves
+    the air between and above the fingers out (the fire's light on it drew an ellipse round the hand)."""
+    h, w = shape
+    m = np.zeros((h, w), np.uint8)
+    pts = lm[:, :2].astype(np.float64)
+    cv2.fillConvexPoly(m, cv2.convexHull(np.round(pts[[0, 1, 2, 5, 9, 13, 17]]).astype(np.int32)), 1)
+    width = max(2, int(round(FINGER_WIDTH * s)))
+    for k, f in enumerate(FINGERS):
+        chain = pts[list(f)]
+        tip = chain[-1] + 0.3 * width * (chain[-1] - chain[-2]) / (np.linalg.norm(chain[-1] - chain[-2]) + 1e-9)
+        line = np.round(np.vstack([chain, tip])).astype(np.int32)
+        cv2.polylines(m, [line], False, 1, thickness=int(width * (1.2 if k == 0 else 1.0)), lineType=cv2.LINE_8)
+    arm = pts[0] - pts[9]
+    arm = arm / (np.linalg.norm(arm) + 1e-9)
+    cv2.line(m, tuple(np.round(pts[0]).astype(int)), tuple(np.round(pts[0] + 0.8 * s * arm).astype(int)), 1,
+             thickness=max(3, int(round(0.7 * s))))
+    return m > 0
+
+
 def _fallback(small: np.ndarray, lm: np.ndarray | None, s: float, prev: np.ndarray | None, seg) -> tuple:
     """One hand on one work-size frame without SAM: the body-skin regions that touch the hand's hull (the hull
     itself where there is no skin), or, with no landmarks, the skin that overlaps the previous frame's matte."""
@@ -463,19 +489,24 @@ def _fallback(small: np.ndarray, lm: np.ndarray | None, s: float, prev: np.ndarr
     if lm is None and prev is None:
         return np.zeros((h, w), bool), "hull"
     near = hull_mask(lm, s, (h, w)) if lm is not None else cv2.dilate(prev.astype(np.uint8), np.ones((9, 9))) > 0
+    bones = bones_mask(lm, s, (h, w)) if lm is not None else prev
     if seg is None:
-        return (near if lm is not None else prev), "hull"
+        return bones, "hull"
     skin = _selfie(seg, small, SELFIE_SKIN)
     _, lab = cv2.connectedComponents(skin.astype(np.uint8), connectivity=8)
     keep = np.unique(lab[near & skin])
     keep = keep[keep > 0]
     if not len(keep):
-        return (near if lm is not None else prev), "hull"
+        return bones, "hull"
     m = np.isin(lab, keep)
+    if lm is not None:  # in a dark room it finds a few fingers and drops the rest of the hand: the hull, then
+        core = hull_mask(lm, s, (h, w), grow=0.0)
+        if (m & core).sum() < SKIN_COVER * max(int(core.sum()), 1):
+            return bones, "hull"
     if lm is not None:  # the forearm, not the whole arm and shoulder: skin within 5 hand-scales of the wrist
         yy, xx = np.ogrid[:h, :w]
         m &= (xx - lm[0, 0]) ** 2 + (yy - lm[0, 1]) ** 2 <= (5.0 * s) ** 2
-        m |= near & skin
+        m |= (near & skin) | bones  # (the skin segmenter drops fingers over a dark floor: the drawn hand fills them)
     return m, "selfie"
 
 

@@ -296,3 +296,18 @@ def test_sam2_matte_matches_the_gt(clip):
     assert np.mean([scores[t] for t in blurry]) >= 0.75, scores
     assert max(hm.holes(a) for a in alpha) <= 0.05
     assert set(src) <= {"sam2", "selfie", "hull"} and len(src) == len(alpha)
+
+
+def test_the_drawn_hand_leaves_the_air_between_spread_fingers_out():
+    """Without SAM, a hand the skin segmenter can't find is drawn from its landmarks: palm, fingers a finger wide,
+    the wrist's stub of forearm; not their hull, which filled the air between and above the fingers."""
+    lm = np.zeros((21, 2))
+    lm[0] = (100, 180)  # wrist
+    for k, (x0, dx) in enumerate(((60, -30), (80, -12), (100, 0), (120, 12), (140, 30))):  # five fingers fanned out
+        for j in range(4):
+            lm[1 + 4 * k + j] = (x0 + dx * j / 3 + (dx * 1.5 if j else 0) * 0, 130 - 25 * j)
+    s = float(np.linalg.norm(lm[0] - lm[9]))
+    m = hm.bones_mask(lm, s, (220, 200))
+    assert all(m[int(y), int(x)] for x, y in lm)  # every joint is in it
+    gap = (int((lm[8, 0] + lm[12, 0]) / 2), int(lm[8, 1]))  # between the index and middle fingertips
+    assert not m[gap[1], gap[0]] and hm.hull_mask(lm, s, (220, 200))[gap[1], gap[0]]
