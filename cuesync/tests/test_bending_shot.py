@@ -178,6 +178,12 @@ def test_a_held_flame_loops_while_the_voice_holds_and_lets_go_when_it_stops():
     assert all(ign <= f < rel for p in long[:90] for f, _ in p)  # burning for as long as the voice holds on
     assert all(abs(sum(wt for _, wt in p) - 1.0) < 1e-6 for p in long[:90])  # (the loop's seam cross-faded)
     assert long[97] == [(rel + 7, 1.0)] and long[102] == []  # then its own letting go, and out
+    lead = 6  # every wrap is cross-faded, the first one too: where the frame shown jumps, it is a blend
+    top = [max(p, key=lambda fw: fw[1]) for p in long[:90]]
+    for d in range(1, 90):
+        if abs(top[d][0] - top[d - 1][0]) > 1:
+            assert len(long[d]) == 2 and max(wt for _, wt in long[d]) <= 0.75, (d, long[d - 1], long[d])
+    assert long[30][0][0] == ign + lead and top[29][0] == ign + lead - 1  # (the first wrap lands on its start from just before it)
     assert held_frames(12, ign, rel, end, hold=10)[-1][0] == rel + 2  # stopping early lets go from where it was
     dying = [sum(wt for _, wt in held_frames(d, ign, rel, rel, hold=10)) for d in range(10, 22)]  # no letting go rendered
     assert all(a > b for a, b in zip(dying, dying[1:10])) and dying[0] > 0.85 and dying[-1] == 0  # dies down, not cut

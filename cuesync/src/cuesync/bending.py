@@ -278,28 +278,32 @@ def held_frames(d: int, ign: int, rel: int, end: int, hold: int, x: int = SUSTAI
     cross-faded into its start); and from wherever the voice stops, its letting go ([] once that has burned out).
     A take as long as the render's plays it as rendered."""
     body = rel - ign
+    stop = max(int(hold), 1)
+    looping = stop > body and body > 2 * x + 2  # (too short a body to loop: it holds its last frame)
 
     def burning(k: int) -> list[tuple[int, float]]:
-        if k < body or body <= 2 * x + 2:  # (too short a body to loop: it holds its last frame)
+        """Body frame k. Looping, the steady burn after the catching runs from A = ign + lead to rel and round again:
+        the last x frames before each wrap fade into the x frames before A, so the wrap lands on A from A - 1 (the
+        first wrap too: it had jumped from the body's last frame to A unblended)."""
+        if not looping or k < body - x:
             return [(ign + min(k, body - 1), 1.0)]
-        lead = min(x, body // 3)  # the catching isn't looped, only the steady burn after it
+        lead = min(x, body // 3)
         span = body - lead
         m = (k - lead) % span
         if m >= span - x:
             w = (m - (span - x) + 1) / (x + 1)
-            return [(ign + lead + m, 1.0 - w), (ign + lead + m - (span - x), w)]
+            return [(ign + lead + m, 1.0 - w), (max(ign, ign + lead + m - span), w)]
         return [(ign + lead + m, 1.0)]
 
     if d < 0:
         return [(ign + d, 1.0)]
-    stop = max(int(hold), 1)
     if d < stop:
         return burning(d)
     r = d - stop
-    if stop == body:  # as long as rendered: its own letting go, uncut
-        return [(rel + r, 1.0)] if rel + r < end else []
     if end - rel <= x:  # a render that burns to its last frame has no letting go: it dies down from where it was
         return [] if r >= LETGO else [(f, wt * (1.0 - (r + 1) / (LETGO + 1))) for f, wt in burning(stop - 1 + r)]
+    if stop == body:  # as long as rendered: its own letting go, uncut
+        return [(rel + r, 1.0)] if rel + r < end else []
     if rel + r >= end:
         return []
     if r >= x:
