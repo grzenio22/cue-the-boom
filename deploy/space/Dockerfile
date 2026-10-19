@@ -28,7 +28,10 @@ RUN pip install --no-cache-dir "./cuesync[server]" \
     && cuesync/.venv-track/bin/pip install --no-cache-dir mediapipe==1.1.1 onnxruntime==1.31.0 av==19.0.1
 ENV CUESYNC_HAND_MODELS=/app/models NEXT_TELEMETRY_DISABLED=1
 RUN PYTHONPATH=cuesync/src cuesync/.venv-track/bin/python -c \
-    "import cuesync.hand_track as h; [h.model_path(n) for n in h.MODEL_FILES]"
+    "import cuesync.hand_track as h; [h.model_path(n) for n in h.MODEL_FILES]" \
+    && touch cuesync/.venv-track/.cuesync-ready
+# (the ready mark: the studio offers a hand of your own only once the tracker's environment says it works; the
+# matte runs in the same environment, with MediaPipe's skin segmenter and the hand's landmarks, no SAM)
 
 RUN cd web && npm ci --no-audit --no-fund && CUESYNC_API_URL=http://127.0.0.1:8765 npm run build
 RUN chown -R user /app
