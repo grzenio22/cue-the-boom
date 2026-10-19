@@ -9,6 +9,7 @@ import { type LiveElement, liveHand, onsetStep, type OnsetState, playLook } from
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const MAX_REC_S = 8;
+const HOLD_HAND_FRAMES = 5;
 
 interface Play { el: LiveElement; video: HTMLVideoElement; gain: number; size: number; held: boolean; letGo: number | null }
 type Landmarks = { x: number; y: number }[];
@@ -17,10 +18,13 @@ type Landmarks = { x: number; y: number }[];
 interface Session {
   over: boolean; stream?: MediaStream; audio?: AudioContext; hands?: { close: () => void }; videos: HTMLVideoElement[];
   rec?: MediaRecorder | null; keep?: boolean; // keep: a recording stopped to make the shot (not thrown away)
+  torn?: boolean; // let go already (Record this, then the page's own close: an AudioContext closed twice threw)
 }
 
 function teardown(s: Session) {
   s.over = true;
+  if (s.torn) return;
+  s.torn = true;
   if (s.rec?.state === "recording") s.rec.stop();
   s.stream?.getTracks().forEach((t) => t.stop());
   if (s.audio && s.audio.state !== "closed") void s.audio.close();
@@ -98,6 +102,8 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       const plays: Play[] = [];
       let onset: OnsetState = { floor: -60, top: -20, prev: -90, since: null, lastHit: -1, peak: -90 };
       let lm: Landmarks | null = null;
+      let lastHand: ReturnType<typeof liveHand> | null = null;
+      let lostFor = 1e9;
       const ctx = canvas.current?.getContext("2d");
       if (!ctx || gone()) { teardown(ses); return; }
       const fire = (effect: string, gain: number, size: number, held: boolean) => {
@@ -130,7 +136,9 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
         const db = 10 * Math.log10(sum / pcm.length + 1e-12);
         const step = onsetStep(onset, db, performance.now() / 1000);
         onset = step.state;
-        const hand = lm ? liveHand(lm) : null;
+        // the hand, or for a few frames the one last seen (a hit on a frame the tracker missed it was dropped)
+        if (lm) { lastHand = liveHand(lm); lostFor = 0; } else lostFor++;
+        const hand = lostFor <= HOLD_HAND_FRAMES ? lastHand : null;
         if (step.hit && hand) {
           const look = playLook(step.hit.db, onset.top);
           fire("fire_burst", look.gain, look.size, false);
@@ -171,6 +179,30 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
           ctx.restore();
           glow = Math.max(glow, p.gain * fading * Math.min(1, t > p.el.ignition ? 1 : 0.4));
         }
+        // that it sees you and hears you, before anything is thrown: a faint ring on the palm, the microphone's level
+        if (hand && lm) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(255, 176, 32, 0.45)";
+          ctx.lineWidth = Math.max(2, hand.scale * 0.04);
+          ctx.beginPath();
+          ctx.arc(hand.palm[0], hand.palm[1], hand.scale * 0.55, 0, 2 * Math.PI);
+          ctx.stroke();
+          ctx.restore();
+        } else if (!hand) {
+          ctx.save();
+          ctx.font = `${Math.round(H / 24)}px system-ui, sans-serif`;
+          ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+          ctx.textAlign = "center";
+          ctx.fillText("Show me your hand", W / 2, H * 0.12);
+          ctx.restore();
+        }
+        const lvl = Math.min(1, Math.max(0, (db - onset.floor) / 40)); // over the room's own level
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+        ctx.fillRect(W * 0.04, H * 0.93, W * 0.25, H * 0.025);
+        ctx.fillStyle = lvl > 15 / 40 ? "rgba(255, 140, 40, 0.95)" : "rgba(255, 255, 255, 0.7)";
+        ctx.fillRect(W * 0.04, H * 0.93, W * 0.25 * lvl, H * 0.025);
+        ctx.restore();
         if (hand && glow > 0) { // the fire's light on the hand
           const g = ctx.createRadialGradient(hand.palm[0], hand.palm[1], 0, hand.palm[0], hand.palm[1], hand.scale * 3);
           g.addColorStop(0, `rgba(255, 150, 60, ${0.35 * glow})`);
