@@ -35,18 +35,6 @@
   "real": true,
   "rank": -101
  },
- "bending|hand_walk.mp4||flame_plume@5ce2d86e|0.41,0.65|1": {
-  "dir": "hand_walk__fffff__flame_plume",
-  "title": "fffff · a flame in the palm, one take, the camera walking",
-  "plate": "hand_walk.mp4",
-  "voice": "",
-  "effect": "flame_plume",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 40,
-  "real": true,
-  "rank": -104
- },
  "bending|hand_punch.mp4||fire_burst@f9c3de6f|0.57,0.42|1": {
   "dir": "hand_punch__boom__fire_burst",
   "title": "BOOM · a fireball off the fist",
@@ -58,5 +46,17 @@
   "tap_frame": 68,
   "real": true,
   "rank": -103
+ },
+ "bending|hand_walk.mp4||flame_plume@5ce2d86e|0.41,0.65|2": {
+  "dir": "hand_walk__fffff__flame_plume",
+  "title": "fffff · a flame in the palm, one take, the camera walking",
+  "plate": "hand_walk.mp4",
+  "voice": "",
+  "effect": "flame_plume",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 40,
+  "real": true,
+  "rank": -104
  }
 }

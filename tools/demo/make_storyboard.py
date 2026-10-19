@@ -60,7 +60,7 @@ beats = [
          caption="Rendered once, carried on the tracked hand, matted, and lit by its own fire.",
          vo="how9", vo_at=0.0, stamp=MINE + " · half speed"),
     # 4b. one take, uncut: the camera walks from a hallway into a kitchen, the flame stays in the palm
-    dict(type="clip", src=f"{G2}/IMG_6668_flame_plume_comp/composite.mp4", start=1.9, dur=4.8, fill=True, wave=True,
+    dict(type="clip", src=f"{G2}/IMG_6668_flame_plume_s2_again/composite.mp4", start=1.9, dur=4.8, fill=True, wave=True,
          crop=band(0.42), headline="One take, uncut", subline="It stays in your palm.", stamp=MINE + " · the camera walking"),
     # 6. the studio on the author's own clip, each step full frame
     dict(type="clip", src=OWN, start=7.0, dur=2.6, fill=True, crop=[0.078, 0.208, 0.578, 0.583], chip="Tap your palm, drag to aim",

@@ -33,7 +33,7 @@
    "rhythm": "",
    "single": "",
    "small": "",
-   "clean": true,
+   "clean": false,
    "variants": []
   }
  },
@@ -42,7 +42,7 @@
    0.41203703703703703,
    0.6453125
   ],
-  "seed": 1,
+  "seed": 2,
   "offset_s": 0.0,
   "cue": "clip"
  },
@@ -58,8 +58,8 @@
   "tap_frame": 40,
   "aim": null,
   "k_launch": 57,
-  "ignition": 11,
-  "offset": 46,
+  "ignition": 53,
+  "offset": 4,
   "lag_frames": 5,
   "snap": {
    "cue": 57,
@@ -106,7 +106,14 @@
    "scale": 268.43
   },
   "loud_ref": 0.5513,
-  "held": null,
+  "held": {
+   "release": 121,
+   "end": 121,
+   "holds": [
+    92,
+    89
+   ]
+  },
   "performed_again": null,
   "instant": null,
   "camera": "handheld: thrown fire moves with the room",
@@ -122,5 +129,5 @@
   "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
   "foley_gain": 0.65
  },
- "seconds_total": 58.8
+ "seconds_total": 65.5
 }

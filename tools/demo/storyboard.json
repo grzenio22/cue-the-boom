@@ -158,7 +158,7 @@
   },
   {
    "type": "clip",
-   "src": "runs/takes/gpu2/IMG_6668_flame_plume_comp/composite.mp4",
+   "src": "runs/takes/gpu2/IMG_6668_flame_plume_s2_again/composite.mp4",
    "start": 1.9,
    "dur": 4.8,
    "fill": true,
