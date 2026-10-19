@@ -11,14 +11,15 @@ same microphone path a person's voice does; --sample picks a sample noise; --cli
 shot, said to be --object (one of the studio's "What is it?" choices).
 Needs Playwright (pip install playwright) and a Chromium (--chromium, else Playwright's own). Writes studio.webm
 with a visible cursor and marks.json (seconds into the video of each step), so the edit can cut the render wait.
---hd: the page at 960x540 and twice the pixels, captured frame by frame as it paints (studio.mp4, 1920x1080, text
-as sharp as on a laptop screen) instead of Playwright's video; needs ffmpeg.
+--hd: the page at 960x720 and twice the pixels, captured frame by frame as it paints (studio.mp4, 1920x1440, text
+as sharp as on a laptop screen, for the edit to crop) instead of Playwright's video; needs ffmpeg.
 """
 
 from __future__ import annotations
 
 import argparse
 import base64
+import re
 import json
 import shutil
 import subprocess
@@ -72,7 +73,7 @@ class Screencast:
         out.mkdir(parents=True, exist_ok=True)
         self.cdp = ctx.new_cdp_session(page)
         self.cdp.on("Page.screencastFrame", self.frame)
-        self.cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 95, "maxWidth": 1920, "maxHeight": 1080})
+        self.cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 95, "maxWidth": 1920, "maxHeight": 1440})
 
     def frame(self, ev: dict) -> None:
         (self.out / f"{len(self.times):05d}.jpg").write_bytes(base64.b64decode(ev["data"]))
@@ -88,7 +89,7 @@ class Screencast:
         listing = self.out / "frames.txt"
         listing.write_text("\n".join(lines) + f"\nfile '{name(len(self.times) - 1)}'\n")
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-vf",
-                        "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1,fps=24",
+                        "scale=1920:1440:force_original_aspect_ratio=decrease,pad=1920:1440:-1:-1,fps=24",
                         "-c:v", "libx264", "-crf", "14", "-pix_fmt", "yuv420p", str(video)], check=True)
         # the frames are timed from the recorder's clock, as the marks are: the video starts at the first paint
         self.first = self.times[0]
@@ -127,7 +128,7 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path=a.chromium, args=args)
         if a.hd:
-            ctx = browser.new_context(viewport={"width": 960, "height": 540}, device_scale_factor=2, permissions=["microphone"])
+            ctx = browser.new_context(viewport={"width": 960, "height": 720}, device_scale_factor=2, permissions=["microphone"])
         else:
             ctx = browser.new_context(viewport={"width": 1280, "height": 800}, device_scale_factor=1,
                                       record_video_dir=str(out / "raw"), record_video_size={"width": 1280, "height": 800},
@@ -196,7 +197,25 @@ def main() -> int:
                 page.mouse.move(px + 90 * math.sin(math.radians(a.aim)), py - 90 * math.cos(math.radians(a.aim)), steps=16)
                 page.mouse.up()
                 r.pause(1.2)
-                r.click(page.get_by_role("button", name="That's my hand"), pause=1.0)
+                r.click(page.get_by_role("button", name="That's my hand"), pause=0.5)
+                # the studio follows your hand through the clip and draws its path: watch it, then go on
+                ok = page.get_by_role("button", name=re.compile("^(Looks right|Go on with it)$"))
+                mic = page.get_by_role("button", name="Use my microphone")
+                r.mark("following")
+                for _ in range(600):
+                    if ok.count() or mic.count():
+                        break
+                    r.pause(0.5)
+                if ok.count():
+                    r.mark("followed")  # the hand's path in view (the buttons under it may be off the screen)
+                    aim.evaluate("(el, y) => { const b = el.getBoundingClientRect(); scrollBy({top: b.top + y * b.height - innerHeight / 2, behavior: 'instant'}); }", y_)
+                    r.pause(1.5)
+                    play = page.get_by_role("button", name="Play it")
+                    if play.count():
+                        play.evaluate("b => b.click()")  # (clicked where it is: a pointer click scrolls the hand away)
+                        r.mark("play")
+                        r.pause(4.0)
+                    r.click(ok, pause=1.0)
         elif a.draw:
             r.click(page.get_by_role("radio", name="Draw it"), pause=1.0)
             r.click(page.get_by_role("radio", name=a.brush), pause=0.6)
