@@ -414,9 +414,9 @@ def load_plate(path: Path, point: tuple[float, float], max_s: float, size: tuple
     element_size = element_size or ((1024, 576) if landscape else (576, 1024))
     scale = max(size[0] / info.width, size[1] / info.height)
     dec = None if scale >= 1.0 else (max(2, round(info.width * scale / 2) * 2), max(2, round(info.height * scale / 2) * 2))
-    clip = read_video(path, size=dec, max_s=max_s)
+    clip = read_video(path, size=dec, max_s=max_s, target_fps=FPS)  # (a 60 fps phone clip: only the frames it keeps)
     src_h, src_w = clip.frames.shape[1:3]
-    duration = min(clip_duration(clip, FPS), max_s)
+    duration = min(clip.duration_s if clip.duration_s is not None else clip_duration(clip, FPS), max_s)
     frames = conform(clip, size=size, fps=FPS, duration_s=duration, focus=point)
     del clip
     box = _crop_box(src_w, src_h, size[0], size[1], point)

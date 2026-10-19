@@ -64,9 +64,9 @@ def test_a_huge_plate_is_decoded_small(tmp_path, monkeypatch):
     seen = {}
     real = pipeline.read_video
 
-    def spy(path, size=None, max_s=None):
+    def spy(path, size=None, max_s=None, target_fps=None):
         seen["size"] = size
-        return real(path, size=size, max_s=max_s)
+        return real(path, size=size, max_s=max_s, target_fps=target_fps)
 
     monkeypatch.setattr(pipeline, "read_video", spy)
     load_plate(marker_video(tmp_path / "big.mp4", 12, 2160, 3840), (0.5, 0.5), 10.0)

@@ -64,7 +64,8 @@ LOST_FADE = 4  # frames over which an element fades out once the hand has been l
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
 # a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
 ROOT_ROUND = 0.15  # how far the root's fade curves back at the sides, in its own length over its width squared
-ROOT_FADE_SHARE = {"steam_jet": 0.05}  # steam has no nozzle to hide: over the full fade it started a hand from the palm
+ROOT_FADE_SHARE = {"steam_jet": 0.05, "fire_breath": 0.06}  # steam has no nozzle to hide (over the full fade it
+# started a hand from the palm), and a jet six hands long left a gap at the fingertip
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
 GROW_FROM, GROW_FRAMES = 0.35, 6  # a flame or a jet grows out of the hand over its first frames, from this share of its
@@ -221,8 +222,9 @@ SOOT, SOOT_DARK = 0.9, 0.02  # a flame is not light alone: where it outshines wh
 # that's, plus SOOT_DARK) its glare and soot hide up to 90 % of it, so on a white wall it keeps its shape; where it is
 # dimmer than the wall it only adds (hiding it there drew a rusty outline round the flame and turned sparks to dirt)
 SOOT_FROM = 0.012  # linear: fainter than this is the render's own haze, not fire
-DAY_GAIN = 1.6  # and over a bright room it is up to this much brighter than rendered (2.6 times over a white wall): the
-# render was exposed over black, and a flame doesn't dim with the room; at the render's own level it read as orange paint
+DAY_GAIN = 1.0  # and over a bright room it is up to this much brighter than rendered (twice over a white wall), its
+# light too: the render was exposed over black, and a flame doesn't dim with the room; at the render's own level it read
+# as orange paint, at 2.6 times its cores went to featureless lemon
 
 
 def shoulder(P: np.ndarray) -> None:
@@ -563,6 +565,15 @@ def holdout_box(track: dict, t: int, h: int, w: int) -> tuple[int, int, int, int
     p, _, s = emitter_at(track, t)
     r = 0.5 * s + 2
     return (max(0, int(p[1] - r)), min(h, int(p[1] + r) + 1), max(0, int(p[0] - r)), min(w, int(p[0] + r) + 1))
+
+
+def room_behind(E: np.ndarray, P: np.ndarray) -> float:
+    """How bright the room is behind a flame (linear luminance): the plate's mean under it, weighted by the flame."""
+    from . import fx_light as fx
+
+    on = np.clip((fx._lum(E) - SOOT_FROM) / 0.35, 0.0, 1.0)
+    cover = float(on.sum())
+    return float((fx._lum(P) * on).sum()) / cover if cover > 0 else 0.0
 
 
 def matte_box(m: np.ndarray) -> tuple[int, int, int, int]:
@@ -933,17 +944,23 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     out = np.empty_like(plate)
     CHUNK = 12  # frames lit at a time (a whole 10 s 1080p clip in float32 is 6 GB), overlapping a frame each side
     made: dict[int, np.ndarray | None] = {}  # each frame's element, carried once (it was carried twice: small, then full)
+    behind: dict[int, float] = {}  # each frame's room behind its fire (room_behind), and its fire brightened by it once
     for a in range(0, n, CHUNK):
         b = min(n, a + CHUNK)
         a0, b1 = max(0, a - 1), min(n, b + 1)
         for i in range(a0, b1):
             if i not in made:
                 made[i] = element_at(i)
+        P = np.stack([lin(plate[i]) for i in range(a0, b1)])
+        if eff.fluid == "fire":  # over a bright room the flame (and so its light) is brighter than rendered, once each
+            for i in range(a0, b1):
+                if made[i] is not None and i not in behind:
+                    behind[i] = room_behind(made[i], P[i - a0])
+                    made[i] *= np.float32(1.0 + DAY_GAIN * min(1.0, behind[i] / fx.EXPOSED_WHITE))
         small = np.zeros((b1 - a0, h // q, w // q, 3), np.float32)
         for i in range(a0, b1):
             if made[i] is not None:
                 small[i - a0] = cv2.resize(made[i], (w // q, h // q), interpolation=cv2.INTER_AREA)
-        P = np.stack([lin(plate[i]) for i in range(a0, b1)])
         m = None if mask is None else mask[a0:b1].astype(np.float32) / 255.0
         fx.light_plate(P, small, track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, tint=tint, out=P)
         for i in range(a, b):
@@ -963,13 +980,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             elif eff.fluid == "steam":  # steam scatters the room's light: laid over, never brighter than its white
                 al = np.clip(fx._lum(E) / 0.6, 0.0, 0.55)[..., None]  # translucent: a dense render read as cotton wool
                 P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), max(0.9 * white, 0.45)) * al
-            else:  # fire is light, added, and where it outshines what is behind it, it hides it
-                on = np.clip((fx._lum(E) - SOOT_FROM) / 0.35, 0.0, 1.0)
-                cover = float(on.sum())
-                if cover > 0:  # how bright the room is behind it
-                    behind = float((fx._lum(P[j]) * on).sum()) / cover
-                    E = E * np.float32(1.0 + DAY_GAIN * min(1.0, behind / fx.EXPOSED_WHITE))
-                a_ = np.clip(fx._lum(E) / (fx._lum(np.maximum(P[j], 0.0)) + SOOT_DARK), 0.0, 1.0)
+            else:  # fire is light, added, and where it outshines the room behind it, it hides it: measured against
+                # the room as a whole (pixel by pixel, a jet changed from pale to orange where it crossed a skirting)
+                a_ = np.clip(fx._lum(E) / (behind.get(i, 0.0) + SOOT_DARK), 0.0, 1.0)
                 a_ = cv2.GaussianBlur(a_, (0, 0), 1.5 * h / 1080)
                 P[j] = P[j] * (1.0 - SOOT * a_)[..., None] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers
@@ -1166,7 +1179,7 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
     import shutil
     from .gestures import heard
     from .media import write_video
-    from .pipeline import FPS, SR, load_plate, shot_cue
+    from .pipeline import FPS, SR, load_plate, place_audio, shot_cue
 
     out_dir = Path(out_dir)
     (out_dir / "in").mkdir(parents=True, exist_ok=True)
@@ -1185,10 +1198,18 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
         return carry(spec, renderer, out_dir, out_dir / "hand_track.json", mask if mask.exists() else None, progress,
                      spec.extra.get("tap_frame"))
     say("reading", 0.02, "Reading your clip")
+    from .media import probe_video, read_audio
+
+    shot_cue(spec, min(probe_video(spec.plate).duration_s or spec.max_plate_s, spec.max_plate_s))  # (a cue it can't
+    # use, a silent clip on "its own sound", is said now, not after the hand has been tracked)
     frames, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size)
     n, h, w = frames.shape[:3]
     loaded = out_dir / "in" / "plate24.mp4"
-    write_video(loaded, frames, fps=FPS, crf=12)
+    try:  # the clip's own sound goes with it: the shot (and performing it again) may be cued by it
+        sound = place_audio(read_audio(spec.plate, SR), 0.0, n)
+    except (ValueError, OSError):
+        sound = None
+    write_video(loaded, frames, fps=FPS, audio=sound, crf=12)
     del frames
     spec.plate, spec.point = loaded, (float(point[0]), float(point[1]))
     k = int(np.clip(spec.extra.get("tap_frame") or 0, 0, n - 1))

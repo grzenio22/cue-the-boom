@@ -16,9 +16,10 @@ class VideoClip:
     """Decoded video. ``times_s`` are presentation timestamps relative to the first frame."""
 
     frames: np.ndarray  # (N, H, W, 3) uint8
-    times_s: np.ndarray  # (N,) float64, ascending, times_s[0] == 0
+    times_s: np.ndarray  # (N,) float64, ascending, relative to the source's first frame
     fps_nominal: float
     start_s: float = 0.0  # absolute container time of the first frame
+    duration_s: float | None = None  # source duration, retained when frames are sampled during decode
 
 
 _PQ, _HLG = 16, 18  # transfer characteristics: SMPTE ST 2084, ARIB STD-B67
@@ -117,16 +118,23 @@ def probe_video(path: str | Path) -> VideoInfo:
     return VideoInfo(width=w, height=h, duration_s=duration, fps=fps)
 
 
-def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: float | None = None) -> VideoClip:
+def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: float | None = None,
+               target_fps: float | None = None) -> VideoClip:
     """Decode every frame as RGB, *as displayed* (phone rotation metadata applied), with its timestamp.
 
     Sorted by timestamp (VFR- and out-of-order-safe). ``size`` = (W, H) of the displayed frame scales
     during decode (keeps memory bounded for previews/compares). ``max_s`` stops decoding once frames are more
     than that many seconds after the first. HDR plates (an iPhone's default HLG, or PQ) are tone-mapped
-    to SDR BT.709.
+    to SDR BT.709. ``target_fps`` retains only the frames a sample-and-hold conform can use, before
+    resizing and tone-mapping; ``duration_s`` still describes the original source timestamps.
     """
+    if target_fps is not None and (not np.isfinite(target_fps) or target_fps <= 0):
+        raise ValueError("target_fps must be positive finite")
     frames: list[np.ndarray] = []
     times: list[float] = []
+    source_times: list[float] = []
+    pending, pending_time, pending_slot = None, 0.0, 0
+    out_of_order = False
     with av.open(str(path)) as container:
         if not container.streams.video:
             raise ValueError(f"no video stream in {path}")
@@ -135,11 +143,8 @@ def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: flo
         rate = stream.average_rate or stream.guessed_rate
         fps = float(rate) if rate else 0.0
         hdr = None
-        for frame in container.decode(stream):
-            if not frames:
-                hdr = _hdr_kind(frame, stream)
-            elif max_s is not None and frame.time is not None and frame.time - times[0] > max_s + 0.5:
-                break  # a margin past max_s: out-of-order frames near the cut still land in order
+
+        def append(frame, timestamp):
             k = _rotation_k(frame)
             fmt = "rgb48le" if hdr else "rgb24"
             if size is not None:
@@ -150,10 +155,38 @@ def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: flo
             if hdr:
                 arr = hdr_to_sdr(arr, hdr)
             frames.append(np.ascontiguousarray(np.rot90(arr, k)) if k else arr)
-            if frame.time is not None:
-                times.append(float(frame.time))
-            else:  # no timestamp: fall back to the nominal rate
-                times.append(len(times) / fps if fps else float(len(times)))
+            times.append(timestamp)
+
+        for frame in container.decode(stream):
+            if not source_times:
+                hdr = _hdr_kind(frame, stream)
+            elif max_s is not None and frame.time is not None and frame.time - source_times[0] > max_s + 0.5:
+                break  # a margin past max_s: out-of-order frames near the cut still land in order
+            timestamp = float(frame.time) if frame.time is not None else len(source_times) / (fps or 1.0)
+            if target_fps is not None and source_times and timestamp < source_times[-1]:
+                out_of_order = True
+                break
+            source_times.append(timestamp)
+            if target_fps is None:
+                append(frame, timestamp)
+                continue
+            # The last source frame before each output tick wins, including equal timestamps. Keep the
+            # decoded frame pending so discarded 60 fps frames never allocate RGB or run the HDR curve.
+            slot = int(np.ceil((timestamp - source_times[0] - 1e-9) * target_fps))
+            if pending is not None and slot != pending_slot:
+                append(pending, pending_time)
+            pending, pending_time, pending_slot = frame, timestamp, slot
+        if pending is not None and not out_of_order:
+            append(pending, pending_time)
+    if out_of_order:
+        frames.clear()
+        pending = None
+        # Broken presentation order is uncommon; preserve the full decoder's stable sort and duration.
+        clip = read_video(path, size=size, max_s=max_s)
+        slots = np.ceil((clip.times_s - 1e-9) * target_fps)
+        keep = np.r_[np.flatnonzero(np.diff(slots) != 0), len(slots) - 1]
+        clip.frames, clip.times_s = clip.frames[keep], clip.times_s[keep]
+        return clip
     if not frames:
         raise ValueError(f"no decodable video frames in {path}")
     t = np.asarray(times, dtype=np.float64)
@@ -164,7 +197,11 @@ def read_video(path: str | Path, size: tuple[int, int] | None = None, max_s: flo
         stacked = np.stack([frames[i] for i in order])
         t = t[order]
     del frames
-    return VideoClip(frames=stacked, times_s=t - t[0], fps_nominal=fps, start_s=float(t[0]))
+    source_t = np.sort(source_times)
+    frame_duration = float(np.median(np.diff(source_t))) if len(source_t) > 1 else 1.0 / (fps or target_fps or 24)
+    duration = float(source_t[-1] - source_t[0] + frame_duration)
+    return VideoClip(frames=stacked, times_s=t - source_t[0], fps_nominal=fps,
+                     start_s=float(source_t[0]), duration_s=duration)
 
 
 def write_video(

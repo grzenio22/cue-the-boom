@@ -746,6 +746,44 @@ def test_your_own_hand_with_no_gpu_gets_an_element_rendered_ahead(tmp_path, make
     assert b["instant"]["no_gpu"] and b["performed_again"] is None and done["receipt"]["effect"]["id"] == "fire_burst"
 
 
+def test_an_uploaded_hand_keeps_its_clip_cue_without_a_gpu(tmp_path, monkeypatch):
+    """Your hand cued by your clip's own sound: the clip loaded for the hand keeps that sound (it was written silent,
+    and the shot failed after the hand was tracked: "your clip has no sound to lock to")."""
+    import cuesync.bending as bending
+    from cuesync.pipeline import ShotResult, shot_cue
+
+    plate = tmp_path / "phone.mp4"
+    sound = np.zeros(2 * SR, np.float32)
+    sound[SR // 2:SR] = 0.5 * np.sin(np.arange(SR // 2) * 0.06)
+    write_video(plate, np.full((48, 128, 72, 3), 50, np.uint8), audio=sound)
+    seen = {}
+
+    def prepare(loaded, out_dir, tap, frame, emitter, say=None):
+        seen.update(tap=tap, frame=frame)
+        return out_dir / "hand_track.json", None
+
+    def carry(spec, renderer, out_dir, track, mask, progress, tap_frame):
+        cue = shot_cue(spec, 2.0)
+        seen.update(source=cue.source, samples=cue.samples, renderer=renderer, direction=spec.direction)
+        progress("done", 1.0, "Done")
+        return ShotResult(out_dir, out_dir / "final.mp4", out_dir / "composite.mp4", None, {})
+
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
+    monkeypatch.setattr(bending, "library_dir", lambda: tmp_path)
+    monkeypatch.setattr(bending, "prepare_hand", prepare)
+    monkeypatch.setattr(bending, "carry", carry)
+    client = TestClient(create_app(None, tmp_path / "jobs", shot_defaults={"plate_size": (72, 128)}))
+    with open(plate, "rb") as p:
+        response = client.post("/api/jobs", files={"plate": ("phone.mp4", p, "video/mp4")}, data={
+            "mode": "bending", "cue": "clip", "effect": "auto", "seed": "1", "direction": "0",
+            "frame": "12", "x": "0.5", "y": "0.7"})
+    assert response.status_code == 200, response.text
+    done = wait(client, response.json()["id"])
+    assert done["status"] == "done", done.get("error")
+    assert seen["frame"] == 12 and seen["direction"] == 0 and seen["source"] == "clip"
+    assert np.corrcoef(sound, seen["samples"][:len(sound)])[0, 1] > 0.99
+
+
 def test_the_studio_is_served_beside_the_api_and_sets_up_the_hand_tracker_only_locally(tmp_path, monkeypatch):
     studio = tmp_path / "studio"
     studio.mkdir()
