@@ -3,7 +3,7 @@
 **Film your hand. Make the noise. Throw fire.**
 
 Your voice drives visual effects. Hold your hand up to a phone, tap your palm or fingertips, and make the noise:
-"BOOM" throws a fireball, a long "fffff" from pointed fingers is a flamethrower, a "pf" is a pop of fire, a hum charges an ember.
+"BOOM" throws a fireball, a held "fffff" burns a flame in your open palm, a long "fffff" from pointed fingers is a flamethrower, a "pf" is a pop of fire, a hum charges an ember.
 The sound sets when each hit fires, how big it is and how long it burns.
 
 The fire is rendered once, over black, by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA (open weights, in ComfyUI). Cue the Boom tracks your hand and carries the fire on it, frame by frame:
@@ -13,8 +13,8 @@ The fire is rendered once, over black, by **LTX-2.5** with the **[ainvfx-fluid](
 
 Then **perform it again**: a new rhythm on the same fire, with no new render and no GPU.
 
-![The author's own hand: BOOM throws a fireball off the palm, a roar is a flamethrower from a fingertip, and the same render performed again as pf pf pf PF](media/hand_hero.jpg)
-<sub>The author's own hand and voice, filmed on a phone. The third is the first one's render, performed again.</sub>
+![The author's own hand: BOOM throws a fireball off the fist, a held fffff keeps a flame in the palm through a walk from a hallway into a kitchen in one take, and a render performed again as pf pf pf PF](media/hand_hero.jpg)
+<sub>The author's own hand and voice, filmed on a phone. The third is a render performed again in a new rhythm, with no new render.</sub>
 
 An entry for Comfy's **Open Source Higgsfield** contest, built on the Comfy Developer Platform (the Comfy Python SDK against a self-hosted Comfy API), on open weights only.
 
@@ -43,6 +43,8 @@ The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that 
 2. Cue it: pick the sample noise **pf, pf, KA-BOOM**, or **Use my microphone** and make your own noise while the clip plays.
 3. **Make the shot**: three fireballs in the palm, one on each beat, each as big as it was loud, in about a minute on a laptop CPU.
 4. **Perform it again** with another rhythm: the same fire, no new render.
+
+Then, under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen in one take, and the flame stays in the palm the whole way. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff": the flame burns as long as you hold it.
 
 **Live, in a second.** **Try it live** opens your webcam: raise your hand and say BOOM, and the fire is in your palm as you say it. A held "fffff" holds a flame, and pointing turns it into a jet. It's a rough preview of fire rendered ahead of time with LTX-2.5; **Record this** makes the real shot from that take.
 

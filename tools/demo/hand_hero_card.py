@@ -1,4 +1,5 @@
-"""media/hand_hero.jpg from the author's own takes: three 16:9 bands of the portrait shots, labelled with their cue.
+"""media/hand_hero.jpg from the author's own takes: three 16:9 bands of the portrait shots, labelled with their cue
+(a punch's BOOM, a flame carried through the house in one take, and a render performed again).
 
     python tools/demo/hand_hero_card.py
 """
@@ -6,11 +7,11 @@
 import av
 from PIL import Image, ImageDraw, ImageFont
 
-G = "runs/takes/gpu"
+G, G2 = "runs/takes/gpu", "runs/takes/gpu2"
 SHOTS = [  # composite, frame, top of the 16:9 band (share of the height), label
-    (f"{G}/IMG_6658_fire_burst_s2_c5/composite.mp4", 70, 0.42, "BOOM  (a fireball off your palm)"),
-    (f"{G}/IMG_6653_fire_breath_c5/composite.mp4", 44, 0.29, "fwoooOOOM  (a flamethrower from a fingertip)"),
-    ("runs/takes/rhythms/pf_x4/composite.mp4", 62, 0.42, "pf pf pf PF  (the same render, performed again)"),
+    (f"{G2}/IMG_6663_fire_burst_comp/composite.mp4", 66, 0.27, "BOOM  (a fireball off your fist)"),
+    (f"{G2}/IMG_6668_flame_plume_comp/composite.mp4", 140, 0.45, "fffff  (a flame in your palm, one take)"),
+    ("runs/takes/rhythms/pf_x4/composite.mp4", 62, 0.42, "pf pf pf PF  (one render, performed again)"),
 ]
 W, LABEL = 645, 40
 f = ImageFont.truetype("arialbd.ttf", 22)
