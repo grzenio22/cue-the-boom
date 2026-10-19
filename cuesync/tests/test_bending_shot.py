@@ -216,12 +216,13 @@ def test_a_tracker_still_being_installed_is_not_ready(tmp_path, monkeypatch):
 
     import cuesync.bending as bending
 
-    venv = tmp_path / ".venv-track"
+    venv = tmp_path / "cuesync" / ".venv-track"  # the installer's own environment
     exe = venv / ("Scripts/python.exe" if _sys.platform == "win32" else "bin/python")
     exe.parent.mkdir(parents=True)
     exe.write_text("")  # its Python exists, its packages don't yet
     monkeypatch.setattr(bending, "hand_python", lambda kind: str(exe))
     monkeypatch.setattr(bending, "_ready", {})
-    assert not bending.helpers_ready()
+    monkeypatch.setattr(bending.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("not asked")))
+    assert not bending.helpers_ready()  # its mark or nothing: not even an import check while it installs
     (venv / bending.READY_MARK).write_text("ok\n")  # the installer checked it imports
     assert bending.helpers_ready()

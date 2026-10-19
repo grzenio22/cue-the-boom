@@ -945,13 +945,17 @@ def helpers_ready() -> bool:
 
     py = hand_python("track")
     if py == sys.executable:
-        return importlib.util.find_spec("mediapipe") is not None
-    if (Path(py).parent.parent / READY_MARK).exists():
+        return all(importlib.util.find_spec(m) is not None for m in ("mediapipe", "onnxruntime", "av"))
+    venv = Path(py).parent.parent
+    if (venv / READY_MARK).exists():
         return True
+    if venv.name == ".venv-track" and venv.parent.name == "cuesync":  # the installer's own: its mark or nothing (it
+        return False  # exists, half installed, while `cuesync hands --install` runs)
     ok, when = _ready.get(py, (False, 0.0))
-    if not ok and time.time() - when > 30:  # asked at most every 30 s while it isn't ready
+    if not ok and time.time() - when > 30:  # set up by hand: asked at most every 30 s while it isn't ready
         try:
-            ok = subprocess.run([py, "-c", "import mediapipe, onnxruntime"], capture_output=True, timeout=120).returncode == 0
+            ok = subprocess.run([py, "-c", "import mediapipe, onnxruntime, av"], capture_output=True,
+                                timeout=120).returncode == 0
         except (OSError, subprocess.TimeoutExpired):
             ok = False
         _ready[py] = (ok, time.time())
