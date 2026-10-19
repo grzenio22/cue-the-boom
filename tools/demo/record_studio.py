@@ -188,7 +188,9 @@ def main() -> int:
         r.pause(1.5)
         r.mark("make")
         r.click(page.get_by_role("button", name="Make the shot"), pause=0.5)
-        page.locator("video.result").wait_for(timeout=900000)
+        page.locator("video.result, p.chip.bad").first.wait_for(timeout=900000)
+        if page.locator("p.chip.bad").count():  # the shot failed: say why, don't wait for a result that won't come
+            raise SystemExit(f"the shot failed: {page.locator('p.chip.bad').first.inner_text()}")
         r.mark("done")
         page.locator("video.result").scroll_into_view_if_needed()
         r.pause(7.0)
