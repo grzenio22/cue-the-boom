@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { contentRect, type Rect } from "@/lib/geometry";
 
 /** The parts of hand_track.json the aim draws (docs/bending_contracts.md): px in a W x H frame, one entry a frame. */
-export interface HandTrack { xy: [number, number][]; dir: [number, number][]; src: string[]; W: number; H: number; scale?: number[] }
+export interface HandTrack {
+  xy: [number, number][]; dir: [number, number][]; src: string[]; W: number; H: number; scale?: number[];
+  retap?: { frame: number; x: number; y: number }; // followed again from a clearer frame, the tap carried onto it
+}
 
 /** The track of where you tapped (x, y as fractions, on frame k), carried with the hand: kept as an offset in the
  * hand's own frame (along its direction and across it, in hand sizes), so it moves, turns and scales with the hand;

@@ -128,7 +128,9 @@ export default function Studio() {
   const prepKey = point ? `${point[0].toFixed(4)},${point[1].toFixed(4)}@${aimFrame}` : "";
   const shown = prep && prep.key === prepKey ? prep : null; // (a new tap or frame makes it stale)
   // the followed hand, where your tap goes on it and the way you aim it now (the arrow can turn after it was followed)
-  const followed = shown?.track && point ? carried(shown.track, aimFrame, point, aim?.angle ?? direction) : null;
+  const retap = shown?.track?.retap;
+  const followed = shown?.track && point
+    ? carried(shown.track, retap ? retap.frame : aimFrame, retap ? [retap.x, retap.y] : point, aim?.angle ?? direction) : null;
   const follow = async () => { // your tap, followed through the clip before anything is made
     if (!plate || !point || !("file" in plate.source)) { setPointSet(true); return; }
     const key = prepKey, at = point, k = aimFrame;
@@ -145,7 +147,7 @@ export default function Studio() {
       const job = (await r.json()) as JobStatus;
       for (let i = 0; i < 1800; i++) {
         const st = (await (await fetch(`/api/jobs/${job.id}`)).json()) as JobStatus;
-        if (st.status === "error") throw new Error(st.error ?? "the tracker stopped");
+        if (st.status === "error") throw new Error((st.error ?? "the tracker stopped").replace(/^\w+Error: /, ""));
         if (st.files["hand_track.json"]) {
           const track = (await (await fetch(st.files["hand_track.json"])).json()) as HandTrack;
           setPrep((was) => (was && was.key === key ? { key, id: job.id, track, error: null } : was));
@@ -270,7 +272,8 @@ export default function Studio() {
                     <span className="chip bad">I lost your hand on {Math.round(lostShare(shown.track) * 100)}% of the clip (red on its path).
                       Pick a frame where it&apos;s clear and tap it again, or go on with it.</span>
                   ) : (
-                    <span className="muted">Followed through the clip: the dot is where the fire leaves your hand on each frame.</span>
+                    <span className="muted">Followed through the clip{retap ? ` (again, from ${(retap.frame / 24).toFixed(1)} s, where your hand is clearest)` : ""}:
+                      the dot is where the fire leaves your hand on each frame.</span>
                   )}
                   <button className="secondary" onClick={() => setPlaying(playing === null ? 0 : null)}>{playing === null ? "Play it" : "Stop"}</button>
                   <button onClick={() => { setPlaying(null); setPointSet(true); }}>{lostShare(shown.track) > 0.25 ? "Go on with it" : "Looks right"}</button>
