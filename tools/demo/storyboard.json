@@ -31,24 +31,6 @@
    "subline": "0 new renders",
    "panels": [
     {
-     "src": "runs/takes/gpu/IMG_6658_fire_burst_s2_c5/composite.mp4",
-     "start": 1.9,
-     "dur": 1.4,
-     "crop": [
-      0,
-      0.36,
-      1,
-      0.92
-     ],
-     "label": "BOOM",
-     "pops": [
-      [
-       0.77,
-       "BOOM"
-      ]
-     ]
-    },
-    {
      "src": "runs/takes/rhythms/pf_pf_boom/composite.mp4",
      "start": 0.9,
      "dur": 2.3,
@@ -77,7 +59,7 @@
     {
      "src": "runs/takes/rhythms/pf_x4/composite.mp4",
      "start": 0.8,
-     "dur": 2.3,
+     "dur": 2.6,
      "crop": [
       0,
       0.36,
@@ -106,9 +88,9 @@
     }
    ],
    "stamp": "the author's own hand · the author's pf and BOOM, re-cut into new rhythms · one LTX-2.5 render",
-   "dur": 6.0,
+   "dur": 4.9,
    "vo": "runs\\demo_v9\\vo9\\again9.wav",
-   "vo_at": 1.1
+   "vo_at": 0.1
   },
   {
    "type": "clip",
@@ -193,30 +175,6 @@
   },
   {
    "type": "clip",
-   "src": "runs/bending/two/v12/both/composite.mp4",
-   "start": 1.8,
-   "dur": 3.35,
-   "wave": true,
-   "pops": [
-    [
-     0.7,
-     "pf"
-    ],
-    [
-     1.45,
-     "ka"
-    ],
-    [
-     1.95,
-     "BOOM"
-    ]
-   ],
-   "headline": "Call and response",
-   "subline": "As big as it is loud.",
-   "stamp": "real stock clip (Pexels) · CC0 voices · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
-  },
-  {
-   "type": "clip",
    "src": "runs\\demo_v9/studio_own3/studio.mp4",
    "start": 7.0,
    "dur": 2.6,
@@ -235,22 +193,8 @@
   {
    "type": "clip",
    "src": "runs\\demo_v9/studio_own3/studio.mp4",
-   "start": 10.1,
-   "dur": 1.0,
-   "fill": true,
-   "crop": [
-    0.031,
-    0.486,
-    0.717,
-    1.0
-   ],
-   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
-  },
-  {
-   "type": "clip",
-   "src": "runs\\demo_v9/studio_own3/studio.mp4",
-   "start": 23.4,
-   "dur": 3.4,
+   "start": 23.6,
+   "dur": 2.6,
    "fill": true,
    "crop": [
     0.052,
@@ -261,7 +205,7 @@
    "chip": "It follows your hand before anything is made",
    "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)",
    "vo": "runs\\demo_v9\\vo9\\studio9c.wav",
-   "vo_at": 0.2
+   "vo_at": 0.53
   },
   {
    "type": "clip",
@@ -307,38 +251,6 @@
   },
   {
    "type": "clip",
-   "src": "runs\\demo_v9/studio_own3/studio.mp4",
-   "start": 37.4,
-   "dur": 0.9,
-   "fill": true,
-   "crop": [
-    0.06,
-    0.27,
-    0.79,
-    0.82
-   ],
-   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)",
-   "vo": "runs\\demo_v9\\vo9\\studio9b.wav",
-   "vo_at": 0.1
-  },
-  {
-   "type": "clip",
-   "src": "runs\\demo_v9/studio_own3/studio.mp4",
-   "start": 38.3,
-   "dur": 2.2,
-   "speed": 15.5,
-   "fill": true,
-   "crop": [
-    0.06,
-    0.27,
-    0.79,
-    0.82
-   ],
-   "note": "sped up x15: about a minute on a laptop CPU",
-   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
-  },
-  {
-   "type": "clip",
    "src": "runs/jobs/fd58657de8da/composite.mp4",
    "start": 0.8,
    "dur": 2.6,
@@ -350,7 +262,7 @@
     1,
     0.7364
    ],
-   "chip": "Your shot",
+   "chip": "Your shot · no GPU, about a minute on a laptop",
    "pops": [
     [
      0.53,
@@ -415,16 +327,16 @@
   },
   {
    "type": "image",
-   "src": "runs\\demo_v9\\pipeline.png",
-   "dur": 4.6,
+   "src": "runs\\demo_v9\\comfy.png",
+   "dur": 2.6,
    "zoom": 1.0,
-   "vo": "runs\\demo_v9\\vo9\\pipe9.wav",
+   "vo": "runs\\demo_v10\\vo10\\pipe10b.wav",
    "vo_at": 1.3
   },
   {
    "type": "image",
-   "src": "runs\\demo_v9\\comfy.png",
-   "dur": 4.4,
+   "src": "runs\\demo_v9\\pipeline.png",
+   "dur": 3.0,
    "zoom": 1.0
   },
   {

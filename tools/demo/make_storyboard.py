@@ -15,9 +15,10 @@ Writes tools/demo/storyboard.json for tools/demo/build_demo.py.
 import json
 from pathlib import Path
 
-V9, V8, V7, V6 = Path("runs/demo_v9"), Path("runs/demo_v8"), Path("runs/demo_v7"), Path("runs/demo_v6")
+V10, V9, V8, V7, V6 = (Path("runs/demo_v10"), Path("runs/demo_v9"), Path("runs/demo_v8"), Path("runs/demo_v7"),
+                       Path("runs/demo_v6"))
 VO, VO_DIR = {}, {}
-for d in (V6 / "vo", V7 / "vo7", V8 / "vo8", V9 / "vo9"):
+for d in (V6 / "vo", V7 / "vo7", V8 / "vo8", V9 / "vo9", V10 / "vo10"):
     for k, s in json.loads((d / "durations.json").read_text(encoding="utf-8")).items():
         VO[k], VO_DIR[k] = s, d
 G, G2, R = "runs/takes/gpu", "runs/takes/gpu2", "runs/takes/rhythms"
@@ -42,11 +43,10 @@ beats = [
          crop=band(0.31), pop_x=0.78, pop_y=0.5, pops=[[0.52, "BOOM"]], headline="Cue the Boom",
          subline="Make the noise. Throw fire.", stamp=MINE),
     # 2. right after it, the same render performed three ways
-    dict(type="turns", headline="One render. Perform it again.", subline="0 new renders", vo="again9", vo_at=1.1,
-         panels=[dict(src=HERO, start=1.9, dur=1.4, crop=TALL, label="BOOM", pops=[[0.77, "BOOM"]]),
-                 dict(src=f"{R}/pf_pf_boom/composite.mp4", start=0.9, dur=2.3, crop=TALL, label="pf · pf · BOOM",
+    dict(type="turns", headline="One render. Perform it again.", subline="0 new renders", vo="again9", vo_at=0.1,
+         panels=[dict(src=f"{R}/pf_pf_boom/composite.mp4", start=0.9, dur=2.3, crop=TALL, label="pf · pf · BOOM",
                       pops=[[0.31, "pf"], [0.68, "pf"], [1.77, "BOOM"]]),
-                 dict(src=f"{R}/pf_x4/composite.mp4", start=0.8, dur=2.3, crop=TALL, label="pf pf pf PF",
+                 dict(src=f"{R}/pf_x4/composite.mp4", start=0.8, dur=2.6, crop=TALL, label="pf pf pf PF",
                       pops=[[0.24, "pf"], [0.78, "pf"], [1.24, "pf"], [1.7, "PF"]])],
          stamp="the author's own hand · the author's pf and BOOM, re-cut into new rhythms · one LTX-2.5 render"),
     # 3. first person: a roar, a flamethrower from the fingertip; a finger gun
@@ -62,34 +62,25 @@ beats = [
     # 4b. one take, uncut: the camera walks from a hallway into a kitchen, the flame stays in the palm
     dict(type="clip", src=f"{G2}/IMG_6668_flame_plume_comp/composite.mp4", start=1.9, dur=4.8, fill=True, wave=True,
          crop=band(0.42), headline="One take, uncut", subline="It stays in your palm.", stamp=MINE + " · the camera walking"),
-    # 5. call and response: each sound fires its own hand, as big as it is loud
-    dict(type="clip", src="runs/bending/two/v12/both/composite.mp4", start=1.8, dur=3.35, wave=True,
-         pops=[[0.7, "pf"], [1.45, "ka"], [1.95, "BOOM"]], headline="Call and response", subline="As big as it is loud.",
-         stamp=STOCK),
     # 6. the studio on the author's own clip, each step full frame
     dict(type="clip", src=OWN, start=7.0, dur=2.6, fill=True, crop=[0.078, 0.208, 0.578, 0.583], chip="Tap your palm, drag to aim",
          vo="studio9a", vo_at=0.1, stamp=STUDIO),
-    dict(type="clip", src=OWN, start=10.1, dur=1.0, fill=True, crop=[0.031, 0.486, 0.717, 1.0], stamp=STUDIO),
-    dict(type="clip", src=OWN, start=23.4, dur=3.4, fill=True, crop=[0.052, 0.181, 0.615, 0.603],
+    dict(type="clip", src=OWN, start=23.6, dur=2.6, fill=True, crop=[0.052, 0.181, 0.615, 0.603],
          chip="It follows your hand before anything is made", vo="studio9c", vo_at=0.2, stamp=STUDIO),
     dict(type="clip", src=OWN, start=33.0, dur=2.9, fill=True, crop=[0.078, 0.5, 0.634, 0.917], chip="Make the noise while it plays",
          pop_x=0.74, pop_y=0.52, audio_src=f"{V9}/studio_say_own.wav", audio_from=3.23, audio_gain=4.0, wave=True,
          wave_box=[0.53, 0.16, 0.42, 0.13], stamp_top=True,
          pops=[[0.87, "pf"], [1.27, "pf"], [2.27, "BOOM"]], stamp=STUDIO),
-    dict(type="clip", src=OWN, start=37.4, dur=0.9, fill=True, crop=[0.06, 0.27, 0.79, 0.82], vo="studio9b", vo_at=0.1,
-         stamp=STUDIO),
-    dict(type="clip", src=OWN, start=38.3, dur=2.2, speed=15.5, fill=True, crop=[0.06, 0.27, 0.79, 0.82],
-         note="sped up x15: about a minute on a laptop CPU", stamp=STUDIO),
     dict(type="clip", src="runs/jobs/fd58657de8da/composite.mp4", start=0.8, dur=2.6, fill=True, wave=True, crop=band(0.42),
-         chip="Your shot", pops=[[0.53, "pf"], [0.95, "pf"], [1.99, "BOOM"]], stamp=STUDIO),
+         chip="Your shot · no GPU, about a minute on a laptop", pops=[[0.53, "pf"], [0.95, "pf"], [1.99, "BOOM"]], stamp=STUDIO),
     # 7. the scene: one sound, one source
     dict(type="clip", src="runs/round10/shots/held_together__pf-pf-boom/composite.mp4", start=0.6, dur=5.0, wave=True,
          marks=[[t, *SRC[k], k] for t, k in ((0.4, "1"), (1.07, "2"), (1.78, "3"))],
          pops=[[0.4, "pf"], [1.07, "pf"], [1.78, "BOOM"]], headline="Or tap anything in your shot",
          subline="One sound, one source.", vo="scene7", vo_at=1.9, stamp=LANTERNS),
     # 8. how it's made, readable; then the ComfyUI graph itself, close up
-    dict(type="image", src=str(V9 / "pipeline.png"), dur=4.6, zoom=1.0, vo="pipe9", vo_at=0.2),
-    dict(type="image", src=str(V9 / "comfy.png"), dur=4.4, zoom=1.0),
+    dict(type="image", src=str(V9 / "comfy.png"), dur=2.6, zoom=1.0, vo="pipe10b", vo_at=0.2),
+    dict(type="image", src=str(V9 / "pipeline.png"), dur=3.0, zoom=1.0),
     # 9. end on the shot, and the claim
     dict(type="clip", src=f"{R}/pf_pf_boom/composite.mp4", start=0.5, dur=3.2, fill=True, wave=True, crop=band(0.42),
          pop_x=0.8, pop_y=0.5, pops=[[0.71, "pf"], [1.08, "pf"], [2.17, "BOOM"]], headline="Render the fire once.",
