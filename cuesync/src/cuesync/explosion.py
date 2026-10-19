@@ -39,6 +39,8 @@ THROW = (0.8, 2.5, 0.12)  # hands ahead of the fist it goes off: the strike's pe
 PALM_THROW = 0.6  # a thrust palm's blast goes off this far past the palm's middle
 EDGE = 0.10  # it goes off at least this share of the frame inside its edges
 GROW_FRAMES, BURST_SPEED = 8, 2.0  # the render's first frames of growth play this much faster (a blast is quick)
+SWELL, RISE = (0.35, 10.0), 0.5  # after its burst the ball swells by this share and lifts this many hands, both
+# over about SWELL[1] frames (the render's ball hung where it went off; its smoke then rises on its own)
 
 CORE = {0: 1.0, 1: 0.5, 2: 0.15}  # the white-hot core's strength on the strike frame and after
 FLASH = {0: 0.45, 1: 0.25, 2: 0.1, 3: 0.03, 4: -0.05}  # exposure, stops: the flash, and the iris overshooting after
@@ -373,7 +375,10 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         e = frame_of(t - k0)
         if t < k0 or e >= len(el):
             return None
-        S = np.array([[k_el, 0, origin[0] - k_el * el_centre[0]], [0, k_el, origin[1] - k_el * el_centre[1]], [0, 0, 1]])
+        since = max(0.0, (t - k0) - GROW_FRAMES / BURST_SPEED)  # (after its burst, as the render plays in real time)
+        k = k_el * (1.0 + SWELL[0] * (1.0 - math.exp(-since / SWELL[1])))  # the hot cloud swells as it burns out...
+        o = (origin[0], origin[1] - RISE * s * (1.0 - math.exp(-since / SWELL[1])))  # ...and lifts
+        S = np.array([[k, 0, o[0] - k * el_centre[0]], [0, k, o[1] - k * el_centre[1]], [0, 0, 1]])
         A = (_between(cam, k0, t) @ S)[:2]
         return cv2.warpAffine(el[e], A.astype(np.float32), (w, h), flags=cv2.INTER_LINEAR, borderValue=0)
 
