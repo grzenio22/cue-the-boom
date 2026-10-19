@@ -2,22 +2,22 @@
  "beats": [
   {
    "type": "clip",
-   "src": "runs/takes/gpu/IMG_6658_fire_burst_s2_c5/composite.mp4",
-   "start": 0.6,
-   "dur": 2.9,
+   "src": "runs/takes/gpu2/IMG_6663_fire_burst/composite.mp4",
+   "start": 2.15,
+   "dur": 1.35,
    "fill": true,
    "wave": true,
    "crop": [
     0,
-    0.42,
+    0.31,
     1,
-    0.7364
+    0.6264
    ],
-   "pop_x": 0.8,
+   "pop_x": 0.78,
    "pop_y": 0.5,
    "pops": [
     [
-     2.07,
+     0.52,
      "BOOM"
     ]
    ],
@@ -133,21 +133,21 @@
   },
   {
    "type": "clip",
-   "src": "runs/takes/gpu/IMG_6652_fire_burst_c5/composite.mp4",
-   "start": 1.2,
-   "dur": 1.6,
+   "src": "runs/takes/gpu2/IMG_6660_flame_plume/composite.mp4",
+   "start": 1.0,
+   "dur": 2.4,
    "fill": true,
    "wave": true,
    "crop": [
     0,
-    0.44,
+    0.5,
     1,
-    0.7564
+    0.8164
    ],
    "pops": [
     [
-     0.63,
-     "BOOM"
+     0.4,
+     "fffff"
     ]
    ],
    "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
@@ -173,6 +173,23 @@
    "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid) · half speed",
    "vo": "runs\\demo_v9\\vo9\\how9.wav",
    "vo_at": 0.0
+  },
+  {
+   "type": "clip",
+   "src": "runs/takes/gpu2/IMG_6668_flame_plume_comp/composite.mp4",
+   "start": 1.9,
+   "dur": 4.8,
+   "fill": true,
+   "wave": true,
+   "crop": [
+    0,
+    0.42,
+    1,
+    0.7364
+   ],
+   "headline": "One take, uncut",
+   "subline": "It stays in your palm.",
+   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid) · the camera walking"
   },
   {
    "type": "clip",

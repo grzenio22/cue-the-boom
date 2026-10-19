@@ -1,13 +1,15 @@
-"""The demo's storyboard (v9, the cut submitted). Its footage is the author's own takes and their renders, made with
+"""The demo's storyboard (v10, the cut submitted). Its footage is the author's own takes and their renders, made with
 this repository's tools and kept outside it (runs/: the phone clips, runs/takes/rhythms.py's and nolight.py's
 performances, the studio recorded with tools/demo/record_studio.py --hd); the cards come from tools/demo/*_card.py.
 
 Demo v9, after the v8 reviews: the author's portrait takes fill the frame (no pillarbox), the hero's one render
 performed three ways right after it, the studio legible (recorded at twice the pixels, on the author's own clip:
 upload, tap the palm, perform, make the shot), light off / light on, and a readable pipeline.
+Demo v10: the author's well-lit takes of 2026-10-19 rendered for their own hands: a punch's BOOM opens it, a held
+"fffff" lights a flame in an opening palm, and one uncut take carries a flame in the palm from a hallway into a kitchen.
 Writes tools/demo/storyboard.json for tools/demo/build_demo.py.
 
-    python tools/demo/make_storyboard.py && python tools/demo/build_demo.py tools/demo/storyboard.json -o runs/demo_v9/demo_v9.mp4
+    python tools/demo/make_storyboard.py && python tools/demo/build_demo.py tools/demo/storyboard.json -o runs/demo_v10/demo_v10.mp4
 """
 
 import json
@@ -18,7 +20,7 @@ VO, VO_DIR = {}, {}
 for d in (V6 / "vo", V7 / "vo7", V8 / "vo8", V9 / "vo9"):
     for k, s in json.loads((d / "durations.json").read_text(encoding="utf-8")).items():
         VO[k], VO_DIR[k] = s, d
-G, R = "runs/takes/gpu", "runs/takes/rhythms"
+G, G2, R = "runs/takes/gpu", "runs/takes/gpu2", "runs/takes/rhythms"
 HERO = f"{G}/IMG_6658_fire_burst_s2_c5/composite.mp4"
 MINE = "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
 STOCK = "real stock clip (Pexels) · CC0 voices · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
@@ -35,9 +37,10 @@ def band(y0: float) -> list[float]:
 
 TALL = [0, 0.36, 1, 0.92]  # the hand and the fire above it, for a panel
 beats = [
-    # 1. the hook: the author's palm, the author's BOOM, filling the frame, no narration over it
-    dict(type="clip", src=HERO, start=0.6, dur=2.9, fill=True, wave=True, crop=band(0.42), pop_x=0.8, pop_y=0.5,
-         pops=[[2.07, "BOOM"]], headline="Cue the Boom", subline="Make the noise. Throw fire.", stamp=MINE),
+    # 1. the hook: the author's punch, the author's BOOM, filling the frame, no narration over it
+    dict(type="clip", src=f"{G2}/IMG_6663_fire_burst/composite.mp4", start=2.15, dur=1.35, fill=True, wave=True,
+         crop=band(0.31), pop_x=0.78, pop_y=0.5, pops=[[0.52, "BOOM"]], headline="Cue the Boom",
+         subline="Make the noise. Throw fire.", stamp=MINE),
     # 2. right after it, the same render performed three ways
     dict(type="turns", headline="One render. Perform it again.", subline="0 new renders", vo="again9", vo_at=1.1,
          panels=[dict(src=HERO, start=1.9, dur=1.4, crop=TALL, label="BOOM", pops=[[0.77, "BOOM"]]),
@@ -49,13 +52,16 @@ beats = [
     # 3. first person: a roar, a flamethrower from the fingertip; a finger gun
     dict(type="clip", src=f"{G}/IMG_6653_fire_breath_c5/composite.mp4", start=1.55, dur=0.9, fill=True, wave=True,
          crop=band(0.29), pops=[[0.0, "fwooooOOM"]], stamp=MINE),  # only the stretch where the flame leaves the finger
-    dict(type="clip", src=f"{G}/IMG_6652_fire_burst_c5/composite.mp4", start=1.2, dur=1.6, fill=True, wave=True,
-         crop=band(0.44), pops=[[0.63, "BOOM"]], stamp=MINE),
+    dict(type="clip", src=f"{G2}/IMG_6660_flame_plume/composite.mp4", start=1.0, dur=2.4, fill=True, wave=True,
+         crop=band(0.5), pops=[[0.4, "fffff"]], stamp=MINE),  # a fist opens, a held fffff: a flame in the palm
     # 4. how: rendered once over black, carried on the tracked hand, light off / light on
     dict(type="triptych", srcs=[str(V9 / f"{n}_slow.mp4") for n in ("how_render", "how_carried", "nolight", "hero")],
          labels=["LTX-2.5, over black", "on your hand", "light off", "light on"], start=0.4, dur=3.6, audio=3,
          caption="Rendered once, carried on the tracked hand, matted, and lit by its own fire.",
          vo="how9", vo_at=0.0, stamp=MINE + " · half speed"),
+    # 4b. one take, uncut: the camera walks from a hallway into a kitchen, the flame stays in the palm
+    dict(type="clip", src=f"{G2}/IMG_6668_flame_plume_comp/composite.mp4", start=1.9, dur=4.8, fill=True, wave=True,
+         crop=band(0.42), headline="One take, uncut", subline="It stays in your palm.", stamp=MINE + " · the camera walking"),
     # 5. call and response: each sound fires its own hand, as big as it is loud
     dict(type="clip", src="runs/bending/two/v12/both/composite.mp4", start=1.8, dur=3.35, wave=True,
          pops=[[0.7, "pf"], [1.45, "ka"], [1.95, "BOOM"]], headline="Call and response", subline="As big as it is loud.",
