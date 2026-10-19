@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import AimOverlay, { type AimValue } from "@/components/AimOverlay";
+import { useEffect, useRef, useState } from "react";
+import AimOverlay, { type AimValue, carried, type HandTrack, lostShare } from "@/components/AimOverlay";
 import DrawPad from "@/components/DrawPad";
 import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
@@ -58,7 +58,11 @@ export default function Studio() {
   const [hand, setHand] = useState(false); // your hand is the source: the element comes off it (element bending)
   const [aimFrame, setAimFrame] = useState(0); // the frame your hand is tapped on
   const [aim, setAim] = useState<AimValue | null>(null);
+  // your tap followed through the clip before anything is made (its path drawn under your aim, where it was lost)
+  const [prep, setPrep] = useState<{ key: string; id: string | null; track: HandTrack | null; error: string | null } | null>(null);
+  const [playing, setPlaying] = useState<number | null>(null); // the frame a preview of the followed tap is on
   const frames = useFrames(plate?.url);
+  const stepTwo = useRef<HTMLElement>(null);
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchEffects(), fetchSamples()]).then(([h, e, s]) => {
@@ -81,10 +85,16 @@ export default function Studio() {
     setPerforming(true);
     setReplayOf(null); // a replay of the last plate's shots has nothing to play here
     setReplayWith([]);
-    setHand(!!p.hand); // a sample hand clip starts as a hand shot, at its own spot
+    // a sample hand clip starts as a hand shot, at its own spot; a clip of your own, as one when a hand can be followed
+    setHand(!!p.hand || ("file" in p.source && (health?.modes.includes("bending") ?? false)));
     setAim(null);
     setAimFrame(p.hand?.frame ?? 0);
+    setPrep(null);
+    setPlaying(null);
   };
+  useEffect(() => { // step 2 in view as soon as a clip is picked (it opened below the fold)
+    if (plate) stepTwo.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [plate]);
   const handLive = health?.modes.includes("bending") ?? false;
   const [settingUp, setSettingUp] = useState(false);
   // a set-up under way (started here or before a reload): keep asking until it is done, ready or not
@@ -114,6 +124,43 @@ export default function Studio() {
     setHand(on); setDrawing(false); setMore([]); setAdding(false); setAim(null);
     if (on && handAhead && plate) { setPoint(plate.point); setAimFrame(plate.hand?.frame ?? 0); } else if (on) setPoint(null);
   };
+
+  const prepKey = point ? `${point[0].toFixed(4)},${point[1].toFixed(4)}@${aimFrame}` : "";
+  const shown = prep && prep.key === prepKey ? prep : null; // (a new tap or frame makes it stale)
+  const follow = async () => { // your tap, followed through the clip before anything is made
+    if (!plate || !point || !("file" in plate.source)) { setPointSet(true); return; }
+    const key = prepKey, at = point, k = aimFrame;
+    setPrep({ key, id: null, track: null, error: null });
+    try {
+      const form = new FormData();
+      form.append("plate", plate.source.file, plate.source.filename);
+      form.append("x", String(at[0]));
+      form.append("y", String(at[1]));
+      form.append("frame", String(k));
+      const r = await fetch("/api/hands/prepare", { method: "POST", body: form });
+      if (r.status === 409 || r.status === 404) { setPrep(null); setPointSet(true); return; } // no tracker here: the shot follows it
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { detail?: string }).detail ?? r.statusText);
+      const job = (await r.json()) as JobStatus;
+      for (let i = 0; i < 1800; i++) {
+        const st = (await (await fetch(`/api/jobs/${job.id}`)).json()) as JobStatus;
+        if (st.status === "error") throw new Error(st.error ?? "the tracker stopped");
+        if (st.files["hand_track.json"]) {
+          const track = (await (await fetch(st.files["hand_track.json"])).json()) as HandTrack;
+          setPrep((was) => (was && was.key === key ? { key, id: job.id, track: carried(track, k, at), error: null } : was));
+          return;
+        }
+        await new Promise((res) => setTimeout(res, 500));
+      }
+      throw new Error("it took too long");
+    } catch (e) {
+      setPrep((was) => (was && was.key === key ? { ...was, error: (e as Error).message } : was));
+    }
+  };
+  useEffect(() => { // the followed tap, played through the clip at 24 fps
+    if (playing === null) return;
+    const t = setTimeout(() => setPlaying(playing + 1 < frames ? playing + 1 : null), 1000 / 24);
+    return () => clearTimeout(t);
+  }, [playing, frames]);
 
   const current = takes.at(-1);
   const sceneLive = health?.modes.includes("scene") ?? false;
@@ -158,7 +205,7 @@ export default function Studio() {
       {!plate && <PlatePicker samples={samples.plates} onPick={pick} />}
 
       {plate && (
-        <section>
+        <section ref={stepTwo}>
           <h2>2. Where does it come from?</h2>
           <div className="row">
             <span className="muted">{plate.title}</span>
@@ -167,7 +214,7 @@ export default function Studio() {
           {!pointSet && !handLive && !handAhead && health?.hand && !health.hand.tracker && (
             <div className="row">
               <span className="muted"><strong>Your hand</strong> (fire off your fingers or palm) needs the hand tracker, set up once
-                (about a minute). The sample <em>Your hand: cupped palm</em> plays without it.</span>
+                (about a minute). The sample hands play without it.</span>
               {health.hand.can_install ? (
                 <button className="secondary" disabled={!!health.hand.installing || settingUp} onClick={() => void setUpHands()}>
                   {health.hand.installing || settingUp ? "Setting up the hand tracker…" : "Set up the hand tracker"}
@@ -203,9 +250,30 @@ export default function Studio() {
                   onChange={(e) => { setAimFrame(Number(e.target.value)); setAim(null); setPoint(null); }} />
                 <span className="muted">{(aimFrame / 24).toFixed(1)} s</span>
               </label>
-              <AimOverlay src={plate.url} frame={Math.min(aimFrame, frames - 1)} value={aim}
-                onChange={(v) => { setAim(v); setPoint([v.x, v.y]); setDirection(v.angle); }} />
-              <div className="row"><button disabled={!point} onClick={() => setPointSet(true)}>That&apos;s my hand</button></div>
+              <AimOverlay src={plate.url} frame={Math.min(playing ?? aimFrame, frames - 1)} value={playing === null ? aim : null}
+                track={shown?.track ?? undefined}
+                onChange={(v) => { setPlaying(null); setAim(v); setPoint([v.x, v.y]); setDirection(v.angle); }} />
+              {!shown ? (
+                <div className="row"><button disabled={!point} onClick={() => void follow()}>That&apos;s my hand</button></div>
+              ) : shown.error ? (
+                <div className="row">
+                  <span className="chip bad">Couldn&apos;t follow your hand ({shown.error})</span>
+                  <span className="muted">Pick a frame where your hand is clear and tap it again.</span>
+                </div>
+              ) : !shown.track ? (
+                <div className="row"><span className="chip">Following your hand through the clip…</span></div>
+              ) : (
+                <div className="row">
+                  {lostShare(shown.track) > 0.25 ? (
+                    <span className="chip bad">I lost your hand on {Math.round(lostShare(shown.track) * 100)}% of the clip (red on its path).
+                      Pick a frame where it&apos;s clear and tap it again, or go on with it.</span>
+                  ) : (
+                    <span className="muted">Followed through the clip: the dot is where the fire leaves your hand on each frame.</span>
+                  )}
+                  <button className="secondary" onClick={() => setPlaying(playing === null ? 0 : null)}>{playing === null ? "Play it" : "Stop"}</button>
+                  <button onClick={() => { setPlaying(null); setPointSet(true); }}>{lostShare(shown.track) > 0.25 ? "Go on with it" : "Looks right"}</button>
+                </div>
+              )}
             </>
           ) : !pointSet ? (
             <>
@@ -295,7 +363,7 @@ export default function Studio() {
 
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
-          strokes={drawing ? strokes : []} sources={sources} hand={hand ? { frame: aim?.frame ?? aimFrame } : null}
+          strokes={drawing ? strokes : []} sources={sources} hand={hand ? { frame: aim?.frame ?? aimFrame, prep: shown?.track ? shown.id : null } : null}
           initialJob={current.job} onBusy={setRendering}
           replayOf={current.replayOf ?? null} replayWith={current.replayWith ?? []}
           siblings={siblings}

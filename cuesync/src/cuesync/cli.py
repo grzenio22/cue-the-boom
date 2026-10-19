@@ -177,6 +177,19 @@ def cmd_retime(args) -> int:
     return 0
 
 
+def _progress():
+    """A progress callback that says each new stage on the terminal (a long CPU step looked hung with nothing said)."""
+    last = {"msg": None, "pct": -10}
+
+    def say(stage, frac, msg) -> None:
+        pct = int(round(100 * float(frac)))
+        if msg != last["msg"] or pct >= last["pct"] + 10:
+            print(f"  [{pct:3d}%] {msg}", flush=True)
+            last.update(msg=msg, pct=pct)
+
+    return say
+
+
 def cmd_bend(args) -> int:
     """A shot from your hand (element bending). With --again: a finished bending shot (the sample hand's, made ahead
     of time) performed by this take, no GPU. Without: your clip's hand tracked and matted, the element rendered on the
@@ -189,14 +202,14 @@ def cmd_bend(args) -> int:
         spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=rc["effect"]["id"],
                         point=tuple(rc["inputs"]["point"]), offset_s=args.offset_s, mode="element",
                         extra={"tap_frame": rc["bending"].get("tap_frame")})
-        r = bending_again(Path(args.again), spec, Path(args.output))
+        r = bending_again(Path(args.again), spec, Path(args.output), progress=_progress())
     else:
         from .pipeline import ComfyRenderer
 
         spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
                         offset_s=args.offset_s, mode="element", direction=args.direction, extra={"tap_frame": args.frame})
         renderer = None if args.instant else ComfyRenderer(Path(args.workflow), timeout=args.timeout)
-        r = bending_job(spec, renderer, Path(args.output))
+        r = bending_job(spec, renderer, Path(args.output), progress=_progress())
     b = r.receipt["bending"]
     print(f"{r.receipt['effect']['id']}: {len(b['hits'])} hit(s)" + (f", charged {b['charge']['seconds']} s" if b.get("charge") else "")
           + (", no new render" if b.get("performed_again") else "") + f", {r.receipt['seconds_total']:.0f} s -> {r.final}")
@@ -267,20 +280,37 @@ def cmd_studio(args) -> int:
 
     from .server import STUDIO_STATIC
 
-    serve_cmd = [sys.executable, "-m", "cuesync.cli", "serve"] + ([] if os.environ.get("COMFY_BASE_URL") else ["--instant-only"])
+    import socket
+    import urllib.request
+
+    with socket.socket() as probe:  # a port another server holds: said now, not after opening a browser on it
+        try:
+            probe.bind(("127.0.0.1", args.port))
+        except OSError:
+            raise SystemExit(f"port {args.port} is in use (another cuesync studio or serve?): "
+                             f"cuesync studio --port {args.port + 1}") from None
+    url = f"http://127.0.0.1:{args.port}"
+    serve_cmd = [sys.executable, "-m", "cuesync.cli", "serve", "--port", str(args.port)] + (
+        [] if os.environ.get("COMFY_BASE_URL") else ["--instant-only"])
     if not args.dev and (STUDIO_STATIC / "index.html").exists():  # the studio as shipped: the API serves it, no Node
         api = subprocess.Popen(serve_cmd)
-        print("the studio: http://127.0.0.1:8765  (Ctrl+C stops it)")
         try:
-            time.sleep(4)
+            for _ in range(120):  # up and answering before it says where it is
+                if api.poll() is not None:
+                    raise SystemExit(f"the studio's server stopped (exit code {api.returncode}): see the lines above")
+                try:
+                    urllib.request.urlopen(f"{url}/api/health", timeout=1).close()
+                    break
+                except OSError:
+                    time.sleep(0.5)
+            print(f"the studio: {url}  (Ctrl+C stops it)", flush=True)
             if not args.no_browser:
-                webbrowser.open("http://127.0.0.1:8765")
-            api.wait()
+                webbrowser.open(url)
+            return api.wait()
         except KeyboardInterrupt:
-            pass
+            return 0
         finally:
             api.terminate()
-        return 0
     root = next((r for r in (Path.cwd(), *Path.cwd().parents) if (r / "web" / "package.json").exists()), None)
     npm = shutil.which("npm")
     if root is None or npm is None:
@@ -288,7 +318,7 @@ def cmd_studio(args) -> int:
     if not (root / "web" / "node_modules").exists():
         subprocess.run([npm, "install"], cwd=root / "web", check=True)
     procs = [subprocess.Popen(serve_cmd, cwd=root), subprocess.Popen([npm, "run", "dev"], cwd=root / "web")]
-    print("the studio: http://localhost:3000  (the render API: http://127.0.0.1:8765; Ctrl+C stops both)")
+    print(f"the studio: http://localhost:3000  (the render API: {url}; Ctrl+C stops both)")
     try:
         time.sleep(6)
         if not args.no_browser:
@@ -499,6 +529,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     st = sub.add_parser("studio", help="the studio in one command (the API serves it; --dev: the Next.js dev server)")
     st.add_argument("--no-browser", action="store_true")
+    st.add_argument("--port", type=int, default=8765, help="where the studio is served (default 8765)")
     st.add_argument("--dev", action="store_true", help="run web/ with Next.js (Node 24) instead of the built studio")
     st.set_defaults(func=cmd_studio)
 

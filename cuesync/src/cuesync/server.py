@@ -7,6 +7,7 @@ POST /api/jobs (multipart): plate (or plate_sample), voice (or voice_sample) (+ 
      Dub Mode), effect, x, y, seed, mode ("render" | "instant").
 GET  /api/jobs/{id}         status, stage, progress, result URLs
 GET  /api/jobs/{id}/events  the same as server-sent events
+POST /api/hands/prepare     your tapped hand followed through your clip before a shot (its path, where it was lost)
 GET  /api/jobs/{id}/files/{name}   final.mp4, composite.mp4, breakdown.mp4, guide.mp4, element.mp4, receipt.json
 GET  /api/samples           sample plates and noises (try it without a camera or a microphone)
 GET  /api/gallery           sample shots made ahead of time (cuesync precompute); a matching request is answered at once
@@ -34,8 +35,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
 RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json", "poster.jpg", "share.mp4",
-                "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4")
-EARLY_FILES = ("guide_preview.mp4", "cue.json")  # shown while the shot is still being made
+                "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4", "hand_track.json")
+EARLY_FILES = ("guide_preview.mp4", "cue.json", "hand_track.json")  # shown while the shot is still being made
 # the checkout's samples/: from the current folder or any folder above it (started from web/), or next to the source
 SAMPLES = next((d / "samples" for d in (Path.cwd(), *Path.cwd().parents, Path(__file__).resolve().parents[3])
                 if (d / "samples" / "samples.json").exists()), Path.cwd() / "samples")
@@ -108,7 +109,7 @@ class JobQueue:
     @staticmethod
     def queue_of(mode: str) -> str:
         """Scene renders and element renders share the one GPU worker; a replay is compositing, like a re-time."""
-        return "render" if mode in ("scene", "bending") else "retime" if mode in ("replay", "bending_instant") else mode
+        return "render" if mode in ("scene", "bending") else "retime" if mode in ("replay", "bending_instant", "hand_prep")             else mode
 
     def queued(self, mode: str = "render") -> int:
         q = self._qs.get(self.queue_of(mode))
@@ -127,8 +128,16 @@ class JobQueue:
         job.stage, job.progress, job.message = stage, frac, msg
         job.events.append({"stage": stage, "progress": round(frac, 3), "message": msg, "t": round(time.time() - job.created, 2)})
 
+    def _wait_for(self, job_id: str | None, timeout_s: float = 900.0) -> None:
+        """Until that job (your tap being followed through the clip, on the CPU worker) has finished."""
+        start = time.time()
+        while job_id and job_id in self.jobs and self.jobs[job_id].status in ("queued", "running"):
+            if time.time() - start > timeout_s:
+                return
+            time.sleep(0.25)
+
     def _work(self, mode: str) -> None:
-        from .bending import bending_again, bending_job
+        from .bending import bending_again, bending_job, prepare_take
         from .pipeline import make_shot, retime_shot
         from .replay import replay_scene_shot
 
@@ -143,8 +152,11 @@ class JobQueue:
                     bending_again(job.replay["src"], job.spec, job.dir, say)
                 elif job.replay:
                     replay_scene_shot(job.replay["src"], job.spec, job.dir, say)
+                elif job.mode == "hand_prep":  # your tap, followed through the clip before any shot is made
+                    prepare_take(job.spec, job.dir, progress=say)
                 elif job.mode in ("bending", "bending_instant"):  # instant: no GPU, an element rendered ahead of time
                     reuse = job.spec.extra.pop("reuse", None)
+                    self._wait_for(job.spec.extra.pop("reuse_job", None))  # (its hand, still being cut out)
                     bending_job(job.spec, self.renderers.get("render") if job.mode == "bending" else None, job.dir,
                                 progress=say, reuse=Path(reuse) if reuse else None)
                 else:
@@ -165,7 +177,27 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     from .effects import _candidate_dirs, load_effect
     from .pipeline import ShotSpec
 
-    app = FastAPI(title="Cue the Boom", version="0.1")
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        """A browser that closes a tab or seeks a video drops its connection: on Windows each drop printed a
+        ConnectionResetError traceback (harmless, and alarming in the terminal). Those alone are let go."""
+        loop = asyncio.get_running_loop()
+        before = loop.get_exception_handler()
+
+        def handler(lp, context):
+            if isinstance(context.get("exception"), ConnectionResetError):
+                return
+            if before is not None:
+                before(lp, context)
+            else:
+                lp.default_exception_handler(context)
+
+        loop.set_exception_handler(handler)
+        yield
+
+    app = FastAPI(title="Cue the Boom", version="0.1", lifespan=lifespan)
     if allow_origins:
         app.add_middleware(CORSMiddleware, allow_origins=allow_origins, allow_methods=["*"], allow_headers=["*"])
     jq = JobQueue(jobs_dir, {"render": renderer, "instant": instant})
@@ -177,9 +209,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     rank = {"scene": 0, "bending": 0, "render": 1}  # one tile per sample pair: the scene render, else the element render
     best = min((rank.get(e["mode"], 2) for e in cache.values()), default=2)
     shown = {k: e for k, e in cache.items() if rank.get(e["mode"], 2) == best}  # scene shots only, when there are any
-    # real footage first (in the order it was picked), then by plate
-    order = lambda kv: (kv[1].get("mode") != "bending", not kv[1].get("real", False), kv[1].get("rank", 0),  # noqa: E731
-                        kv[1].get("plate", ""), kv[1]["title"])  # your hand first, then real footage
+    # by rank where a shot has one (a hand's default is before every scene's), then real footage first, then by plate
+    order = lambda kv: (kv[1].get("rank", -100 if kv[1].get("mode") == "bending" else 0),  # noqa: E731
+                        not kv[1].get("real", False), kv[1].get("plate", ""), kv[1]["title"])  # your hand first
     for key, entry in sorted(shown.items(), key=order):
         same = [g for g in gallery if g.title == entry["title"]]
         if same:  # one gallery tile per sample pair: the full render when there is one
@@ -239,6 +271,27 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                          "can_install": local, "installing": setup["running"], "install_error": setup["error"]}}
 
     setup = {"running": False, "error": None}
+
+    @app.post("/api/hands/prepare")
+    async def prepare_hand_take(plate: UploadFile = File(...), x: float = Form(...), y: float = Form(...),
+                                frame: int = Form(0)):
+        """Follow the hand you tapped (x, y as fractions of the picture, on frame ``frame``) through your clip before
+        any shot is made: its track (hand_track.json) as soon as it is followed, so the studio draws the hand's path
+        and where it lost it; then its matte. A shot sent with reuse=<this job's id> makes only the shot."""
+        from .bending import helpers_ready
+
+        if not helpers_ready():
+            raise HTTPException(409, "the hand tracker isn't set up: Set up the hand tracker (cuesync hands --install)")
+        if not (0 <= x <= 1 and 0 <= y <= 1) or frame < 0:
+            raise HTTPException(400, "x and y must be in [0, 1] and frame >= 0")
+        job_id = uuid.uuid4().hex[:12]
+        d = jq.root / job_id
+        (d / "in").mkdir(parents=True)
+        plate_path = await save(plate, d / "in" / f"plate{Path(plate.filename or '.mp4').suffix or '.mp4'}")
+        spec = ShotSpec(plate=plate_path, voice=None, effect="auto", point=(float(x), float(y)), mode="element",
+                        **(shot_defaults or {}))
+        spec.extra["tap_frame"] = int(frame)
+        return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="hand_prep", title="your hand")).public()
 
     @app.post("/api/hands/install")
     def install_hands():
@@ -519,6 +572,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             was = jq.jobs.get(reuse) if reuse else None  # another effect for the same take: its hand as tracked
             if was is not None and was.status == "done" and (was.dir / "hand_track.json").exists():
                 spec.extra["reuse"] = str(was.dir)
+            elif was is not None and was.mode == "hand_prep" and was.status != "error":  # your tap, followed already
+                # (its matte may still be in the making: the shot waits for it)
+                spec.extra["reuse"], spec.extra["reuse_job"] = str(was.dir), was.id
         elif auto:  # the noise decides: its gesture through the plate's own map, or (no map) what the sound is
             from .pipeline import auto_effect
 

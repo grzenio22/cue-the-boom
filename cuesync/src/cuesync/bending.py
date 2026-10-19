@@ -1128,6 +1128,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         out[a:b] = gam(P[a - a0: b - a0])
         for i in [k for k in made if k < b - 1]:  # the next chunk starts a frame back: keep that one and the next
             del made[i]
+        say("compositing", 0.7 + 0.14 * b / n, f"Carrying the element on your hand: frame {b} of {n}")
     plate = element = small = made = None  # (a 10 s 1080p plate and its render are 2 GB: let them go before the finishing copies)
     if effect == "smoke_puff":  # the air blast: a pressure front out of the palm
         lo, hi = k_launch, min(n, k_launch + fx.AIR_FRAMES + 2)
@@ -1196,6 +1197,9 @@ def hand_python(kind: str) -> str:
         exe = d / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         if exe.exists():
             return str(exe)
+    if kind == "mask":  # no SAM set up: the tracker's venv has MediaPipe, whose skin segmenter mattes the hand on the
+        # CPU (in this one the matte was the landmarks' hull on every frame)
+        return hand_python("track")
     return sys.executable
 
 
@@ -1243,20 +1247,31 @@ def package_root() -> Path:
     return here
 
 
+def _helper_env() -> dict:
+    return os.environ | {"PYTHONPATH": os.pathsep.join(filter(None, [str(package_root()), os.environ.get("PYTHONPATH")]))}
+
+
+def track_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: int, emitter: str) -> Path:
+    """Follow the tapped hand through ``plate`` (the clip as the pipeline loads it; ``tap`` in px on ``frame``) with the
+    tracker, a subprocess in its own venv: out_dir/hand_track.json."""
+    track = out_dir / "hand_track.json"
+    r = subprocess.run([hand_python("track"), "-m", "cuesync.hand_track", str(plate), "--emitter", emitter,
+                        "--seed", f"{frame},{tap[0]:.1f},{tap[1]:.1f}", "--out", str(track)],
+                       env=_helper_env(), capture_output=True, text=True, timeout=900)
+    (out_dir / "hand_track.log").write_text(r.stdout + r.stderr, encoding="utf-8")
+    if r.returncode != 0 or not track.exists():
+        last = (r.stderr.strip().splitlines() or ["no output"])[-1]
+        raise RuntimeError(f"couldn't follow your hand through the clip ({last})")
+    return track
+
+
 def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: int, emitter: str,
                  say=None) -> tuple[Path, Path | None]:
     """Track the tapped hand through ``plate`` (the clip as the pipeline loads it; ``tap`` in px on ``frame``) and matte
     it, each as a subprocess in its own venv; returns (hand_track.json, hand_mask.npz or None: without a matte the
     element's root is held out behind the fingertips instead)."""
-    env = os.environ | {"PYTHONPATH": os.pathsep.join(filter(None, [str(package_root()), os.environ.get("PYTHONPATH")]))}
-    track, mask = out_dir / "hand_track.json", out_dir / "hand_mask.npz"
-    r = subprocess.run([hand_python("track"), "-m", "cuesync.hand_track", str(plate), "--emitter", emitter,
-                        "--seed", f"{frame},{tap[0]:.1f},{tap[1]:.1f}", "--out", str(track)],
-                       env=env, capture_output=True, text=True, timeout=900)
-    (out_dir / "hand_track.log").write_text(r.stdout + r.stderr, encoding="utf-8")
-    if r.returncode != 0 or not track.exists():
-        last = (r.stderr.strip().splitlines() or ["no output"])[-1]
-        raise RuntimeError(f"couldn't follow your hand through the clip ({last})")
+    env = _helper_env()
+    track, mask = track_hand(plate, out_dir, tap, frame, emitter), out_dir / "hand_mask.npz"
     if say:
         say("matting", 0.09, "Cutting your hand out, so your fingers can pass in front of the fire")
     try:
@@ -1306,16 +1321,72 @@ def instant_effect(spec, track: dict, n: int) -> tuple[str, dict | None]:
     return effect, picked
 
 
+def load_take(spec, out_dir: Path, say) -> tuple[Path, int, int, int, int]:
+    """The studio's clip as the pipeline loads it, kept (in/plate24.mp4, its own sound with it: the shot and performing
+    it again read the same frames); ``spec`` is updated to it. (loaded, frames, height, width, the tapped frame)."""
+    from .media import probe_video, read_audio, write_video
+    from .pipeline import FPS, SR, load_plate, place_audio, shot_cue
+
+    say("reading", 0.02, "Reading your clip")
+    if spec.voice is not None or spec.cue == "clip":  # (a cue it can't use, a silent clip on "its own sound", is said
+        # now, not after the hand has been tracked)
+        shot_cue(spec, min(probe_video(spec.plate).duration_s or spec.max_plate_s, spec.max_plate_s))
+    frames, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size)
+    n, h, w = frames.shape[:3]
+    loaded = out_dir / "in" / "plate24.mp4"
+    try:  # the clip's own sound goes with it: the shot (and performing it again) may be cued by it
+        sound = place_audio(read_audio(spec.plate, SR), 0.0, n)
+    except (ValueError, OSError):
+        sound = None
+    write_video(loaded, frames, fps=FPS, audio=sound, crf=12)
+    del frames
+    spec.plate, spec.point = loaded, (float(point[0]), float(point[1]))
+    return loaded, n, h, w, int(np.clip(spec.extra.get("tap_frame") or 0, 0, n - 1))
+
+
+def prepare_take(spec, out_dir: Path, progress=None, emitter: str = "palm") -> Path:
+    """Your tap followed through the clip before any shot is made (the studio draws the hand's path under your aim, and
+    says where it lost it), then matted; a shot on the same tap reuses it (bending_job's ``reuse``)."""
+    out_dir = Path(out_dir)
+    (out_dir / "in").mkdir(parents=True, exist_ok=True)
+    say = progress or (lambda stage, frac, msg: None)
+    loaded, n, h, w, k = load_take(spec, out_dir, say)
+    receipt = {"mode": "hand_prep", "inputs": {"point": list(spec.point)}, "bending": {"tap_frame": k, "emitter": emitter}}
+    (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1), encoding="utf-8")
+    say("tracking", 0.1, "Finding your hand and following it")
+    track_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter)
+    say("tracked", 0.5, "Your hand, followed through the clip")
+    try:
+        r = subprocess.run([hand_python("mask"), "-m", "cuesync.hand_mask", str(loaded), "--track",
+                            str(out_dir / "hand_track.json"), "--out", str(out_dir / "hand_mask.npz")],
+                           env=_helper_env(), capture_output=True, text=True, timeout=900)
+        (out_dir / "hand_mask.log").write_text(r.stdout + r.stderr, encoding="utf-8")
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        (out_dir / "hand_mask.log").write_text(f"{type(exc).__name__}: {exc}" + chr(10), encoding="utf-8")
+    say("done", 1.0, "Your hand is ready")
+    return out_dir / "hand_track.json"
+
+
+def take_emitter(spec, n: int) -> str:
+    """Which point of the hand a shot of ``n`` frames follows: the effect's own, or, when the sound decides, the fingers
+    for a hiss or a whoosh (a flamethrower), else the palm."""
+    from .gestures import heard
+    from .pipeline import FPS, SR, shot_cue
+
+    if spec.effect != "auto":
+        return EMITTER_OF.get(spec.effect, "palm")
+    c = shot_cue(spec, n / FPS)
+    return "two_finger" if heard(c.cue, c.samples, SR, c.source)["kind"] in ("whoosh", "hiss") else "palm"
+
+
 def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None = None):
     """The studio's bending shot from your clip: the plate as the pipeline loads it (kept, so performing it again reads
     the same frames), the hand you tapped (``spec.point`` on frame ``spec.extra["tap_frame"]``) tracked and matted, then
     make_bending_shot, aimed by ``spec.direction`` when you drew the arrow. ``spec`` is updated to the loaded plate.
-    ``reuse``: an earlier bending shot of the same clip and tap (another effect picked on the badge): its loaded plate,
-    track and matte are taken as they are, so only the new element is rendered."""
+    ``reuse``: the same clip and tap already loaded, tracked and matted (the studio's preview of your tap, or an earlier
+    shot when another effect is picked on the badge): taken as it is, so only the shot is made (the aim you drew turns
+    the fire, whichever point of the hand was followed)."""
     import shutil
-    from .gestures import heard
-    from .media import write_video
-    from .pipeline import FPS, SR, load_plate, place_audio, shot_cue
 
     out_dir = Path(out_dir)
     (out_dir / "in").mkdir(parents=True, exist_ok=True)
@@ -1329,30 +1400,11 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
                 shutil.copyfile(reuse / name, out_dir / name)
         spec.plate, spec.point = out_dir / "in" / "plate24.mp4", tuple(rc["inputs"]["point"])
         spec.extra["tap_frame"] = rc["bending"].get("tap_frame", spec.extra.get("tap_frame"))
-        mask = out_dir / "hand_mask.npz"
-        say("reading", 0.05, "Your hand as it was tracked for the last shot")
-        return carry(spec, renderer, out_dir, out_dir / "hand_track.json", mask if mask.exists() else None, progress,
-                     spec.extra.get("tap_frame"))
-    say("reading", 0.02, "Reading your clip")
-    from .media import probe_video, read_audio
-
-    shot_cue(spec, min(probe_video(spec.plate).duration_s or spec.max_plate_s, spec.max_plate_s))  # (a cue it can't
-    # use, a silent clip on "its own sound", is said now, not after the hand has been tracked)
-    frames, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size)
-    n, h, w = frames.shape[:3]
-    loaded = out_dir / "in" / "plate24.mp4"
-    try:  # the clip's own sound goes with it: the shot (and performing it again) may be cued by it
-        sound = place_audio(read_audio(spec.plate, SR), 0.0, n)
-    except (ValueError, OSError):
-        sound = None
-    write_video(loaded, frames, fps=FPS, audio=sound, crf=12)
-    del frames
-    spec.plate, spec.point = loaded, (float(point[0]), float(point[1]))
-    k = int(np.clip(spec.extra.get("tap_frame") or 0, 0, n - 1))
-    emitter = EMITTER_OF.get(spec.effect, "palm")
-    if spec.effect == "auto":  # which point to follow, by the sound (its gesture is read from the track later)
-        c = shot_cue(spec, n / FPS)
-        emitter = "two_finger" if heard(c.cue, c.samples, SR, c.source)["kind"] in ("whoosh", "hiss") else "palm"
+        track, mask = out_dir / "hand_track.json", out_dir / "hand_mask.npz"
+        say("reading", 0.05, "Your hand as it was followed for your tap")
+        return carry(spec, renderer, out_dir, track, mask if mask.exists() else None, progress, spec.extra.get("tap_frame"))
+    loaded, n, h, w, k = load_take(spec, out_dir, say)
+    emitter = take_emitter(spec, n)
     say("tracking", 0.05, "Finding your hand and following it")
     track, mask = prepare_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter, say)
     return carry(spec, renderer, out_dir, track, mask, progress, k)

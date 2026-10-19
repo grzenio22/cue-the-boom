@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import AimOverlay, { aimAngle, type AimValue, type HandTrack, lostRuns, trackedAim, turnAngle } from "./AimOverlay";
+import AimOverlay, { aimAngle, type AimValue, carried, type HandTrack, lostRuns, lostShare, trackedAim, turnAngle } from "./AimOverlay";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -175,5 +175,19 @@ describe("AimOverlay", () => {
     show();
     expect(host.querySelectorAll('[stroke="#ff5d5d"], [fill="#ff5d5d"]')).toHaveLength(0);
     expect(host.textContent).not.toContain("Lost");
+  });
+});
+
+describe("carried", () => {
+  it("keeps the tap where it is on the tapped frame and moves, turns and scales it with the hand", () => {
+    const t: HandTrack = { W: 100, H: 100, xy: [[50, 50], [60, 50]], dir: [[0, -1], [1, 0]], scale: [10, 20], src: ["mp", "mp"] };
+    const c = carried(t, 0, [0.5, 0.3]); // 2 hand sizes along the hand from its point on frame 0 (up)
+    expect(c.xy[0][0]).toBeCloseTo(50);
+    expect(c.xy[0][1]).toBeCloseTo(30);
+    expect(c.xy[1][0]).toBeCloseTo(100); // frame 1: the hand points right, twice the size: 2 x 20 px along it
+    expect(c.xy[1][1]).toBeCloseTo(50);
+  });
+  it("says how much of the clip the hand was lost on", () => {
+    expect(lostShare({ W: 1, H: 1, xy: [], dir: [], src: ["mp", "lost", "lost", "hold"] })).toBe(0.5);
   });
 });

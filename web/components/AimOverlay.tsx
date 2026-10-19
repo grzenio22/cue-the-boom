@@ -4,7 +4,28 @@ import { useEffect, useRef, useState } from "react";
 import { contentRect, type Rect } from "@/lib/geometry";
 
 /** The parts of hand_track.json the aim draws (docs/bending_contracts.md): px in a W x H frame, one entry a frame. */
-export interface HandTrack { xy: [number, number][]; dir: [number, number][]; src: string[]; W: number; H: number }
+export interface HandTrack { xy: [number, number][]; dir: [number, number][]; src: string[]; W: number; H: number; scale?: number[] }
+
+/** The track of where you tapped (x, y as fractions, on frame k), carried with the hand: kept as an offset in the
+ * hand's own frame (along its direction and across it, in hand sizes), so it moves, turns and scales with the hand,
+ * as the shot carries it (cuesync.bending.anchored). */
+export function carried(track: HandTrack, k: number, tap: [number, number]): HandTrack {
+  const n = track.xy.length;
+  if (!n) return track;
+  const at = (t: number) => {
+    const i = Math.min(Math.max(0, Math.round(t)), n - 1);
+    const [x, y] = track.xy[i], [ux, uy] = track.dir[i] ?? [0, -1], s = track.scale?.[i] ?? 1;
+    return { x, y, ux, uy, s: Math.max(s, 1e-6) };
+  };
+  const p = at(k), dx = tap[0] * track.W - p.x, dy = tap[1] * track.H - p.y;
+  const a = (dx * p.ux + dy * p.uy) / p.s, b = (-dx * p.uy + dy * p.ux) / p.s; // along, across (y down)
+  return { ...track, xy: track.xy.map((_, t) => { const q = at(t); return [q.x + q.s * (a * q.ux - b * q.uy), q.y + q.s * (a * q.uy + b * q.ux)]; }) };
+}
+
+/** The share of the clip's frames the tracker lost the hand on (0 to 1). */
+export function lostShare(track: HandTrack): number {
+  return track.src.length ? track.src.filter((s) => s === "lost").length / track.src.length : 0;
+}
 
 /** Where the element leaves the hand and which way it goes, on the hit frame: x and y as fractions of the frame,
  * angle in degrees clockwise from up (TapPoint's direction). */

@@ -666,6 +666,47 @@ def test_a_shot_from_your_hand_is_tracked_carried_and_performed_again(tmp_path, 
     assert done["receipt"]["effect"]["id"] == "fire_breath" and len(r.prompts) == 2 and seen["calls"] == 1  # not tracked again
 
 
+def test_your_tap_is_followed_before_the_shot_and_the_shot_reuses_it(tmp_path, make_video, make_wav, monkeypatch):
+    """The studio draws your hand's path under your aim before anything is made: /api/hands/prepare follows the tapped
+    hand (its track served as soon as it is followed), and a shot sent with reuse=<that job> doesn't follow it again."""
+    import cuesync.bending as bending
+
+    seen = {"calls": 0}
+
+    def fake_track(plate, out_dir, tap, frame, emitter):
+        seen.update(tap=tap, frame=frame, calls=seen["calls"] + 1)
+        t = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": emitter, "hand": "right", "xy": [list(tap)] * 72,
+             "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72, "conf": [1.0] * 72, "src": ["mp"] * 60 + ["lost"] * 12,
+             "speed": [0.0] * 72, "landmarks": [None] * 72, "gesture": ["Open_Palm"] * 72, "events": []}
+        (out_dir / "hand_track.json").write_text(json.dumps(t))
+        return out_dir / "hand_track.json"
+
+    monkeypatch.setattr(bending, "track_hand", fake_track)
+    monkeypatch.setattr(bending, "hand_python", lambda kind: "no-such-python")  # (no matte: the shot holds the root out)
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
+    r = FakeElementRenderer()
+    client = TestClient(create_app(r, tmp_path / "jobs", shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
+    plate = make_video(tmp_path, n=72, fps=24, w=256, h=128, color_fn=lambda i: (40, 35, 30))
+    with open(plate, "rb") as p:
+        assert client.post("/api/hands/prepare", files={"plate": ("plate.mp4", p, "video/mp4")},
+                           data={"x": "1.4", "y": "0.6"}).status_code == 400
+    with open(plate, "rb") as p:
+        prep = client.post("/api/hands/prepare", files={"plate": ("plate.mp4", p, "video/mp4")},
+                           data={"x": "0.4", "y": "0.6", "frame": "12"}).json()
+    done = wait(client, prep["id"])
+    assert done["status"] == "done", done.get("error")
+    track = client.get(done["files"]["hand_track.json"]).json()
+    assert track["src"].count("lost") == 12 and seen["frame"] == 12 and abs(seen["tap"][0] - 0.4 * 256) < 1
+    voice = make_voice(tmp_path, make_wav)
+    with open(plate, "rb") as p, open(voice, "rb") as v:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                        data={"mode": "bending", "x": "0.4", "y": "0.6", "frame": "12", "effect": "fire_burst",
+                              "reuse": prep["id"]}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    assert seen["calls"] == 1 and done["receipt"]["bending"]["tap_frame"] == 12  # followed once, for the preview
+
+
 def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_path, make_video, make_wav):
     from cuesync.bending import make_bending_shot
     from cuesync.pipeline import ShotSpec

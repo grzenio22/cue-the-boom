@@ -91,7 +91,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   madeAheadScene?: boolean; // the GPU is offline, but sample scene shots were made ahead of time
   strokes: Stroke[];
   sources?: [number, number][]; // call and response: one source per hit, in order (the first is the point)
-  hand?: { frame: number } | null; // your hand is the source (element bending), tapped on this frame
+  hand?: { frame: number; prep?: string | null } | null; // your hand is the source (element bending), tapped on this frame
+  // (prep: the job that followed that tap through the clip already: the shot reuses it)
   initialJob?: JobStatus | null; // this take's shot, if it was already made (coming back to it)
   replayOf?: string | null; // play this take on that finished shot's render (no new render)
   replayWith?: string[]; // and those other shots on the plate with it, as one scene
@@ -160,7 +161,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing,
           together: replayWith })
         : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
-          timing: performance.timing, effect: eff, point, seed, mode, direction, frame: hand?.frame ?? null, reuse: reuse ?? null, subject: subject.trim() || null, object: kind,
+          timing: performance.timing, effect: eff, point, seed, mode, direction, frame: hand?.frame ?? null, reuse: reuse ?? hand?.prep ?? null, subject: subject.trim() || null, object: kind,
           cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
           describe: describe.trim() || null, sources: several ? sources : null });
       setGuideUrl(null);
