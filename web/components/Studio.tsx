@@ -142,6 +142,12 @@ export default function Studio() {
             <span className="muted">{plate.title}</span>
             <button className="secondary" disabled={rendering} onClick={() => setPlate(null)}>Different shot</button>
           </div>
+          {!pointSet && !handLive && !handAhead && health?.hand && !health.hand.tracker && (
+            <p className="muted">
+              <strong>Your hand</strong> (fire off your fingers or palm) needs the hand tracker: run <code>cuesync hands --install</code>{" "}
+              once (about a minute), then restart the server. The sample <em>Your hand: cupped palm</em> plays without it.
+            </p>
+          )}
           {!pointSet && (handLive || handAhead) && (
             <div className="row" role="radiogroup" aria-label="What it comes from">
               <button role="radio" aria-checked={!hand} className={hand ? "secondary" : ""} onClick={() => toHand(false)}>A thing in the shot</button>

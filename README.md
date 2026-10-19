@@ -52,14 +52,14 @@ cuesync bend --plate samples/plates/hand_cupped.mp4 --voice samples/voices/pf-pf
 
 `runs/bend/final.mp4` shows "pf, pf, KA-BOOM" as three fireballs in the palm, one on each beat, each as big as it was loud, with no new render. It takes about a minute on a laptop CPU. Swap in a recording of your own noise; a hum before the "BOOM" charges an ember first.
 
-**The studio, no GPU.** In two terminals:
+**The studio, no GPU, one command** (Node 24 for the web app):
 
 ```bash
-cuesync serve --instant-only           # terminal 1: the render API, http://127.0.0.1:8765
-cd web && npm install && npm run dev   # terminal 2: the studio, http://localhost:3000
+cuesync studio          # the render API and the studio together; opens http://localhost:3000
+cuesync hands --install # once, about a minute: the hand tracker (CPU), so a clip of your own hand works too
 ```
 
-Pick **Your hand: cupped palm**, then **Perform it**. Choose a sample noise or use your microphone (hum, then BOOM), and **Make the shot**.
+Pick **Your hand: cupped palm**, then **Perform it**. Choose a sample noise or use your microphone (hum, then BOOM), and **Make the shot**. With the tracker installed, pick **Use your own clip**, then **Your hand**: tap your palm or fingertips, drag to aim, and make the noise. The fire is an element rendered ahead of time with LTX-2.5, carried on your hand, in a minute or two on a laptop CPU. (Two terminals instead: `cuesync serve --instant-only` and `cd web && npm install && npm run dev`.)
 
 The scene shots in `samples/made_ahead` play straight away in the gallery, and you can drag their hit to re-time them in seconds. Your own take plays them too: say it or press and hold on a sample clip, and each of your hits plays the render made ahead of time, in about 20 s on the CPU. **Perform it again** does the same after any shot on a still plate. On your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue.
 
@@ -159,7 +159,7 @@ cuesync bend --instant --plate my_hand.mp4 --voice my_kaboom.wav --x 0.55 --y 0.
 
 With the GPU (and the matte's environment), leave out `--instant` and the element is rendered for your hand's own pose.
 
-**On your own clip** it needs the GPU for the render (above), plus two helper environments the server runs as subprocesses. They live apart from `cuesync/.venv` because MediaPipe's opencv-contrib clashes with the core's opencv-python. From the repository root (on Linux and macOS the interpreter is `bin/python`):
+**On your own clip** it needs the hand tracker (`cuesync hands --install`; with no GPU, the element comes from the library), and with the GPU for a render of its own, the matte too (`cuesync hands --mask`). These are two helper environments the server runs as subprocesses. By hand: They live apart from `cuesync/.venv` because MediaPipe's opencv-contrib clashes with the core's opencv-python. From the repository root (on Linux and macOS the interpreter is `bin/python`):
 
 ```bash
 # the hand tracker (MediaPipe + RTMPose, Apache-2.0; its models download on first use into ~/.cache/cuesync)

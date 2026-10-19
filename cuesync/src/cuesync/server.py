@@ -228,8 +228,11 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
     @app.get("/api/health")
     def health():
+        from .bending import helpers_ready, library_dir
+
         return {"ok": True, "renderer": getattr(renderer, "name", None), "modes": available_modes(),
-                "made_ahead": sorted({e["mode"] for e in cache.values()}), "queued": jq.queued("render")}
+                "made_ahead": sorted({e["mode"] for e in cache.values()}), "queued": jq.queued("render"),
+                "hand": {"tracker": helpers_ready(), "library": library_dir() is not None}}  # what a hand of your own needs
 
     @app.get("/api/objects")
     def objects():

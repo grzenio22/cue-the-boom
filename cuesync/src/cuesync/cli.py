@@ -1,9 +1,10 @@
-"""cuesync command line: analyze, guide, graph, render, compare, experiment, serve."""
+"""cuesync command line: shot, bend, hands, studio, retime, serve, and the lower-level analyze, guide, graph, render, compare, experiment."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -202,6 +203,84 @@ def cmd_bend(args) -> int:
     return 0
 
 
+def cmd_hands(args) -> int:
+    """Set up the hand tracker's environment (cuesync/.venv-track: MediaPipe + RTMPose, CPU, about 250 MB), or with
+    --mask the hand matte's too (cuesync/.venv-mask: SAM 2.1, an NVIDIA GPU, about 3 GB). With uv when it is there
+    (it fetches a Python 3.12), else this Python's venv. --check says what is installed."""
+    import shutil
+    import subprocess
+
+    from .bending import hand_python, helpers_ready
+
+    root = next((r for r in (Path.cwd(), *Path.cwd().parents) if (r / "cuesync" / "pyproject.toml").exists()), None)
+    if args.check or not (args.install or args.mask):
+        print(f"tracker: {'ready, ' + hand_python('track') if helpers_ready() else 'not installed (cuesync hands --install)'}")
+        mask = hand_python("mask")
+        print(f"matte: {mask if mask != sys.executable else 'not installed (cuesync hands --mask; the root fades without it)'}")
+        return 0
+    if root is None:
+        raise SystemExit("run this from the cue-the-boom checkout (the folder with cuesync/ in it)")
+    uv = shutil.which("uv")
+
+    def venv(name: str, packages: list[str], index: str | None = None, more: list[list[str]] = ()) -> None:
+        d = root / "cuesync" / name
+        py = d / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        if not py.exists():
+            print(f"creating {d}")
+            subprocess.run([uv, "venv", str(d), "--python", "3.12"] if uv else [sys.executable, "-m", "venv", str(d)], check=True)
+        pip = [uv, "pip", "install", "--python", str(py)] if uv else [str(py), "-m", "pip", "install"]
+        subprocess.run(pip + packages + (["--index-url", index] if index else []), check=True)
+        for extra in more:
+            subprocess.run(pip + extra, check=True)
+
+    if args.install:
+        venv(".venv-track", ["mediapipe==1.1.1", "onnxruntime==1.31.0", "av==19.0.1"])
+        print("the hand tracker is ready: restart cuesync serve and pick Your hand")
+    if args.mask:
+        venv(".venv-mask", ["torch==2.11.0", "torchvision==0.26.0"], index="https://download.pytorch.org/whl/cu128",
+             more=[["hydra-core==1.3.7", "iopath==0.1.10", "huggingface-hub==2.2.0", "mediapipe==1.1.1", "av==19.0.1",
+                    "tqdm", "setuptools", "wheel"]])
+        os.environ["SAM2_BUILD_CUDA"] = "0"
+        py = root / "cuesync" / ".venv-mask" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        pip = [uv, "pip", "install", "--python", str(py)] if uv else [str(py), "-m", "pip", "install"]
+        subprocess.run(pip + ["--no-build-isolation", "--no-deps",
+                              "sam-2 @ git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4"],
+                       check=True)
+        print("the hand matte is ready")
+    return 0
+
+
+def cmd_studio(args) -> int:
+    """The studio in one command: the render API (instant-only unless COMFY_BASE_URL points at a GPU) and the web app,
+    both stopped with Ctrl+C; opens http://localhost:3000."""
+    import shutil
+    import subprocess
+    import time
+    import webbrowser
+
+    root = next((r for r in (Path.cwd(), *Path.cwd().parents) if (r / "web" / "package.json").exists()), None)
+    npm = shutil.which("npm")
+    if root is None or npm is None:
+        raise SystemExit("run this from the cue-the-boom checkout, with Node 24 installed (npm on the PATH)")
+    if not (root / "web" / "node_modules").exists():
+        subprocess.run([npm, "install"], cwd=root / "web", check=True)
+    api = [sys.executable, "-m", "cuesync.cli", "serve"] + ([] if os.environ.get("COMFY_BASE_URL") else ["--instant-only"])
+    procs = [subprocess.Popen(api, cwd=root), subprocess.Popen([npm, "run", "dev"], cwd=root / "web")]
+    print("the studio: http://localhost:3000  (the render API: http://127.0.0.1:8765; Ctrl+C stops both)")
+    try:
+        time.sleep(6)
+        if not args.no_browser:
+            webbrowser.open("http://localhost:3000")
+        while all(p.poll() is None for p in procs):
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        for p in procs:
+            p.terminate()
+    return 0
+
+
 def cmd_compare(args) -> int:
     from .audio import CueSheet
     from .compare import side_by_side
@@ -389,6 +468,16 @@ def build_parser() -> argparse.ArgumentParser:
     bd.add_argument("--timeout", type=float, default=900.0)
     bd.add_argument("-o", "--output", default="runs/bend")
     bd.set_defaults(func=cmd_bend)
+
+    hd = sub.add_parser("hands", help="set up (or check) the hand tracker and matte environments for element bending")
+    hd.add_argument("--install", action="store_true", help="the tracker: MediaPipe + RTMPose, CPU, about 250 MB")
+    hd.add_argument("--mask", action="store_true", help="the matte too: SAM 2.1, an NVIDIA GPU, about 3 GB")
+    hd.add_argument("--check", action="store_true", help="say what is installed")
+    hd.set_defaults(func=cmd_hands)
+
+    st = sub.add_parser("studio", help="the studio in one command: the render API and the web app (Node 24)")
+    st.add_argument("--no-browser", action="store_true")
+    st.set_defaults(func=cmd_studio)
 
     sv = sub.add_parser("serve", help="HTTP API for the web app (renders through COMFY_BASE_URL)")
     sv.add_argument("--workflow", default="workflows/fluid_element.api.json")
