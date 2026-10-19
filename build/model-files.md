@@ -41,6 +41,19 @@ ComfyUI v0.41.0 only enables comfy-kitchen's optimized int8 kernels with a cu130
 | `diffusion_models/ltx-2.5-22b-dev-transformer-comfy-int8-convrot.safetensors` | Lightricks/LTX-2.5 | LTX-2.x Community License | Full model needed by Alpha-Gen |
 | `loras/alpha-gen/*` | Lightricks/LTX-2.5-22b-IC-LoRA-Alpha-Gen (gated) | LTX-2.x Community License | Smoke matte fallback |
 
+## Hands (element bending), local, CPU or a consumer GPU
+
+The tracker and the matte run in their own environments (`cuesync/.venv-track`, `cuesync/.venv-mask`, see the README); their models download on first use.
+
+| Model | Source | Licence | Role |
+|---|---|---|---|
+| `gesture_recognizer.task` (float16; HandLandmarker + gesture classifier) | storage.googleapis.com/mediapipe-models (MediaPipe 1.1.1) | Apache-2.0 (MediaPipe model card) | Hand landmarks and gesture per frame |
+| `rtmpose-m_hand5_256x256.onnx` (from `rtmpose-m_simcc-hand5_pt-aic-coco_210e-256x256-74fb594_20230320.zip`) | download.openmmlab.com (mmpose RTMPose), run with onnxruntime 1.31.0 | Apache-2.0 | Re-finds the hand where MediaPipe loses it |
+| `sam2.1_hiera_small.pt` (facebook/sam2.1-hiera-small, rev `ee5bba1d`) | Hugging Face; code facebookresearch/sam2 at `2b90b9f5` | Apache-2.0 | The hand and forearm matte (video predictor) |
+| `hand_landmarker.task`, `selfie_multiclass_256x256.tflite` | storage.googleapis.com/mediapipe-models | Apache-2.0 (MediaPipe model cards) | Other hands in the frame; the matte's fallback |
+
+The demo's narration is Kokoro-82M (hexgrad/Kokoro-82M, Apache-2.0), a synthetic voice; it is not part of the app.
+
 ## Licence notes
 
 - **LTX-2.x Community License:** free below $10M annual revenue. Its Attachment A clause 20 restricts use in apps that "directly compete with Licensor's commercial products" without a commercial licence. This applies to every LTX-based app; check the licence before commercial use.
