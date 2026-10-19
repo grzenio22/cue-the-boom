@@ -1603,7 +1603,9 @@ MADE = {  # effect -> (its module, its form): elements made from the plate, the 
     "air_ball": ("air", "ball"), "air_blast": ("air", "blast"),
     "explosion": ("explosion", "fist"),  # (a palm's when the hand is open on its strike)
 }
-MADE_FOLEY = {"explosion": ("fire", "burst")}  # its Foley as one of sfx_synth's (the others: the voice alone, for now)
+MADE_FOLEY = {"explosion": ("fire", "burst"), "lightning_arc": ("electric", "arc"), "lightning_ball": ("electric", "ball"),
+              "water_orb": ("water", "orb"), "water_whip": ("water", "whip"), "air_ball": ("air", "ball"),
+              "air_blast": ("air", "blast")}  # each one's Foley (cuesync.sfx_synth's fluid and behaviour)
 
 
 def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, mask: np.ndarray | None, c, env_all,

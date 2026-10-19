@@ -1,4 +1,4 @@
-"""Procedural, cue-shaped fire, smoke and steam Foley (NumPy only).
+"""Procedural, cue-shaped fire, smoke, steam, lightning, water and air Foley (NumPy only).
 
 Import ``synthesize_shot_sfx`` directly; no assets, codecs, devices, or package
 initialization are needed. Frame values describe the interval starting at that
@@ -26,9 +26,14 @@ _PROFILES = {
     "steam_jet": (0.010, 0.080, 0.175, 2.5, 39.0, 0.0, 0.48, 0.004, 0.13, 0.27),
     "smoke_puff": (0.080, 0.038, 0.003, 2.3, 13.0, 0.0, 0.32, 0.015, 0.20, 0.85),
     "blow_out": (0.026, 0.088, 0.032, 4.0, 27.0, 0.0, 0.22, 0.008, 0.12, 0.85),
+    "explosion": (0.190, 0.090, 0.020, 2.5, 19.0, 9.0, 2.40, 0.003, 0.60, 1.00),
+    "lightning": (0.050, 0.060, 0.090, 9.0, 61.0, 140.0, 0.45, 0.0004, 0.08, 0.80),
+    "water": (0.060, 0.110, 0.030, 1.2, 9.0, 0.0, 0.90, 0.004, 0.25, 0.75),
+    "air": (0.070, 0.120, 0.050, 0.9, 7.0, 0.0, 0.70, 0.020, 0.22, 0.80),
 }
-_FLUIDS = ("fire", "smoke", "steam")
-_BEHAVIOURS = ("burst", "jet", "plume", "puff", "flare", "extinguish")
+_FLUIDS = ("fire", "smoke", "steam", "electric", "water", "air")
+_BEHAVIOURS = ("burst", "jet", "plume", "puff", "flare", "extinguish", "arc", "ball", "orb", "whip", "blast")
+_MADE = {"electric": "lightning", "water": "water", "air": "air"}  # the made elements' fluids: their profiles
 # The next float below 0.85 prevents float32 rounding exceeding the API bound.
 _PEAK = float(np.nextafter(np.float32(0.85), np.float32(0.0)))
 
@@ -126,6 +131,37 @@ def _crackle(rng, signal, sr, rate, small, activity=None):
         start += max(1, int(round(rng.exponential(sr / rate))))
 
 
+def _bubbles(rng, signal, sr, rate, activity=None, big=1.0):
+    """Water's own voice: Minnaert bubbles, each a damped sine whose pitch rises as it closes (a bubble's radius sets
+    its note, 400 Hz to 2.5 kHz here), at about ``rate`` a second, thinned by ``activity``."""
+    start = int(round(rng.exponential(sr / rate)))
+    while start < signal.size:
+        accepted = rng.random() < (1.0 if activity is None else float(activity[start]))
+        f0 = math.exp(rng.uniform(math.log(400.0), math.log(2500.0))) / big
+        duration = rng.uniform(0.018, 0.06) * big
+        size = max(8, round(duration * sr))
+        t = np.arange(size, dtype=np.float64) / sr
+        rise = rng.uniform(0.1, 0.35)
+        phase = 2.0 * math.pi * f0 * (t + rise * t * t / (2.0 * duration))
+        chirp = np.sin(phase) * (1.0 - np.exp(-t / 0.0015)) * np.exp(-t / (duration * 0.3))
+        chirp *= rng.uniform(0.02, 0.07)
+        used = min(size, signal.size - start)
+        if accepted:
+            signal[start:start + used] += chirp[:used].astype(np.float32)
+        start += max(1, int(round(rng.exponential(sr / rate))))
+
+
+def _hum(rng, size, sr, f0=110.0):
+    """An electric buzz: a few harmonics of ``f0`` (the odd ones strong: a square-ish arc), wandering a little in
+    pitch."""
+    wobble = 1.0 + 0.012 * (_drift(rng, size, sr, 3.0).astype(np.float64) - 0.95)
+    phase = 2.0 * math.pi * f0 * np.cumsum(wobble) / sr
+    out = np.zeros(size, dtype=np.float64)
+    for k, a in ((1, 1.0), (2, 0.35), (3, 0.6), (5, 0.4), (7, 0.25), (9, 0.15)):
+        out += a * np.sin(k * phase + rng.uniform(0, 2 * math.pi))
+    return (out / 1.6).astype(np.float32)
+
+
 def _decay(t, attack, decay, duration):
     """Physical layer envelope with an exact, gently tapered end."""
     shape = (1.0 - np.exp(-t / attack)) * np.exp(-t / decay)
@@ -160,6 +196,45 @@ def _accent(rng, size, sr, name, profile):
         cooling = _decay(t, 0.003, 0.35, 0.900)
         _crackle(rng, embers, sr, 85.0, False, cooling)
         accent += embers * cooling
+    elif name == "explosion":
+        # A blast heard close: a dry crack, a long deep drop (100 -> 22 Hz over 0.4 s) that the room rolls on for two
+        # seconds, the fireball's roar, and debris and sparks pattering down after it.
+        accent = 0.30 * _band_noise(rng, size, sr, 1500.0, 12000.0) * _decay(t, 0.0003, 0.022, 0.120)
+        drop = math.log(100.0 / 22.0) / 0.40
+        pitch_time = np.minimum(t, 0.40)
+        phase = 2.0 * math.pi * (100.0 / drop * (1.0 - np.exp(-drop * pitch_time)) + 22.0 * np.maximum(t - 0.40, 0.0))
+        pressure = 0.70 * np.sin(phase) * _decay(t, 0.002, 0.20, 0.60)
+        pressure += 0.62 * _band_noise(rng, size, sr, 25.0, 140.0) * _decay(t, 0.010, 0.70, 2.30)
+        accent += 0.70 * np.tanh(pressure * 2.4)
+        accent += 0.45 * _band_noise(rng, size, sr, 140.0, 1600.0) * _decay(t, 0.025, 0.45, 1.20)
+        debris = np.zeros(size, dtype=np.float32)
+        falling = _decay(t, 0.15, 0.60, 2.30)
+        _crackle(rng, debris, sr, 140.0, False, np.clip(falling * 1.6, 0.0, 1.0))
+        accent += 1.4 * debris * falling
+    elif name == "lightning":
+        # A strike: a sharp broadband crack, a sizzle that tears off it, and a low thump (the air it heats).
+        accent = 0.65 * _band_noise(rng, size, sr, 2000.0, 15000.0) * _decay(t, 0.0002, 0.012, 0.060)
+        sizzle = _band_noise(rng, size, sr, 3500.0, 14000.0) * _decay(t, 0.002, 0.07, profile[6])
+        sizzle *= 0.6 + 0.4 * _drift(rng, size, sr, 90.0)
+        accent += 0.38 * sizzle
+        accent += 0.40 * np.tanh(2.0 * _band_noise(rng, size, sr, 40.0, 220.0) * _decay(t, 0.002, 0.05, 0.25))
+        snaps = np.zeros(size, dtype=np.float32)
+        _crackle(rng, snaps, sr, 260.0, True, _decay(t, 0.001, 0.08, profile[6]))
+        accent += 2.0 * snaps
+    elif name == "water":
+        # A splash: the slap, a burst of spray, then bubbles and drops falling back.
+        accent = 0.45 * _band_noise(rng, size, sr, 180.0, 1400.0) * _decay(t, 0.003, 0.05, 0.25)
+        accent += 0.40 * _band_noise(rng, size, sr, 1200.0, 8000.0) * _decay(t, 0.008, 0.14, profile[6])
+        drops = np.zeros(size, dtype=np.float32)
+        _bubbles(rng, drops, sr, 90.0, _decay(t, 0.02, 0.35, profile[6]))
+        accent += 2.2 * drops
+    elif name == "air":
+        # A gust: a soft low push, then the rush of air going past, falling in pitch as it slows.
+        accent = 0.55 * _band_noise(rng, size, sr, 50.0, 260.0) * _decay(t, 0.008, 0.09, 0.30)
+        falling = np.exp(-t / 0.18).astype(np.float32)
+        rush = _band_noise(rng, size, sr, 250.0, 1400.0) * (1.0 - 0.5 * falling)
+        rush += 0.8 * _band_noise(rng, size, sr, 1400.0, 5000.0) * falling
+        accent += 0.55 * rush * _decay(t, 0.03, 0.22, profile[6])
     elif name == "smoke_puff":
         # A low air thump followed by a longer, dusty, unpitched whoosh.
         accent = 0.55 * _band_noise(rng, size, sr, 55.0, 320.0) * _decay(t, 0.006, 0.065, 0.180)
@@ -254,6 +329,8 @@ def synthesize_shot_sfx(
         return result
 
     name = effect_id
+    if name not in _PROFILES and fluid in _MADE:
+        name = _MADE[fluid]
     if name not in _PROFILES:
         if behaviour == "extinguish":
             name = "blow_out"
@@ -265,13 +342,13 @@ def synthesize_shot_sfx(
             name = {"burst": "fire_burst", "jet": "fire_breath", "flare": "wick_flare"}.get(
                 behaviour, "flame_plume")
     profile = _PROFILES[name]
-    bed_gain = {"burst": 0.25, "puff": 0.15, "extinguish": 0.0}.get(behaviour, 1.0)
+    bed_gain = {"burst": 0.25, "puff": 0.15, "extinguish": 0.0, "blast": 0.2}.get(behaviour, 1.0)
     event_name = name
     if behaviour == "extinguish":
         event_name = "blow_out"
     elif behaviour == "puff":
         event_name = "smoke_puff"
-    elif behaviour == "burst" and fluid == "fire":
+    elif behaviour == "burst" and fluid == "fire" and name != "explosion":
         event_name = "fire_burst"
     event_profile = _PROFILES[event_name]
     # Signed integer seeds are supported without touching NumPy's global RNG.
@@ -284,6 +361,12 @@ def synthesize_shot_sfx(
         bands = ((45.0, 420.0), (180.0, 1250.0), (800.0, 2400.0))
     elif name == "wick_flare":
         bands = ((100.0, 700.0), (700.0, 3900.0), (2900.0, 11500.0))
+    elif name == "lightning":  # the arc's hiss sits high; its body is the hum (below)
+        bands = ((60.0, 400.0), (900.0, 5000.0), (4000.0, 16000.0))
+    elif name == "water":
+        bands = ((60.0, 380.0), (250.0, 1800.0), (1800.0, 7000.0))
+    elif name == "air":
+        bands = ((70.0, 420.0), (300.0, 2200.0), (2000.0, 7500.0))
     elif name == "flame_plume":
         # Keep the foundation separate from the moving combustion formant;
         # excessive low-band leakage into the mid band masks their motion.
@@ -310,8 +393,15 @@ def synthesize_shot_sfx(
         if profile[5]:
             crackles = np.zeros(active, dtype=np.float32)
             _crackle(np.random.default_rng(streams[5]), crackles, sr, profile[5],
-                     name == "wick_flare", brightness)
-            result[:active] += crackles * brightness * bed_gain
+                     name in ("wick_flare", "lightning"), brightness)
+            result[:active] += crackles * brightness * bed_gain * (2.5 if name == "lightning" else 1.0)
+        if name == "lightning":  # the arc buzzes with the voice, louder as it is louder
+            buzz = _hum(np.random.default_rng(streams[6]), active, sr) * e_env ** 1.3
+            result[:active] += 0.075 * bed_gain * buzz
+        elif name == "water":  # bubbles in the water as it moves, more as the voice is louder
+            bubbles = np.zeros(active, dtype=np.float32)
+            _bubbles(np.random.default_rng(streams[5]), bubbles, sr, 35.0, np.clip(e_env, 0.0, 1.0))
+            result[:active] += bubbles * bed_gain
 
     event_hits, event_strengths = hits, strength
     if behaviour == "extinguish" and len(hits) == 0 and np.any(env):
