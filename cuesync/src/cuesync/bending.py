@@ -241,6 +241,8 @@ def shoulder(P: np.ndarray) -> None:
 
 
 LOUD_SLACK_DB = 6.0  # performing again, a take within this many dB of the one the render was made for plays it full
+PUFF_LOOK = (0.7, 0.5)  # performing again, a lone "pf" plays a render at most this bright and this big: a pop, however
+# loud (a sample "pf." sat inside the slack of the BOOM it was played on, and threw the whole fireball)
 SUSTAIN_XFADE = 6  # frames a held flame's loop, and its letting go, cross-fade over
 LETGO = 10  # frames a held flame dies down over when its render burns to the end (it vanished in a frame)
 
@@ -850,6 +852,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     # performing your own take again: as big as it is loud against the take it was rendered for (not a library's)
     loud_ref = old["bending"].get("loud_ref") if old is not None and not instant else None
     looks = hit_looks(loud, loud_ref)
+    if old is not None and len(hits) == 1 and not charge and heard(cue, c.samples, SR, c.source)["kind"] == "puff":
+        looks = [(min(g_, PUFF_LOOK[0]), min(s_, PUFF_LOOK[1])) for g_, s_ in looks]
     effect = old["effect"]["id"] if old else spec.effect
     if effect == "auto":  # the sound and the hand's gesture at the strike
         h_ = heard(cue, c.samples, SR, c.source)
@@ -1269,13 +1273,57 @@ def track_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: int,
     return track
 
 
+LOST_RETRY, LOST_NONE = 0.25, 0.9  # a tap that lost the hand on more of the clip than this is followed again from a
+# clearer frame; on this much, there was no hand where it was tapped
+
+
+def _lost_share(t: dict) -> float:
+    return sum(s == "lost" for s in t["src"]) / max(1, len(t["src"]))
+
+
+def follow_tap(plate: Path, out_dir: Path, tap: tuple[float, float], frame: int, emitter: str, say=None) -> Path:
+    """track_hand, checked. No hand where it was tapped is said (it was followed as a still point and called ready).
+    A tap that lost the hand on more than LOST_RETRY of the clip is followed again from the frame the hand was seen
+    most surely, the tap carried onto it, and the better track kept, with that frame and point as its "retap"."""
+    track = track_hand(plate, out_dir, tap, frame, emitter)
+    t = load_track(track)
+    lost = _lost_share(t)
+    if lost >= LOST_NONE:
+        raise RuntimeError("couldn't find a hand where you tapped: tap your palm or fingertips on a frame where your "
+                           "hand is clear")
+    seen = [i for i, src in enumerate(t["src"]) if src == "mp"]
+    if lost > LOST_RETRY and seen:
+        k2 = max(seen, key=lambda i: (float(t["conf"][i]), -abs(i - frame)))
+        p2 = tuple(float(v) for v in anchored(t, frame, tap)["xy"][k2])
+        if say:
+            say("tracking", 0.3, "Following your hand again, from the frame it shows most clearly")
+        again = out_dir / "follow_again"
+        again.mkdir(exist_ok=True)
+        try:
+            t2 = load_track(track_hand(plate, again, p2, k2, emitter))
+        except RuntimeError:
+            return track
+        if _lost_share(t2) < lost:
+            raw = json.loads((again / "hand_track.json").read_text())
+            raw["retap"] = {"frame": int(k2), "x": round(p2[0] / raw["W"], 4), "y": round(p2[1] / raw["H"], 4),
+                            "lost_before": round(lost, 3)}
+            track.write_text(json.dumps(raw), encoding="utf-8")
+    return track
+
+
+def retapped(track: Path, frame: int, point: tuple[float, float]) -> tuple[int, tuple[float, float]]:
+    """The frame and point (fractions) a followed tap is anchored on: the tap, or where follow_tap moved it."""
+    r = json.loads(Path(track).read_text()).get("retap") if Path(track).exists() else None
+    return (int(r["frame"]), (float(r["x"]), float(r["y"]))) if r else (frame, point)
+
+
 def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: int, emitter: str,
                  say=None) -> tuple[Path, Path | None]:
     """Track the tapped hand through ``plate`` (the clip as the pipeline loads it; ``tap`` in px on ``frame``) and matte
     it, each as a subprocess in its own venv; returns (hand_track.json, hand_mask.npz or None: without a matte the
     element's root is held out behind the fingertips instead)."""
     env = _helper_env()
-    track, mask = track_hand(plate, out_dir, tap, frame, emitter), out_dir / "hand_mask.npz"
+    track, mask = follow_tap(plate, out_dir, tap, frame, emitter, say), out_dir / "hand_mask.npz"
     if say:
         say("matting", 0.09, "Cutting your hand out, so your fingers can pass in front of the fire")
     try:
@@ -1355,10 +1403,11 @@ def prepare_take(spec, out_dir: Path, progress=None, emitter: str = "palm") -> P
     (out_dir / "in").mkdir(parents=True, exist_ok=True)
     say = progress or (lambda stage, frac, msg: None)
     loaded, n, h, w, k = load_take(spec, out_dir, say)
-    receipt = {"mode": "hand_prep", "inputs": {"point": list(spec.point)}, "bending": {"tap_frame": k, "emitter": emitter}}
-    (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1), encoding="utf-8")
     say("tracking", 0.1, "Finding your hand and following it")
-    track_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter)
+    track = follow_tap(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter, say)
+    k, point = retapped(track, k, tuple(spec.point))
+    receipt = {"mode": "hand_prep", "inputs": {"point": list(point)}, "bending": {"tap_frame": k, "emitter": emitter}}
+    (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1), encoding="utf-8")
     say("tracked", 0.5, "Your hand, followed through the clip")
     try:
         r = subprocess.run([hand_python("mask"), "-m", "cuesync.hand_mask", str(loaded), "--track",
@@ -1411,6 +1460,7 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
     emitter = take_emitter(spec, n)
     say("tracking", 0.05, "Finding your hand and following it")
     track, mask = prepare_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter, say)
+    k, spec.point = retapped(track, k, tuple(spec.point))  # (followed again from a clearer frame, the tap carried there)
     return carry(spec, renderer, out_dir, track, mask, progress, k)
 
 

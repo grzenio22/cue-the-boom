@@ -118,6 +118,28 @@ def test_a_bending_shot_is_performed_again_with_no_new_render(tmp_path, make_vid
     assert res.receipt["effect"]["id"] == "fire_burst"  # the element's own effect, whatever the new take sounds like
 
 
+def test_a_lone_pf_performed_on_a_booms_render_is_a_pop(tmp_path, make_video, make_wav):
+    """However loud a lone unvoiced "pf" is, played on a BOOM's fireball it is a pop, not the fireball."""
+    w, h, n = 256, 128, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30))
+    sr = 48000
+    t = np.arange(int(0.25 * sr)) / sr
+    x = np.random.default_rng(3).normal(0, 0.001, 3 * sr).astype(np.float32)
+    x[sr: sr + t.size] += (0.6 * np.sin(2 * np.pi * 120 * t) * np.exp(-6 * t)).astype(np.float32)  # BOOM
+    pf = np.random.default_rng(4).normal(0, 0.001, 3 * sr).astype(np.float32)
+    pf[sr: sr + int(0.08 * sr)] += np.random.default_rng(5).normal(0, 0.3, int(0.08 * sr)).astype(np.float32)  # pf
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(track_of(n, w, h, lambda t: (90.0, 64.0))))
+    spec = ShotSpec(plate=plate, voice=make_wav(tmp_path, x, sr), effect="fire_burst", point=(0.35, 0.5), mode="scene",
+                    plate_size=(w, h), max_plate_s=3.0)
+    first = make_bending_shot(spec, GuideAsElement(), tmp_path / "one", track_path)
+    again = make_bending_shot(ShotSpec(plate=plate, voice=make_wav(tmp_path, pf, sr), effect="auto", point=(0.35, 0.5),
+                                       mode="scene", plate_size=(w, h), max_plate_s=3.0),
+                              GuideAsElement(), tmp_path / "again", track_path, element_from=first.out_dir)
+    [hit] = again.receipt["bending"]["hits"]
+    assert hit["size"] <= 0.5 and hit["gain"] <= 0.7
+
+
 def test_performing_again_puts_a_render_of_another_size_where_the_first_shot_did(tmp_path, make_video, make_wav):
     """A 96 px tall plate renders at 128 (as 1080 renders at 1088): the render is placed by its pose. Its receipt must
     say where the emitter is in the render as saved, or performing it again moves the fire off the hand."""
@@ -403,3 +425,30 @@ def test_a_tracker_still_being_installed_is_not_ready(tmp_path, monkeypatch):
     assert not bending.helpers_ready()  # its mark or nothing: not even an import check while it installs
     (venv / bending.READY_MARK).write_text("ok\n")  # the installer checked it imports
     assert bending.helpers_ready()
+
+
+def test_a_tap_with_no_hand_is_said_and_a_lost_one_is_followed_again_from_a_clearer_frame(tmp_path, monkeypatch):
+    import cuesync.bending as bending
+
+    calls = []
+
+    def fake_track(plate, out_dir, tap, frame, emitter, lost=None):
+        calls.append((frame, tuple(round(v) for v in tap)))
+        n = 40
+        src = lost(len(calls)) if lost else ["mp"] * n
+        t = track_of(n, 200, 100, lambda i: (50.0 + i, 50.0)) | {"src": src, "conf": [0.5 + 0.01 * i for i in range(n)]}
+        (Path(out_dir) / "hand_track.json").write_text(json.dumps(t))
+        return Path(out_dir) / "hand_track.json"
+
+    monkeypatch.setattr(bending, "track_hand", lambda *a: fake_track(*a, lost=lambda c: ["lost"] * 40))
+    import pytest
+    with pytest.raises(RuntimeError, match="couldn't find a hand"):  # a tap on the background
+        bending.follow_tap(Path("p.mp4"), tmp_path, (10.0, 10.0), 5, "palm")
+    calls.clear()
+    # the first follow loses the hand on most of the clip; from its surest frame it holds it
+    monkeypatch.setattr(bending, "track_hand", lambda *a: fake_track(*a, lost=lambda c: (["lost"] * 24 + ["mp"] * 16) if c == 1
+                                                                      else (["mp"] * 38 + ["lost"] * 2)))
+    track = bending.follow_tap(Path("p.mp4"), tmp_path, (55.0, 50.0), 5, "palm")
+    assert len(calls) == 2 and calls[1][0] == 39  # followed again from the frame it was seen most surely
+    frame, point = bending.retapped(track, 5, (0.275, 0.5))
+    assert frame == 39 and abs(point[0] - 89.0 / 200) < 0.01  # the tap carried onto that frame, with the hand
