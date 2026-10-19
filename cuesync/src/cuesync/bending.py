@@ -63,7 +63,8 @@ FIT = {"plume": 2.8, "burst": 2.2}  # how big a flame and a fireball play at the
 # this hand, measured on what the render draws: a palm's flame this tall, a fireball this wide (its lit area's
 # equivalent diameter). The model paints well inside its guide: a render guided to SIZE's reach drew a palm-high
 # flame and a fist-sized fireball, small against the hand that threw it
-FIT_TIP = 1.6  # a fireball from the fingertips plays smaller than a fist's
+FIT_TIP = 1.1  # a fireball from the fingertips plays smaller than a fist's: a shot, not a blast (at 1.6 a finger
+# gun's ball overwhelmed the gesture and read as an explosion)
 FIT_MOST = 3.0  # and never more than this many times as big as rendered
 FIT_LIT = 0.04  # linear: what of a render counts as drawn (its haze is fainter)
 FIT_ROOM = (0.06, 0.03)  # shares of the frame: a flame's top stays this far under the frame's top, and a fireball
@@ -80,9 +81,13 @@ ROOT_FADE = 0.12  # share of the element's reach over which it comes up from not
 ROOT_ROUND = 0.15  # how far the root's fade curves back at the sides, in its own length over its width squared
 ROOT_FADE_SHARE = {"steam_jet": 0.05, "fire_breath": 0.06}  # steam has no nozzle to hide (over the full fade it
 # started a hand from the palm); a jet six hands long left a gap at the finger (a palm's flame: FOOT)
-FOOT, FOOT_WOBBLE, FOOT_RISE = 0.45, 0.35, 0.08  # a flame standing on the palm comes up out of it over this many
+FOOT, FOOT_WOBBLE, FOOT_RISE = 0.25, 0.35, 0.08  # a flame standing on the palm comes up out of it over this many
 # hands from the emitter, the line it comes up along broken by noise a third of that deep, rising this many hands a
-# frame with the flame (its foot as rendered, a clean arc on the palm, read as a cut-out pasted on)
+# frame with the flame (its foot as rendered, a clean arc on the palm, read as a cut-out pasted on; faded over half a
+# hand, it floated above the skin)
+CONTACT = (0.35, 1.6)  # the pool of light the foot throws on the palm it stands in: its radius in hands (wider across
+# than along the flame), and its brightness against the foot's own (the room light sees the flame from half its
+# radius away; its foot is on the skin)
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
 GROW_FROM, GROW_FRAMES = 0.35, 6  # a flame or a jet grows out of the hand over its first frames, from this share of its
@@ -301,8 +306,11 @@ CORE_GAIN, CORE_FROM = 2.5, 0.65  # core blown to white: up to this many times a
 # clipped already, so more gain can't reach white, and its tips, body and core all went up alike: a flat sticker
 BODY_GAIN = 0.25  # and the whole flame up to this much brighter over a bright room: the render was exposed over black,
 # and a flame doesn't dim with the room. Its light on the hand is worked out from the flame as rendered
-LIGHT_CAP = 0.5  # the fire lifts no surface past this share of its own body's luminance (skin's albedo): uncapped, a
-# lit fist by a fireball went a blown peach as bright as the fire, and the fire read as a sprite on a tinted hand
+LIGHT_CAP = 0.65  # the fire lifts no surface past this share of its own body's luminance (skin's albedo): uncapped,
+# a lit fist by a fireball went a blown peach as bright as the fire, and the fire read as a sprite on a tinted hand (at
+# 0.5 the light undersold it)
+FIRE_LIGHT = 2.0  # the fire's light on the room against fx_light's physical light from it: a fireball by a lit wall
+# lifted it 12 % (a phone filming a real one sees the wall flare)
 RIM = 0.5  # how much the flame's dim outer edge is kept from hiding more of the room than it gives back (a darker
 # outline round it, the room's luminance halved just outside the flame); all of it let the wall through the fireball
 BLOOM = ((0.004, 0.06), (0.018, 0.035), (0.07, 0.02))  # the lens's glow round the fire: (sigma, share of the short
@@ -339,8 +347,9 @@ def fire_hdr(E0: np.ndarray, behind: float) -> np.ndarray:
 
 
 def cap_light(P: np.ndarray, plate: np.ndarray, E: np.ndarray) -> None:
-    """In place: the fire's light on the plate (``P`` lit, ``plate`` before) lifting no surface past LIGHT_CAP of the
-    flame's own body (``E``'s luminance, each pixel weighted by its own)."""
+    """In place: the fire's light on the plate (``P`` lit, ``plate`` before) lifting no surface much past LIGHT_CAP of
+    the flame's own body (``E``'s luminance, each pixel weighted by its own), rolled off towards it (tanh) rather than
+    cut at it: cut, all the lit skin came to the same brightness, an even orange cast over the arm with no falloff."""
     from . import fx_light as fx
 
     Y = fx._lum(E[::4, ::4])
@@ -350,8 +359,38 @@ def cap_light(P: np.ndarray, plate: np.ndarray, E: np.ndarray) -> None:
     body = float((Y * wgt).sum() / wgt.sum())
     D = P - plate
     L = np.maximum(D, 0.0)
-    s = np.clip((LIGHT_CAP * body - fx._lum(plate)) / np.maximum(fx._lum(L), 1e-5), 0.0, 1.0)
+    lL = fx._lum(L)
+    allowed = np.maximum(LIGHT_CAP * body - fx._lum(plate), 0.15 * LIGHT_CAP * body)  # (a little always gets through)
+    s = allowed * np.tanh(lL / allowed) / np.maximum(lL, 1e-6)
     P[...] = plate + (D - L) + L * s[..., None]
+
+
+def contact_light(P: np.ndarray, E: np.ndarray, p, u, s: float, m: np.ndarray | None) -> None:
+    """In place: the pool of light a flame's foot throws on the palm it stands in (emitter ``p``, the flame along
+    ``u``, a hand ``s`` px; ``m`` the hand's matte or None): an ellipse CONTACT[0] hands round, flattened along the
+    flame, as bright as CONTACT[1] times the flame's foot (``E`` near the emitter), times each pixel's own colour."""
+    from . import fx_light as fx
+
+    h, w = P.shape[:2]
+    r = max(CONTACT[0] * s, 2.0)
+    R = int(2.5 * r)
+    y0, y1, x0, x1 = max(0, int(p[1]) - R), min(h, int(p[1]) + R), max(0, int(p[0]) - R), min(w, int(p[0]) + R)
+    if y1 <= y0 or x1 <= x0:
+        return
+    yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+    dx, dy = xx - float(p[0]), yy - float(p[1])
+    along = dx * float(u[0]) + dy * float(u[1])
+    across = dx * float(u[1]) - dy * float(u[0])
+    pool = np.exp(-0.5 * ((across / (1.3 * r)) ** 2 + ((along - 0.1 * s) / (0.7 * r)) ** 2)).astype(np.float32)
+    look = np.exp(-0.5 * (across ** 2 + (along - 0.3 * s) ** 2) / (0.4 * s) ** 2).astype(np.float32)  # the foot
+    foot = (E[y0:y1, x0:x1] * look[..., None]).reshape(-1, 3).sum(0) / max(float(look.sum()), 1e-6)
+    if float(foot.max()) <= 1e-4:
+        return
+    Pb = np.maximum(P[y0:y1, x0:x1], 0.0)
+    under = float(fx._lum(Pb)[pool > 0.5].mean()) if (pool > 0.5).any() else 0.0
+    albedo = Pb / max(under, 1e-3) * 0.6  # (each pixel's own colour: the skin keeps its texture under the light)
+    on = pool if m is None else pool * cv2.GaussianBlur(m[y0:y1, x0:x1].astype(np.float32), (0, 0), 3.0)
+    P[y0:y1, x0:x1] += albedo * (CONTACT[1] * on)[..., None] * foot[None, None, :]
 
 
 def bloom(E: np.ndarray, dark: float) -> np.ndarray:
@@ -1358,7 +1397,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 grow = 1.0
             S = source(picks[0][0]) if picks == [(picks[0][0], 1.0)] else sum(wt * source(f) for f, wt in picks)
             E = warp_element(S, track, ref, t, lag, size * grow * play, since=off + ign, cam=cam, thrown=thrown) * gain
-            if thrown and t > off + ign + RELEASE_AFTER:
+            if thrown and t > off + ign + RELEASE_AFTER:  # in flight: smeared along its path over the shutter (on the
+                # fist, the fist's smear; thrown, it was crisp at its fastest)
+                a_pose = thrown_pose(ref, track, off + ign, t, size * play, cam)
+                b_pose = thrown_pose(ref, track, off + ign, t - 1, size * play, cam)
+                E = motion_blur(E, a_pose[:, 2] - b_pose[:, 2])
                 free = E if free is None else np.maximum(free, E)
                 continue
             if e < ign:  # the build-up, coming up to the ignition: its fire only, orange or white-hot (the model's
@@ -1434,6 +1477,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         for i in range(a0, b1):
             if made[i] is not None:
                 small[i - a0] = cv2.resize(made[i], (w // q, h // q), interpolation=cv2.INTER_AREA)
+                if eff.fluid == "fire":  # it lights the room as brightly as the camera sees it burn (its clipped
+                    # render's light undersold a core blown to white; LIGHT_CAP keeps the skin from blowing out)
+                    small[i - a0] = fire_hdr(small[i - a0], behind.get(i, 0.0)) * np.float32(FIRE_LIGHT)
         m = None if mask is None else mask[a0:b1].astype(np.float32) / 255.0
         fx.light_plate(P, small, track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, tint=tint, out=P)
         for i in range(a, b):
@@ -1445,6 +1491,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             if eff.fluid == "fire":
                 E = fire_hdr(E0, behind.get(i, 0.0))
                 cap_light(P[j], lin(plate[i]), E)
+                if eff.behaviour == "plume":  # its foot lights the palm it stands in
+                    p_, u_, s_ = emitter_at(track, i)
+                    contact_light(P[j], E, p_, u_, s_, None if m is None else m[j])
             look = E[::4, ::4].max(-1) > 1e-4  # grain only where the element is
             ys_, xs_ = np.nonzero(look)
             if ys_.size:

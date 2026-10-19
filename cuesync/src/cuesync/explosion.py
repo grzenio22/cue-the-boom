@@ -41,7 +41,9 @@ EDGE = 0.10  # it goes off at least this share of the frame inside its edges
 GROW_FRAMES, BURST_SPEED = 8, 2.0  # the render's first frames of growth play this much faster (a blast is quick)
 
 CORE = {0: 1.0, 1: 0.5, 2: 0.15}  # the white-hot core's strength on the strike frame and after
-FLASH = {0: 0.7, 1: 0.4, 2: 0.18, 3: 0.05, 4: -0.08}  # exposure, stops: the flash, and the iris overshooting after it
+FLASH = {0: 0.45, 1: 0.25, 2: 0.1, 3: 0.03, 4: -0.05}  # exposure, stops: the flash, and the iris overshooting after
+# it (at +0.7 the whole picture washed out)
+FLASH_REACH, FLASH_FAR = 2.5, 0.35  # the flash falls off over this many fireball radii, to this share far from it
 GROW_BLUR = {0: 0.3, 1: 0.22, 2: 0.12, 3: 0.07, 4: 0.04}  # the fireball's growth over the shutter, per frame
 RIM_GAIN = 3.0  # the blast wrapping round the arm's outline, against its light on the hand
 RIM_EDGE = 0.10  # hand sizes: how far in from the arm's outline the rim reaches
@@ -447,7 +449,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             if emit.max() > 0:
                 P = P + (emit if front else emit * ((1 - m) * (1 - cover))[..., None])
         stops = FLASH.get(since, 0.0) * (size if FLASH.get(since, 0.0) > 0 else 1.0)
-        if stops:
+        if stops > 0:  # the blast's flash lights what is near it most (a uniform wash greyed the hand to a ghost)
+            yy, xx = np.mgrid[:h:4, :w:4].astype(np.float32)
+            near = np.exp(-((xx - o_t[0]) ** 2 + (yy - o_t[1]) ** 2) / (2 * (FLASH_REACH * max(R, s)) ** 2))
+            k = 1.0 + (2.0 ** stops - 1.0) * (FLASH_FAR + (1.0 - FLASH_FAR) * near)
+            P = P * cv2.resize(k.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)[..., None]
+        elif stops < 0:  # the iris overshooting after it: the whole picture
             P = P * np.float32(2.0 ** stops)
         from .bending import shoulder
 
