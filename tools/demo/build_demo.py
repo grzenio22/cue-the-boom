@@ -8,13 +8,18 @@ Beats (all times in seconds; text may use \\n):
       a vertical (or any) clip, fitted in the centre; caption under it, side text on the left
   {"type": "triptych", "srcs": ["a.mp4", "b.mp4", "c.mp4"], "labels": [...], "start": 0, "dur": 5,
    "audio": 0 | 1 | 2 | "mix", "caption": "..."}       three clips side by side, same timeline
+  {"type": "turns", "panels": [{"src": "a.mp4", "start": 0, "dur": 2, "label": "BOOM", "crop": [...], "pops": [...]},
+   ...], "headline": "...", "subline": "...", "caption": "..."}   clips side by side that play in turn, each with its
+      own sound under it (the others wait, dimmed): one shot performed several ways; the beat lasts as long as they do
   {"type": "image", "src": "path.png", "dur": 3, "caption": "...", "zoom": 1.08}   a still with a slow push-in
   a clip may add "speed": 8 (silent while sped up) and "note": "sped up x8" (a tag at the top right),
   "crop": [x0, y0, x1, y1] (fractions, to zoom in), and "audio_src" + "audio_from" + "audio_at" (another file's
   sound, from audio_from s in it, starting audio_at s into the beat), "wave": true (the beat's sound drawn under
   the clip, a playhead running along it) and "pops": [[t, "KA-BOOM"], ...] (the noise word, big, at t s), "marks":
   [[t, x, y, "1"], ...] (a numbered ring on the clip at x, y as fractions, from t s: where a hit goes off) and
-  "headline" / "subline" (a title over the clip itself, top left)
+  "headline" / "subline" (a title over the clip itself, top left), "fill": true (the clip, or its crop, fills the
+  whole frame, the text over it; a crop of the frame's own shape is not cut further) and "chip": "..." (a step's
+  name, big, top left); "pop_y": where the noise words sit, as a share of the clip's height
       (an image may add "crop" too; "split": [0.4] cuts a wide image at those fractions of its width and stacks
       the parts as rows)
   {"type": "versus", "shot": "runs/.../shot", "start": 0.4, "dur": 2.4, "speed": 1, "labels": ["...", "..."],
@@ -77,6 +82,32 @@ def fit(frame: np.ndarray, box_w: int, box_h: int) -> Image.Image:
     im = Image.fromarray(frame)
     s = min(box_w / im.width, box_h / im.height)
     return im.resize((max(1, int(im.width * s)), max(1, int(im.height * s))), Image.Resampling.LANCZOS)
+
+
+def cover(frame: np.ndarray, box_w: int, box_h: int) -> Image.Image:
+    """The frame scaled to fill the box, cut at its middle where its shape differs."""
+    im = Image.fromarray(frame)
+    s = max(box_w / im.width, box_h / im.height)
+    im = im.resize((max(box_w, round(im.width * s)), max(box_h, round(im.height * s))), Image.Resampling.LANCZOS)
+    x, y = (im.width - box_w) // 2, (im.height - box_h) // 2
+    return im.crop((x, y, x + box_w, y + box_h))
+
+
+def chip(d: ImageDraw.ImageDraw, x: int, y: int, text: str, size: int = 50) -> None:
+    """A step's name on an orange tab."""
+    f = font(size, True)
+    tw = d.textlength(text, font=f)
+    d.rounded_rectangle([x, y, x + tw + 1.2 * size, y + 1.7 * size], radius=0.4 * size, fill=ACCENT)
+    d.text((x + 0.6 * size, y + 0.85 * size), text, font=f, fill=BG, anchor="lm")
+
+
+def cropped(frames: np.ndarray, crop: list[float] | None) -> np.ndarray:
+    """[x0, y0, x1, y1] as fractions of the picture."""
+    if not crop:
+        return frames
+    h, w = frames.shape[1:3]
+    x0, y0, x1, y1 = int(crop[0] * w) // 2 * 2, int(crop[1] * h) // 2 * 2, int(crop[2] * w) // 2 * 2, int(crop[3] * h) // 2 * 2
+    return frames[:, y0:y1, x0:x1]
 
 
 def stacked(src: Image.Image, split: list[float] | None) -> Image.Image:
@@ -186,10 +217,7 @@ class Clip:
 
     def __init__(self, src: str, start: float, dur: float, speed: float = 1.0, crop: list[float] | None = None):
         self.frames, self.times = read_window(src, start, start + dur * speed, every=speed / FPS if speed > 1 else 0.0)
-        if crop:  # [x0, y0, x1, y1] as fractions: zoom in on part of a screen recording
-            h, w = self.frames.shape[1:3]
-            x0, y0, x1, y1 = int(crop[0] * w) // 2 * 2, int(crop[1] * h) // 2 * 2, int(crop[2] * w) // 2 * 2, int(crop[3] * h) // 2 * 2
-            self.frames = self.frames[:, y0:y1, x0:x1]
+        self.frames = cropped(self.frames, crop)  # zoom in on part of a screen recording
         self.start_s, self.speed = start, speed
         try:
             self.audio = read_audio(src, SR)
@@ -260,25 +288,33 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             if at < audio.size:
                 n_ = min(audio.size - at, a.size)
                 audio[at: at + n_] += a[:n_]
-        tall = c.frames.shape[1] > c.frames.shape[2]  # a portrait clip: its sound goes beside it, not under it
+        filled = bool(b.get("fill"))
+        tall = c.frames.shape[1] > c.frames.shape[2] and not filled  # a portrait clip: its sound goes beside it
         box_h = H - (150 if b.get("caption") else 60) - (130 if b.get("wave") and not tall else 0)
         env = envelope(audio, n) if b.get("wave") else None
         for i in range(n):
             img = Image.new("RGB", (W, H), BG)
-            im = fit(c.frame(i), W - 900 if b.get("side") else W - 120, box_h)
-            x0 = (W - im.width) // 2 + (220 if b.get("side") else 0)
-            y0 = (box_h - im.height) // 2 + 20
+            if filled:  # the whole frame, the text over it
+                im, x0, y0 = cover(c.frame(i), W, H), 0, 0
+            else:
+                im = fit(c.frame(i), W - 900 if b.get("side") else W - 120, box_h)
+                x0 = (W - im.width) // 2 + (220 if b.get("side") else 0)
+                y0 = (box_h - im.height) // 2 + 20
             img.paste(im, (x0, y0))
             d = ImageDraw.Draw(img)
             if env is not None:  # the sound: the playhead reaches the noise as the effect hits
-                if not tall:
+                if filled:
+                    wave(d, 60, H - (190 if b.get("caption") else 120), W - 120, 70, env, i)
+                elif not tall:
                     wave(d, x0, y0 + im.height + 30, im.width, 90, env, i)
                 elif b.get("side"):  # under the side text
                     wave(d, 90, H // 2 + 130, max(200, x0 - 180), 110, env, i)
                 else:  # to the right of the clip
                     wave(d, x0 + im.width + 70, y0 + im.height - 220, W - 120 - (x0 + im.width + 70), 110, env, i)
             mark(d, x0, y0, im.width, im.height, i / FPS, b.get("marks"))
-            pop(d, x0 + im.width // 2, y0 + int(im.height * 0.8), i / FPS, b.get("pops"))
+            pop(d, x0 + im.width // 2, y0 + int(im.height * float(b.get("pop_y", 0.62 if filled else 0.8))), i / FPS, b.get("pops"))
+            if b.get("chip"):  # the step it shows
+                chip(d, 60, 50, b["chip"])
             if b.get("headline"):  # the title over the shot itself, not on a card of its own
                 d.text((x0 + 40, y0 + 30), b["headline"], font=font(88, True), fill=FG, stroke_width=6, stroke_fill=(0, 0, 0))
                 if b.get("subline"):
@@ -290,7 +326,9 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
                 text_block(d, (90, y), b["side"], 46, FG, max_w=x0 - 160, spacing=16)
             elif b.get("label"):
                 d.text((x0 + 20, 40), b["label"], font=font(40, True), fill=ACCENT)
-            if b.get("caption"):
+            if b.get("caption") and filled:  # over the picture: outlined to read on anything
+                d.text((W // 2, H - 70), b["caption"], font=font(46, True), fill=FG, anchor="mm", stroke_width=6, stroke_fill=(0, 0, 0))
+            elif b.get("caption"):
                 text_block(d, (W // 2, H - 80), b["caption"], 42, FG, anchor="mm", max_w=W - 200)
             if b.get("note"):  # e.g. that a stretch is sped up
                 f = font(30, True)
@@ -354,6 +392,42 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
                 x0 = 40 + k * cw + (cw - im.width) // 2
                 img.paste(im, (x0, 80 + (box_h - 70 - im.height) // 2))
                 d.text((40 + k * cw + cw // 2, 46), labels[k], font=font(40, True), fill=ACCENT, anchor="mm")
+            if b.get("caption"):
+                text_block(d, (W // 2, H - 80), b["caption"], 42, FG, anchor="mm", max_w=W - 200)
+            stamp(img, b.get("stamp"))
+            frames.append(np.asarray(img))
+    elif kind == "turns":  # one shot performed several ways: each plays in turn, its own sound under it
+        panels = b["panels"]
+        clips = [Clip(q["src"], float(q.get("start", 0)), float(q["dur"]), crop=q.get("crop")) for q in panels]
+        sounds = [c.sound() for c in clips]
+        audio = np.concatenate(sounds)
+        envs = [envelope(a, c.n) for a, c in zip(sounds, clips)]
+        starts = np.cumsum([0] + [c.n for c in clips])
+        top, wave_h = (170 if b.get("headline") else 60), 80
+        box_h = H - top - wave_h - (160 if b.get("caption") else 80)
+        cw = (W - 120) // len(clips)
+        for i in range(int(starts[-1])):
+            img = Image.new("RGB", (W, H), BG)
+            d = ImageDraw.Draw(img)
+            now = int(np.searchsorted(starts, i, side="right")) - 1
+            for k, (c, q) in enumerate(zip(clips, panels)):
+                j = min(max(i - int(starts[k]), 0), c.n - 1)  # waiting on its first frame, done on its last
+                im = cover(c.frame(j), cw - 36, box_h)
+                if k != now:
+                    im = Image.blend(Image.new("RGB", im.size, BG), im, 0.4)
+                x0 = 60 + k * cw + 18
+                img.paste(im, (x0, top))
+                if k == now:
+                    d.rounded_rectangle([x0 - 6, top - 6, x0 + im.width + 6, top + im.height + 6], radius=14, outline=ACCENT, width=6)
+                d.text((x0 + im.width // 2, top + 56), q.get("label", ""), font=font(56, True), fill=ACCENT if k == now else MUTED,
+                       anchor="mm", stroke_width=6, stroke_fill=(0, 0, 0))
+                wave(d, x0, top + box_h + 24, im.width, wave_h, envs[k], j if k <= now else -1)
+                if k == now:
+                    pop(d, x0 + im.width // 2, top + int(box_h * 0.3), j / FPS, q.get("pops"))
+            if b.get("headline"):
+                d.text((60, 40), b["headline"], font=font(72, True), fill=FG)
+                if b.get("subline"):
+                    d.text((W - 60, 80), b["subline"], font=font(44, True), fill=ACCENT, anchor="rm")
             if b.get("caption"):
                 text_block(d, (W // 2, H - 80), b["caption"], 42, FG, anchor="mm", max_w=W - 200)
             stamp(img, b.get("stamp"))
