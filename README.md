@@ -63,6 +63,8 @@ Pick **Your hand: cupped palm**, then **Perform it**. Choose a sample noise or u
 
 The scene shots in `samples/made_ahead` play straight away in the gallery, and you can drag their hit to re-time them in seconds. Your own take plays them too: say it or press and hold on a sample clip, and each of your hits plays the render made ahead of time, in about 20 s on the CPU. **Perform it again** does the same after any shot on a still plate. On your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue.
 
+**A try-it link of your own.** `deploy/space/` builds the no-GPU studio into a Hugging Face Docker Space (CPU basic, free): `python deploy/space/make_space.py`, push the folder it writes, and set the Space secret `CUE_PASSWORD` to keep it behind a password.
+
 **Re-timing from the command line** (no npm): re-time a shipped scene shot, and re-measure the timing of the shipped shots.
 
 ```bash
