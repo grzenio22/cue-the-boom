@@ -10,8 +10,8 @@ Hold your hand up to the camera, tap your palm or fingertips, and make the noise
 
 **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders the fire once, over black. Cue the Boom tracks your hand and carries the fire on it frame by frame: what was already thrown keeps flying the way you threw it, your fingers hide its root, and it lights your skin. Then **perform it again**: a new rhythm on the same render, with no new render.
 
-![Element bending: a hum charges an ember in the palm, BOOM throws the fireball, a swing whips the flamethrower through the air](media/hand_hero.jpg)
-<sub>Real stock hands ([credits](samples/CREDITS.md)) with test voices. The fire is LTX-2.5 + ainvfx-fluid, rendered once over black and carried on the tracked hand.</sub>
+![Element bending on the author's own hand: BOOM throws a fireball off the palm, a roar is a flamethrower from a fingertip, and the same render performed again as pf pf pf PF](media/hand_hero.jpg)
+<sub>The author's own hand and voice, filmed on a phone. The fire is LTX-2.5 + ainvfx-fluid, rendered once over black and carried on the tracked hand; the third is the first one's render, performed again.</sub>
 
 Or tap or draw anything in your shot ("KA-BOOM" at a jack-o'-lantern, "fwoooOOOM" at a toy dinosaur) and LTX-2.5 renders the effect into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Each sound picks the effect and sets its frame, size and length. The render's real onset is then measured and moved onto your cue. On 57 test shots, 26 of them on real stock footage, 37 of 42 single hits land within a frame (42 ms) of the cue; straight from the model, none do.
 
