@@ -151,11 +151,13 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 
 **Without a GPU:** pick the sample *Your hand: cupped palm* in the studio, perform any rhythm (or pick a sample noise), and its fireball, made ahead of time, fires on each of your hits (about a minute on a laptop CPU). `cuesync bend --again` does the same from the command line ([Try it](#try-it)).
 
-**From the command line, on your own clip** (GPU and the two helper environments below):
+**Your own hand, no GPU.** With only the tracker's environment installed (the first two lines below, CPU only), your own clip works too. A fire element rendered ahead of time with LTX-2.5 (`samples/library/bending`: flamethrower, fireball, flame, steam; the air blast is made) is carried on your tracked hand, and your sound and gesture pick which. In the studio, pick **Your own clip**, then **Your hand**. From the command line:
 
 ```bash
-cuesync bend --plate my_hand.mp4 --voice my_kaboom.wav --x 0.55 --y 0.6 --frame 40   # where on the hand, on frame 40
+cuesync bend --instant --plate my_hand.mp4 --voice my_kaboom.wav --x 0.55 --y 0.6 --frame 40   # where on the hand, on frame 40
 ```
+
+With the GPU (and the matte's environment), leave out `--instant` and the element is rendered for your hand's own pose.
 
 **On your own clip** it needs the GPU for the render (above), plus two helper environments the server runs as subprocesses. They live apart from `cuesync/.venv` because MediaPipe's opencv-contrib clashes with the core's opencv-python. From the repository root (on Linux and macOS the interpreter is `bin/python`):
 

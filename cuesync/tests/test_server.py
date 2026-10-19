@@ -31,6 +31,14 @@ class FakeRenderer:
         return 0.1
 
 
+@pytest.fixture(autouse=True)
+def no_hand_tracker(monkeypatch):
+    """Tests don't depend on this machine's helper environments: no hand tracker unless a test installs one."""
+    import cuesync.bending as bending
+
+    monkeypatch.setattr(bending, "helpers_ready", lambda: False)
+
+
 @pytest.fixture
 def client(tmp_path, make_video):
     app = create_app(FakeRenderer(), tmp_path / "jobs",
@@ -701,3 +709,38 @@ def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_p
         with open(plate, "rb") as p:
             assert client.post("/api/jobs", files={"voice": ("v.wav", v, "audio/wav"), "plate": ("p.mp4", p, "video/mp4")},
                                data={"mode": "bending", "effect": "auto", "x": "0.4", "y": "0.6"}).status_code in (400, 503)
+
+
+def test_your_own_hand_with_no_gpu_gets_an_element_rendered_ahead(tmp_path, make_video, make_wav, monkeypatch):
+    import cuesync.bending as bending
+    from cuesync.bending import make_bending_shot
+    from cuesync.pipeline import ShotSpec
+
+    w, h, n = 256, 128, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30))
+    voice = make_voice(tmp_path, make_wav)
+    t = {"version": 1, "fps": 24, "W": w, "H": h, "emitter": "palm", "hand": "right", "xy": [[102.0, 77.0]] * n,
+         "dir": [[0.0, -1.0]] * n, "scale": [20.0] * n, "conf": [1.0] * n, "src": ["mp"] * n, "speed": [0.0] * n,
+         "landmarks": [None] * n, "gesture": ["Open_Palm"] * n, "events": []}
+    lib = tmp_path / "library"  # the library: one element rendered ahead of time (as samples/library/bending holds)
+    (tmp_path / "t.json").write_text(json.dumps(t))
+    make_bending_shot(ShotSpec(plate=plate, voice=voice, effect="fire_burst", point=(0.4, 0.6), plate_size=(w, h),
+                               max_plate_s=3.0), FakeElementRenderer(), lib / "fire_burst", tmp_path / "t.json")
+
+    def fake_prepare(plate_, out_dir, tap, frame, emitter, say=None):
+        (out_dir / "hand_track.json").write_text(json.dumps(t))
+        return out_dir / "hand_track.json", None
+
+    monkeypatch.setattr(bending, "prepare_hand", fake_prepare)
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
+    monkeypatch.setattr(bending, "library_dir", lambda: lib)
+    client = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(),
+                                   shot_defaults={"plate_size": (w, h), "max_plate_s": 3.0}))
+    assert "bending" in client.get("/api/health").json()["modes"]  # no GPU, and still a hand of your own
+    with open(plate, "rb") as p, open(voice, "rb") as v:
+        s = client.post("/api/jobs", files={"plate": ("p.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                        data={"mode": "bending", "effect": "fire_burst", "x": "0.4", "y": "0.6", "frame": "10"}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    b = done["receipt"]["bending"]
+    assert b["instant"]["no_gpu"] and b["performed_again"] is None and done["receipt"]["effect"]["id"] == "fire_burst"

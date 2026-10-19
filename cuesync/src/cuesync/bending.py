@@ -481,6 +481,41 @@ def root_fade(h: int, w: int, ref: tuple, length: float) -> np.ndarray:
     return np.clip(along / max(length, 1.0), 0, 1).astype(np.float32)
 
 
+def fit_element(element: np.ndarray, ref: tuple, h: int, w: int) -> tuple[np.ndarray, tuple]:
+    """A render of another frame size on an (h, w) plate: a window of the plate's size, centred on where the render is
+    lit (over all its frames), its emitter pose moved with it. Never stretched: a landscape render on a portrait
+    clip keeps its fire's shape (what doesn't fit the window is left out). Returns (frames, ref)."""
+    n, eh, ew = element.shape[:3]
+    lit = element[:, ::4, ::4].max(axis=(0, 3)) > 24
+    ys, xs = np.nonzero(lit)
+    cy, cx = (4 * (ys.min() + ys.max()) / 2, 4 * (xs.min() + xs.max()) / 2) if ys.size else (eh / 2, ew / 2)
+    y0, x0 = int(round(cy - h / 2)), int(round(cx - w / 2))
+    out = np.zeros((n, h, w, 3), element.dtype)
+    sy0, sx0, sy1, sx1 = max(0, y0), max(0, x0), min(eh, y0 + h), min(ew, x0 + w)
+    if sy1 > sy0 and sx1 > sx0:
+        out[:, sy0 - y0: sy1 - y0, sx0 - x0: sx1 - x0] = element[:, sy0:sy1, sx0:sx1]
+    p0, u0, s0 = ref
+    return out, (np.asarray(p0, np.float64) - (x0, y0), u0, s0)
+
+
+STILL_DIFF = 6.0  # mean grey levels: the picture round a lost hand changing less than this since it was seen = held still
+
+
+def still_there(plate: np.ndarray, track: dict, seen: int, t: int) -> bool:
+    """Is the hand last seen on frame ``seen`` still where it was on frame ``t``? The picture within a hand of its last
+    position barely changed (a quarter-size look): the tracker lost a still hand (cut by the frame's edge, blurred),
+    the hand didn't go anywhere."""
+    p, _, s = emitter_at(track, seen)
+    h, w = plate.shape[1:3]
+    r = max(8.0, 1.0 * s)
+    y0, y1, x0, x1 = max(0, int(p[1] - r)), min(h, int(p[1] + r)), max(0, int(p[0] - r)), min(w, int(p[0] + r))
+    if y1 - y0 < 8 or x1 - x0 < 8:
+        return False
+    a = plate[seen, y0:y1:4, x0:x1:4].astype(np.float32).mean(-1)
+    b = plate[t, y0:y1:4, x0:x1:4].astype(np.float32).mean(-1)
+    return float(np.abs(a - b).mean()) < STILL_DIFF
+
+
 def holdout_box(track: dict, t: int, h: int, w: int) -> tuple[int, int, int, int]:
     """(y0, y1, x0, x1): the only part of the frame root_holdout can touch (half a hand round the emitter)."""
     p, _, s = emitter_at(track, t)
@@ -568,7 +603,7 @@ def air_puff(h: int, w: int, ref: tuple, seed: int = 0, frames: int = 14) -> np.
 
 def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mask_path: str | Path | None = None,
                       progress=None, element_from: str | Path | None = None, tap_frame: int | None = None,
-                      aim: float | None = None):
+                      aim: float | None = None, instant: bool = False, picked: dict | None = None):
     """A bending shot: the plate (``spec.plate``, as cuesync.pipeline loads it), the take (``spec.voice``), the hand's
     track (``track_path``, made on that loaded plate) and optionally its matte (hand_mask.npz); ``spec.effect`` may be
     "auto" (the sound and the hand's gesture pick it). Renders one element over black at the loudest hit's strike and
@@ -660,8 +695,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             say("rendering", 0.2, f"Rendering the {eff.fluid} over black with LTX-2.5")
             seconds = renderer(out_dir / "guide.mp4", prompt, spec.seed, out_dir / "element.mp4")
             element = read_video(out_dir / "element.mp4").frames
-    if element.shape[1:3] != (h, w):
-        element = np.stack([cv2.resize(f, (w, h), interpolation=cv2.INTER_AREA) for f in element])
+    if element.shape[1:3] != (h, w):  # (a render of another size: placed by its pose, never stretched)
+        element, ref = fit_element(element, ref, h, w)
     floor = estimate_black_level(element)
     ign = ignition_frame(element, floor, burst=eff.behaviour == "burst")
     if ign is None:
@@ -683,9 +718,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         # its floor so high that subtracting it cut a dark hole in the fire that later burned over it
         mins = cv2.morphologyEx(mins, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
         floor_lin = np.maximum(lin(mins), floor_lin)
-    lost, run = np.zeros(n, int), 0
+    lost, run, seen_at = np.zeros(n, int), 0, 0
     for t in range(n):
+        if src[t] == "lost" and run >= 8 and still_there(plate, track, seen_at, t):
+            src[t] = "hold"  # the tracker lost it, but nothing moved where it was: a still hand, still there
         run = run + 1 if src[t] == "lost" else 0
+        seen_at = t if src[t] != "lost" else seen_at
         lost[t] = run
 
     hands_, most_ = SIZE.get(eff.behaviour, (LENGTH, 0.6))
@@ -853,11 +891,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                                             "snap": sn} for (off, g, sz), sn in zip(plays, snaps)],
                     "ref": {"xy": [round(float(v), 2) for v in ref[0]], "dir": [round(float(v), 5) for v in ref[1]],
                             "scale": round(float(ref[2]), 2)},
-                    "performed_again": None if old is None else {"from": str(element_from), "no_new_render": True},
+                    "performed_again": None if old is None or instant else {"from": str(element_from), "no_new_render": True},
+                    "instant": None if not instant else {"library": str(element_from), "no_gpu": True},
                     "camera": "locked" if cam is None else "handheld: thrown fire moves with the room",
                     "charge": None if not charge else {"from": int(charge[0]), "release": int(charge[1]),
                                                        "seconds": round((charge[1] - charge[0]) / FPS, 2)}},
-        "auto": auto, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
+        "auto": auto or picked, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
     say("done", 1.0, "Done")
@@ -934,6 +973,43 @@ def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: in
     return track, mask if ok else None
 
 
+LIBRARY_EFFECTS = ("fire_breath", "fire_burst", "flame_plume", "steam_jet")  # rendered ahead, for a hand with no GPU
+
+
+def library_dir() -> Path | None:
+    """The hand elements rendered ahead of time (samples/library/bending/<effect>/: element.mp4 + receipt.json), in the
+    checkout the server runs in or one above it; None when there are none."""
+    for r in (Path.cwd(), *Path.cwd().parents, Path(__file__).resolve().parents[3]):
+        d = r / "samples" / "library" / "bending"
+        if d.is_dir() and any((d / e / "element.mp4").exists() for e in LIBRARY_EFFECTS):
+            return d
+    return None
+
+
+def instant_effect(spec, track: dict, n: int) -> tuple[str, dict | None]:
+    """The effect for a hand with no GPU: the one asked for, else what the take's sound and the hand's gesture pick
+    (as make_bending_shot does), held to what the library has (the air blast is made, not rendered: always there)."""
+    from .gestures import heard
+    from .pipeline import FPS, SR, shot_cue
+
+    effect, picked = spec.effect, None
+    if effect == "auto":
+        c = shot_cue(spec, n / FPS)
+        hits = [hh.frame for hh in c.cue.hits()] or [c.cue.frame_of(c.cue.hero_onset_s)]
+        env = np.asarray(c.cue.envelope, np.float64)
+        hero = max(hits, key=lambda f: float(env[f: f + 8].max()) if 0 <= f < env.size else 0.0)
+        span = (max(hits) - min(hits)) / FPS if len(hits) > 1 else 0.0
+        h_, g = heard(c.cue, c.samples, SR, c.source), gesture_at(track, hero)
+        effect, why = bending_effect(h_["kind"], g, hits=len(hits), span_s=span)
+        effect = effect or "fire_burst"
+        picked = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
+    lib = library_dir()
+    if effect != "smoke_puff" and (lib is None or not (lib / str(effect) / "element.mp4").exists()):
+        effect = "fire_burst"
+        picked = None if picked is None else picked | {"picked": effect, "why": picked["why"] + " (the library's nearest)"}
+    return effect, picked
+
+
 def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None = None):
     """The studio's bending shot from your clip: the plate as the pipeline loads it (kept, so performing it again reads
     the same frames), the hand you tapped (``spec.point`` on frame ``spec.extra["tap_frame"]``) tracked and matted, then
@@ -959,8 +1035,8 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
         spec.extra["tap_frame"] = rc["bending"].get("tap_frame", spec.extra.get("tap_frame"))
         mask = out_dir / "hand_mask.npz"
         say("reading", 0.05, "Your hand as it was tracked for the last shot")
-        return make_bending_shot(spec, renderer, out_dir, out_dir / "hand_track.json", mask if mask.exists() else None,
-                                 progress, tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)
+        return carry(spec, renderer, out_dir, out_dir / "hand_track.json", mask if mask.exists() else None, progress,
+                     spec.extra.get("tap_frame"))
     say("reading", 0.02, "Reading your clip")
     frames, point, _ = load_plate(spec.plate, spec.point, spec.max_plate_s, spec.plate_size)
     n, h, w = frames.shape[:3]
@@ -975,7 +1051,19 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
         emitter = "two_finger" if heard(c.cue, c.samples, SR, c.source)["kind"] in ("whoosh", "hiss") else "palm"
     say("tracking", 0.05, "Finding your hand and following it")
     track, mask = prepare_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter, say)
-    return make_bending_shot(spec, renderer, out_dir, track, mask, progress, tap_frame=k, aim=spec.direction)
+    return carry(spec, renderer, out_dir, track, mask, progress, k)
+
+
+def carry(spec, renderer, out_dir: Path, track: Path, mask: Path | None, progress, tap_frame: int | None):
+    """make_bending_shot for the studio: rendered on the GPU (``renderer``), or with none an element rendered ahead of
+    time from the library, carried on your hand (an instant shot; the air blast is made, not rendered)."""
+    if renderer is not None:
+        return make_bending_shot(spec, renderer, out_dir, track, mask, progress, tap_frame=tap_frame, aim=spec.direction)
+    t = load_track(track)
+    spec.effect, picked = instant_effect(spec, t, len(t["xy"]))
+    lib = None if spec.effect == "smoke_puff" else library_dir() / spec.effect
+    return make_bending_shot(spec, None, out_dir, track, mask, progress, element_from=lib, tap_frame=tap_frame,
+                             aim=spec.direction, instant=lib is not None, picked=picked)
 
 
 def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
@@ -983,7 +1071,8 @@ def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
     render; a shot that was itself performed again plays its first render."""
     src_dir = Path(src_dir)
     b = json.loads((src_dir / "receipt.json").read_text())["bending"]
-    first = Path(b["performed_again"]["from"]) if b.get("performed_again") else src_dir
+    first = Path(b["performed_again"]["from"]) if b.get("performed_again") else \
+        Path(b["instant"]["library"]) if b.get("instant") else src_dir
     here = lambda name, was: str(first / name) if (first / name).exists() else was  # noqa: E731  (a shot made ahead
     # travels with its own track and matte)
     return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),

@@ -30,6 +30,7 @@ export interface BendingReceipt {
   hits: { frame: number; gain: number; size: number }[];
   performed_again: { from: string; no_new_render: boolean } | null;
   charge?: { from: number; release: number; seconds: number } | null; // a hum before the strike, charging it
+  instant?: { library: string; no_gpu: boolean } | null; // no GPU: an element rendered ahead of time, carried on the hand
 }
 
 export interface Receipt {

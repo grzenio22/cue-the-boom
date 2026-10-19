@@ -194,7 +194,8 @@ def cmd_bend(args) -> int:
 
         spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
                         offset_s=args.offset_s, mode="element", direction=args.direction, extra={"tap_frame": args.frame})
-        r = bending_job(spec, ComfyRenderer(Path(args.workflow), timeout=args.timeout), Path(args.output))
+        renderer = None if args.instant else ComfyRenderer(Path(args.workflow), timeout=args.timeout)
+        r = bending_job(spec, renderer, Path(args.output))
     b = r.receipt["bending"]
     print(f"{r.receipt['effect']['id']}: {len(b['hits'])} hit(s)" + (f", charged {b['charge']['seconds']} s" if b.get("charge") else "")
           + (", no new render" if b.get("performed_again") else "") + f", {r.receipt['seconds_total']:.0f} s -> {r.final}")
@@ -382,6 +383,8 @@ def build_parser() -> argparse.ArgumentParser:
     bd.add_argument("--frame", type=int, default=0, help="the frame (24 fps) --x --y are on")
     bd.add_argument("--direction", type=float, help="aim, degrees clockwise from up (default: the hand's own)")
     bd.add_argument("--offset-s", type=float, default=0.0, help="where your take starts in the clip, seconds")
+    bd.add_argument("--instant", action="store_true", help="no GPU: an element rendered ahead of time "
+                                                          "(samples/library/bending), carried on your hand")
     bd.add_argument("--workflow", default="workflows/fluid_element.api.json")
     bd.add_argument("--timeout", type=float, default=900.0)
     bd.add_argument("-o", "--output", default="runs/bend")

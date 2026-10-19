@@ -67,7 +67,8 @@ function HandChips({ job }: { job: JobStatus }) {
   if (!r || !b) return null;
   return (
     <div className="row">
-      <span className="chip">{b.performed_again ? "performed again on the same render: no new render"
+      <span className="chip">{b.instant ? "instant: an LTX-2.5 element rendered ahead of time, carried on your hand (no GPU)"
+        : b.performed_again ? "performed again on the same render: no new render"
         : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)` : "made, not rendered: an air blast"}</span>
       <span className="chip">carried on your hand frame by frame, and lighting it from where it is</span>
       {b.hits.length > 1 && <span className="chip">{b.hits.length} hits, each on its own strike, as big as it was loud</span>}
@@ -212,7 +213,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       )}
       {hand && !handOffline && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
-          fireball, a hiss from a palm steam, a pf a blast of air. Rendered once over black on the GPU (~1 min), then carried on your hand.</p>
+          fireball, a hiss from a palm steam, a pf a blast of air. {sceneLive
+            ? "Rendered once over black on the GPU (~1 min), then carried on your hand."
+            : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand (a minute or two on a laptop CPU)."}</p>
       )}
       {!hand && mode === "scene" && !ahead && (
         <label className="row">

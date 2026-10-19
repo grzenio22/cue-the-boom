@@ -108,7 +108,7 @@ class JobQueue:
     @staticmethod
     def queue_of(mode: str) -> str:
         """Scene renders and element renders share the one GPU worker; a replay is compositing, like a re-time."""
-        return "render" if mode in ("scene", "bending") else "retime" if mode == "replay" else mode
+        return "render" if mode in ("scene", "bending") else "retime" if mode in ("replay", "bending_instant") else mode
 
     def queued(self, mode: str = "render") -> int:
         q = self._qs.get(self.queue_of(mode))
@@ -143,9 +143,10 @@ class JobQueue:
                     bending_again(job.replay["src"], job.spec, job.dir, say)
                 elif job.replay:
                     replay_scene_shot(job.replay["src"], job.spec, job.dir, say)
-                elif job.mode == "bending":
+                elif job.mode in ("bending", "bending_instant"):  # instant: no GPU, an element rendered ahead of time
                     reuse = job.spec.extra.pop("reuse", None)
-                    bending_job(job.spec, self.renderers[mode], job.dir, progress=say, reuse=Path(reuse) if reuse else None)
+                    bending_job(job.spec, self.renderers.get("render") if job.mode == "bending" else None, job.dir,
+                                progress=say, reuse=Path(reuse) if reuse else None)
                 else:
                     make_shot(job.spec, self.renderers[mode], job.dir, progress=say)
                 job.status = "done"
@@ -206,6 +207,11 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             from .bending import helpers_ready
 
             modes += ["scene"] + (["bending"] if helpers_ready() else [])  # (a hand needs the tracker installed)
+        if "bending" not in modes:  # no GPU: your hand still gets an element rendered ahead of time, with the tracker
+            from .bending import helpers_ready, library_dir
+
+            if helpers_ready() and library_dir() is not None:
+                modes.append("bending")
         return sorted(modes)
 
     def sample_meta() -> dict:
@@ -340,12 +346,15 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         def need_live() -> None:
             """A shot that wasn't made ahead of time needs its renderer, and the GPU answering."""
             ahead = " (the sample shots made ahead of time still work: a sample clip at its marked spot, with a sample noise)"
-            if mode in ("scene", "bending") and not (scenes and "render" in jq.renderers):
+            if mode == "bending":  # the GPU renders it; without one, an element rendered ahead of time (the tracker needed)
+                from .bending import helpers_ready, library_dir
+
+                if (scenes and "render" in jq.renderers and render_ready()) or (helpers_ready() and library_dir()):
+                    return
+                raise HTTPException(503, "a hand of your own needs the GPU, or the hand tracker installed for an instant "
+                                         "shot (see the README's From your hand)")
+            if mode == "scene" and not (scenes and "render" in jq.renderers):
                 raise HTTPException(400, "Into the scene needs the GPU render API, which this server doesn't have" + ahead)
-            if mode == "bending":
-                if not render_ready() and effect != "smoke_puff":  # (an air blast is made, not rendered)
-                    raise HTTPException(503, "the GPU is offline right now; instant mode still works")
-                return
             if mode != "scene" and mode not in jq.renderers:
                 raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
             if mode in ("render", "scene") and not render_ready():
@@ -491,6 +500,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             spec.effect = pick["effect"]
             return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="replay", title=pick["title"],
                                  replay={"src": Path(pick["path"])})).public()
+        if mode == "bending" and not (scenes and "render" in jq.renderers and render_ready()):
+            mode = "bending_instant"  # no GPU: carried from the library, on the CPU worker
         return jq.submit(Job(id=job_id, dir=d, spec=spec, mode=mode)).public()
 
     def get(job_id: str) -> Job:

@@ -1,0 +1,64 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "steam_jet",
+  "anchor": "first",
+  "behaviour": "jet",
+  "fluid": "steam",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a wisp of white steam rising, isolated on a pure black background",
+  "r_min": 0.25,
+  "r_max": 0.55,
+  "rise": 0.5,
+  "keyframe_stride": 8,
+  "composite": "over",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.02,
+  "tail_frames": 16,
+  "smoke_albedo": 0.95,
+  "scene": {
+   "prompt": "ainvfxfluid, a pressurized jet of white steam and mist shoots {towards} from {subject}, billowing and thinning out in the light as it goes, static camera, realistic phone video",
+   "r_min": 0.1,
+   "r_max": 0.4,
+   "direction": 0.0,
+   "resting": 0.0,
+   "bend": 0.0,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "",
+   "single": "",
+   "small": "",
+   "clean": true,
+   "variants": []
+  }
+ },
+ "render": {
+  "seconds": 57.3,
+  "prompt": "ainvfxfluid, a thin hissing jet of white steam streaming fast to the left from a small point, narrow at its source and fanning out into translucent curling wisps, isolated on a pure black background",
+  "guide_scale": 1.6
+ },
+ "bending": {
+  "ref": {
+   "xy": [
+    570.24,
+    486.0
+   ],
+   "dir": [
+    -0.91289,
+    0.4082
+   ],
+   "scale": 428.36
+  },
+  "ignition": 5,
+  "lag_frames": 5,
+  "track": null,
+  "mask": null,
+  "performed_again": null
+ },
+ "note": "an element rendered ahead of time over black (LTX-2.5 + ainvfx-fluid) at a hand's pose; any hand carries it"
+}

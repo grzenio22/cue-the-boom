@@ -1,0 +1,64 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "fire_breath",
+  "anchor": "first",
+  "behaviour": "jet",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a jet of roaring orange fire, isolated on a pure black background",
+  "r_min": 0.2,
+  "r_max": 0.5,
+  "rise": 0.3,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 6,
+  "release_smoke": 10,
+  "holdout_below": 0.02,
+  "tail_frames": 40,
+  "smoke_albedo": 0.95,
+  "scene": {
+   "prompt": "ainvfxfluid, {rhythm} {towards} from {subject}, a white-hot core near the source and licking turbulent edges, the fire lights up {subject} and the surroundings with flickering warm orange light, then the flame is gone, static camera, realistic phone video",
+   "r_min": 0.12,
+   "r_max": 0.46,
+   "direction": -90.0,
+   "resting": 0.0,
+   "bend": 0.2,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them and the last burst the longest, shoot",
+   "single": "a long roaring jet of bright orange fire shoots",
+   "small": "",
+   "clean": true,
+   "variants": []
+  }
+ },
+ "render": {
+  "seconds": 72.9,
+  "prompt": "ainvfxfluid, a roaring jet of ragged orange fire shooting to the left, turbulent from its very start, licking edges and embers, isolated on a pure black background",
+  "guide_scale": 1.6
+ },
+ "bending": {
+  "ref": {
+   "xy": [
+    1255.33,
+    191.68
+   ],
+   "dir": [
+    -0.99465,
+    -0.10331
+   ],
+   "scale": 255.59
+  },
+  "ignition": 0,
+  "lag_frames": 4,
+  "track": null,
+  "mask": null,
+  "performed_again": null
+ },
+ "note": "an element rendered ahead of time over black (LTX-2.5 + ainvfx-fluid) at a hand's pose; any hand carries it"
+}
