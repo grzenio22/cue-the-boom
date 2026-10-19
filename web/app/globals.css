@@ -49,6 +49,7 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 
 .perform { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
 .perform .plate { width: 240px; aspect-ratio: 9 / 16; background: #000; object-fit: contain; border-radius: 12px; }
+.perform .plate.wide { width: min(100%, 560px); aspect-ratio: 16 / 9; }
 .perform .face { width: 120px; aspect-ratio: 3 / 4; background: #000; object-fit: cover; transform: scaleX(-1); border-radius: 12px; }
 
 .meter { height: 10px; border-radius: 999px; background: var(--chip); overflow: hidden; margin: 12px 0 4px; max-width: 360px; }

@@ -62,6 +62,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   const streamRef = useRef<MediaStream | null>(null);
   const faceRef = useRef<HTMLVideoElement>(null);
   const plateRef = useRef<HTMLVideoElement>(null);
+  const [plateWide, setPlateWide] = useState(false); // a landscape clip plays in a landscape box, not a tall one
   const pcmRef = useRef<PcmRecorder | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const faceChunks = useRef<Blob[]>([]);
@@ -290,7 +291,8 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
           title={onlyReady ? why : undefined}>Press and hold</button>
       </div>
       <div className="perform">
-        <video ref={plateRef} src={plateUrl} playsInline muted preload="auto" className="plate" />
+        <video ref={plateRef} src={plateUrl} playsInline muted preload="auto" className={plateWide ? "plate wide" : "plate"}
+          onLoadedMetadata={(e) => setPlateWide(e.currentTarget.videoWidth > e.currentTarget.videoHeight)} />
         {withFace && step !== "idle" && kind === "voice" && <video ref={faceRef} autoPlay playsInline muted className="face" />}
       </div>
       {kind === "clip" && (

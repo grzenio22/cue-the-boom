@@ -136,6 +136,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [event, setEvent] = useState<JobEvent | null>(null);
   const [job, setJob] = useState<JobStatus | null>(initialJob ?? null);
   const [view, setView] = useState<View>("final.mp4");
+  const [resultWide, setResultWide] = useState(false); // a landscape shot gets the width it needs
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
 
   const [sharing, setSharing] = useState(false);
@@ -323,7 +324,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
                 onClick={() => setView(v.file)}>{v.label}</button>
             ))}
           </div>
-          <video key={view} src={job.files[view]} poster={job.files["poster.jpg"]} controls autoPlay playsInline className="result" />
+          <video key={view} src={job.files[view]} poster={job.files["poster.jpg"]} controls autoPlay playsInline
+            className={resultWide ? "result wide" : "result"} onLoadedMetadata={(e) => setResultWide(e.currentTarget.videoWidth > e.currentTarget.videoHeight)} />
           {bent ? <HandChips job={job} /> : <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />}
           {bent && auto && !job.receipt?.bending?.performed_again && (
             <EffectBadge choices={HAND_EFFECTS} names={HAND_LABELS} onPick={(id) => { setEffect(id); void make(id, job.id); }}
