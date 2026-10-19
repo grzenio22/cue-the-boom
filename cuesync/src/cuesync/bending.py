@@ -41,6 +41,7 @@ POINTING = ("Victory", "Pointing_Up")  # two fingers, or one: a jet from the fin
 SNAP_BEFORE, SNAP_AFTER = 4, 1  # frames at 24 fps the strike may come before / after the voice's hit and still take it
 MISMATCH_NEAR = 12  # frames: a strike this close to a hit, but outside the snap window, is the hand off the beat
 COMBO_S = 1.5  # booms closer together than this are one combo: a burst per strike
+EXPLODE_S = 0.4  # a boom held this long unbroken, with a fist or a palm strike, is an explosion (a short one a fireball)
 
 BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording ("ainvfxfluid, ... isolated on ...")
     "fire_breath": "ainvfxfluid, a roaring jet of ragged orange fire shooting {towards}, turbulent from its very start, "
@@ -115,16 +116,23 @@ def gesture_at(track: dict, frame: int, around: int = 3) -> str | None:
 
 
 def bending_effect(kind: str | None, gesture: str | None, hits: int = 1, span_s: float = 0.0, snap: bool = False,
-                   lit: bool = False) -> tuple[str | None, str]:
+                   lit: bool = False, longest_s: float = 0.0) -> tuple[str | None, str]:
     """(effect, why) for a hand in the shot. ``kind``: the take's sound (gestures.heard); ``gesture``: the hand's at
     the hit (gesture_at); ``hits``/``span_s``: how many hits the take has and how long from the first to the last;
-    ``snap``: the track saw a finger snap; ``lit``: a flame burns at the tapped spot.
+    ``snap``: the track saw a finger snap; ``lit``: a flame burns at the tapped spot; ``longest_s``: the voice's
+    longest unbroken sound (a rolling "BOOOOM" with a strike is an explosion).
     None when there is no sound to read (the caller falls back to its own default)."""
     if snap:
         return "blow_out", "a snap: the candle goes out"
     if kind is None:
         return None, "no sound to read"
     combo = kind == "boom" and hits >= 2 and span_s <= COMBO_S
+    if kind == "buzz":  # a voiced "zzzzz": lightning
+        if gesture == "Open_Palm":
+            return "lightning_ball", "a buzz over an open palm: ball lightning"
+        return "lightning_arc", "a buzz from the hand: lightning" + (" from the fingertips" if gesture in POINTING else "")
+    if kind == "boom" and gesture in ("Closed_Fist", "Open_Palm") and longest_s >= EXPLODE_S:
+        return "explosion", "a long rolling BOOM with a strike: an explosion"
     if gesture in POINTING:
         if kind in ("hiss", "whoosh"):
             return "fire_breath", f"a long {kind} from pointed fingers: a flamethrower"
@@ -1200,7 +1208,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         g = gesture_at(track, k_launch)
         span = (max(hits) - min(hits)) / FPS if len(hits) > 1 else 0.0
         snapped = any(e.get("kind") == "snap" and abs(int(e["frame"]) - hero) <= 4 for e in track.get("events", []))
-        effect, why = bending_effect(h_["kind"], g, hits=len(hits), span_s=span, snap=snapped)
+        effect, why = bending_effect(h_["kind"], g, hits=len(hits), span_s=span, snap=snapped,
+                                     longest_s=h_.get("longest_s", 0.0))
         effect = effect or "fire_burst"
         auto = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
     if effect in MADE:  # lightning, water, air, an explosion: made here, not rendered over black
@@ -1856,7 +1865,7 @@ def instant_effect(spec, track: dict, n: int) -> tuple[str, dict | None]:
         hero = max(hits, key=lambda f: float(env[f: f + 8].max()) if 0 <= f < env.size else 0.0)
         span = (max(hits) - min(hits)) / FPS if len(hits) > 1 else 0.0
         h_, g = heard(c.cue, c.samples, SR, c.source), gesture_at(track, hero)
-        effect, why = bending_effect(h_["kind"], g, hits=len(hits), span_s=span)
+        effect, why = bending_effect(h_["kind"], g, hits=len(hits), span_s=span, longest_s=h_.get("longest_s", 0.0))
         effect = effect or "fire_burst"
         picked = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
     lib = library_dir()

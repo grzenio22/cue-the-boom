@@ -33,3 +33,36 @@ def test_a_flickering_gesture_is_read_over_a_few_frames():
     track = {"gesture": ["None", "Victory", "Open_Palm", "Victory", "Victory", "None", "None"], "src": ["mp"] * 7}
     assert gesture_at(track, 3) == "Victory"
     assert gesture_at({"gesture": ["None"] * 5, "src": ["mp"] * 5}, 2) is None
+
+
+def test_a_buzz_is_lightning_and_a_long_strike_boom_an_explosion():
+    assert bending_effect("buzz", "Pointing_Up")[0] == "lightning_arc"  # "zzzzz" from a finger: lightning
+    assert bending_effect("buzz", "Open_Palm")[0] == "lightning_ball"  # over a palm: ball lightning
+    assert bending_effect("buzz", None)[0] == "lightning_arc"
+    assert bending_effect("boom", "Closed_Fist", longest_s=0.8)[0] == "explosion"  # a rolling "BOOOOM" with a punch
+    assert bending_effect("boom", "Open_Palm", longest_s=0.6)[0] == "explosion"
+    assert bending_effect("boom", "Closed_Fist", longest_s=0.25)[0] == "fire_burst"  # a short BOOM: a fireball still
+    assert bending_effect("boom", "Pointing_Up", longest_s=0.8)[0] == "fire_burst"  # (not from a fingertip)
+
+
+def test_a_voiced_buzz_is_heard_as_one():
+    import numpy as np
+
+    from cuesync.audio import analyze
+    from cuesync.gestures import heard
+
+    sr = 48000
+    t = np.arange(int(1.2 * sr)) / sr
+    rng = np.random.default_rng(5)
+    hum = 0.3 * np.sin(2 * np.pi * 140 * t)  # the voice's pitch...
+    hiss = rng.normal(0, 1.0, t.size)  # ...with the buzz's hiss on it, high up
+    spec = np.fft.rfft(hiss)
+    f = np.fft.rfftfreq(t.size, 1 / sr)
+    spec[(f < 4500) | (f > 9000)] = 0
+    hiss = np.fft.irfft(spec, n=t.size)
+    hiss *= 0.25 / np.sqrt((hiss ** 2).mean())
+    x = rng.normal(0, 0.001, int(3 * sr)).astype(np.float32)
+    x[sr // 2: sr // 2 + t.size] += (hum + hiss).astype(np.float32)
+    h = heard(analyze(x, sr), x, sr)
+    assert h["kind"] == "buzz", h
+    assert h["longest_s"] > 1.0

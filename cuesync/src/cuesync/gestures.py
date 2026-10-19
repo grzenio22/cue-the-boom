@@ -23,6 +23,9 @@ DEFAULTS = {"hit": "fireball", "rhythm": "fireball", "sustained": "flame_plume",
 SHORT_S, VOICED_LONG_S, NOISY_LONG_S = 0.3, 0.45, 0.8
 HOLD_LONG_S = 0.4  # a press longer than this is a hold for a flame, shorter a pop
 VOICED_SHARE = 0.3  # a sound with fewer voiced frames than this is a hiss or a breath
+BUZZ_HF = 0.35  # a voiced sound with at least this share of its energy at 4-11 kHz is a buzz, "zzzzz" (lightning): a
+# pitch with a hiss on it, which no other voice has (a BOOM measures 0.00-0.05, a "fwoooom" 0.01)
+BUZZ_PITCH_HZ = 900.0  # a buzz's pitch is looked for below this too (the throat's buzz, under the hiss)
 FRAME_S = 0.04
 PITCH_HZ = (70.0, 400.0)
 PERIODICITY = 0.45  # normalised autocorrelation peak above which a frame has a pitch
@@ -147,7 +150,35 @@ def heard(cue: CueSheet, samples: np.ndarray | None, sr: int = 48000, source: st
     kind = {"hiss": "hiss", "breath": "puff", "sustained": "whoosh"}.get(g)
     if kind is None:  # a hit or a rhythm: voiced, it is a boom; unvoiced, a puff (or, long, a hiss)
         kind = "boom" if voiced else "hiss" if g == "rhythm" and dur >= VOICED_LONG_S else "puff"
-    return {"kind": kind, "gesture": g, "voiced": bool(voiced), "detected_kinds": detected}
+    hf = high_share(samples, sr, iv, cue.fps, cue.offset_s)
+    if hf >= BUZZ_HF and (voiced or voiced_share(_lowpass(samples, sr, BUZZ_PITCH_HZ), sr, iv, cue.fps,
+                                                 cue.offset_s) >= VOICED_SHARE):
+        kind = "buzz"  # (its pitch looked for under BUZZ_PITCH_HZ too: the hiss on a "zzzzz" swamps it full band)
+    longest = max((b - a for a, b in iv), default=0) / cue.fps
+    return {"kind": kind, "gesture": g, "voiced": bool(voiced), "detected_kinds": detected, "hf": round(hf, 3),
+            "longest_s": round(longest, 2)}
+
+
+def _lowpass(samples: np.ndarray, sr: int, hz: float) -> np.ndarray:
+    """``samples`` with nothing above ``hz`` (a brick wall in the frequency domain: only its pitch is read off it)."""
+    x = np.asarray(samples, np.float64).reshape(-1)
+    spec = np.fft.rfft(x)
+    spec[np.fft.rfftfreq(x.size, 1.0 / sr) > hz] = 0
+    return np.fft.irfft(spec, n=x.size).astype(np.float32)
+
+
+def high_share(samples: np.ndarray, sr: int, intervals: list[tuple[int, int]], fps: int, offset_s: float = 0.0) -> float:
+    """Share of the sounding stretches' energy (150 Hz-11 kHz) at 4-11 kHz: a hiss's, or a buzz's."""
+    segs = list(_segments(samples, sr, intervals, fps, offset_s))
+    if not segs:
+        return 0.0
+    x = np.concatenate(segs).astype(np.float64)
+    if x.size < 64:
+        return 0.0
+    spec = np.abs(np.fft.rfft(x * np.hanning(x.size))) ** 2
+    f = np.fft.rfftfreq(x.size, 1.0 / sr)
+    total = float(spec[(f >= 150) & (f < 11000)].sum())
+    return float(spec[(f >= 4000) & (f < 11000)].sum()) / total if total > 0 else 0.0
 
 
 def _upright(strokes: list | None, aspect: float = 1.0) -> bool:
