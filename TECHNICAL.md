@@ -68,6 +68,12 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 | finger gun | dim room | BOOM | fireball | 37 | 0 % |
 | snap, then a thumb | dark bathroom | snap | pop of fire | 39 | 14 % |
 
+**Try it live** ([`Live.tsx`](web/components/Live.tsx), [`live.ts`](web/lib/live.ts)) runs MediaPipe's hand landmarker in the browser. Its runtime and model load from jsDelivr and Google's model storage. The microphone's level is read every frame:
+- a fast rise well over the room is a hit;
+- a sound still going after a third of a second is held.
+
+On each hit the library's fireball, rendered ahead with LTX-2.5, plays from your palm, added as light and sized against your loudest noise so far. A held sound plays its flame (pointing: its jet) looped until you stop. It's a preview: no matte, no tracking history, a glow for the light. **Record this** keeps the raw take, which goes through the pipeline above.
+
 A take that tracks well:
 - **Light:** your hand lit, in front of a plain, darker background.
 - **Framing:** the whole hand in frame on the strike, with room for the flame in the direction it goes.

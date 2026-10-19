@@ -44,8 +44,10 @@ The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that 
 3. **Make the shot**: three fireballs in the palm, one on each beat, each as big as it was loud, in about a minute on a laptop CPU.
 4. **Perform it again** with another rhythm: the same fire, no new render.
 
-**Your own hand.** Film it on your phone (held still, your hand in front of a plain, darker background), then:
-1. Pick **Use your own clip**, then **Set up the hand tracker** (once, about a minute, CPU).
+**Live, in a second.** **Try it live** opens your webcam: raise your hand and say BOOM, and the fire is in your palm as you say it. A held "fffff" holds a flame, and pointing turns it into a jet. It's a rough preview of fire rendered ahead of time with LTX-2.5; **Record this** makes the real shot from that take.
+
+**Your own hand.** Film it on your phone (held still, your hand in front of a plain, darker background), or with **Film it here**, then:
+1. Pick **Use your own clip** (a take filmed here is already picked), then **Set up the hand tracker** (once, about a minute, CPU).
 2. Tap your palm or fingertips and drag to aim, then **That's my hand**. The studio follows your hand through the clip and shows its path (red where it lost it) before anything is made.
 3. Make the noise, then **Make the shot**. With no GPU, the fire is an element LTX-2.5 rendered ahead of time, carried on your hand.
 
@@ -83,7 +85,7 @@ The details (the pipeline step by step, the timing evaluation, the matte, the li
 - **Open weights only, self-hosted.** No partner nodes and no closed APIs. All models used:
   - **LTX-2.5** 22B (int8), its video and audio VAEs, and its **Gemma 4 12B** text encoder (Lightricks; LTX-2.x Community License, Gemma terms);
   - **ainvfx-fluid** IC-LoRA (AInVFX; LTX-2.x Community License);
-  - **MediaPipe** gesture recognizer, hand landmarker and selfie segmenter (Google; Apache-2.0);
+  - **MediaPipe** gesture recognizer, hand landmarker and selfie segmenter (Google; Apache-2.0), the landmarker also in the browser for Try it live;
   - **RTMPose**-m hand (OpenMMLab; Apache-2.0);
   - **SAM 2.1**-small (Meta; Apache-2.0).
   - Optional: LTX-2.5 IC-LoRA **Alpha-Gen** (Lightricks), a smoke-matte fallback.
