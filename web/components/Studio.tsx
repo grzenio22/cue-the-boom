@@ -55,7 +55,9 @@ export default function Studio() {
   const [rendering, setRendering] = useState(false); // a shot is being made: stepping back would lose it
   const [replayOf, setReplayOf] = useState<string | null>(null); // the next take plays this shot's render again
   const [replayWith, setReplayWith] = useState<string[]>([]); // and these other shots' renders with it
-  const [hand, setHand] = useState(false); // your hand is the source: the element comes off it (element bending)
+  // your hand is the source: the element comes off it (element bending). Your choice, else (null) the default: a
+  // sample hand, or a clip of your own once a hand can be followed (health can arrive after the clip does)
+  const [handChoice, setHandChoice] = useState<boolean | null>(null);
   const [aimFrame, setAimFrame] = useState(0); // the frame your hand is tapped on
   const [aim, setAim] = useState<AimValue | null>(null);
   // your tap followed through the clip before anything is made (its path drawn under your aim, where it was lost)
@@ -86,7 +88,7 @@ export default function Studio() {
     setReplayOf(null); // a replay of the last plate's shots has nothing to play here
     setReplayWith([]);
     // a sample hand clip starts as a hand shot, at its own spot; a clip of your own, as one when a hand can be followed
-    setHand(!!p.hand || ("file" in p.source && (health?.modes.includes("bending") ?? false)));
+    setHandChoice(p.hand ? true : null);
     setAim(null);
     setAimFrame(p.hand?.frame ?? 0);
     setPrep(null);
@@ -96,6 +98,7 @@ export default function Studio() {
     if (plate) stepTwo.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [plate]);
   const handLive = health?.modes.includes("bending") ?? false;
+  const hand = handChoice ?? (!!plate && "file" in plate.source && handLive);
   const [settingUp, setSettingUp] = useState(false);
   // a set-up under way (started here or before a reload): keep asking until it is done, ready or not
   const installing = !!health?.hand?.installing;
@@ -121,7 +124,7 @@ export default function Studio() {
   // with the GPU offline, a sample hand clip whose element was made ahead: your take plays it on the hand
   const handAhead = !handLive && (health?.made_ahead?.includes("bending") ?? false) && !!plate?.hand;
   const toHand = (on: boolean) => {
-    setHand(on); setDrawing(false); setMore([]); setAdding(false); setAim(null);
+    setHandChoice(on); setDrawing(false); setMore([]); setAdding(false); setAim(null);
     if (on && handAhead && plate) { setPoint(plate.point); setAimFrame(plate.hand?.frame ?? 0); } else if (on) setPoint(null);
   };
 
