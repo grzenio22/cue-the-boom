@@ -39,11 +39,16 @@ LTX-2.5 can only take the guide on an 8-frame grid (a third of a second at 24 fp
 The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA learned static sources, so the hand itself is never regenerated). Then it is carried on your hand frame by frame:
 - **Tracking** ([`hand_track.py`](cuesync/src/cuesync/hand_track.py)): MediaPipe follows the hand you tapped; RTMPose re-finds it where MediaPipe loses it; optical flow fills the gaps. In the studio you see its path before anything is made, with the frames it lost in red.
 - **History:** each part of the flame keeps the direction it was thrown in, so a swing whips through the air.
+- **Size** ([`bending.fit_play`](cuesync/src/cuesync/bending.py)): measured on what the render draws, not on what its guide asked for (the model paints well inside it). A palm's flame plays 2.8 hands tall, a fireball 2.2 hands wide (1.1 from a fingertip), within the frame's room, never smaller than rendered.
+- **Thrown:** a fireball leaves the fist (or the palm) a frame after the strike and flies on along it, slowing and rising, with the room; the fist pulls back without it. A flame stays on the hand.
+- **A flame in the palm** comes up out of the skin: its foot fades over a quarter of a hand, broken by noise that rises with the flame, and throws a pool of light on the palm it stands in.
 - **Matte** ([`hand_mask.py`](cuesync/src/cuesync/hand_mask.py)): SAM 2.1 cuts the hand and forearm out, so the fingers in front of the flame's root hide it. Without SAM, the matte is the skin MediaPipe's segmenter finds, filled out by the hand drawn from its landmarks (and the landmarks alone where the skin isn't found).
 - **Timing:** each hit fires on your arm's strike when the strike falls on the beat.
 - **Light** ([`fx_light.py`](cuesync/src/cuesync/fx_light.py)):
   - The flame's own image is spread as light, and your hand is lit as if round, on the side facing the flame.
-  - The room gets less. Over a bright room the fire is brighter, and soot only where flame is.
+  - The room gets less. Soot only where flame is, and its dim edge hides no more of the room than it gives back.
+  - Skin under a flame is no brighter than the flame times its albedo: the light on it rolls off towards that, so a fist next to a fireball keeps its texture instead of blowing out.
+- **A camera's colour** (`bending.fire_hdr`): in a lit room a camera exposes for the room and sees a flame's core blown to white. The render's core is brightened by its heat (not the whole flame, which only went orange, yellow, lemon), its overexposure spills through warm white, and a lens glow surrounds it; the flame lights the room as brightly as it now reads.
 - **Filmed like the hand:** the fire is smeared by the hand's motion over half a frame (a phone's shutter) and softened to the plate's sharpness.
 - **Charge-up:** hum before the strike ("mmmmmmBOOM") and an ember grows in your palm with your voice. It lights your fingers until the strike releases the fireball; the hum launches nothing.
 - **First person:** with the phone at your eyes and your hand coming in from below, a handheld camera is measured on the background, so what was already thrown moves with the room, not with the screen. A camera on a tripod is left alone.
@@ -81,7 +86,7 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 - a fast rise well over the room is a hit;
 - a sound still going after a third of a second is held.
 
-On each hit the library's fireball, rendered ahead with LTX-2.5, plays from your palm, added as light and sized against your loudest noise so far. A held sound plays its flame (pointing: its jet) looped until you stop. It's a preview: no matte, no tracking history, a glow for the light. **Record this** keeps the raw take, which goes through the pipeline above.
+On each hit the library's fireball, rendered ahead with LTX-2.5, plays from your palm, added as light and sized against your loudest noise so far (and as big as the shot will play it), then leaves the hand and rises. A held sound plays its flame (pointing: its jet) looped until you stop. A buzzing "zzzzz" (a pitch with a hiss on it) throws lightning instead ([`lightning.ts`](web/lib/lightning.ts)): arcs from a pointed fingertip, or a crackling ball over an open palm. It's a preview: no matte, no tracking history, a glow for the light. **Record this** keeps the raw take, which goes through the pipeline above.
 
 A take that tracks well:
 - **Light:** your hand lit, in front of a plain, darker background.
