@@ -257,6 +257,25 @@ def write_video(
                 container.mux(packet)
 
 
+def browser_copy(src: str | Path, out: str | Path, long_side: int = 1280, max_s: float = 15.0,
+                 fps: int = 30) -> Path:
+    """A copy of a clip any browser plays (H.264 and AAC, as displayed, at most ``long_side`` px on its long side and
+    ``fps`` frames a second), for the studio to show your clip when the browser can't play the phone's own file (an
+    iPhone's HEVC in Firefox, or in a Chromium without the codec): the clip stayed black and couldn't be tapped. The
+    timeline is the original's, so a frame picked on the copy is that moment of the clip."""
+    info = probe_video(src)
+    k = min(1.0, long_side / float(max(info.width, info.height, 1)))
+    w, h = max(2, int(info.width * k) // 2 * 2), max(2, int(info.height * k) // 2 * 2)
+    rate = int(min(fps, round(info.fps) if info.fps else fps)) or fps
+    clip = read_video(src, size=(w, h), max_s=max_s, target_fps=rate)
+    try:
+        audio = read_audio(src)[: int(round(len(clip.frames) / rate * 48000))]
+    except ValueError:  # (no sound)
+        audio = None
+    write_video(out, clip.frames, fps=rate, audio=audio, crf=23, preset="veryfast")
+    return Path(out)
+
+
 def read_audio(path: str | Path, sample_rate: int = 48000) -> np.ndarray:
     """Decode the first audio stream (wav/m4a/webm/mp4) to mono float32 in [-1, 1] at ``sample_rate``."""
     chunks: list[np.ndarray] = []

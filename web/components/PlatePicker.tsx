@@ -23,6 +23,30 @@ export interface PickedPlate {
 const MIN_PLATE_S = 1;
 const MAX_PLATE_S = 15;
 
+/** Whether this browser shows the clip's pictures: an iPhone's HEVC plays in Safari, often not in Firefox or in a Chromium
+ * without the codec, and the clip stayed black there, with nothing to tap. */
+function playable(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.preload = "auto";
+    const done = (ok: boolean) => { clearTimeout(t); v.onloadeddata = v.onerror = null; resolve(ok); };
+    const t = setTimeout(() => done(false), 8000);
+    v.onloadeddata = () => done(v.videoWidth > 0);
+    v.onerror = () => done(false);
+    v.src = url;
+  });
+}
+
+/** A copy of the clip this browser can play, made by the studio's server (same timeline, H.264). */
+async function browserCopy(file: File): Promise<string> {
+  const form = new FormData();
+  form.append("plate", file, file.name || "plate.mov");
+  const r = await fetch("/api/preview", { method: "POST", body: form });
+  if (!r.ok) throw new Error(await r.text());
+  return URL.createObjectURL(await r.blob());
+}
+
 function probeDuration(url: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const v = document.createElement("video");
@@ -36,12 +60,18 @@ function probeDuration(url: string): Promise<number> {
 /** Step 1: a sample plate (no camera needed) or your own clip. */
 export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[]; onPick: (p: PickedPlate) => void }) {
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const onFile = async (file: File | undefined, filmed = false, made?: string) => {
     setError(null);
     if (!file) return;
-    const url = made ?? URL.createObjectURL(file);
+    let url = made ?? URL.createObjectURL(file);
     try {
+      if (!made && !(await playable(url))) { // shown from a copy it can play; the shot is still made from your file
+        setBusy("This browser can't play that file (an iPhone's HEVC?): making a copy it can, a few seconds…");
+        URL.revokeObjectURL(url);
+        url = await browserCopy(file).finally(() => setBusy(null));
+      }
       const d = await probeDuration(url);
       if (!Number.isFinite(d) || d < MIN_PLATE_S || d > MAX_PLATE_S) {
         URL.revokeObjectURL(url);
@@ -82,6 +112,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
         <span className="muted">Your hand, or a thing (a pumpkin, a mug, a toy), filmed with the phone held still, 1-15 s (the
           shot uses the first 10 s).</span>
       </div>
+      {busy && <p className="chip">{busy}</p>}
       {error && <p className="chip bad">{error}</p>}
     </section>
   );

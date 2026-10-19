@@ -883,3 +883,20 @@ def test_the_live_preview_gets_the_library_elements_with_their_poses(tmp_path):
         assert 0 <= e["ignition"] < e["release"] <= e["end"] and len(e["ref"]["xy"]) == 2 and e["ref"]["scale"] > 0
         assert client.get(e["url"]).status_code == 200
     assert client.get("/api/library/nope/element.mp4").status_code == 404
+
+
+def test_a_clip_the_browser_cannot_play_gets_a_copy_it_can(instant_client, tmp_path, make_video):
+    """An iPhone's HEVC stayed black in Firefox and couldn't be tapped: the studio asks for a copy any browser plays (H.264,
+    the same timeline)."""
+    from cuesync.media import probe_video
+
+    clip = make_video(tmp_path, n=48, fps=24, w=320, h=240, color_fn=lambda i: (i * 5, 60, 60))
+    with open(clip, "rb") as fh:
+        r = instant_client.post("/api/preview", files={"plate": ("clip.mov", fh, "video/quicktime")})
+    assert r.status_code == 200 and r.headers["content-type"] == "video/mp4"
+    out = tmp_path / "preview.mp4"
+    out.write_bytes(r.content)
+    info = probe_video(out)
+    assert (info.width, info.height) == (320, 240) and abs(info.duration_s - 2.0) < 0.15
+    bad = instant_client.post("/api/preview", files={"plate": ("x.mov", b"not a video", "video/quicktime")})
+    assert bad.status_code == 400

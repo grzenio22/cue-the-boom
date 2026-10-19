@@ -273,6 +273,25 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
     setup = {"running": False, "error": None}
 
+    @app.post("/api/preview")
+    async def browser_preview(plate: UploadFile = File(...)):
+        """A copy of your clip your browser can play (media.browser_copy), when it can't play the file itself."""
+        import av
+        from starlette.concurrency import run_in_threadpool
+
+        from .media import browser_copy
+
+        d = jq.root / f"preview-{uuid.uuid4().hex[:12]}"
+        d.mkdir(parents=True)
+        src = await save(plate, d / f"clip{Path(plate.filename or '.mp4').suffix or '.mp4'}")
+        try:
+            out = await run_in_threadpool(browser_copy, src, d / "preview.mp4")
+        except (ValueError, OSError, av.error.FFmpegError) as exc:
+            raise HTTPException(400, f"could not read that video: {exc}")
+        finally:
+            src.unlink(missing_ok=True)
+        return FileResponse(out, media_type="video/mp4")
+
     @app.post("/api/hands/prepare")
     async def prepare_hand_take(plate: UploadFile = File(...), x: float = Form(...), y: float = Form(...),
                                 frame: int = Form(0)):
