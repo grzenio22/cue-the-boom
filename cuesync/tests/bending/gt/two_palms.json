@@ -5,7 +5,7 @@
  "H": 1080,
  "fps": 24.0,
  "provisional": true,
- "labeller": "Claude (side agent A), by eye from coordinate-gridded crops (runs/bending/track_lab/gt_crops.py), not clicked",
+ "labeller": "AI-assisted, by eye from coordinate-gridded crops, not hand-clicked (provisional)",
  "emitter": "palm",
  "hand": "right",
  "landmark": 4,
