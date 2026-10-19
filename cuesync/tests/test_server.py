@@ -627,6 +627,7 @@ def test_a_shot_from_your_hand_is_tracked_carried_and_performed_again(tmp_path, 
         return out_dir / "hand_track.json", None
 
     monkeypatch.setattr(bending, "prepare_hand", fake_prepare)
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
     r = FakeElementRenderer()
     client = TestClient(create_app(r, tmp_path / "jobs", shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
     assert "bending" in client.get("/api/health").json()["modes"]

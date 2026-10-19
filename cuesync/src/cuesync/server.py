@@ -33,7 +33,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # the `serve
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
-RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json",
+RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json", "poster.jpg",
                 "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4")
 EARLY_FILES = ("guide_preview.mp4", "cue.json")  # shown while the shot is still being made
 # the checkout's samples/: from the current folder or any folder above it (started from web/), or next to the source
@@ -173,7 +173,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     best = min((rank.get(e["mode"], 2) for e in cache.values()), default=2)
     shown = {k: e for k, e in cache.items() if rank.get(e["mode"], 2) == best}  # scene shots only, when there are any
     # real footage first (in the order it was picked), then by plate
-    order = lambda kv: (not kv[1].get("real", False), kv[1].get("rank", 0), kv[1].get("plate", ""), kv[1]["title"])  # noqa: E731
+    order = lambda kv: (kv[1].get("mode") != "bending", not kv[1].get("real", False), kv[1].get("rank", 0),  # noqa: E731
+                        kv[1].get("plate", ""), kv[1]["title"])  # your hand first, then real footage
     for key, entry in sorted(shown.items(), key=order):
         same = [g for g in gallery if g.title == entry["title"]]
         if same:  # one gallery tile per sample pair: the full render when there is one
@@ -201,7 +202,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     def available_modes() -> list[str]:
         modes = [m for m in jq.renderers if m != "render" or render_ready()]
         if scenes and "render" in modes:
-            modes += ["scene", "bending"]
+            from .bending import helpers_ready
+
+            modes += ["scene"] + (["bending"] if helpers_ready() else [])  # (a hand needs the tracker installed)
         return sorted(modes)
 
     def sample_meta() -> dict:

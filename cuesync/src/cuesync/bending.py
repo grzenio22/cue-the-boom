@@ -741,25 +741,27 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         m_t = None if mask is None else mask[min(t, len(mask) - 1)].astype(np.float32) / 255.0
         return E * (1.0 - root_holdout(track, t, h, w, m_t))[..., None]
 
-    # the light (cuesync.fx_light) needs the element's light on every frame first: a small copy is enough
-    q = 8
-    small = np.zeros((n, h // q, w // q, 3), np.float32)
-    for t in range(n):
-        E = element_at(t)
-        if E is not None:
-            small[t] = cv2.resize(E, (w // q, h // q), interpolation=cv2.INTER_AREA)
+    q = 8  # the light (cuesync.fx_light) needs only a small copy of each frame's element
     white = fx.plate_white(np.stack([lin(plate[i]) for i in np.linspace(0, n - 1, 8).astype(int)]))
     noise = fx.shadow_noise(plate)
     out = np.empty_like(plate)
     CHUNK = 12  # frames lit at a time (a whole 10 s 1080p clip in float32 is 6 GB), overlapping a frame each side
+    made: dict[int, np.ndarray | None] = {}  # each frame's element, carried once (it was carried twice: small, then full)
     for a in range(0, n, CHUNK):
         b = min(n, a + CHUNK)
         a0, b1 = max(0, a - 1), min(n, b + 1)
+        for i in range(a0, b1):
+            if i not in made:
+                made[i] = element_at(i)
+        small = np.zeros((b1 - a0, h // q, w // q, 3), np.float32)
+        for i in range(a0, b1):
+            if made[i] is not None:
+                small[i - a0] = cv2.resize(made[i], (w // q, h // q), interpolation=cv2.INTER_AREA)
         P = np.stack([lin(plate[i]) for i in range(a0, b1)])
         m = None if mask is None else mask[a0:b1].astype(np.float32) / 255.0
-        fx.light_plate(P, small[a0:b1], track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, out=P)
+        fx.light_plate(P, small, track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, out=P)
         for i in range(a, b):
-            E = element_at(i)
+            E = made[i]
             if E is None:
                 continue
             E = fx.grain(E[None], noise, seed=spec.seed, frame0=i)[0]
@@ -773,13 +775,15 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             else:
                 P[j] = P[j] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers
-            alpha = np.stack([cv2.resize(np.clip(fx._lum(small[i]) * 4.0, 0, 1), (w, h)) for i in range(a0, b1)])
+            alpha = np.stack([cv2.resize(np.clip(fx._lum(small[i - a0]) * 4.0, 0, 1), (w, h)) for i in range(a0, b1)])
             fx.heat_haze(P, alpha, seed=spec.seed, out=P, frame0=a0)
         fx.flash(P, [off + ign - a0 for off, _, _ in plays], [g for _, g, _ in plays], out=P)
         if eff.fluid == "fire":  # a shoulder, not a clip: the root over a lit palm went flat white
             np.copyto(P, SHOULDER + (1.0 - SHOULDER) * np.tanh((P - SHOULDER) / (1.0 - SHOULDER)), where=P > SHOULDER)
         out[a:b] = gam(P[a - a0: b - a0])
-    plate = element = small = None  # (a 10 s 1080p plate and its render are 2 GB: let them go before the finishing copies)
+        for i in [k for k in made if k < b - 1]:  # the next chunk starts a frame back: keep that one and the next
+            del made[i]
+    plate = element = small = made = None  # (a 10 s 1080p plate and its render are 2 GB: let them go before the finishing copies)
     if effect == "smoke_puff":  # the air blast: a pressure front out of the palm
         lo, hi = k_launch, min(n, k_launch + fx.AIR_FRAMES + 2)
         W_ = np.stack([lin(out[i]) for i in range(lo, hi)])
@@ -796,6 +800,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     audio = soundtrack(place_audio(c.samples, c.offset_s, n), eff, n, env, [off + ign for off, _, _ in plays],
                        [g for _, g, _ in plays], cue.voice_end_frame, spec.seed)
     comp_path, final_path = out_dir / "composite.mp4", out_dir / "final.mp4"
+    k_poster = int(np.clip(k_launch + 8, 0, len(frames) - 1))  # the player's still: the fire at its fullest, not a dark frame
+    cv2.imwrite(str(out_dir / "poster.jpg"), cv2.cvtColor(np.ascontiguousarray(frames[k_poster]), cv2.COLOR_RGB2BGR),
+                [cv2.IMWRITE_JPEG_QUALITY, 85])
     write_video(comp_path, frames, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
     write_video(final_path, _finalise(frames, env, spec.label or effect.replace("_", " "), None), fps=FPS, audio=audio,
                 crf=16, preset=FINISH_PRESET)
@@ -842,6 +849,14 @@ def hand_python(kind: str) -> str:
         if exe.exists():
             return str(exe)
     return sys.executable
+
+
+def helpers_ready() -> bool:
+    """Can this machine follow a hand: a tracker environment found (cuesync/.venv-track, $CUESYNC_TRACK_PY), or MediaPipe
+    in this one? Without it the studio doesn't offer a hand of your own (the sample hand still plays)."""
+    import importlib.util
+
+    return hand_python("track") != sys.executable or importlib.util.find_spec("mediapipe") is not None
 
 
 def package_root() -> Path:

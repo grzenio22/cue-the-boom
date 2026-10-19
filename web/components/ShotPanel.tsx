@@ -112,6 +112,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [mode, setModeState] = useState<Mode>(firstMode);
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
   const [effect, setEffect] = useState(AUTO_EFFECT);
+  const [pickOwn, setPickOwn] = useState(false); // a hand shot: the cue decides unless you open the list
   const [subject, setSubject] = useState(plate.subject ?? "");
   const [kinds, setKinds] = useState<ObjectKind[]>([]);
   const [kind, setKind] = useState<string | null>(null); // your own clip: what it is
@@ -186,13 +187,16 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     <section>
       <h2>4. Make the shot</h2>
       {performance.warnings.map((w) => <p key={w} className="chip warn">{w}</p>)}
-      <div className="row" role="radiogroup" aria-label="Effect">
+      {!replayOf && <div className="row" role="radiogroup" aria-label="Effect">
         <span className="muted">Effect</span>
         <button role="radio" aria-checked={effect === AUTO_EFFECT} disabled={busy}
           className={effect === AUTO_EFFECT ? "" : "secondary"} onClick={() => setEffect(AUTO_EFFECT)}>
           Your cue decides <span className="muted" style={{ marginLeft: 6 }}>{performance.cue === "hold" ? "short pops, long flames" : "pf · KA-BOOM · fwoooom · hissss"}</span>
         </button>
-        {choices.map((e) => (
+        {hand && !pickOwn && choices.length > 0 && (
+          <button className="secondary" disabled={busy} onClick={() => setPickOwn(true)}>Choose it yourself</button>
+        )}
+        {(!hand || pickOwn) && choices.map((e) => (
           <button key={e.id} role="radio" aria-checked={effect === e.id} disabled={busy || (ahead && mode === "scene")}
             title={ahead && mode === "scene" ? "needs the GPU, which is offline: this sample plays the effect it was made with" : undefined}
             className={effect === e.id ? "" : "secondary"} onClick={() => setEffect(e.id)}>
@@ -201,12 +205,12 @@ export default function ShotPanel({ plate, point, direction, performance, effect
 
           </button>
         ))}
-      </div>
-      {handOffline && (
+      </div>}
+      {handOffline && !replayOf && (
         <p className="muted">The GPU is offline: your take plays this hand&apos;s fireball, made ahead of time, on each of your hits.
           No new render; ready in about two minutes.</p>
       )}
-      {hand && !handOffline && (
+      {hand && !handOffline && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
           fireball, a hiss from a palm steam, a pf a blast of air. Rendered once over black on the GPU (~1 min), then carried on your hand.</p>
       )}
@@ -305,7 +309,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
                 onClick={() => setView(v.file)}>{v.label}</button>
             ))}
           </div>
-          <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
+          <video key={view} src={job.files[view]} poster={job.files["poster.jpg"]} controls autoPlay playsInline className="result" />
           {bent ? <HandChips job={job} /> : <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />}
           {bent && auto && !job.receipt?.bending?.performed_again && (
             <EffectBadge choices={HAND_EFFECTS} names={HAND_LABELS} onPick={(id) => { setEffect(id); void make(id); }}

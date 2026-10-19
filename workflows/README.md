@@ -4,7 +4,7 @@
 |---|---|
 | `cue_the_boom_scene.json` / `.api.json` | The whole scene shot, canvas and API format: your cue and plate in, the finished shot out. |
 | `cue_the_boom.json` / `.api.json` | The whole element-mode shot: the effect rendered on black and composited onto the plate. |
-| `fluid_element.api.json` | The render on its own: one fire, smoke or steam element (or a scene render) from a CueSync guide video. |
+| `fluid_element.api.json` | The render on its own: one fire, smoke or steam element (or a scene render) from a CueSync guide video. **Element bending renders with it:** the element over black at your hand's pose on the strike, which `cuesync.bending` then carries on the tracked hand. ComfyUI also opens the API format: drag it onto the canvas. |
 
 ## Origin and modifications
 

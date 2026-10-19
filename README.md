@@ -145,7 +145,7 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 - **Timing:** each hit fires on your arm's strike when the strike falls on the beat.
 - **Light:** your hand is lit from where the fire is.
 - **Charge-up:** hum before the strike ("mmmmmmBOOM") and an ember grows in your palm with your voice. It lights your fingers until the strike releases the fireball, and the hum launches nothing. The ember is the render's own first fire.
-- **First person:** with the phone at your eyes and your hand coming in from below, a handheld camera is measured on the background, so what was already thrown moves with the room, not with the screen. A camera on a tripod is left alone.
+- **First person:** with the phone at your eyes and your hand coming in from below, a handheld camera is measured on the background, so what was already thrown moves with the room, not with the screen. A camera on a tripod is left alone. On a handheld stand-in with a known camera path, the error is 0.6 px median over the flame's 10-frame history, against 27 px of camera motion. Tripod shots, plain walls and a person walking past are all left still.
 
 **Perform it again** plays the same render on a new rhythm, with no new render.
 
@@ -171,6 +171,19 @@ uv pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.py
 uv pip install hydra-core==1.3.7 iopath==0.1.10 huggingface-hub==2.2.0 mediapipe==1.1.1 av==19.0.1 tqdm setuptools wheel
 SAM2_BUILD_CUDA=0 uv pip install --no-build-isolation --no-deps "sam-2 @ git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4"
 unset VIRTUAL_ENV
+```
+
+The same in PowerShell (Windows):
+
+```powershell
+uv venv cuesync/.venv-track --python 3.12
+uv pip install --python cuesync\.venv-track\Scripts\python.exe mediapipe==1.1.1 onnxruntime==1.31.0 av==19.0.1
+uv venv cuesync/.venv-mask --python 3.12
+$env:VIRTUAL_ENV = "$PWD\cuesync\.venv-mask"
+uv pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+uv pip install hydra-core==1.3.7 iopath==0.1.10 huggingface-hub==2.2.0 mediapipe==1.1.1 av==19.0.1 tqdm setuptools wheel
+$env:SAM2_BUILD_CUDA = "0"; uv pip install --no-build-isolation --no-deps "sam-2 @ git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4"
+Remove-Item Env:VIRTUAL_ENV, Env:SAM2_BUILD_CUDA
 ```
 
 `cuesync serve` finds them there; `CUESYNC_TRACK_PY` and `CUESYNC_MASK_PY` point it at others.

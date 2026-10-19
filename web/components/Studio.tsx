@@ -252,7 +252,7 @@ export default function Studio() {
           <h2>3. Cue it</h2>
           <div className="row">
             <span className="chip">{cue.cue === "clip" ? "the clip's own sound" : cue.cue === "hold" ? cue.label : cue.voice && "sample" in cue.voice ? `sample noise: ${cue.label}` : `your ${cue.label}`}</span>
-            {cue.cue === "voice" && cue.previewUrl && <audio src={cue.previewUrl} controls preload="none" className="cue-audio" />}
+            {cue.cue === "voice" && cue.previewUrl && <audio src={cue.previewUrl} controls preload="metadata" className="cue-audio" />}
             <button className="secondary" disabled={rendering} onClick={() => { setReplayOf(null); setPerforming(true); }}>Cue it differently</button>
           </div>
           <p className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</p>

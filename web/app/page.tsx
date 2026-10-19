@@ -7,18 +7,21 @@ export default function Home() {
     <main>
       <p className="muted">Open Source Higgsfield · open weights · LTX-2.5 + ComfyUI</p>
       <h1>Cue the Boom</h1>
-      <p className="lede">Draw where. Cue it with a sound. The scene reacts.</p>
+      <p className="lede">Film your hand. Make the noise. Throw fire.</p>
       <Hook />
       <p className="muted">
-        Put fire, smoke or steam into your own shot exactly where it should come from (tap it, or draw it) and
-        when it should happen: say it (<em>pf.</em>, <em>KA-BOOM</em>, <em>fwoooOOOM</em>, <em>hissss</em>), lock it to a sound
-        already in your clip (a snap, a click, a slam), or press and hold. How you cue it shapes it: when it erupts, how
-        big it gets, how long it lasts. LTX-2.5 renders it into the scene, so the room lights up and the scene changes; a
-        moving clip keeps its own pixels and gets only what changed, unless the render moved the scene (then the shot
-        says so).
+        Tap your palm or your fingertips and make the noise: hum to charge an ember, <em>BOOM</em> to throw the fireball,
+        a long <em>fffff</em> from pointed fingers for a flamethrower that whips through the air when you swing. The fire is
+        rendered once and carried on your hand; <strong>Perform it again</strong> gives it a new rhythm with no new render.
+        Or tap or draw anything in your shot (<em>pf.</em>, <em>KA-BOOM</em>, <em>fwoooOOOM</em>, <em>hissss</em>, a snap in
+        the clip, or press and hold) and it is rendered into the scene, timed and sized by your cue.
       </p>
       <Studio />
       <Gallery />
+      <p className="muted" style={{ marginTop: 32 }}>
+        Fire, smoke and steam by LTX-2.5 (Lightricks) and the ainvfx-fluid IC-LoRA (AInVFX), on ComfyUI through the Comfy
+        SDK; hands followed by MediaPipe and RTMPose and matted by SAM 2.1. Open weights only.
+      </p>
     </main>
   );
 }

@@ -15,6 +15,7 @@ themselves are not in this repository.
 | `made_ahead/scene/real_cake_candle__pf` | [Close Up Video of Candle on a Cake](https://www.pexels.com/video/close-up-video-of-candle-on-a-cake-8015404/) | Cup of Couple | Pexels License |
 | `made_ahead/scene/real_candles_glasses__fwoooom` | [Still Video of Candles in Glasses](https://www.pexels.com/video/still-video-of-candles-in-glasses-6343626/) | KATRIN BOLOVTSOVA | Pexels License |
 | `plates/hand_cupped.mp4`, `made_ahead/bending/hand_cupped__kaboom__fire_burst` | [Close-Up Shot of Open Hands](https://www.pexels.com/video/close-up-shot-of-open-hands-7298370/) | Kindel Media | Pexels License |
+| the demo's pointing-hand flamethrower (not shipped) | [Close up on Man in Suit Making Gesture](https://www.pexels.com/video/close-up-on-man-in-suit-making-gesture-9862181/) | Pexels | Pexels License |
 | `made_ahead/scene/real_kuri_photo__fwoooom` | [Red kuri pumpkin centred on a counter (photo)](https://pixabay.com/photos/pumpkin-autumn-red-kuri-squash-1583767/) | sparparim | Pixabay Content License |
 | `made_ahead/scene/real_pumpkins_tap__fwoooom` | [Two Pumpkins Placed Near a Glass Window](https://www.pexels.com/video/two-pumpkins-placed-near-a-glass-window-5490678/) | olia danilevich | Pexels License |
 | `made_ahead/scene/real_jack_stacked__kaboom` | [Video of a Jack-O'-Lantern](https://www.pexels.com/video/video-of-a-jack-o-lantern-5604115/) | Yaroslav Shuraev | Pexels License |
