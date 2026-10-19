@@ -129,7 +129,7 @@ export default function Studio() {
   const shown = prep && prep.key === prepKey ? prep : null; // (a new tap or frame makes it stale)
   const follow = async () => { // your tap, followed through the clip before anything is made
     if (!plate || !point || !("file" in plate.source)) { setPointSet(true); return; }
-    const key = prepKey, at = point, k = aimFrame;
+    const key = prepKey, at = point, k = aimFrame, angle = aim?.angle ?? direction;
     setPrep({ key, id: null, track: null, error: null });
     try {
       const form = new FormData();
@@ -146,7 +146,7 @@ export default function Studio() {
         if (st.status === "error") throw new Error(st.error ?? "the tracker stopped");
         if (st.files["hand_track.json"]) {
           const track = (await (await fetch(st.files["hand_track.json"])).json()) as HandTrack;
-          setPrep((was) => (was && was.key === key ? { key, id: job.id, track: carried(track, k, at), error: null } : was));
+          setPrep((was) => (was && was.key === key ? { key, id: job.id, track: carried(track, k, at, angle), error: null } : was));
           return;
         }
         await new Promise((res) => setTimeout(res, 500));

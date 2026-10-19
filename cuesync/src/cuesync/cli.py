@@ -292,12 +292,12 @@ def cmd_studio(args) -> int:
     url = f"http://127.0.0.1:{args.port}"
     serve_cmd = [sys.executable, "-m", "cuesync.cli", "serve", "--port", str(args.port)] + (
         [] if os.environ.get("COMFY_BASE_URL") else ["--instant-only"])
-    if not args.dev and (STUDIO_STATIC / "index.html").exists():  # the studio as shipped: the API serves it, no Node
-        api = subprocess.Popen(serve_cmd)
-        try:
-            for _ in range(120):  # up and answering before it says where it is
-                if api.poll() is not None:
-                    raise SystemExit(f"the studio's server stopped (exit code {api.returncode}): see the lines above")
+    if not args.dev and (STUDIO_STATIC / "index.html").exists():  # the studio as shipped: the API serves it, no Node,
+        # in this process (a server started as a child outlived a closed terminal and kept the port)
+        import threading
+
+        def announce() -> None:  # up and answering before it says where it is
+            for _ in range(240):
                 try:
                     urllib.request.urlopen(f"{url}/api/health", timeout=1).close()
                     break
@@ -306,11 +306,15 @@ def cmd_studio(args) -> int:
             print(f"the studio: {url}  (Ctrl+C stops it)", flush=True)
             if not args.no_browser:
                 webbrowser.open(url)
-            return api.wait()
+
+        threading.Thread(target=announce, daemon=True).start()
+        try:
+            return cmd_serve(argparse.Namespace(workflow="workflows/fluid_element.api.json", jobs="runs/jobs",
+                                                host="127.0.0.1", port=args.port, allow_origin=None, timeout=600.0,
+                                                library=None, instant_only=not os.environ.get("COMFY_BASE_URL"),
+                                                precomputed=None))
         except KeyboardInterrupt:
             return 0
-        finally:
-            api.terminate()
     root = next((r for r in (Path.cwd(), *Path.cwd().parents) if (r / "web" / "package.json").exists()), None)
     npm = shutil.which("npm")
     if root is None or npm is None:

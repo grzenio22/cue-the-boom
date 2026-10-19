@@ -187,6 +187,14 @@ describe("carried", () => {
     expect(c.xy[1][0]).toBeCloseTo(100); // frame 1: the hand points right, twice the size: 2 x 20 px along it
     expect(c.xy[1][1]).toBeCloseTo(50);
   });
+  it("turns the direction by the aim on every frame, as the shot does", () => {
+    const t: HandTrack = { W: 100, H: 100, xy: [[50, 50], [50, 50]], dir: [[0, 1], [1, 0]], src: ["mp", "mp"] };
+    const c = carried(t, 0, [0.5, 0.5], 0); // the hand points down on frame 0; aimed up: half a turn
+    expect(c.dir[0][0]).toBeCloseTo(0);
+    expect(c.dir[0][1]).toBeCloseTo(-1);
+    expect(c.dir[1][0]).toBeCloseTo(-1); // frame 1: the hand points right, so the aim points left
+    expect(c.dir[1][1]).toBeCloseTo(0);
+  });
   it("says how much of the clip the hand was lost on", () => {
     expect(lostShare({ W: 1, H: 1, xy: [], dir: [], src: ["mp", "lost", "lost", "hold"] })).toBe(0.5);
   });

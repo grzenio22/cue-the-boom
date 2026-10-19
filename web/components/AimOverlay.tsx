@@ -7,9 +7,10 @@ import { contentRect, type Rect } from "@/lib/geometry";
 export interface HandTrack { xy: [number, number][]; dir: [number, number][]; src: string[]; W: number; H: number; scale?: number[] }
 
 /** The track of where you tapped (x, y as fractions, on frame k), carried with the hand: kept as an offset in the
- * hand's own frame (along its direction and across it, in hand sizes), so it moves, turns and scales with the hand,
- * as the shot carries it (cuesync.bending.anchored). */
-export function carried(track: HandTrack, k: number, tap: [number, number]): HandTrack {
+ * hand's own frame (along its direction and across it, in hand sizes), so it moves, turns and scales with the hand;
+ * with ``aim`` (degrees clockwise from up, on frame k) its direction turned by the same angle on every frame, as the
+ * shot carries it (cuesync.bending.anchored). */
+export function carried(track: HandTrack, k: number, tap: [number, number], aim: number | null = null): HandTrack {
   const n = track.xy.length;
   if (!n) return track;
   const at = (t: number) => {
@@ -19,7 +20,13 @@ export function carried(track: HandTrack, k: number, tap: [number, number]): Han
   };
   const p = at(k), dx = tap[0] * track.W - p.x, dy = tap[1] * track.H - p.y;
   const a = (dx * p.ux + dy * p.uy) / p.s, b = (-dx * p.uy + dy * p.ux) / p.s; // along, across (y down)
-  return { ...track, xy: track.xy.map((_, t) => { const q = at(t); return [q.x + q.s * (a * q.ux - b * q.uy), q.y + q.s * (a * q.uy + b * q.ux)]; }) };
+  const turn = aim === null ? 0 : (wrap(aim - (Math.atan2(p.ux, -p.uy) * 180) / Math.PI) * Math.PI) / 180;
+  const c = Math.cos(turn), sn = Math.sin(turn);
+  return {
+    ...track,
+    xy: track.xy.map((_, t) => { const q = at(t); return [q.x + q.s * (a * q.ux - b * q.uy), q.y + q.s * (a * q.uy + b * q.ux)]; }),
+    dir: track.xy.map((_, t) => { const q = at(t); return [q.ux * c - q.uy * sn, q.ux * sn + q.uy * c]; }), // clockwise (y down)
+  };
 }
 
 /** The share of the clip's frames the tracker lost the hand on (0 to 1). */
