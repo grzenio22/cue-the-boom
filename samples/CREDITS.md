@@ -5,6 +5,10 @@ photos. Each one is processed (the effect rendered into it by LTX-2.5 with ainvf
 themselves are not in this repository. The one exception is the sample hand: `plates/hand_cupped.mp4` is the
 Pexels clip itself (at 720p), so a hand of your own can be tried with no camera.
 
+`plates/hand_palm.mp4` and `plates/hand_point.mp4` (and their shots in `made_ahead/bending/hand_palm__*` and
+`hand_point__*`) are the author's own hand and voice, filmed on a phone for this project, under the repository's
+licence.
+
 | Shots | Source | Author | Licence |
 |---|---|---|---|
 | `made_ahead/scene/real_trex_photo__fwoooom` | [Toy T-rex on a wooden table (photo)](https://pixabay.com/photos/dino-dinosaur-toy-t-rex-648717/) | Efraimstochter | Pixabay Content License |

@@ -32,6 +32,28 @@
   }
  },
  "plates": {
+  "hand_palm.mp4": {
+   "title": "Your hand: open palm",
+   "point": [
+    0.509,
+    0.654
+   ],
+   "hand": {
+    "frame": 54
+   },
+   "note": "the author's own hand, filmed on a phone; its fireball was made ahead of time: perform your own rhythm on it with no GPU"
+  },
+  "hand_point.mp4": {
+   "title": "Your hand: pointing",
+   "point": [
+    0.833,
+    0.312
+   ],
+   "hand": {
+    "frame": 48
+   },
+   "note": "the author's own hand, filmed on a phone; its flamethrower was made ahead of time: hold your own fffff on it with no GPU"
+  },
   "pumpkin_kitchen.mp4": {
    "title": "Pumpkin, kitchen",
    "point": [

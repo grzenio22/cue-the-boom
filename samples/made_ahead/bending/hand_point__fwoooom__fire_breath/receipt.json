@@ -1,0 +1,156 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "fire_breath",
+  "anchor": "first",
+  "behaviour": "jet",
+  "fluid": "fire",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a jet of roaring orange fire, isolated on a pure black background",
+  "r_min": 0.2,
+  "r_max": 0.5,
+  "rise": 0.3,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 6,
+  "release_smoke": 10,
+  "holdout_below": 0.02,
+  "tail_frames": 40,
+  "smoke_albedo": 0.95,
+  "scene": {
+   "prompt": "ainvfxfluid, {rhythm} {towards} from {subject}, the fire lights up {subject} and the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+   "r_min": 0.12,
+   "r_max": 0.46,
+   "direction": -90.0,
+   "resting": 0.0,
+   "bend": 0.2,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them and the last burst the longest, shoot",
+   "single": "a long roaring jet of bright orange fire shoots",
+   "small": "",
+   "clean": false,
+   "variants": [
+    [
+     {
+      "subjects": [
+       "dino",
+       "dinosaur",
+       "dragon",
+       "rex",
+       "monster",
+       "creature",
+       "toy",
+       "mouth",
+       "lizard",
+       "beast",
+       "statue",
+       "gargoyle",
+       "skull",
+       "figurine",
+       "triceratops"
+      ]
+     },
+     {
+      "prompt": "ainvfxfluid, {subject} breathes {rhythm} {towards} out of its open mouth, the fire lights up the surroundings with flickering warm orange light, then the flame dies down into a puff of dark smoke, static camera, realistic phone video",
+      "rhythm": "short separate bursts of bright orange fire, clean flames with no smoke between them, dark pauses between them and the last burst the longest,",
+      "single": "a long roaring jet of bright orange fire"
+     }
+    ],
+    [
+     {
+      "subjects": [
+       "hand",
+       "palm",
+       "finger",
+       "fingertip",
+       "fist",
+       "arm",
+       "wrist",
+       "knuckle",
+       "wand",
+       "person",
+       "performer"
+      ]
+     },
+     {
+      "clean": true,
+      "prompt": "ainvfxfluid, {rhythm} {towards} from {subject}, a white-hot core near the source and licking turbulent edges, the fire lights up {subject} and the surroundings with flickering warm orange light, then the flame is gone, static camera, realistic phone video"
+     }
+    ]
+   ]
+  }
+ },
+ "inputs": {
+  "point": [
+   0.8330740740740741,
+   0.31206249999999996
+  ],
+  "seed": 1,
+  "offset_s": 0.0,
+  "cue": "clip"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "ainvfxfluid, a roaring jet of ragged orange fire shooting upwards, turbulent from its very start, licking edges and embers, isolated on a pure black background",
+  "guide_scale": 1.6
+ },
+ "bending": {
+  "track": "hand_track.json",
+  "mask": "hand_mask.npz",
+  "k_hit": 28,
+  "tap_frame": 48,
+  "aim": null,
+  "k_launch": 28,
+  "ignition": 0,
+  "offset": 28,
+  "lag_frames": 10,
+  "snap": {
+   "cue": 28,
+   "motion": 52,
+   "frame": 28,
+   "used": "cue",
+   "mismatch": false
+  },
+  "hits": [
+   {
+    "frame": 28,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 28,
+     "motion": 52,
+     "frame": 28,
+     "used": "cue",
+     "mismatch": false
+    }
+   }
+  ],
+  "ref": {
+   "xy": [
+    447.39,
+    1353.59
+   ],
+   "dir": [
+    -0.41899,
+    -0.90799
+   ],
+   "scale": 334.59
+  },
+  "performed_again": null,
+  "instant": null,
+  "camera": "handheld: thrown fire moves with the room",
+  "charge": null
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 55.0
+}

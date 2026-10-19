@@ -8,6 +8,31 @@
   "mode": "bending",
   "seed": 1,
   "tap_frame": 60,
-  "real": true
+  "real": true,
+  "rank": 50
+ },
+ "bending|hand_palm.mp4||fire_burst@f9c3de6f|0.51,0.65|2": {
+  "dir": "hand_palm__boom__fire_burst",
+  "title": "BOOM · a fireball off the palm",
+  "plate": "hand_palm.mp4",
+  "voice": "",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -102
+ },
+ "bending|hand_point.mp4||fire_breath@2bad64e4|0.83,0.31|1": {
+  "dir": "hand_point__fwoooom__fire_breath",
+  "title": "fwoooOOOM · a flamethrower from a fingertip",
+  "plate": "hand_point.mp4",
+  "voice": "",
+  "effect": "fire_breath",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 48,
+  "real": true,
+  "rank": -101
  }
 }
