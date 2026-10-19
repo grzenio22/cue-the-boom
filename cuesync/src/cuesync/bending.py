@@ -66,6 +66,8 @@ ROOT_FADE = 0.12  # share of the element's reach over which it comes up from not
 ROOT_FADE_SHARE = {"steam_jet": 0.05}  # steam has no nozzle to hide: over the full fade it started a hand from the palm
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
+GROW_FROM, GROW_FRAMES = 0.35, 6  # a flame or a jet grows out of the hand over its first frames, from this share of its
+# size (it was there at full height on its first lit frame: a pop, not a flame catching)
 PREGLOW = 4  # frames of the render's build-up shown before its ignition (a spark-up, not an element that pops on);
 # earlier ones are dropped (a smoke render can start drifting long before its puff)
 
@@ -788,7 +790,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             e = t - off
             if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
                 continue
-            E = warp_element(source(e), track, ref, t, lag, size, since=off + ign, cam=cam) * gain
+            grow = min(1.0, GROW_FROM + (1.0 - GROW_FROM) * max(0.0, e - ign + pre) / (pre + GROW_FRAMES))
+            if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
+                grow = 1.0
+            E = warp_element(source(e), track, ref, t, lag, size * grow, since=off + ign, cam=cam) * gain
             if e < ign:  # the build-up, coming up to the ignition
                 E *= (e - (ign - pre) + 1) / (pre + 1)
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
