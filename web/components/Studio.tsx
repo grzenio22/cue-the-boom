@@ -340,7 +340,7 @@ export default function Studio() {
       {plate && where && pointSet && performing && (
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
           scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
-          drawn={drawing && strokes.length > 0} hand={hand}
+          drawn={drawing && strokes.length > 0} hand={hand} filmed={!!plate.filmed}
           onDone={(p) => {
             setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null, replayOf, replayWith }]);
             setReplayOf(null);

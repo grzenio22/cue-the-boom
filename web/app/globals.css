@@ -75,3 +75,7 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .hook video { width: 100%; aspect-ratio: 1080 / 1984; object-fit: cover; object-position: center bottom; border-radius: 12px; background: #000;
   cursor: pointer; display: block; }
 .hook figcaption { font-size: 0.75rem; line-height: 1.25; color: var(--fg); }
+
+.film { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 560px; }
+.film video { width: 100%; max-height: 60vh; background: #000; border-radius: 12px; object-fit: contain; }
+.film video.mirror { transform: scaleX(-1); }
