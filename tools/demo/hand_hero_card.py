@@ -10,8 +10,8 @@ from PIL import Image, ImageDraw, ImageFont
 G, G2 = "runs/takes/gpu", "runs/takes/gpu2"
 SHOTS = [  # composite, frame, top of the 16:9 band (share of the height), label
     (f"{G2}/IMG_6663_fire_burst_comp/composite.mp4", 66, 0.27, "BOOM  (a fireball off your fist)"),
-    (f"{G2}/IMG_6668_flame_plume_s2_again/composite.mp4", 120, 0.45, "fffff  (a flame in your palm, one take)"),
-    ("runs/takes/rhythms/pf_x4/composite.mp4", 62, 0.42, "pf pf pf PF  (one render, performed again)"),
+    (f"{G2}/IMG_6668_flame_plume_s2_again/composite.mp4", 120, 0.38, "fffff  (a flame in your palm, one take)"),
+    ("runs/takes/rhythms/pf_x4/composite.mp4", 64, 0.42, "pf pf pf PF  (one render, performed again)"),
 ]
 W, LABEL = 645, 40
 f = ImageFont.truetype("arialbd.ttf", 22)

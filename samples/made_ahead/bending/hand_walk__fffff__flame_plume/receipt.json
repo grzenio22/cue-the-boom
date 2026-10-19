@@ -105,6 +105,14 @@
    ],
    "scale": 268.43
   },
+  "fit": {
+   "as": "plume",
+   "drawn": 1.28,
+   "target": 2.8,
+   "room": 3.26,
+   "play": 2.19
+  },
+  "thrown": null,
   "loud_ref": 0.5513,
   "held": {
    "release": 121,
@@ -129,5 +137,5 @@
   "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
   "foley_gain": 0.65
  },
- "seconds_total": 67.5
+ "seconds_total": 127.1
 }

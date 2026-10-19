@@ -419,6 +419,11 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             out.append({"id": e.id, "fluid": e.fluid, "behaviour": e.behaviour, "stops_with_voice": e.voice_gate == "both",
                         "scene": e.scene is not None, "direction": e.scene.direction if e.scene else None,
                         "element": e.id in ELEMENT_EFFECTS})
+        from .bending import MADE
+
+        for i, (module, form) in MADE.items():  # thrown from a hand, made on the CPU (no render, no GPU)
+            out.append({"id": i, "fluid": module, "behaviour": form, "stops_with_voice": form in ("ball", "orb", "arc"),
+                        "scene": False, "direction": None, "element": False, "made": True})
         return out
 
     async def save(upload: UploadFile, path: Path) -> Path:
@@ -442,7 +447,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
                      describe: str | None = Form(None), object: str | None = Form(None),  # noqa: A002
                      sources: str | None = Form(None), frame: int | None = Form(None), reuse: str | None = Form(None)):
-        from .bending import BENDING_PROMPTS  # the elements a hand can throw
+        from .bending import BENDING_PROMPTS, MADE  # the elements a hand can throw (rendered, or made here)
         from .cues import SOURCES
         from .scene import Strokes
 
@@ -479,18 +484,21 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             if stroke_data:
                 raise HTTPException(400, "send sources or a drawing, not both")
         auto = effect == "auto"
+        made = effect in MADE  # lightning, water, air, an explosion: made on the CPU from a hand, never rendered
         try:
-            eff = load_effect("fireball" if auto else effect)
+            eff = None if made else load_effect("fireball" if auto else effect)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(400, f"unknown effect {effect!r}: {exc}") from None
+        if made and mode != "bending":
+            raise HTTPException(400, f"{effect!r} is thrown from a hand (bending mode)")
         if mode not in ("scene", "render", "instant", "bending"):
             raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
         if mode != "scene" and (stroke_data or describe or source_list):
             raise HTTPException(400, "drawing, describing the effect and several sources need scene mode")
-        if mode == "scene" and eff.scene is None:
+        if mode == "scene" and (eff is None or eff.scene is None):
             raise HTTPException(400, f"{effect!r} has no scene mode")
-        if mode == "bending" and not auto and effect not in BENDING_PROMPTS:
-            raise HTTPException(400, f"from a hand: one of {sorted(BENDING_PROMPTS)} (or auto)")
+        if mode == "bending" and not auto and effect not in BENDING_PROMPTS and not made:
+            raise HTTPException(400, f"from a hand: one of {sorted(BENDING_PROMPTS) + sorted(MADE)} (or auto)")
         if mode not in ("scene", "bending") and not auto and effect not in ELEMENT_EFFECTS:
             raise HTTPException(400, f"{effect!r} only exists in scene mode")
         if frame is not None and (mode != "bending" or not 0 <= frame < 24 * 60):
@@ -502,7 +510,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             if mode == "bending":  # the GPU renders it; without one, an element rendered ahead of time (the tracker needed)
                 from .bending import helpers_ready, library_dir
 
-                if (scenes and "render" in jq.renderers and render_ready()) or (helpers_ready() and library_dir()):
+                if (scenes and "render" in jq.renderers and render_ready()) or (helpers_ready() and (made or library_dir())):
                     return
                 raise HTTPException(503, "a hand of your own needs the GPU, or the hand tracker installed for an instant "
                                          "shot (see the README's From your hand)")
@@ -656,8 +664,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             spec.effect = pick["effect"]
             return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="replay", title=pick["title"],
                                  replay={"src": Path(pick["path"])})).public()
-        if mode == "bending" and not (scenes and "render" in jq.renderers and render_ready()):
-            mode = "bending_instant"  # no GPU: carried from the library, on the CPU worker
+        if mode == "bending" and (made or not (scenes and "render" in jq.renderers and render_ready())):
+            mode = "bending_instant"  # no GPU (or none needed: made here): on the CPU worker
         return jq.submit(Job(id=job_id, dir=d, spec=spec, mode=mode)).public()
 
     def get(job_id: str) -> Job:

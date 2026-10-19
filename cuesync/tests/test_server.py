@@ -900,3 +900,40 @@ def test_a_clip_the_browser_cannot_play_gets_a_copy_it_can(instant_client, tmp_p
     assert (info.width, info.height) == (320, 240) and abs(info.duration_s - 2.0) < 0.15
     bad = instant_client.post("/api/preview", files={"plate": ("x.mov", b"not a video", "video/quicktime")})
     assert bad.status_code == 400
+
+
+def test_an_element_made_here_is_thrown_from_a_hand_with_no_render(tmp_path, make_video, make_wav, monkeypatch):
+    """Lightning, water, air and the explosion (cuesync.bending.MADE) need no GPU and no library: a hand shot asking
+    for one is made on the CPU worker, the renderer never called, and they are listed among the effects."""
+    import cuesync.bending as bending
+    from cuesync import explosion
+
+    def fake_prepare(plate, out_dir, tap, frame, emitter, say=None):
+        t = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": emitter, "hand": "right", "xy": [list(tap)] * 72,
+             "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72, "conf": [1.0] * 72, "src": ["mp"] * 72,
+             "speed": [0.0] * 72, "landmarks": [None] * 72, "gesture": ["Closed_Fist"] * 72, "events": []}
+        (out_dir / "hand_track.json").write_text(json.dumps(t))
+        return out_dir / "hand_track.json", None
+
+    el = np.full((30, 128, 128, 3), 4, np.uint8)
+    yy, xx = np.mgrid[:128, :128]
+    for k in range(4, 30):
+        el[k][(xx - 64) ** 2 + (yy - 64) ** 2 <= min(36, 4 + 5 * (k - 4)) ** 2] = (255, 160, 40)
+    monkeypatch.setattr(explosion, "library_element", lambda: el)
+    monkeypatch.setattr(bending, "prepare_hand", fake_prepare)
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
+    r = FakeElementRenderer()
+    client = TestClient(create_app(r, tmp_path / "jobs", shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
+    made = {e["id"] for e in client.get("/api/effects").json() if e.get("made")}
+    assert {"explosion", "lightning_arc", "water_orb", "air_blast"} <= made
+    plate = make_video(tmp_path, n=72, fps=24, w=256, h=128, color_fn=lambda i: (60, 55, 50))
+    voice = make_voice(tmp_path, make_wav)
+    with open(plate, "rb") as p, open(voice, "rb") as v:
+        s = client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                        data={"mode": "bending", "x": "0.5", "y": "0.6", "frame": "10", "effect": "explosion"}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["effect"]["made"] == "explosion" and not r.prompts  # never rendered
+    with open(plate, "rb") as p:
+        assert client.post("/api/jobs", files={"plate": ("plate.mp4", p, "video/mp4")},
+                           data={"mode": "render", "effect": "explosion", "cue": "clip"}).status_code == 400

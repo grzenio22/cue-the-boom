@@ -144,6 +144,19 @@
    ],
    "scale": 300.42
   },
+  "fit": {
+   "as": "burst",
+   "drawn": 1.0,
+   "target": 2.2,
+   "room": 1.58,
+   "play": 1.58
+  },
+  "thrown": {
+   "after": 1,
+   "hands": 1.0
+  },
+  "loud_ref": 0.7654,
+  "held": null,
   "performed_again": null,
   "instant": null,
   "camera": "handheld: thrown fire moves with the room",
@@ -155,5 +168,5 @@
   "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
   "foley_gain": 0.65
  },
- "seconds_total": 26.1
+ "seconds_total": 28.4
 }

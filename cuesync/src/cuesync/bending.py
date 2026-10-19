@@ -1674,7 +1674,9 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
 # ------------------------------------------------------------------ the studio's bending shot, from your clip
 
 EMITTER_OF = {"fire_breath": "two_finger", "fire_burst": "palm", "flame_plume": "palm", "steam_jet": "palm",
-              "smoke_puff": "palm"}  # the point on the hand cuesync.hand_track follows for each element
+              "smoke_puff": "palm", "lightning_arc": "two_finger", "lightning_ball": "palm", "water_orb": "palm",
+              "water_whip": "palm", "air_ball": "palm", "air_blast": "palm", "explosion": "palm"}  # the point on the
+# hand cuesync.hand_track follows for each element
 
 
 def hand_python(kind: str) -> str:
@@ -1837,7 +1839,8 @@ def library_dir() -> Path | None:
 
 def instant_effect(spec, track: dict, n: int) -> tuple[str, dict | None]:
     """The effect for a hand with no GPU: the one asked for, else what the take's sound and the hand's gesture pick
-    (as make_bending_shot does), held to what the library has (the air blast is made, not rendered: always there)."""
+    (as make_bending_shot does), held to what the library has (the air blast and the elements made here, MADE, are
+    made, not rendered: always there)."""
     from .gestures import heard
     from .pipeline import FPS, SR, shot_cue
 
@@ -1853,7 +1856,7 @@ def instant_effect(spec, track: dict, n: int) -> tuple[str, dict | None]:
         effect = effect or "fire_burst"
         picked = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
     lib = library_dir()
-    if effect != "smoke_puff" and (lib is None or not (lib / str(effect) / "element.mp4").exists()):
+    if effect != "smoke_puff" and effect not in MADE and (lib is None or not (lib / str(effect) / "element.mp4").exists()):
         effect = "fire_burst"
         picked = None if picked is None else picked | {"picked": effect, "why": picked["why"] + " (the library's nearest)"}
     return effect, picked
@@ -1974,11 +1977,11 @@ def bending_job(spec, renderer, out_dir: Path, progress=None, reuse: Path | None
 def carry(spec, renderer, out_dir: Path, track: Path, mask: Path | None, progress, tap_frame: int | None):
     """make_bending_shot for the studio: rendered on the GPU (``renderer``), or with none an element rendered ahead of
     time from the library, carried on your hand (an instant shot; the air blast is made, not rendered)."""
-    if renderer is not None:
+    if renderer is not None or spec.effect in MADE:  # (an element made here needs neither a GPU nor the library)
         return make_bending_shot(spec, renderer, out_dir, track, mask, progress, tap_frame=tap_frame, aim=spec.direction)
     t = load_track(track)
     spec.effect, picked = instant_effect(spec, t, len(t["xy"]))
-    lib = None if spec.effect == "smoke_puff" else library_dir() / spec.effect
+    lib = None if spec.effect == "smoke_puff" or spec.effect in MADE else library_dir() / spec.effect
     return make_bending_shot(spec, None, out_dir, track, mask, progress, element_from=lib, tap_frame=tap_frame,
                              aim=spec.direction, instant=lib is not None, picked=picked)
 
