@@ -27,6 +27,8 @@ FRAME_S = 0.04
 PITCH_HZ = (70.0, 400.0)
 PERIODICITY = 0.45  # normalised autocorrelation peak above which a frame has a pitch
 EARLY_PEAK, FADED = 0.35, 0.85  # a boom peaks in its first 35 % and ends below 85 % of its peak
+HELD_S, HELD_DB = 1.2, 10.0  # ... unless it is held: this long, its middle level within this many dB of its peak: a
+# roared "FWOOOOM" starts as loud as a boom and holds on (it was read as a boom: a fireball, not a jet)
 
 
 def _segments(samples: np.ndarray, sr: int, intervals: list[tuple[int, int]], fps: int, offset_s: float):
@@ -93,7 +95,8 @@ def gesture(cue: CueSheet, samples: np.ndarray | None = None, sr: int = 48000, s
     env = np.asarray(cue.envelope, dtype=np.float64)[iv[0][0]: iv[-1][1]]
     if env.size >= 4:
         pk = int(np.argmax(env))
-        if pk <= EARLY_PEAK * env.size and env[-1] < FADED * env[pk]:
+        held = dur >= HELD_S and float(np.median(env)) >= float(env[pk]) - HELD_DB / 54.0  # (the envelope spans 54 dB)
+        if not held and pk <= EARLY_PEAK * env.size and env[-1] < FADED * env[pk]:
             return "hit"
     return "sustained"
 
