@@ -87,6 +87,13 @@ export default function Studio() {
   };
   const handLive = health?.modes.includes("bending") ?? false;
   const [settingUp, setSettingUp] = useState(false);
+  // a set-up under way (started here or before a reload): keep asking until it is done, ready or not
+  const installing = !!health?.hand?.installing;
+  useEffect(() => {
+    if (!installing || settingUp) return;
+    const t = setInterval(() => { fetchHealth().then(setHealth, () => undefined); }, 3000);
+    return () => clearInterval(t);
+  }, [installing, settingUp]);
   const setUpHands = async () => { // the server sets the tracker up; the hand appears when health says it is ready
     setSettingUp(true);
     try {
