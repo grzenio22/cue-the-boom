@@ -1,7 +1,7 @@
-# Shell scripts run on the Linux GPU pod: keep LF even on Windows checkouts.
 * text=auto
 *.mp4 binary
 *.png binary
-*.sh text eol=lf
 *.wav binary
+# Shell scripts and Dockerfiles run on Linux (the GPU pod, a Space): keep LF even on Windows checkouts.
+*.sh text eol=lf
 Dockerfile text eol=lf
