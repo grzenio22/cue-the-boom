@@ -132,13 +132,13 @@ def test_the_light_comes_from_where_the_flame_is():
     assert lit[under_a[1], under_a[0]] > 4 * lit[under_b[1], under_b[0]]
 
 
-def test_a_plates_white_is_where_the_camera_puts_white():
-    plate = np.full((2, 90, 160, 3), 0.002, np.float32)  # black velvet, and a lit hand the brightest thing in it
-    plate[:, 30:60, 60:100] = 0.15
-    assert fx.plate_white(plate) == fx.EXPOSED_WHITE  # the hand is not white paint
-    assert fx.plate_white(np.zeros_like(plate)) == fx.EXPOSED_WHITE
-    plate[:, :20] = 1.3  # a plate with highlights brighter than that: its own
-    assert fx.plate_white(plate) == pytest.approx(1.3, rel=0.01)
+def test_a_plates_white_follows_how_the_room_is_exposed():
+    plate = np.full((2, 90, 160, 3), 0.002, np.float32)  # a dark room, its brightest surface at 0.065 (a bath)
+    plate[:, 30:60, 60:100] = 0.065
+    assert fx.plate_white(plate) == pytest.approx(0.065 / fx.TOP_ALBEDO, rel=0.02)  # not 0.8: skin there is not black
+    assert fx.plate_white(np.zeros_like(plate)) == pytest.approx(fx.WHITE_FLOOR)
+    plate[:, :20] = 1.3  # a lit room with a white wall: where the camera puts white, at most
+    assert fx.plate_white(plate) == pytest.approx(fx.EXPOSED_WHITE)
 
 
 def test_a_warm_key_light_is_partly_taken_out_of_what_the_fire_lights():

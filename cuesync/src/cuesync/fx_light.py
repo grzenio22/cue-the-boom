@@ -47,9 +47,11 @@ HAND_DEPTH, FAR = 0.5, 2.5  # the hand: half the flame's own radius from it (the
 # twice its brightness whatever its size; a candle lights only the skin next to it); the room: FAR hand scales behind
 # the flame (a wall about 60 cm behind a hand), so weak but reaching across the frame
 HAND_GAIN, ROOM_GAIN = 2.0, 2.0  # over that physical light (fitted by eye on the cupped-palm and two-palm plates)
-EXPOSED_WHITE = 0.8  # linear: where a camera puts a white surface (and cuesync.media puts an HDR clip's diffuse white).
-# A plate's white is this, or its own brightest if brighter: on a dark stage the lit hand is the brightest thing, and
-# read as white paint it took several times the light skin does; on a white wall, read as half white, skin went black
+EXPOSED_WHITE = 0.8  # linear: where a camera puts a white surface in a lit room (and cuesync.media an HDR clip's
+# diffuse white): a plate's white is never taken to be brighter than this, nor its brightest surface for white paint
+TOP_ALBEDO, WHITE_FLOOR = 0.8, 0.05  # in a dim room nothing reaches that white: its brightest surface (a bath, a wall)
+# is taken to reflect TOP_ALBEDO, so a phone exposing a dark room up shows the fire lighting skin as it does; taken
+# at 0.8 there, skin read as near black and the fire lit nothing. Never under WHITE_FLOOR (a black plate)
 FIELD_MAX = 480  # px: the light is worked out on a copy of the element at most this long (it is smooth)
 KEY_WB = 0.3  # the plate's own key light taken this far out of a surface's colour before the fire's light falls on it:
 # skin under a warm key read as red paint, and fire on it went salmon instead of gold
@@ -233,15 +235,15 @@ def element_light(element_lin: np.ndarray, fluid: str = "fire",
 
 
 def plate_white(plate_lin: np.ndarray, frames: int = 8) -> float:
-    """The plate's white, in linear light: what a white surface under the scene's own light reads, EXPOSED_WHITE as
-    a camera exposes it, or the plate's own brightest if that is brighter (the 99.9th percentile of luminance over a
-    few frames at a quarter size). The plate over it is read as each surface's colour, which is what the light
-    multiplies."""
+    """The plate's white, in linear light: what a white surface under the scene's own light reads. Its brightest
+    surface (the 99.9th percentile of luminance over a few frames at a quarter size) over TOP_ALBEDO, held between
+    WHITE_FLOOR and EXPOSED_WHITE (a lit room's white is where the camera puts it). The plate over it is read as each
+    surface's colour, which is what the light multiplies."""
     n, h, w = plate_lin.shape[:3]
     picks = np.unique(np.linspace(0, n - 1, min(n, frames)).round().astype(int))
     tops = [np.percentile(_lum(cv2.resize(plate_lin[f], (max(1, w // 4), max(1, h // 4)), interpolation=cv2.INTER_AREA)),
                           99.9) for f in picks]
-    return float(max(np.median(tops), EXPOSED_WHITE))
+    return float(np.clip(np.median(tops) / TOP_ALBEDO, WHITE_FLOOR, EXPOSED_WHITE))
 
 
 def plate_tint(plate_lin: np.ndarray, frames: int = 8) -> np.ndarray:

@@ -222,6 +222,8 @@ SOOT, SOOT_DARK = 0.9, 0.02  # a flame is not light alone: where it outshines wh
 # that's, plus SOOT_DARK) its glare and soot hide up to 90 % of it, so on a white wall it keeps its shape; where it is
 # dimmer than the wall it only adds (hiding it there drew a rusty outline round the flame and turned sparks to dirt)
 SOOT_FROM = 0.012  # linear: fainter than this is the render's own haze, not fire
+SOOT_BODY, SOOT_EDGE = 0.011, 0.018  # shares of the short side: the flame hides by its body this smooth, and the cap on
+# how much it hides (by what is there) this smooth
 DAY_GAIN = 1.0  # and over a bright room it is up to this much brighter than rendered (twice over a white wall), its
 # light too: the render was exposed over black, and a flame doesn't dim with the room; at the render's own level it read
 # as orange paint, at 2.6 times its cores went to featureless lemon
@@ -985,7 +987,15 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), max(0.9 * white, 0.45)) * al
             else:  # fire is light, added, and where it outshines the room behind it, it hides it: measured against
                 # the room as a whole (pixel by pixel, a jet changed from pale to orange where it crossed a skirting)
-                a_ = np.clip(fx._lum(E) / (behind.get(i, 0.0) + SOOT_DARK), 0.0, 1.0)
+                side = min(h, w)  # by the flame's body, not its strands (pixel by pixel, the wall showed through the
+                # dim gaps between bright strands: a jet like orange lace)
+                body = cv2.GaussianBlur(fx._lum(E), (0, 0), SOOT_BODY * side)
+                a_ = np.clip(body / (behind.get(i, 0.0) + SOOT_DARK), 0.0, 1.0)
+                # ... and never more than it outshines what is there: a dim edge of the flame over a lit palm in a dark
+                # room hid the palm, a dark rim round the fireball's foot
+                there = cv2.GaussianBlur(fx._lum(np.maximum(P[j], 0.0)), (0, 0), SOOT_EDGE * side)
+                a_ = np.minimum(a_, np.clip(cv2.GaussianBlur(fx._lum(E), (0, 0), SOOT_EDGE * side) / (there + SOOT_DARK),
+                                            0.0, 1.0))
                 a_ = cv2.GaussianBlur(a_, (0, 0), 1.5 * h / 1080)
                 P[j] = P[j] * (1.0 - SOOT * a_)[..., None] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers
