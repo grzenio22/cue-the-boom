@@ -229,9 +229,12 @@ SHUTTER, DEFOCUS = 0.5, 0.8  # the fire is smeared for half a frame of the hand'
 SOOT_FROM = 0.012  # linear: fainter than this is the render's own haze, not fire
 SOOT_BODY, SOOT_EDGE = 0.011, 0.018  # shares of the short side: the flame hides by its body this smooth, and the cap on
 # how much it hides (by what is there) this smooth
-DAY_GAIN = 1.0  # and over a bright room it is up to this much brighter than rendered (twice over a white wall), its
-# light too: the render was exposed over black, and a flame doesn't dim with the room; at the render's own level it read
-# as orange paint, at 2.6 times its cores went to featureless lemon
+DAY_CORE = (0.12, 0.45, 0.04, 0.18)  # over a room this bright behind it (linear, from the first to the second), the
+# flame's dense body (its own light from the third to the fourth) covers the room whatever it outshines: on a white
+# wall it was a pale see-through veil, the wall showing through its body
+DAY_GAIN = 1.0  # and over a bright room it is up to this much brighter than rendered (twice over a white wall): the
+# render was exposed over black, and a flame doesn't dim with the room; at the render's own level it read as orange
+# paint, at 2.6 times its cores went to featureless lemon. Its light on the hand stays as rendered
 
 
 def shoulder(P: np.ndarray) -> None:
@@ -1085,11 +1088,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             if i not in made:
                 made[i] = element_at(i)
         P = np.stack([lin(plate[i]) for i in range(a0, b1)])
-        if eff.fluid == "fire":  # over a bright room the flame (and so its light) is brighter than rendered, once each
+        if eff.fluid == "fire":  # over a bright room the flame is brighter than rendered (its light on the skin is not:
+            # boosted, it blew the skin out in a sunlit room)
             for i in range(a0, b1):
                 if made[i] is not None and i not in behind:
                     behind[i] = room_behind(made[i], P[i - a0])
-                    made[i] *= np.float32(1.0 + DAY_GAIN * min(1.0, behind[i] / fx.EXPOSED_WHITE))
         small = np.zeros((b1 - a0, h // q, w // q, 3), np.float32)
         for i in range(a0, b1):
             if made[i] is not None:
@@ -1097,9 +1100,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         m = None if mask is None else mask[a0:b1].astype(np.float32) / 255.0
         fx.light_plate(P, small, track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, tint=tint, out=P)
         for i in range(a, b):
-            E = made[i]
-            if E is None:
+            if made[i] is None:
                 continue
+            E0 = made[i]  # as rendered: its light on the hand was worked out from this
+            E = E0
+            if eff.fluid == "fire":
+                E = E0 * np.float32(1.0 + DAY_GAIN * min(1.0, behind.get(i, 0.0) / fx.EXPOSED_WHITE))
             look = E[::4, ::4].max(-1) > 1e-4  # grain only where the element is
             ys_, xs_ = np.nonzero(look)
             if ys_.size:
@@ -1125,6 +1131,12 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 a_ = np.minimum(a_, np.clip(cv2.GaussianBlur(fx._lum(E), (0, 0), SOOT_EDGE * side) / (there + SOOT_DARK),
                                             0.0, 1.0))
                 a_ *= cv2.GaussianBlur(np.clip(fx._lum(E) / 0.02, 0.0, 1.0), (0, 0), 3.0 * side / 1080)  # where flame is
+                lo, hi, c0, c1 = DAY_CORE
+                day = float(np.clip((behind.get(i, 0.0) - lo) / (hi - lo), 0.0, 1.0))
+                if day > 0:  # a bright room: the flame's dense body covers it (its edges stay light)
+                    core = np.clip((cv2.GaussianBlur(fx._lum(E0), (0, 0), h / 1080) - c0) / (c1 - c0), 0.0, 1.0)
+                    core = cv2.erode(core * core * (3.0 - 2.0 * core), np.ones((3, 3), np.uint8))
+                    a_ = a_ + day * day * (3.0 - 2.0 * day) * core * (1.0 - a_)
                 a_ = cv2.GaussianBlur(a_, (0, 0), 1.5 * h / 1080)
                 P[j] = P[j] * (1.0 - SOOT * a_)[..., None] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers
