@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AUDIO_CONSTRAINTS } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
+import { BUZZ_HF, buzzOf, drawChannels, type Stream, streamStep } from "@/lib/lightning";
 import { type LiveElement, liveHand, onsetStep, type OnsetState, playLook, RELEASE_MS, thrownAt } from "@/lib/live";
 
 // MediaPipe's hand landmarker in the browser (Apache-2.0), its runtime and model from Google's own hosting
@@ -10,6 +11,7 @@ const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const MAX_REC_S = 8;
 const HOLD_HAND_FRAMES = 5;
+const BUZZ_ON = 3, BUZZ_MAX = 8; // frames of buzz that start the lightning (it lasts as many after the buzz stops)
 
 interface Play {
   el: LiveElement; video: HTMLVideoElement; gain: number; size: number; held: boolean; letGo: number | null;
@@ -96,6 +98,11 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       analyser.fftSize = 1024;
       audio.createMediaStreamSource(stream).connect(analyser);
       const pcm = new Float32Array(analyser.fftSize);
+      const spectrum = new Float32Array(analyser.frequencyBinCount);
+      let buzzRun = 0; // how long a buzz has gone on (it starts the lightning at BUZZ_ON, and it lets go as slowly)
+      let bolts: Stream[] = [];
+      let zapGlow = 0; // the lightning's light on the hand, smoothed (it never strobes)
+      let frameNo = 0;
       const pool = Object.values(byEffect).flatMap((el) => [0, 1, 2].map(() => {
         const v = document.createElement("video");
         v.src = el.url; v.muted = true; v.playsInline = true; v.preload = "auto";
@@ -140,14 +147,21 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
         const db = 10 * Math.log10(sum / pcm.length + 1e-12);
         const step = onsetStep(onset, db, performance.now() / 1000);
         onset = step.state;
+        analyser.getFloatFrequencyData(spectrum);
+        const bz = buzzOf(spectrum, pcm, audio.sampleRate); // a voiced "zzzzz": lightning, not fire
+        buzzRun = bz.voiced && bz.hf >= BUZZ_HF && db > onset.floor + 12 ? Math.min(BUZZ_MAX, buzzRun + 1) : Math.max(0, buzzRun - 1);
+        const zapping = buzzRun >= BUZZ_ON || (buzzRun > 0 && bolts.length > 0);
+        frameNo++;
         // the hand, or for a few frames the one last seen (a hit on a frame the tracker missed it was dropped)
         if (lm) { lastHand = liveHand(lm); lostFor = 0; } else lostFor++;
         const hand = lostFor <= HOLD_HAND_FRAMES ? lastHand : null;
-        if (step.hit && hand) {
+        const buzzy = bz.voiced && bz.hf >= BUZZ_HF; // (the buzz's own onset is no BOOM: no fireball on it)
+        if (step.hit && hand && !zapping && !buzzy) {
           const look = playLook(step.hit.db, onset.top);
           fire("fire_burst", look.gain, look.size, false, hand.pointing);
         }
-        if (step.holding && hand && !heldPlay) {
+        if (zapping && heldPlay && heldPlay.letGo === null) heldPlay.letGo = performance.now(); // the buzz takes over
+        if (step.holding && hand && !heldPlay && !zapping) {
           heldPlay = fire(hand.pointing ? "fire_breath" : "flame_plume", 1, 1, true);
         }
         if (!step.holding && heldPlay && heldPlay.letGo === null) heldPlay.letGo = performance.now();
@@ -186,6 +200,35 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
           ctx.drawImage(p.video, -p.el.ref.xy[0], -p.el.ref.xy[1], p.el.size[0], p.el.size[1]);
           ctx.restore();
           glow = Math.max(glow, p.gain * fading * Math.min(1, t > p.el.ignition ? 1 : 0.4));
+        }
+        if (zapping && hand) { // lightning: arcs from the pointed fingertip, or a crackling ball over the palm
+          const level = Math.min(1, Math.max(0, (db - onset.floor) / 40));
+          const px = H / 1080;
+          if (hand.pointing) {
+            const n = 1 + Math.round(2 * level);
+            while (bolts.length < n) bolts.push({ ch: null, left: 0, aim: 0, seed: bolts.length + 1 });
+            bolts = bolts.slice(0, n).map((b) => streamStep(b, hand.tip, Math.atan2(hand.dir[1], hand.dir[0]),
+              hand.scale * (1.5 + 3.5 * level), 1.4 + 2.2 * level, !!step.hit, frameNo));
+          } else {
+            const n = 4 + Math.round(3 * level);
+            while (bolts.length < n) bolts.push({ ch: null, left: 0, aim: 0, seed: bolts.length + 11 });
+            bolts = bolts.slice(0, n).map((b, i) => streamStep(b, hand.palm, (2 * Math.PI * i) / n + frameNo * 0.05,
+              hand.scale * (0.45 + 0.5 * level), 1.0, !!step.hit, frameNo));
+          }
+          drawChannels(ctx, bolts.map((b) => b.ch!).filter(Boolean), px, 0.7 + 0.6 * level);
+          zapGlow = zapGlow * 0.85 + 0.15 * (0.25 + 0.5 * level); // (a slow light: no strobing on the room)
+          const at = hand.pointing ? hand.tip : hand.palm;
+          const g = ctx.createRadialGradient(at[0], at[1], 0, at[0], at[1], hand.scale * 2.5);
+          g.addColorStop(0, `rgba(150, 160, 255, ${0.4 * zapGlow})`);
+          g.addColorStop(1, "rgba(120, 130, 255, 0)");
+          ctx.save();
+          ctx.globalCompositeOperation = "screen";
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, W, H);
+          ctx.restore();
+        } else {
+          bolts = [];
+          zapGlow *= 0.8;
         }
         // that it sees you and hears you, before anything is thrown: a faint ring on the palm, the microphone's level
         if (hand && lm) {
@@ -273,7 +316,7 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
   return (
     <div className="film live">
       <canvas ref={canvas} aria-label="your camera, with the fire on your hand" />
-      <p className="muted">{status ?? "Raise your hand and make the noise: BOOM throws a fireball, a long fffff holds a flame (point to make it a jet). A rough live preview of fire rendered ahead with LTX-2.5; Record this and the shot is made from your take."}</p>
+      <p className="muted">{status ?? "Raise your hand and make the noise: BOOM throws a fireball, a long fffff holds a flame (point to make it a jet), a buzzing zzzzz is lightning. A rough live preview of fire rendered ahead with LTX-2.5; Record this and the shot is made from your take."}</p>
       <div className="row">
         {recording === null ? (
           <>
