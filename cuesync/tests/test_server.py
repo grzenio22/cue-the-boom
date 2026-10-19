@@ -618,7 +618,7 @@ def test_a_shot_from_your_hand_is_tracked_carried_and_performed_again(tmp_path, 
 
     seen = {}
 
-    def fake_prepare(plate, out_dir, tap, frame, emitter):  # the tracker's subprocess: a still hand at the tap
+    def fake_prepare(plate, out_dir, tap, frame, emitter, say=None):  # the tracker's subprocess: a still hand at the tap
         seen.update(tap=tap, frame=frame, emitter=emitter)
         t = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": emitter, "hand": "right", "xy": [list(tap)] * 72,
              "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72, "conf": [1.0] * 72, "src": ["mp"] * 72,

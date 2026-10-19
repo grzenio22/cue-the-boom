@@ -72,6 +72,7 @@ function HandChips({ job }: { job: JobStatus }) {
       <span className="chip">carried on your hand frame by frame, and lighting it from where it is</span>
       {b.hits.length > 1 && <span className="chip">{b.hits.length} hits, each on its own strike, as big as it was loud</span>}
       {b.snap.used === "motion" && <span className="chip">launched on your hand&apos;s strike</span>}
+      {b.charge && <span className="chip">charged up by your hum for {b.charge.seconds.toFixed(1)} s, released on the strike</span>}
       {r.auto?.why && <span className="chip">{r.auto.why}</span>}
       <span className="chip">{r.seconds_total.toFixed(0)} s in total</span>
     </div>
@@ -307,7 +308,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           <video key={view} src={job.files[view]} controls autoPlay playsInline className="result" />
           {bent ? <HandChips job={job} /> : <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />}
           {bent && auto && !job.receipt?.bending?.performed_again && (
-            <EffectBadge choices={HAND_EFFECTS} onPick={(id) => { setEffect(id); void make(id); }}
+            <EffectBadge choices={HAND_EFFECTS} names={HAND_LABELS} onPick={(id) => { setEffect(id); void make(id); }}
               detected={{ effect: auto.picked, kind: auto.heard, gesture: auto.hand, confidence: auto.hand ? 0.8 : 0.4,
                 mismatch: !!job.receipt?.bending?.snap.mismatch }} />
           )}

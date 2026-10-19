@@ -356,6 +356,35 @@ def camera_between(cam: np.ndarray | None, a: float, b: float) -> np.ndarray:
     return at(b) @ np.linalg.inv(at(a))
 
 
+CHARGE_MIN_S = 0.5  # a hum at least this long, unbroken into the loudest hit, charges it up ("mmmmmmBOOM")
+EMBER_LOOP = 10  # frames of the render's first fire the ember plays back and forth while it charges
+EMBER_SIZE = (0.12, 0.55)  # the ember's size against the element's, from a quiet hum to the hum's loudest
+
+
+def charge_window(cue, env: np.ndarray, hero: int, fps: float = 24.0) -> tuple[int, int] | None:
+    """(start, release) plate frames of a charge-up: the performer humming into the strike ("mmmmmmBOOM"). The release
+    is where the loudest hit's sound surges to its peak (the foot of that last rise); a charge is the sound running
+    on unbroken for at least CHARGE_MIN_S before it, voiced all along (never under a quarter of its own median) and
+    clearly quieter than the strike. None for a strike out of silence ("KA-BOOM")."""
+    span = next(((a, b) for a, b in cue.intervals() if a <= hero < b), None)
+    if span is None:
+        return None
+    a, b = span
+    seg = np.asarray(env[a:b], np.float64)
+    if seg.size < 4 or seg.max() <= 0:
+        return None
+    r = a + int(np.argmax(seg >= 0.85 * seg.max()))  # where it reaches its peak...
+    while r > a and env[r - 1] < env[r] - 0.02:  # ...and the foot of that rise
+        r -= 1
+    hum = np.asarray(env[a: max(a + 1, r - 1)], np.float64)
+    if r - a < CHARGE_MIN_S * fps or hum.size < 4:
+        return None
+    med = float(np.median(hum))
+    if med <= 0 or hum.min() < 0.25 * med or med > 0.8 * seg.max():
+        return None
+    return a, r
+
+
 def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, size: float = 1.0,
                  blur: bool = True, since: int | None = None, cam: np.ndarray | None = None) -> np.ndarray:
     """An element frame (float32, over black, at the plate's size, rendered with the emitter at ``ref``) carried onto
@@ -566,6 +595,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     hits = [hh.frame for hh in cue.hits()] or [cue.frame_of(cue.hero_onset_s)]
     loud = [float(env_all[f: f + 8].max()) if 0 <= f < env_all.size else 0.0 for f in hits]
     hero = hits[int(np.argmax(loud))]
+    charge = charge_window(cue, env_all, hero, FPS)
+    if charge:  # the hum launches nothing: it charges the strike, which goes off where the sound surges
+        hits = sorted({f for f in hits if not charge[0] - 2 <= f < charge[1] + 3} | {charge[1]})
+        loud = [float(env_all[f: f + 8].max()) if 0 <= f < env_all.size else 0.0 for f in hits]
+        hero = charge[1]
     snaps = [snap_launch(f, track.get("events", [])) for f in hits]  # each hit on its own strike, when close
     snap = snaps[hits.index(hero)]
     k_launch = snap["frame"]
@@ -656,6 +690,30 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     fade = fade[..., None]
     cam = camera_path(plate, mask, track)  # a handheld camera: what was thrown moves with the room
 
+    if charge:  # the hum's energy: quick to rise, slow to let go (the ember keeps a little between breaths)
+        a_, r_ = charge
+        raw = np.asarray(env_all[a_:r_ + 3], np.float64) if r_ + 3 <= env_all.size else np.zeros(r_ + 3 - a_)
+        lo_, hi_ = float(np.percentile(raw[: r_ - a_], 10)), float(raw[: r_ - a_].max())  # (the envelope is in dB: a
+        raw = np.clip((raw - lo_) / max(hi_ - lo_, 1e-6), 0.0, 1.0)  # swell to four times as loud is only +12 dB of it)
+        energy = np.zeros_like(raw)
+        for i, v in enumerate(raw):
+            energy[i] = v if i == 0 or v > energy[i - 1] else energy[i - 1] * 0.85 + v * 0.15
+        energy = np.clip(energy, 0.0, 1.0)
+        flicker = 1.0 + 0.12 * np.random.default_rng(spec.seed).standard_normal(energy.size)
+
+    def ember_at(t: int) -> np.ndarray | None:
+        """The charging ember on plate frame t: the render's first fire, small and looped, on the emitter, as big and
+        as bright as the hum is loud; it fades as the strike's own fire takes over."""
+        i = t - charge[0]
+        if not 0 <= i < energy.size:
+            return None
+        k = int(np.clip(ign + abs((i % (2 * EMBER_LOOP)) - EMBER_LOOP), 0, len(element) - 1))
+        en = float(energy[min(i, charge[1] - charge[0] - 1)])
+        size = EMBER_SIZE[0] + (EMBER_SIZE[1] - EMBER_SIZE[0]) * en ** 0.7  # (grows early: the hum is heard building)
+        gain = (0.45 + 1.0 * en) * float(flicker[i])  # a hot core, brighter than the fire it becomes * (1.0 if t < charge[1] else (charge[1] + 3 - t) / 4)
+        E = warp_element(np.clip(lin(element[k]) - floor_lin, 0.0, None) * fade, track, ref, t, 0, size, blur=False)
+        return E * gain
+
     def element_at(t: int) -> np.ndarray | None:
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
         held out; None when none is on (before its build-up, after it ends)."""
@@ -671,6 +729,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
                 E *= (e + 1) / (pre + 1)
             acc = E if acc is None else np.maximum(acc, E)  # two plays overlapping: the brighter shows, not both added
+        if charge and charge[0] <= t < charge[1] + 3:  # the ember the hum charges, lighting the fingers
+            ember = ember_at(t)
+            if ember is not None:
+                acc = ember if acc is None else np.maximum(acc, ember)
         if acc is None:
             return None
         E = acc
@@ -748,7 +810,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                     "ref": {"xy": [round(float(v), 2) for v in ref[0]], "dir": [round(float(v), 5) for v in ref[1]],
                             "scale": round(float(ref[2]), 2)},
                     "performed_again": None if old is None else {"from": str(element_from), "no_new_render": True},
-                    "camera": "locked" if cam is None else "handheld: thrown fire moves with the room"},
+                    "camera": "locked" if cam is None else "handheld: thrown fire moves with the room",
+                    "charge": None if not charge else {"from": int(charge[0]), "release": int(charge[1]),
+                                                       "seconds": round((charge[1] - charge[0]) / FPS, 2)}},
         "auto": auto, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
@@ -768,20 +832,36 @@ def hand_python(kind: str) -> str:
     README sets up (cuesync/.venv-track, cuesync/.venv-mask), else this one."""
     if os.environ.get(f"CUESYNC_{kind.upper()}_PY"):
         return os.environ[f"CUESYNC_{kind.upper()}_PY"]
-    root = Path(__file__).resolve().parents[2]
-    for d in (root / f".venv-{kind}", root.parent / "runs" / "bending" / f"venv-{kind}"):
+    # the checkout: beside this source (an editable install), else the folder the server runs in or one above it (a
+    # regular install puts this file in site-packages, far from the checkout's helper environments)
+    roots = [Path(__file__).resolve().parents[2].parent, Path.cwd(), *Path.cwd().parents]
+    dirs = [d for r in roots for d in (r / "cuesync" / f".venv-{kind}", r / "runs" / "bending" / f"venv-{kind}")]
+    for d in dirs:
         exe = d / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         if exe.exists():
             return str(exe)
     return sys.executable
 
 
-def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: int, emitter: str) -> tuple[Path, Path | None]:
+def package_root() -> Path:
+    """The folder holding this ``cuesync`` package for a helper's PYTHONPATH: the checkout's cuesync/src when there is
+    one (never a whole site-packages: the helper would take the core's opencv-python with it, which MediaPipe's
+    opencv-contrib clashes with), else this package's own folder's parent."""
+    here = Path(__file__).resolve().parents[1]
+    if here.name != "site-packages":
+        return here
+    for r in (Path.cwd(), *Path.cwd().parents):
+        if (r / "cuesync" / "src" / "cuesync" / "bending.py").exists():
+            return r / "cuesync" / "src"
+    return here
+
+
+def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: int, emitter: str,
+                 say=None) -> tuple[Path, Path | None]:
     """Track the tapped hand through ``plate`` (the clip as the pipeline loads it; ``tap`` in px on ``frame``) and matte
     it, each as a subprocess in its own venv; returns (hand_track.json, hand_mask.npz or None: without a matte the
     element's root is held out behind the fingertips instead)."""
-    env = os.environ | {"PYTHONPATH": os.pathsep.join(filter(None, [str(Path(__file__).resolve().parents[1]),
-                                                                     os.environ.get("PYTHONPATH")]))}
+    env = os.environ | {"PYTHONPATH": os.pathsep.join(filter(None, [str(package_root()), os.environ.get("PYTHONPATH")]))}
     track, mask = out_dir / "hand_track.json", out_dir / "hand_mask.npz"
     r = subprocess.run([hand_python("track"), "-m", "cuesync.hand_track", str(plate), "--emitter", emitter,
                         "--seed", f"{frame},{tap[0]:.1f},{tap[1]:.1f}", "--out", str(track)],
@@ -790,6 +870,8 @@ def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: in
     if r.returncode != 0 or not track.exists():
         last = (r.stderr.strip().splitlines() or ["no output"])[-1]
         raise RuntimeError(f"couldn't follow your hand through the clip ({last})")
+    if say:
+        say("matting", 0.09, "Cutting your hand out, so your fingers can pass in front of the fire")
     try:
         r = subprocess.run([hand_python("mask"), "-m", "cuesync.hand_mask", str(plate), "--track", str(track), "--out",
                             str(mask)], env=env, capture_output=True, text=True, timeout=900)
@@ -824,7 +906,7 @@ def bending_job(spec, renderer, out_dir: Path, progress=None):
         c = shot_cue(spec, n / FPS)
         emitter = "two_finger" if heard(c.cue, c.samples, SR, c.source)["kind"] in ("whoosh", "hiss") else "palm"
     say("tracking", 0.05, "Finding your hand and following it")
-    track, mask = prepare_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter)
+    track, mask = prepare_hand(loaded, out_dir, (spec.point[0] * w, spec.point[1] * h), k, emitter, say)
     return make_bending_shot(spec, renderer, out_dir, track, mask, progress, tap_frame=k, aim=spec.direction)
 
 

@@ -184,3 +184,28 @@ def test_before_the_strike_the_build_up_stays_on_the_hand_under_a_panning_camera
     for t in (16, 18, 19):  # the spark-up, frames before the strike at 20: nothing thrown yet, all of it on the hand
         out = warp_element(el, tr, emitter_at(tr, 10), t, lag=4, cam=cam, since=20)
         assert abs(np.argwhere(out[..., 0] > 0.3)[:, 1].mean() - 60) < 2
+
+
+def test_a_hum_charges_the_strike_and_launches_nothing(tmp_path, make_video, make_wav):
+    w, h, n = 256, 128, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (30, 28, 26))
+    sr = 48000
+    x = np.random.default_rng(5).normal(0, 0.0005, 3 * sr).astype(np.float32)
+    t = np.arange(sr) / sr  # "mmmmmm" from 0.6 s to 1.6 s: voiced, steady, swelling a little
+    hum = sum(np.sin(2 * np.pi * 140 * k * t) / k for k in (1, 2, 3)) * (0.05 + 0.05 * t)
+    x[int(0.6 * sr): int(1.6 * sr)] += hum.astype(np.float32)
+    tb = np.arange(int(0.3 * sr)) / sr  # ...BOOM at 1.6 s
+    x[int(1.6 * sr): int(1.6 * sr) + tb.size] += (0.7 * np.sin(2 * np.pi * 110 * tb) * np.exp(-5 * tb)).astype(np.float32)
+    voice = make_wav(tmp_path, x, sr)
+    tr = track_of(n, w, h, lambda t: (100.0, 90.0), d=(0.0, -1.0), gesture="Open_Palm")
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(tr))
+    spec = ShotSpec(plate=plate, voice=voice, effect="fire_burst", point=(100 / w, 90 / h), mode="scene",
+                    plate_size=(w, h), max_plate_s=3.0)
+    res = make_bending_shot(spec, GuideAsElement(), tmp_path / "charge", track_path)
+    b = res.receipt["bending"]
+    assert b["charge"] and abs(b["charge"]["from"] - 14) <= 3 and abs(b["charge"]["release"] - 38) <= 3
+    assert [hh["frame"] for hh in b["hits"]] == [b["charge"]["release"]]  # the hum's start launched nothing
+    out = read_video(res.composite).frames.astype(int)
+    near = lambda f: out[f, 70:100, 85:115].mean()  # noqa: E731  (round the palm)
+    assert near(30) > near(8) + 3  # charging: the ember lights the palm before the strike

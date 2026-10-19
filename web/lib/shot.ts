@@ -29,6 +29,7 @@ export interface BendingReceipt {
   snap: { used: "motion" | "cue"; mismatch: boolean };
   hits: { frame: number; gain: number; size: number }[];
   performed_again: { from: string; no_new_render: boolean } | null;
+  charge?: { from: number; release: number; seconds: number } | null; // a hum before the strike, charging it
 }
 
 export interface Receipt {

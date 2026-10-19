@@ -11,6 +11,7 @@ interface Props {
   detected: Detected | null;
   choices: string[]; // what a tap goes through, in order: fire_breath, fire_burst, smoke_puff, blow_out (+ steam_jet)
   onPick: (effect: string) => void;
+  names?: Record<string, string>; // the effects' names here (a hand's: Fireball, Flamethrower), over the library's
 }
 
 // MediaPipe's gestures and the tracker's emitters, in the performer's words
@@ -22,7 +23,7 @@ const GESTURES: Record<string, string> = {
 
 const SURE = 0.5; // below this the badge says the pick is a guess
 
-const label = (id: string) => EFFECT_LABELS[id]?.name ?? id;
+const libraryLabel = (id: string) => EFFECT_LABELS[id]?.name ?? id;
 
 /** What the pick was read from: "hiss + two-finger", or the cue's kind alone when no gesture was seen. */
 export function reading(d: Detected): string {
@@ -34,7 +35,8 @@ export function reading(d: Detected): string {
 /** The auto pick, said out loud, with a one-tap override: a tap on the badge moves on to the next effect, the arrow
  * beside it lists them all (any effect in two taps). Yellow when the hand moved off the cue. Never silent: until
  * the performer picks, it says what was detected and why. */
-export default function EffectBadge({ detected, choices, onPick }: Props) {
+export default function EffectBadge({ detected, choices, onPick, names }: Props) {
+  const label = (id: string) => names?.[id] ?? libraryLabel(id);
   // the performer's own pick holds for the take it was made on; a new reading starts from its own
   const take = detected ? `${detected.effect}|${detected.kind}|${detected.gesture}` : "";
   const [own, setOwn] = useState<{ take: string; effect: string } | null>(null);
