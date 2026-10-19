@@ -5,3 +5,5 @@
 # Shell scripts and Dockerfiles run on Linux (the GPU pod, a Space): keep LF even on Windows checkouts.
 *.sh text eol=lf
 Dockerfile text eol=lf
+# The built studio (tools/build_static_studio.py) ships byte for byte
+cuesync/src/cuesync/studio_static/** -text
