@@ -95,7 +95,7 @@ export default function Studio() {
         await new Promise((r) => setTimeout(r, 3000));
         const h = await fetchHealth();
         setHealth(h);
-        if (h.hand?.tracker || h.hand?.install_error || !h.hand?.installing) break;
+        if (h.hand?.tracker || h.hand?.install_error || (!h.hand?.installing && i > 1)) break; // done, ready or not
       }
     } finally {
       setSettingUp(false);

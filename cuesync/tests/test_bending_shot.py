@@ -209,3 +209,19 @@ def test_a_hum_charges_the_strike_and_launches_nothing(tmp_path, make_video, mak
     out = read_video(res.composite).frames.astype(int)
     near = lambda f: out[f, 70:100, 85:115].mean()  # noqa: E731  (round the palm)
     assert near(30) > near(8) + 3  # charging: the ember lights the palm before the strike
+
+
+def test_a_tracker_still_being_installed_is_not_ready(tmp_path, monkeypatch):
+    import sys as _sys
+
+    import cuesync.bending as bending
+
+    venv = tmp_path / ".venv-track"
+    exe = venv / ("Scripts/python.exe" if _sys.platform == "win32" else "bin/python")
+    exe.parent.mkdir(parents=True)
+    exe.write_text("")  # its Python exists, its packages don't yet
+    monkeypatch.setattr(bending, "hand_python", lambda kind: str(exe))
+    monkeypatch.setattr(bending, "_ready", {})
+    assert not bending.helpers_ready()
+    (venv / bending.READY_MARK).write_text("ok\n")  # the installer checked it imports
+    assert bending.helpers_ready()

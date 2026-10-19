@@ -234,8 +234,15 @@ def cmd_hands(args) -> int:
             subprocess.run(pip + extra, check=True)
 
     if args.install:
+        from .bending import READY_MARK
+
+        d = root / "cuesync" / ".venv-track"
+        (d / READY_MARK).unlink(missing_ok=True)
         venv(".venv-track", ["mediapipe==1.1.1", "onnxruntime==1.31.0", "av==19.0.1"])
-        print("the hand tracker is ready: restart cuesync serve and pick Your hand")
+        py = d / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        subprocess.run([str(py), "-c", "import mediapipe, onnxruntime, av"], check=True)  # it works: only then ready
+        (d / READY_MARK).write_text("ok\n", encoding="utf-8")
+        print("the hand tracker is ready: pick Your hand")
     if args.mask:
         venv(".venv-mask", ["torch==2.11.0", "torchvision==0.26.0"], index="https://download.pytorch.org/whl/cu128",
              more=[["hydra-core==1.3.7", "iopath==0.1.10", "huggingface-hub==2.2.0", "mediapipe==1.1.1", "av==19.0.1",

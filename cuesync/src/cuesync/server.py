@@ -250,9 +250,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             raise HTTPException(403, "the hand tracker is set up on the machine that serves the studio")
         if setup["running"]:
             return {"running": True}
+        setup.update(running=True, error=None)  # (before the thread starts: a poll in between must see it running)
 
         def run() -> None:
-            setup.update(running=True, error=None)
             try:
                 r = subprocess.run([sys.executable, "-m", "cuesync.cli", "hands", "--install"], capture_output=True,
                                    text=True, timeout=1800)

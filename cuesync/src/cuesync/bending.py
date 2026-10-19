@@ -931,12 +931,31 @@ def hand_python(kind: str) -> str:
     return sys.executable
 
 
-def helpers_ready() -> bool:
-    """Can this machine follow a hand: a tracker environment found (cuesync/.venv-track, $CUESYNC_TRACK_PY), or MediaPipe
-    in this one? Without it the studio doesn't offer a hand of your own (the sample hand still plays)."""
-    import importlib.util
+READY_MARK = ".cuesync-ready"  # written into a helper environment once `cuesync hands --install` has checked it works
+_ready: dict[str, tuple[bool, float]] = {}
 
-    return hand_python("track") != sys.executable or importlib.util.find_spec("mediapipe") is not None
+
+def helpers_ready() -> bool:
+    """Can this machine follow a hand: a tracker environment that works (cuesync/.venv-track with its ready mark, or one
+    set up by hand or $CUESYNC_TRACK_PY that imports MediaPipe), or MediaPipe in this one? An environment still being
+    installed is not ready (its Python exists long before its packages do). Without it the studio doesn't offer a hand
+    of your own (the sample hand still plays)."""
+    import importlib.util
+    import time
+
+    py = hand_python("track")
+    if py == sys.executable:
+        return importlib.util.find_spec("mediapipe") is not None
+    if (Path(py).parent.parent / READY_MARK).exists():
+        return True
+    ok, when = _ready.get(py, (False, 0.0))
+    if not ok and time.time() - when > 30:  # asked at most every 30 s while it isn't ready
+        try:
+            ok = subprocess.run([py, "-c", "import mediapipe, onnxruntime"], capture_output=True, timeout=120).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            ok = False
+        _ready[py] = (ok, time.time())
+    return ok
 
 
 def package_root() -> Path:
