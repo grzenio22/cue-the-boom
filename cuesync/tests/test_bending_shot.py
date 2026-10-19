@@ -492,3 +492,14 @@ def test_a_tap_on_a_frame_the_hand_was_not_seen_on_goes_on_the_part_of_it_neares
     tr["src"], tr["landmarks"] = ["hold", "hold", "mp"], [None, None, hand]
     a = anchored(tr, 0, (60.0, 20.0))  # tapped above the fingertip on frame 0, where the hand was a blur
     assert np.allclose(a["xy"][2], (60, 40), atol=0.01) and a["anchor"]["on"] == [8]
+
+
+def test_an_element_made_ahead_for_a_close_up_hand_plays_as_big_as_a_render_for_this_hand():
+    """The library's fireball was painted for a close-up hand (713 px) and capped at 0.45 of its frame: 0.68 of that
+    hand. Hand for hand on a 268 px hand it was a pilot light; a render for that hand reaches 1.8 hands."""
+    from cuesync.bending import library_size
+
+    c = library_size("burst", 713.0, 1088, 268.0, 1080)
+    assert 2.5 < c < 2.8  # (486 px wanted against 182)
+    assert library_size("burst", 268.0, 1080, 268.0, 1080) == pytest.approx(1.0)  # its own hand: as rendered
+    assert library_size("jet", 256.0, 1088, 268.0, 1080) == pytest.approx(0.96, abs=0.02)  # a jet was capped alike

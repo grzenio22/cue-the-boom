@@ -654,6 +654,18 @@ def root_fade(h: int, w: int, ref: tuple, length: float) -> np.ndarray:
     return np.clip((along - ROOT_ROUND * across * across / length) / length, 0, 1).astype(np.float32)
 
 
+def library_size(behaviour: str, s_ref: float, short_ref: int, s_hand: float, short: int) -> float:
+    """How much bigger to play an element made ahead for another hand (the library's: a hand ``s_ref`` px in a frame
+    ``short_ref`` px on its short side) than its hand-for-hand scale, so it is as big on this hand (``s_hand`` px, in a
+    frame ``short`` px) as a render for it would be: each was painted SIZE's reach of its own hand, capped at a share of
+    its frame. The library's close-up hands were capped at 0.7 of a hand, and carried hand for hand onto a smaller one
+    a fireball was a pilot light (a render for that hand reaches 1.8)."""
+    hands, most = SIZE.get(behaviour, (LENGTH, 0.6))
+    made = min(hands * s_ref, most * short_ref)
+    wanted = min(hands * s_hand, most * short)
+    return float(wanted * s_ref / max(made * s_hand, 1e-6))
+
+
 def fit_element(element: np.ndarray, ref: tuple, h: int, w: int) -> tuple[np.ndarray, tuple]:
     """A render of another frame size on an (h, w) plate: a window of the plate's size, centred on where the render is
     lit (over all its frames), its emitter pose moved with it. Never stretched: a landscape render on a portrait
@@ -921,6 +933,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                float(old["bending"]["ref"]["scale"]))
         aim, prompt, scale, seconds = angle_of(ref[1]), old["render"]["prompt"], old["render"]["guide_scale"], 0.0
         element = read_video(Path(element_from) / "element.mp4").frames
+        if instant:  # made ahead for another hand: as big as a render for this one would be (library_size)
+            looks = [(g_, s_ * library_size(eff.behaviour, ref[2], min(element.shape[1:3]),
+                                            emitter_at(track, k_launch)[2], min(w, h))) for g_, s_ in looks]
     else:
         say("painting", 0.12, "Painting the element where your hand is on the strike")
         p_hit, u_hit, s_hit = emitter_at(track, k_launch)
