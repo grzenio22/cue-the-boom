@@ -50,6 +50,24 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
   - On a handheld stand-in with a known camera path, the error is 0.6 px median over the flame's 10-frame history, against 27 px of camera motion.
   - The tracker's ground truth in [`cuesync/tests/bending/gt/`](cuesync/tests/bending/gt) is provisional: points marked by eye on gridded crops (AI-assisted), not hand-clicked.
 
+**The path a judge's laptop takes, on ten phone takes.** Ten of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library.
+- Every one of the ten made a shot, in 32 to 75 s each on a desktop CPU.
+- The hand was lost on at most 14 % of a clip's frames.
+- The picks: a palm's "pf" a pop of fire, a fist's strike a burst, a roar from pointing fingers a flamethrower, a BOOM a fireball. One snap with no voice became a pop of fire where a lighter's flame was meant; a tap on the badge changes it.
+
+| take | the room | the cue | picked | seconds | hand lost |
+|---|---|---|---|---|---|
+| side palm | white wall, daylight | pf | pop of fire | 54 | 0 % |
+| fist punch | white wall | its own sound | burst | 32 | 4 % |
+| pointing, first person | white wall | hiss | flamethrower | 75 | 9 % |
+| open hand into the room, first person | living room | pf | pop of fire | 34 | 0 % |
+| palm to the camera, first person | white wall | pf | pop of fire | 48 | 0 % |
+| snap, then a thumb | white wall | its own sound | burst | 60 | 6 % |
+| open palm | dark bathroom | BOOM | fireball | 44 | 0 % |
+| finger gun sweeping, first person | dim room | roar | flamethrower | 61 | 0 % |
+| finger gun | dim room | BOOM | fireball | 37 | 0 % |
+| snap, then a thumb | dark bathroom | snap | pop of fire | 39 | 14 % |
+
 A take that tracks well:
 - **Light:** your hand lit, in front of a plain, darker background.
 - **Framing:** the whole hand in frame on the strike, with room for the flame in the direction it goes.
