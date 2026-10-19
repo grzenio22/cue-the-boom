@@ -425,6 +425,9 @@ def composite_frame(
 
     warm, base_fire = _warmth(e, params)
     fire_w = fire_weight_map(e, params, w, fire_effect, base=base_fire)
+    # (fire or smoke, read pixel by pixel off a compressed dark-orange render, flipped from one codec block to the
+    # next: a fireball's sooty middle came out as grey squares. Smoothed over a couple of blocks' width.)
+    fire_w = np.clip(_blur(fire_w, 0.004 * w), 0.0, 1.0)
     if fire_effect and not dense_smoke:  # pure fire (a plume): its dim red periphery is glow, not soot
         fire_w = np.maximum(fire_w, warm)
     smoke_w = 1.0 - fire_w
@@ -496,7 +499,10 @@ def composite_frame(
     c = e_lin / np.maximum(a_body, 0.05)[..., None]  # the render's light per unit of smoke
     cy_l = c @ _LUMA
     shade = np.clip(cy_l / max(shading_ref or 0.25, 1e-3), params.shading_lo, params.shading_hi) ** params.shading_gamma
-    c = c + params.smoke_desat * (cy_l[..., None] - c) * smoke_w[..., None]  # fire light keeps its colour
+    # smoke inside the fire is lit by it: it keeps the render's own fire-lit colour (lit by the room, a fireball's
+    # sooty middle went grey); the room's light only shapes smoke outside the flame
+    inside = _smoothstep(0.25, 0.6, _blur(fire_w, params.core_reach_frac * w))[..., None] if fire_effect else 0.0
+    c = c + params.smoke_desat * (cy_l[..., None] - c) * smoke_w[..., None] * (1.0 - inside)  # fire light keeps its colour
     key = 0.5 - 0.25 * float(_smoothstep(0.2, 0.6, np.asarray(0.5 if plate_key is None else plate_key)))
     # Thin smoke passes on what is behind it (forward scattering) plus some of the render's light, so wisps
     # never darken a bright wall. Dense smoke shows its own albedo: the room's light, shaped by the render's
@@ -507,6 +513,7 @@ def composite_frame(
     key_d = key * min(1.0, (smoke_albedo / 0.85) ** 1.5)  # soot shows little of the render's light-grey smoke
     dense_col = (1.0 - key_d) * smoke_albedo * amb * shade[..., None] + key_d * c
     smoke_col = thin_col + dens * (dense_col - thin_col)
+    smoke_col = smoke_col + inside * (c - smoke_col)
     emit = emit + smoke_col * asm[..., None]
     if dense_smoke:
         emit = emit + (smoke_albedo * (1.0 - key)) * amb * soot[..., None]
