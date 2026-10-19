@@ -205,6 +205,19 @@ def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav)
     assert (f[..., 0] - f[..., 2]).max() > 80  # orange against the white, somewhere
 
 
+def test_the_fire_is_smeared_as_far_as_the_hand_moved():
+    from cuesync.bending import motion_blur
+
+    E = np.zeros((60, 120, 3), np.float32)
+    E[28:32, 58:62] = 1.0
+    still = motion_blur(E, np.array([0.5, 0.0]))
+    assert still is E  # a still hand: as it is
+    moved = motion_blur(E, np.array([20.0, 0.0]))  # 20 px a frame to the right: smeared over half of that, sideways
+    lit = np.nonzero(moved[30, :, 0] > 1e-3)[0]
+    assert 12 <= lit.max() - lit.min() <= 16 and np.nonzero(moved[:, 60, 0] > 1e-3)[0].size <= 6
+    assert abs(float(moved.sum()) - float(E.sum())) < 1e-3 * float(E.sum())  # no light gained or lost
+
+
 def test_an_air_blast_is_made_not_rendered_and_is_gone_in_half_a_second():
     from cuesync.bending import air_puff
 

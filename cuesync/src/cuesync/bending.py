@@ -221,6 +221,8 @@ HIT_SIZE = (0.45, 1.0)  # the smallest and largest a hit plays the element, agai
 SOOT, SOOT_DARK = 0.9, 0.02  # a flame is not light alone: where it outshines what is behind it (its luminance over
 # that's, plus SOOT_DARK) its glare and soot hide up to 90 % of it, so on a white wall it keeps its shape; where it is
 # dimmer than the wall it only adds (hiding it there drew a rusty outline round the flame and turned sparks to dirt)
+SHUTTER, DEFOCUS = 0.5, 0.8  # the fire is smeared for half a frame of the hand's motion (a phone's shutter), and softened
+# this many px at 1080 (no phone films as crisply as the render draws): a crisp flame on soft footage read as pasted on
 SOOT_FROM = 0.012  # linear: fainter than this is the render's own haze, not fire
 SOOT_BODY, SOOT_EDGE = 0.011, 0.018  # shares of the short side: the flame hides by its body this smooth, and the cap on
 # how much it hides (by what is there) this smooth
@@ -569,6 +571,30 @@ def holdout_box(track: dict, t: int, h: int, w: int) -> tuple[int, int, int, int
     return (max(0, int(p[1] - r)), min(h, int(p[1] + r) + 1), max(0, int(p[0] - r)), min(w, int(p[0] + r) + 1))
 
 
+def motion_blur(E: np.ndarray, step: np.ndarray) -> np.ndarray:
+    """``E`` smeared along ``step`` (px the hand moved since the last frame) for SHUTTER of it, as the camera smeared the
+    hand: a crisp flame on a blurred hand read as pasted on. Only where the element is; still hands leave it as it is."""
+    length = SHUTTER * float(np.hypot(*step))
+    if length < 1.5:
+        return E
+    look = E[::4, ::4].max(-1) > 1e-4
+    ys, xs = np.nonzero(look)
+    if ys.size == 0:
+        return E
+    pad = int(length) + 4
+    h, w = E.shape[:2]
+    y0, y1 = max(0, 4 * ys.min() - pad), min(h, 4 * ys.max() + pad)
+    x0, x1 = max(0, 4 * xs.min() - pad), min(w, 4 * xs.max() + pad)
+    k = int(np.ceil(length)) | 1
+    kernel = np.zeros((k, k), np.float32)
+    c, u = k // 2, np.asarray(step, np.float64) / max(float(np.hypot(*step)), 1e-6)
+    for s in np.linspace(-length / 2, length / 2, 2 * k):
+        kernel[int(round(c + s * u[1])), int(round(c + s * u[0]))] += 1.0
+    out = E.copy()
+    out[y0:y1, x0:x1] = cv2.filter2D(E[y0:y1, x0:x1], -1, kernel / kernel.sum(), borderType=cv2.BORDER_CONSTANT)
+    return out
+
+
 def room_behind(E: np.ndarray, P: np.ndarray) -> float:
     """How bright the room is behind a flame (linear luminance): the plate's mean under it, weighted by the flame."""
     from . import fx_light as fx
@@ -893,6 +919,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             y0, y1, x0, x1 = lit_box[e]
             fl = floor_lin[y0:y1, x0:x1] if np.ndim(floor_lin) else floor_lin
             out_[y0:y1, x0:x1] = np.clip(lin(element[e][y0:y1, x0:x1]) - fl, 0.0, None) * fade[y0:y1, x0:x1]
+            if DEFOCUS > 0:  # no phone films as crisply as the render draws
+                out_[y0:y1, x0:x1] = cv2.GaussianBlur(out_[y0:y1, x0:x1], (0, 0), DEFOCUS * min(h, w) / 1080)
         return out_
 
     def element_at(t: int) -> np.ndarray | None:
@@ -933,6 +961,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         if y1 > y0 and x1 > x0:
             hold = root_holdout(track, t, h, w, None if m_t is None else m_t.astype(np.float32) / 255.0, box)
             E[y0:y1, x0:x1] *= (1.0 - hold)[..., None]
+        if t > 0:  # the camera's shutter smears the fire as it smears the hand carrying it
+            E = motion_blur(E, emitter_at(track, t)[0] - emitter_at(track, t - 1)[0])
         return E
 
     q = 8  # the light (cuesync.fx_light) needs only a small copy of each frame's element
