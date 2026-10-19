@@ -605,14 +605,17 @@ def air_puff(h: int, w: int, ref: tuple, seed: int = 0, frames: int = 14) -> np.
 
 def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mask_path: str | Path | None = None,
                       progress=None, element_from: str | Path | None = None, tap_frame: int | None = None,
-                      aim: float | None = None, instant: bool = False, picked: dict | None = None):
+                      aim: float | None = None, instant: bool = False, picked: dict | None = None,
+                      only_hits: list[int] | None = None):
     """A bending shot: the plate (``spec.plate``, as cuesync.pipeline loads it), the take (``spec.voice``), the hand's
     track (``track_path``, made on that loaded plate) and optionally its matte (hand_mask.npz); ``spec.effect`` may be
     "auto" (the sound and the hand's gesture pick it). Renders one element over black at the loudest hit's strike and
     fires it on every hit of the take, carried on the hand, each as big and as bright as that hit is loud.
     ``element_from``: an earlier bending shot's folder whose element plays this take instead (perform it again: a new
     rhythm or another voice on the same hand take, no new render). ``tap_frame``: the frame ``spec.point`` was tapped
-    on (default: the strike); ``aim``: the aim arrow drawn there, degrees clockwise from up (default: the hand's own)."""
+    on (default: the strike); ``aim``: the aim arrow drawn there, degrees clockwise from up (default: the hand's own).
+    ``only_hits``: which of the take's hits (their order in time) this hand fires, the rest left to another hand (two
+    hands answering each other: run it once per hand, each on the other's composite); every hit keeps its Foley."""
     import dataclasses
     import time
 
@@ -643,6 +646,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     hits = [hh.frame for hh in cue.hits()] or [cue.frame_of(cue.hero_onset_s)]
     loud = [float(env_all[f: f + 8].max()) if 0 <= f < env_all.size else 0.0 for f in hits]
     hero = hits[int(np.argmax(loud))]
+    if only_hits:  # this hand's hits: its render posed on the loudest of them
+        mine = [i for i in only_hits if 0 <= i < len(hits)]
+        hero = hits[max(mine, key=lambda i: loud[i])] if mine else hero
     charge = charge_window(cue, env_all, hero, FPS)
     if charge:  # the hum launches nothing: it charges the strike, which goes off where the sound surges
         hits = sorted({f for f in hits if not charge[0] - 2 <= f < charge[1] + 3} | {charge[1]})
@@ -705,6 +711,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         raise ValueError("the render shows no element to carry")
     # each hit fires the element: its ignition on that hit's strike, as big and as bright as the hit is loud
     plays = [(s_["frame"] - ign, g, float(np.clip(g ** 0.5, 0.6, 1.0))) for s_, g in zip(snaps, gains)]
+    every = plays  # (the Foley sounds on every hit of the take, whichever hand fires it)
+    if only_hits:
+        plays = [plays[i] for i in only_hits if 0 <= i < len(plays)]
+        snaps = [snaps[i] for i in only_hits if 0 <= i < len(snaps)]
     offset = k_launch - ign
 
     say("compositing", 0.7, "Carrying the element on your hand")
@@ -876,8 +886,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     env = np.zeros(n)
     m = min(n, env_all.size)
     env[:m] = env_all[:m]
-    audio = soundtrack(place_audio(c.samples, c.offset_s, n), eff, n, env, [off + ign for off, _, _ in plays],
-                       [g for _, g, _ in plays], cue.voice_end_frame, spec.seed)
+    audio = soundtrack(place_audio(c.samples, c.offset_s, n), eff, n, env, [off + ign for off, _, _ in every],
+                       [g for _, g, _ in every], cue.voice_end_frame, spec.seed)
     comp_path, final_path = out_dir / "composite.mp4", out_dir / "final.mp4"
     k_poster = int(np.clip(k_launch + 8, 0, len(frames) - 1))  # the player's still: the fire at its fullest, not a dark frame
     cv2.imwrite(str(out_dir / "poster.jpg"), cv2.cvtColor(np.ascontiguousarray(frames[k_poster]), cv2.COLOR_RGB2BGR),
