@@ -138,6 +138,17 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [view, setView] = useState<View>("final.mp4");
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
 
+  const [sharing, setSharing] = useState(false);
+  const share = async () => { // the shot as a 9:16 reel with your cue's word on each hit
+    if (!job) return;
+    setSharing(true);
+    try {
+      const r = await fetch(`/api/jobs/${job.id}/share`, { method: "POST" });
+      if (r.ok) setJob(await r.json());
+    } finally {
+      setSharing(false);
+    }
+  };
   const make = async (pick?: string, reuse?: string) => {
     const eff = pick ?? effect;
     setBusy(true);
@@ -336,6 +347,10 @@ export default function ShotPanel({ plate, point, direction, performance, effect
             onRetimed={(next) => { setJob(next); setView("final.mp4"); onDone(next, effect); }} />}
           <div className="row">
             {job.files["final.mp4"] && <a className="btn secondary" href={job.files["final.mp4"]} download="cue-the-boom.mp4">Download the shot</a>}
+            {job.id && !job.cached && (job.files["share.mp4"]
+              ? <a className="btn" href={job.files["share.mp4"]} download="cue-the-boom-reel.mp4">Download the reel</a>
+              : <button className="secondary" disabled={sharing} onClick={() => void share()}>
+                  {sharing ? "Making the reel…" : "Share as a vertical reel"}</button>)}
             <details>
               <summary className="muted">Every file (the render, the guide, the receipt)</summary>
               <div className="row">

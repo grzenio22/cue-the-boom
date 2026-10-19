@@ -765,3 +765,30 @@ def test_the_studio_is_served_beside_the_api_and_sets_up_the_hand_tracker_only_l
             break
         time.sleep(0.05)
     assert calls and calls[0][-2:] == ["hands", "--install"]
+
+
+def test_a_finished_shot_becomes_a_vertical_reel_to_share(tmp_path, make_video, make_wav, monkeypatch):
+    import cuesync.bending as bending
+    from cuesync.media import read_video
+
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
+    t = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": "palm", "hand": "right", "xy": [[102.0, 77.0]] * 72,
+         "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72, "conf": [1.0] * 72, "src": ["mp"] * 72, "speed": [0.0] * 72,
+         "landmarks": [None] * 72, "gesture": ["Open_Palm"] * 72, "events": []}
+
+    def fake_prepare(plate_, out_dir, tap, frame, emitter, say=None):
+        (out_dir / "hand_track.json").write_text(json.dumps(t))
+        return out_dir / "hand_track.json", None
+
+    monkeypatch.setattr(bending, "prepare_hand", fake_prepare)
+    client = TestClient(create_app(FakeElementRenderer(), tmp_path / "jobs",
+                                   shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
+    plate = make_video(tmp_path, n=72, fps=24, w=256, h=128, color_fn=lambda i: (40, 35, 30))
+    voice = make_voice(tmp_path, make_wav)
+    with open(plate, "rb") as p, open(voice, "rb") as v:
+        s = client.post("/api/jobs", files={"plate": ("p.mp4", p, "video/mp4"), "voice": ("v.wav", v, "audio/wav")},
+                        data={"mode": "bending", "effect": "fire_burst", "x": "0.4", "y": "0.6"}).json()
+    assert wait(client, s["id"])["status"] == "done"
+    shared = client.post(f"/api/jobs/{s['id']}/share").json()
+    reel = read_video(Path(str(tmp_path / "jobs" / s["id"] / "share.mp4"))).frames
+    assert "share.mp4" in shared["files"] and reel.shape[1:3] == (1280, 720)  # 9:16, to post

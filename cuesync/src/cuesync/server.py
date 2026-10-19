@@ -33,7 +33,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # the `serve
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
-RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json", "poster.jpg",
+RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json", "poster.jpg", "share.mp4",
                 "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4")
 EARLY_FILES = ("guide_preview.mp4", "cue.json")  # shown while the shot is still being made
 # the checkout's samples/: from the current folder or any folder above it (started from web/), or next to the source
@@ -720,6 +720,18 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         job = Job(id=rid, dir=d, spec=spec, mode="replay", title=src.title,
                   replay={"src": base if len(base) > 1 else base[0], "bending": bending})
         return jq.submit(job).public()
+
+    @app.post("/api/jobs/{job_id}/share")
+    def share(job_id: str):
+        """The finished shot as a vertical reel to share (cuesync.share): made once, then served like its other files."""
+        from .share import share_reel
+
+        job = get(job_id)
+        if job.status != "done" or not (job.dir / "composite.mp4").exists() or not (job.dir / "receipt.json").exists():
+            raise HTTPException(409, "only a finished shot can be shared")
+        if not (job.dir / "share.mp4").exists():
+            share_reel(job.dir, job.dir / "share.mp4")
+        return job.public()
 
     @app.get("/api/jobs/{job_id}/files/{name}")
     def files(job_id: str, name: str):
