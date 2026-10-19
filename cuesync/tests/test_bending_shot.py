@@ -138,3 +138,49 @@ def test_the_aim_arrow_turns_the_direction_and_is_carried_with_the_hand():
     assert np.allclose(a["dir"][4], (0.0, -1.0), atol=1e-6) and np.allclose(a["dir"][9], (0.0, -1.0), atol=1e-6)
     assert np.allclose(a["xy"][9], (50 + 45 + 0, 50), atol=1e-6) and a["anchor"]["turn"] == -90.0
     assert np.allclose(anchored(tr, 4, (70.0, 50.0))["dir"][4], (1.0, 0.0))  # no arrow: the hand's own direction
+
+
+def test_the_camera_is_followed_when_handheld_and_left_alone_on_a_tripod():
+    import cv2
+
+    from cuesync.bending import camera_path
+
+    rng = np.random.default_rng(4)
+    room = cv2.GaussianBlur(rng.random((700, 1100)).astype(np.float32), (0, 0), 2.0)
+    room = ((room - room.mean()) / room.std() * 40 + 128).clip(0, 255)  # a textured wall
+    room = np.repeat(room.astype(np.uint8)[..., None], 3, -1)
+    n, shift = 16, [(1.5 * t, 0.8 * np.sin(t)) for t in range(16)]  # a slow pan and a wobble
+    frames = np.stack([cv2.warpAffine(room, np.float32([[1, 0, dx - 60], [0, 1, dy - 60]]), (960, 540)) for dx, dy in shift])
+    W = camera_path(frames)
+    assert W is not None
+    for t in range(1, n):
+        step = W[t] @ np.linalg.inv(W[t - 1])
+        assert abs(step[0, 2] - (shift[t][0] - shift[t - 1][0])) < 0.3 and abs(step[1, 2] - (shift[t][1] - shift[t - 1][1])) < 0.3
+    assert camera_path(np.repeat(frames[:1], n, 0)) is None  # a tripod: nothing to follow
+
+
+def test_thrown_fire_moves_with_the_room_as_the_camera_pans():
+    w, h = 300, 120
+    tr = track_of(30, w, h, lambda t: (60, 60))  # the hand still in the picture
+    el = np.zeros((h, w, 3), np.float32)
+    el[58:63, 58:63] = 1.0  # at the emitter
+    el[58:63, 58 + 120:63 + 120] = 1.0  # the far end, thrown 4 frames ago
+    cam = np.repeat(np.eye(3)[None], 30, 0)
+    cam[:, 0, 2] = 3.0 * np.arange(30)  # the camera pans: the room moves 3 px a frame across the picture
+    out = warp_element(el, tr, emitter_at(tr, 10), 20, lag=4, cam=cam)
+    base = np.argwhere(out[:, :120, 0] > 0.3)[:, 1].mean()
+    tip = np.argwhere(out[:, 120:, 0] > 0.3)[:, 1].mean() + 120
+    assert abs(base - 60) < 2  # the base stays on the hand
+    assert abs(tip - (180 + 3 * 4)) < 3  # what was thrown 4 frames ago has moved with the room since
+
+
+def test_before_the_strike_the_build_up_stays_on_the_hand_under_a_panning_camera():
+    w, h = 300, 120
+    tr = track_of(30, w, h, lambda t: (60, 60))
+    el = np.zeros((h, w, 3), np.float32)
+    el[58:63, 58:63] = 1.0
+    cam = np.repeat(np.eye(3)[None], 30, 0)
+    cam[:, 0, 2] = 3.0 * np.arange(30)
+    for t in (16, 18, 19):  # the spark-up, frames before the strike at 20: nothing thrown yet, all of it on the hand
+        out = warp_element(el, tr, emitter_at(tr, 10), t, lag=4, cam=cam, since=20)
+        assert abs(np.argwhere(out[..., 0] > 0.3)[:, 1].mean() - 60) < 2

@@ -227,18 +227,147 @@ def _strip(level0: float, g: tuple, lo: float, hi: float, box: tuple) -> tuple |
     return None if a >= b else (x0, x1, a, b)
 
 
+CAM_SCALE = 2  # the camera is measured on a copy this many times smaller
+CAM_EXPLAIN = 0.75  # a step must line the background up this much better than standing still (the tracker's 0.75
+# turned away most of a phone's small shakes over a dim room's soft texture)
+CAM_STILL_STEP = 1.2  # px at the corners: a camera whose median measured step is less is locked off (a tripod
+# measures about 0.5 of noise, a phone held at the eyes 3-4)
+
+
+def camera_path(plate: np.ndarray, mask: np.ndarray | None = None, track: dict | None = None) -> np.ndarray | None:
+    """The camera's own motion through ``plate`` [T, H, W, 3] uint8, as (T, 3, 3): frame 0's px -> frame t's px; None
+    for a camera that holds still, so a tripod shot is untouched by the measurement's noise. Each step is measured on
+    the background by the tracker's own guarded step (cuesync.hand_track._camera_step: corners followed there and back
+    by optical flow, a similarity that most of them agree on, spread across the picture, plausible for a camera, that
+    lines the background's texture up better than standing still, and that isn't just the striking arm), with the hand
+    left out (its matte ``mask``, else the ``track``'s landmarks and forearm, else a disc round its emitter). A step
+    the guards turn away is measured loosely (corners there and back, plausible for a camera) once the guarded steps
+    have shown the clip to be handheld, and only one nothing can measure is drawn between its neighbours; a clip
+    whose steps mostly fail the guards (a plain wall, a moving person on a tripod shot) holds still. First person, the phone in the other hand:
+    what was already thrown then moves with the room, not with the screen."""
+    from .hand_track import CAM_MIN_SHARE, _camera_step
+
+    n, h, w = plate.shape[:3]
+    if n < 2:
+        return None
+    q = CAM_SCALE
+    hs, ws = max(16, h // q), max(16, w // q)
+    S, Si = np.diag([q, q, 1.0]), np.diag([1.0 / q, 1.0 / q, 1.0])
+
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))  # a dim room's texture brought up to where the step's
+    # texture check can see it (the guards still turn away grain on a plain wall)
+
+    def gray(t: int) -> np.ndarray:  # lightly blurred: the grain out, the scene's texture kept
+        g = cv2.cvtColor(cv2.resize(plate[t], (ws, hs), interpolation=cv2.INTER_AREA), cv2.COLOR_RGB2GRAY)
+        return cv2.GaussianBlur(clahe.apply(g), (0, 0), 1.2)
+
+    edge = np.zeros((hs, ws), np.uint8)
+    edge[hs // 20: hs - hs // 20, ws // 20: ws - ws // 20] = 255
+
+    def where(t: int) -> np.ndarray:  # the background on frame t: not the hand, not the frame's very edge
+        m = edge.copy()
+        if mask is not None:
+            hand = cv2.resize(mask[min(t, len(mask) - 1)], (ws, hs), interpolation=cv2.INTER_AREA) > 32
+            m[cv2.dilate(hand.astype(np.uint8), np.ones((7, 7), np.uint8)) > 0] = 0
+        elif track is not None:  # no matte: the hand's landmarks and its forearm out to the frame's edge, else a disc
+            pt, _, st = emitter_at(track, t)
+            lms = track.get("landmarks") or []
+            lm = lms[min(t, len(lms) - 1)] if lms else None
+            if lm:
+                xy = np.asarray(lm, np.float64)[:, :2] / q
+                cv2.fillConvexPoly(m, cv2.convexHull(xy.astype(np.int32)), 0)
+                m = cv2.erode(m, np.ones((int(0.8 * st / q) | 1,) * 2, np.uint8))
+                arm = xy[0] - xy[9]  # wrist, from the middle knuckle: the forearm goes on that way
+                arm = arm / max(float(np.hypot(*arm)), 1e-6)
+                cv2.line(m, tuple(int(v) for v in xy[0]), tuple(int(v) for v in xy[0] + arm * (hs + ws)), 0,
+                         max(1, int(1.0 * st / q)))
+            else:
+                cv2.circle(m, (int(pt[0] / q), int(pt[1] / q)), int(1.3 * st / q), 0, -1)
+        return m
+
+    def loose(prev_: np.ndarray, cur_: np.ndarray, m: np.ndarray) -> np.ndarray | None:
+        """A step the guards turned away, measured anyway: corners there and back, RANSAC, plausible for a camera.
+        Used only in a clip the guarded steps already showed to be handheld (a hand filling the frame, a dark patch)."""
+        pts = cv2.goodFeaturesToTrack(prev_, 400, 0.005, 6, mask=m)
+        if pts is None or len(pts) < 12:
+            return None
+        nxt, ok, _ = cv2.calcOpticalFlowPyrLK(prev_, cur_, pts, None, winSize=(21, 21), maxLevel=3)
+        back, ok2, _ = cv2.calcOpticalFlowPyrLK(cur_, prev_, nxt, None, winSize=(21, 21), maxLevel=3)
+        ok = ok.ravel().astype(bool) & ok2.ravel().astype(bool) & (np.linalg.norm((back - pts)[:, 0], axis=1) < 0.7)
+        if ok.sum() < 12:
+            return None
+        A, inl = cv2.estimateAffinePartial2D(pts[ok], nxt[ok], method=cv2.RANSAC, ransacReprojThreshold=1.0)
+        if A is None or inl is None or int(inl.sum()) < 12:
+            return None
+        zoom, turn = np.hypot(A[0, 0], A[1, 0]), np.arctan2(A[1, 0], A[0, 0])
+        if np.hypot(*A[:, 2]) > 0.2 * ws or abs(turn) > np.radians(6) or abs(zoom - 1) > 0.06:
+            return None
+        return A
+
+    steps = np.full((n, 4), np.nan)  # per step t-1 -> t: dx, dy (plate px), turn (rad), log zoom
+    second = np.full((n, 4), np.nan)  # the steps the guards turned away, measured loosely
+    prev = gray(0)
+    for t in range(1, n):
+        cur = gray(t)
+        hands = ()
+        if track is not None:  # the emitter before and after, in analysis px: a "camera" that moves it as it struck is the arm
+            (p_a, _, s_a), (p_b, _, _) = emitter_at(track, t - 1), emitter_at(track, t)
+            hands = ((p_a / q, p_b / q, s_a / q),)
+        m = where(t - 1)
+        M = _camera_step(prev, cur, m, hands, explain=CAM_EXPLAIN)
+        for M_, into in ((M, steps), (None if M is not None else loose(prev, cur, m), second)):
+            if M_ is not None:
+                F = S @ np.vstack([M_, [0.0, 0.0, 1.0]]) @ Si
+                into[t] = [F[0, 2], F[1, 2], np.arctan2(F[1, 0], F[0, 0]), np.log(np.hypot(F[0, 0], F[1, 0]))]
+        prev = cur
+    have = np.flatnonzero(~np.isnan(steps[1:, 0])) + 1
+    if len(have) < CAM_MIN_SHARE * (n - 1):
+        return None
+    corners = np.array([[0, 0, 1], [w, 0, 1], [0, h, 1], [w, h, 1]], np.float64).T
+    filled = np.isnan(steps[:, 0]) & ~np.isnan(second[:, 0])  # handheld, so the loose measurements count
+    steps[filled] = second[filled]
+    known = np.flatnonzero(~np.isnan(steps[1:, 0])) + 1
+    for j in range(4):  # a step nothing could measure, drawn between the measured ones either side
+        steps[1:, j] = np.interp(np.arange(1, n), known, steps[known, j], left=0.0, right=0.0)
+    W = np.repeat(np.eye(3)[None], n, 0)
+    sizes = []
+    for t in range(1, n):
+        dx, dy, a, lz = steps[t]
+        z = np.exp(lz)
+        step = np.array([[z * np.cos(a), -z * np.sin(a), dx], [z * np.sin(a), z * np.cos(a), dy], [0.0, 0.0, 1.0]])
+        W[t] = step @ W[t - 1]
+        if t in have:
+            sizes.append(float(np.sqrt((((step - np.eye(3)) @ corners)[:2] ** 2).sum(0).mean())))
+    return None if float(np.median(sizes)) < CAM_STILL_STEP else W
+
+
+def camera_between(cam: np.ndarray | None, a: float, b: float) -> np.ndarray:
+    """3x3: frame ``a``'s px -> frame ``b``'s px, by the camera alone (identity with no camera path); fractional frames
+    blend their neighbours."""
+    if cam is None:
+        return np.eye(3)
+
+    def at(x: float) -> np.ndarray:
+        x = float(np.clip(x, 0, len(cam) - 1))
+        i = int(np.floor(x))
+        f = x - i
+        return cam[i] if f < 1e-6 or i + 1 >= len(cam) else cam[i] * (1 - f) + cam[i + 1] * f
+
+    return at(b) @ np.linalg.inv(at(a))
+
+
 def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, size: float = 1.0,
-                 blur: bool = True, since: int | None = None) -> np.ndarray:
+                 blur: bool = True, since: int | None = None, cam: np.ndarray | None = None) -> np.ndarray:
     """An element frame (float32, over black, at the plate's size, rendered with the emitter at ``ref``) carried onto
     plate frame ``t`` with its emission history: in thin slices along its length, its base on the emitter's pose now and
     each slice further along on the pose the emitter had when that part left the hand, up to ``lag`` frames before for
     the far end (never before ``since``, the strike). Fire already thrown keeps flying the way it was thrown while the
     hand swings on: one pose for the whole element made it a strip swung on a pivot, and one remap with a pose per pixel
-    tore it apart on a fast turn. There are as many slices as it takes for the far end to move at most SLICE_PX between
-    neighbours (a still hand needs few, a whip a few hundred, each warped only where it is), their weights overlap and
-    sum to 1. Each slice is smeared over its own share of the history (a quarter of a frame with ``blur``: the
-    shutter's own smear), in as many steps as it takes for its far edge to move at most SMEAR_PX: a stream thrown on a
-    fast turn is stretched along its path, not broken into pieces."""
+    tore it apart on a fast turn. The slices are a quarter of a frame of history apart (half without ``blur``), each
+    warped only where it is, their weights overlapping and summing to 1, and each smeared over its own share of the
+    history (the shutter's own smear) in as many steps as it takes for its far edge to move at most SMEAR_PX: a stream
+    thrown on a fast turn is stretched along its path, not broken into pieces. ``cam`` (camera_path): what was thrown
+    then has moved with the room since, as the camera saw it."""
     h, w = frame.shape[:2]
     p0, u0, s0 = ref
     lo_t = -np.inf if since is None else float(since)
@@ -249,7 +378,10 @@ def warp_element(frame: np.ndarray, track: dict, ref: tuple, t: int, lag: int, s
         return out
     box = (max(0, 4 * xs.min() - 4), min(w, 4 * xs.max() + 8), max(0, 4 * ys.min() - 4), min(h, 4 * ys.max() + 8))
     reach = max(LENGTH * s0, 1.0)
-    pose = lambda c: pose_forward(ref, track, max(t - c, lo_t), size)  # noqa: E731
+    def pose(c: float) -> np.ndarray:  # the pose a slice c frames old was thrown with, carried by the camera since
+        then = min(max(t - c, lo_t), float(t))  # before the strike nothing has been thrown: all on the hand now
+        A = pose_forward(ref, track, then, size)
+        return A if cam is None else (camera_between(cam, then, t) @ np.vstack([A, [0.0, 0.0, 1.0]]))[:2]
     n = (4 if blur else 2) * lag + 1 if lag > 0 else 1  # a quarter of a frame apart (half without blur)
     tip = np.array([p0[0] + u0[0] * reach, p0[1] + u0[1] * reach, 1.0])
     g = (u0[0] * lag / reach, u0[1] * lag / reach)
@@ -522,6 +654,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         fade = fade * np.clip(1.0 - 0.67 * along_, 0.33, 1.0)
         del yy_, xx_, along_
     fade = fade[..., None]
+    cam = camera_path(plate, mask, track)  # a handheld camera: what was thrown moves with the room
 
     def element_at(t: int) -> np.ndarray | None:
         """The element on plate frame t (linear, over black): every hit's play of it, carried on the hand, its root
@@ -532,7 +665,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
                 continue
             E = warp_element(np.clip(lin(element[e]) - floor_lin, 0.0, None) * fade, track, ref, t, lag, size,
-                             since=off + ign) * gain
+                             since=off + ign, cam=cam) * gain
             if e < ign:  # the build-up, coming up to the ignition
                 E *= (e - (ign - pre) + 1) / (pre + 1)
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
@@ -614,7 +747,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                                             "snap": sn} for (off, g, sz), sn in zip(plays, snaps)],
                     "ref": {"xy": [round(float(v), 2) for v in ref[0]], "dir": [round(float(v), 5) for v in ref[1]],
                             "scale": round(float(ref[2]), 2)},
-                    "performed_again": None if old is None else {"from": str(element_from), "no_new_render": True}},
+                    "performed_again": None if old is None else {"from": str(element_from), "no_new_render": True},
+                    "camera": "locked" if cam is None else "handheld: thrown fire moves with the room"},
         "auto": auto, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))

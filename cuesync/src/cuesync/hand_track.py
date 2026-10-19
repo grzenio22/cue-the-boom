@@ -830,14 +830,15 @@ def _hand_steps(dets: list[list[dict]], t: int, k: float) -> list[tuple[np.ndarr
     return out
 
 
-def _camera_step(prev: np.ndarray, cur: np.ndarray, mask: np.ndarray, hands=()) -> np.ndarray | None:
+def _camera_step(prev: np.ndarray, cur: np.ndarray, mask: np.ndarray, hands=(), explain: float = 0.75) -> np.ndarray | None:
     """The similarity (2x3, analysis px) carrying frame ``prev`` onto ``cur``, from corners on the background; None
     when the background doesn't say: too few corners agree, or they bunch in a sliver of the picture; the step is
     implausible for a camera; warping by it doesn't line the background up better than standing still does; or,
     while a hand strikes (moves more than CAM_STRIKE sizes in the frame; ``hands``: (palm before, palm after, size),
     analysis px), it moves the hand just as the hand moved: that is the arm swinging with it, and counted as the
     camera it would hide the strike. (A hand held still in the room under a shaking camera moves exactly like the
-    camera too, but slowly; that one is the camera, and the case the compensation is for.)"""
+    camera too, but slowly; that one is the camera, and the case the compensation is for.) ``explain``: how much
+    better than standing still the warped frame must match the next (its error at most this share of standing still's)."""
     import cv2
 
     h, w = prev.shape
@@ -877,7 +878,7 @@ def _camera_step(prev: np.ndarray, cur: np.ndarray, mask: np.ndarray, hands=()) 
     moved = cv2.warpAffine(p2, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
     still = np.abs(c2.astype(np.int16) - p2)[edges].mean()
     warped = np.abs(c2.astype(np.int16) - moved)[edges].mean()
-    return M if warped < 0.75 * still else None
+    return M if warped < explain * still else None
 
 
 def camera_motion(clip: Clip, dets: list[list[dict]]) -> Camera:
