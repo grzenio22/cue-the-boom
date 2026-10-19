@@ -28,6 +28,7 @@ Beats (all times in seconds; text may use \\n):
    "cue_at": 1.0}   the shot's raw render (as LTX-2.5 made it, on the plate's timeline) beside the finished shot,
       the sound drawn under both with a line where the noise is (cue_at: s on the shot's timeline)
   {"type": "credits", "dur": 6, "title": "...", "lines": ["...", "  · a sub-line", "..."], "url": "..."}
+  (a title, image or credits card takes "audio_src" (+ "audio_from", "audio_gain") too: a sound under it, dying away)
 Every beat may set "stamp": a small corner label (e.g. "stand-in plate, generated with LTX-2.5"), and "vo": a
 narration WAV with "vo_at" (s into the beat, default 0.15) and "vo_gain": it is laid over the beat's own sound,
 which is ducked while it speaks; narration longer than its beat runs on into the next beats.
@@ -443,6 +444,10 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
             frames.append(np.asarray(img))
     else:
         raise ValueError(f"unknown beat type {kind!r}")
+    if kind != "clip" and b.get("audio_src"):  # a sound under a card, dying away (the last fire under the credits)
+        a = read_audio(b["audio_src"], SR)[int(float(b.get("audio_from", 0)) * SR):]
+        n_ = min(audio.size, a.size)
+        audio[:n_] += a[:n_] * np.linspace(1.0, 0.0, n_, dtype=np.float32) * float(b.get("audio_gain", 1.0))
     return frames, audio
 
 

@@ -253,7 +253,7 @@
    "type": "clip",
    "src": "runs/jobs/fd58657de8da/composite.mp4",
    "start": 0.8,
-   "dur": 2.6,
+   "dur": 2.7,
    "fill": true,
    "wave": true,
    "crop": [
@@ -376,6 +376,8 @@
    "type": "credits",
    "dur": 4.2,
    "title": "Cue the Boom",
+   "audio_src": "runs\\demo_v10\\credits_crackle.wav",
+   "audio_gain": 0.8,
    "lines": [
     "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google",
     "ComfyUI + Comfy SDK · Comfy Org",

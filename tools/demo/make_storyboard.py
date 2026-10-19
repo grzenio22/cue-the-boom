@@ -71,7 +71,7 @@ beats = [
          pop_x=0.74, pop_y=0.52, audio_src=f"{V9}/studio_say_own.wav", audio_from=3.23, audio_gain=4.0, wave=True,
          wave_box=[0.53, 0.16, 0.42, 0.13], stamp_top=True,
          pops=[[0.87, "pf"], [1.27, "pf"], [2.27, "BOOM"]], stamp=STUDIO),
-    dict(type="clip", src="runs/jobs/fd58657de8da/composite.mp4", start=0.8, dur=2.6, fill=True, wave=True, crop=band(0.42),
+    dict(type="clip", src="runs/jobs/fd58657de8da/composite.mp4", start=0.8, dur=2.7, fill=True, wave=True, crop=band(0.42),
          chip="Your shot · no GPU, about a minute on a laptop", pops=[[0.53, "pf"], [0.95, "pf"], [1.99, "BOOM"]], stamp=STUDIO),
     # 7. the scene: one sound, one source
     dict(type="clip", src="runs/round10/shots/held_together__pf-pf-boom/composite.mp4", start=0.6, dur=5.0, wave=True,
@@ -85,7 +85,7 @@ beats = [
     dict(type="clip", src=f"{R}/pf_pf_boom/composite.mp4", start=0.5, dur=3.2, fill=True, wave=True, crop=band(0.42),
          pop_x=0.8, pop_y=0.5, pops=[[0.71, "pf"], [1.08, "pf"], [2.17, "BOOM"]], headline="Render the fire once.",
          subline="Your voice decides when, how big, how long.", stamp=MINE),
-    dict(type="credits", dur=4.2, title="Cue the Boom", lines=[
+    dict(type="credits", dur=4.2, title="Cue the Boom", audio_src=str(V10 / "credits_crackle.wav"), audio_gain=0.8, lines=[
         "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google", "ComfyUI + Comfy SDK · Comfy Org",
         "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
         "The author's own hand, voice and phone · stock footage: Pexels, Pixabay", "Voices · rykenn, unfa and others (CC0, Freesound)",
