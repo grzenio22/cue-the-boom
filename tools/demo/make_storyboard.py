@@ -86,8 +86,8 @@ beats = [
          crop=[0, 0.3, 1, 0.8625], audio_src=str(V10 / "credits_crackle.wav"), audio_at=2.0, pops=[[0.75, "fffff"]],
          pop_x=0.82, pop_y=0.4,
          headline="Try it live", subline="Your camera. Fire as you say it.",
-         stamp="Try it live in the browser (MediaPipe's hand landmarker), fed the author's phone clip and its sound in place "
-               "of a webcam and a microphone · a flame rendered ahead with LTX-2.5"),
+         caption="Fed a phone clip and its sound: tracked live, flame rendered ahead.",
+         stamp="the studio's live preview in a browser · the author's phone clip and sound in place of a webcam · LTX-2.5 flame"),
     dict(type="credits", dur=4.2, title="Cue the Boom", audio_src=str(V10 / "credits_crackle.wav"), audio_from=0.8, lines=[
         "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google", "ComfyUI + Comfy SDK · Comfy Org",
         "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
