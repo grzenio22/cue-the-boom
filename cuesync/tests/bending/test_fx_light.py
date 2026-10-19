@@ -157,6 +157,17 @@ def test_a_warm_key_light_is_partly_taken_out_of_what_the_fire_lights():
     assert a[1, 0] > 1.3 * a[0, 0] > 0  # a fold a little lighter in the shadow stays lighter under the fire
 
 
+def test_a_round_hand_is_lit_on_the_side_facing_the_flame():
+    """The hand is shaded as if round: its edge toward the flame takes more of the light than its far edge."""
+    m = np.zeros((200, 200), np.float32)
+    cv2.circle(m, (100, 100), 50, 1.0, -1)
+    flame = np.zeros((50, 50), np.float32)
+    cv2.circle(flame, (5, 25), 4, 1.0, -1)  # to the left of the hand
+    sh = fx.hand_shading(m, flame, 200.0)
+    assert sh[100, 55] > sh[100, 145] + 0.3  # the near edge lit, the far edge in the shading's floor
+    assert fx.SHADE_AMB - 1e-3 <= sh[m > 0].min() and sh.max() <= 1.0 + 1e-6
+
+
 def test_light_breathes_with_the_element_and_has_its_colour():
     plate, element, track, matte = scene()
     power, radius, colour = fx.element_light(element, "fire")

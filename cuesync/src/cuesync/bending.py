@@ -996,6 +996,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 there = cv2.GaussianBlur(fx._lum(np.maximum(P[j], 0.0)), (0, 0), SOOT_EDGE * side)
                 a_ = np.minimum(a_, np.clip(cv2.GaussianBlur(fx._lum(E), (0, 0), SOOT_EDGE * side) / (there + SOOT_DARK),
                                             0.0, 1.0))
+                a_ *= cv2.GaussianBlur(np.clip(fx._lum(E) / 0.02, 0.0, 1.0), (0, 0), 3.0 * side / 1080)  # where flame is
                 a_ = cv2.GaussianBlur(a_, (0, 0), 1.5 * h / 1080)
                 P[j] = P[j] * (1.0 - SOOT * a_)[..., None] + E
         if eff.fluid == "fire":  # the hot air above and around the flame shimmers

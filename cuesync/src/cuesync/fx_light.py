@@ -46,7 +46,13 @@ _GRAIN, _HAZE, _AIR, _SHAKE = 1, 2, 3, 4  # mixed into each seed, so one seed gi
 HAND_DEPTH, FAR = 0.5, 2.5  # the hand: half the flame's own radius from it (the palm right under a fireball takes about
 # twice its brightness whatever its size; a candle lights only the skin next to it); the room: FAR hand scales behind
 # the flame (a wall about 60 cm behind a hand), so weak but reaching across the frame
-HAND_GAIN, ROOM_GAIN = 2.0, 2.0  # over that physical light (fitted by eye on the cupped-palm and two-palm plates)
+HAND_GAIN, ROOM_GAIN = 3.0, 2.0  # over that physical light (fitted by eye on the cupped-palm, two-palm and dark plates;
+# the hand's is before its shading, which takes about a third off on average)
+SHADE_AMB = 0.3  # the hand is shaded as if round (its normal from its matte's silhouette): a side facing away from the
+# flame keeps this much of the light. Without it the light lay on the hand as a flat orange wash
+SHADE_EDGE = 0.18  # hand scales: how far in from its outline a finger or a palm turns to face the camera
+MATTE_SOFT = 0.003  # share of the short side: the matte is softened inward this much for the light (its staircase
+# edge showed)
 EXPOSED_WHITE = 0.8  # linear: where a camera puts a white surface in a lit room (and cuesync.media an HDR clip's
 # diffuse white): a plate's white is never taken to be brighter than this, nor its brightest surface for white paint
 TOP_ALBEDO, WHITE_FLOOR = 0.8, 0.05  # in a dim room nothing reaches that white: its brightest surface (a bath, a wall)
@@ -306,6 +312,34 @@ def light_fields(element_lin: np.ndarray, s: np.ndarray, size: tuple[int, int]) 
     return _smooth2(hand).astype(np.float32), _smooth2(room).astype(np.float32), per
 
 
+def hand_shading(matte: np.ndarray, flame: np.ndarray, scale: float) -> np.ndarray:
+    """(h, w) float32 in [SHADE_AMB, 1]: how much of the flame's light a point of the hand takes for the way it faces.
+    The hand is taken as round: its normal turns from facing the camera, SHADE_EDGE hand scales in from its outline, to
+    lying in the picture at the outline (from the matte's distance to its edge); the flame sits at its glow's middle,
+    as far in front as it is wide. Lambert, with SHADE_AMB kept on the side facing away. ``flame`` is the element's
+    luminance at any size of the same frame."""
+    h, w = matte.shape[:2]
+    q = 4
+    mq = cv2.resize(matte, (max(1, w // q), max(1, h // q)), interpolation=cv2.INTER_AREA)
+    d = cv2.GaussianBlur(cv2.distanceTransform((mq > 0.5).astype(np.uint8), cv2.DIST_L2, 5), (0, 0), 2.0)
+    gy, gx = np.gradient(d)
+    norm = np.hypot(gx, gy) + 1e-6
+    e = np.clip(1.0 - d / max(SHADE_EDGE * scale / q, 1.0), 0.0, 1.0)
+    nx, ny, nz = -gx / norm * e, -gy / norm * e, np.sqrt(np.clip(1.0 - e * e, 0.0, 1.0))
+    total = float(flame.sum())
+    if total <= 0:
+        return np.ones((h, w), np.float32)
+    fh, fw = flame.shape
+    cy, cx = (np.indices(flame.shape) * flame).reshape(2, -1).sum(1) / total
+    k = mq.shape[1] / fw
+    cx, cy = cx * k, cy * k
+    r = np.sqrt(total ** 2 / max(float(np.dot(flame.ravel(), flame.ravel())), 1e-12) / np.pi) * k
+    yy, xx = np.indices(d.shape)
+    lx, ly, lz = cx - xx, cy - yy, max(r, 1.0)
+    face = np.clip((nx * lx + ny * ly + nz * lz) / (np.sqrt(lx * lx + ly * ly + lz * lz) + 1e-6), 0.0, 1.0)
+    return cv2.resize((SHADE_AMB + (1.0 - SHADE_AMB) * face).astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+
+
 def light_plate(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, mask: np.ndarray | None = None,
                 fluid: str = "fire", seed: int = 0, out: np.ndarray | None = None,
                 white: float | None = None, tint: np.ndarray | None = None) -> np.ndarray:
@@ -345,8 +379,9 @@ def light_plate(plate_lin: np.ndarray, element_lin: np.ndarray, track: dict, mas
         hand = cv2.resize(hand_f[f], (w, h), interpolation=cv2.INTER_LINEAR) * np.float32(HAND_GAIN * look["gain"])
         seen = np.clip(1 + ((xs - x0) * ux + (ys - y0) * uy) * (1 / (FEATHER * sf)), 0, 1)  # 0: past the hand
         m = _matte(mask, f) if mask is not None else arm_matte((x0, y0), (ux, uy), sf, w, h)
+        m = np.minimum(m, cv2.GaussianBlur(m, (0, 0), max(0.5, MATTE_SOFT * min(h, w))))  # (inward: no light past it)
         reach = seen + m * (1 - seen)  # where light can get to: in front of the hand, and the hand itself
-        light = np.minimum(room * reach + hand * m, MAX_LIGHT)
+        light = np.minimum(room * reach + hand * m * hand_shading(m, _lum(element_lin[f]), float(sf)), MAX_LIGHT)
         k = light[..., None] * colour[f]  # the light's colour and strength, per pixel
         lit = plate_lin[f] + albedo(plate_lin[f], white, tint) * k
         if GLOW > 0:  # the faint halo the flame casts in the air around it, kept off the hand's far side too
