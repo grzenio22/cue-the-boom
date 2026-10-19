@@ -176,6 +176,31 @@ def cmd_retime(args) -> int:
     return 0
 
 
+def cmd_bend(args) -> int:
+    """A shot from your hand (element bending). With --again: a finished bending shot (the sample hand's, made ahead
+    of time) performed by this take, no GPU. Without: your clip's hand tracked and matted, the element rendered on the
+    GPU (COMFY_BASE_URL) and carried on it; the helpers run from cuesync/.venv-track and cuesync/.venv-mask."""
+    from .bending import bending_again, bending_job
+    from .pipeline import ShotSpec
+
+    if args.again:
+        rc = json.loads((Path(args.again) / "receipt.json").read_text(encoding="utf-8"))
+        spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=rc["effect"]["id"],
+                        point=tuple(rc["inputs"]["point"]), offset_s=args.offset_s, mode="element",
+                        extra={"tap_frame": rc["bending"].get("tap_frame")})
+        r = bending_again(Path(args.again), spec, Path(args.output))
+    else:
+        from .pipeline import ComfyRenderer
+
+        spec = ShotSpec(plate=Path(args.plate), voice=Path(args.voice), effect=args.effect, point=(args.x, args.y),
+                        offset_s=args.offset_s, mode="element", direction=args.direction, extra={"tap_frame": args.frame})
+        r = bending_job(spec, ComfyRenderer(Path(args.workflow), timeout=args.timeout), Path(args.output))
+    b = r.receipt["bending"]
+    print(f"{r.receipt['effect']['id']}: {len(b['hits'])} hit(s)" + (f", charged {b['charge']['seconds']} s" if b.get("charge") else "")
+          + (", no new render" if b.get("performed_again") else "") + f", {r.receipt['seconds_total']:.0f} s -> {r.final}")
+    return 0
+
+
 def cmd_compare(args) -> int:
     from .audio import CueSheet
     from .compare import side_by_side
@@ -344,6 +369,23 @@ def build_parser() -> argparse.ArgumentParser:
     rt.add_argument("--stop", type=int, help="plate frame where a flame or steam jet stops")
     rt.add_argument("-o", "--output", default="runs/retimed")
     rt.set_defaults(func=cmd_retime)
+
+    bd = sub.add_parser("bend", help="fire, steam or air off your hand (element bending): your clip, your take")
+    bd.add_argument("--plate", required=True, help="your clip, your hand in it")
+    bd.add_argument("--voice", required=True, help="your take: the noise that cues it")
+    bd.add_argument("--again", help="a finished bending shot's folder: perform its element again, no GPU "
+                                    "(the sample hand's: samples/made_ahead/bending/...)")
+    bd.add_argument("--effect", default="auto", help="auto (your sound and your hand pick it), fire_breath, fire_burst, "
+                                                     "flame_plume, steam_jet or smoke_puff")
+    bd.add_argument("--x", type=float, default=0.5, help="where on the hand it comes from, as a fraction of the width")
+    bd.add_argument("--y", type=float, default=0.5)
+    bd.add_argument("--frame", type=int, default=0, help="the frame (24 fps) --x --y are on")
+    bd.add_argument("--direction", type=float, help="aim, degrees clockwise from up (default: the hand's own)")
+    bd.add_argument("--offset-s", type=float, default=0.0, help="where your take starts in the clip, seconds")
+    bd.add_argument("--workflow", default="workflows/fluid_element.api.json")
+    bd.add_argument("--timeout", type=float, default=900.0)
+    bd.add_argument("-o", "--output", default="runs/bend")
+    bd.set_defaults(func=cmd_bend)
 
     sv = sub.add_parser("serve", help="HTTP API for the web app (renders through COMFY_BASE_URL)")
     sv.add_argument("--workflow", default="workflows/fluid_element.api.json")

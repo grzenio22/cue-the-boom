@@ -1,15 +1,30 @@
 # Cue the Boom
 
-**Draw where. Cue it with a sound. The scene reacts.**
+**Film your hand. Make the noise. Throw fire.**
 
-[Try it without a GPU](#try-it) · [How it works](#how-it-works) · [How well it lands](#how-well-it-lands)
+[Try it without a GPU](#try-it) · [From your hand](#from-your-hand-element-bending) · [How it works](#how-it-works) · [How well it lands](#how-well-it-lands)
 
-Tap or draw where fire, smoke or steam should come from in your clip, then make the noise ("KA-BOOM", "fwoooOOOM", "hissss"), or use a sound that is already in the clip (a finger snap). The sound sets the frame it hits and how big and how long it gets. **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders it into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Then the render's real onset is measured and moved onto your cue: on 57 test shots, 26 of them on real stock footage, 37 of 42 single hits land within a frame (42 ms) of the cue (a blast aims a frame early: light beats sound); straight from the model, none do.
+Hold your hand up to the camera, tap your palm or fingertips, and make the noise:
+- a hum charges an ember in your palm, and "BOOM" throws the fireball;
+- a long "fffff" from pointed fingers is a flamethrower that whips through the air when you swing.
 
-**New here:** a performed sound becomes the hit frame and growth curve of a generated effect, painted in the control format the LoRA was trained on; the render's real onset is then measured and corrected, hit by hit for a rhythm, with how far off the model was written into every shot's receipt.
+**LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA by AInVFX (Adrien Toupet) renders the fire once, over black. Cue the Boom tracks your hand and carries the fire on it frame by frame: what was already thrown keeps flying the way you threw it, your fingers hide its root, and it lights your skin. Then **perform it again**: a new rhythm on the same render, with no new render.
+
+![Element bending: a hum charges an ember in the palm, BOOM throws the fireball, a swing whips the flamethrower through the air](media/hand_hero.jpg)
+<sub>Real stock hands ([credits](samples/CREDITS.md)) with test voices. The fire is LTX-2.5 + ainvfx-fluid, rendered once over black and carried on the tracked hand.</sub>
+
+Or tap or draw anything in your shot ("KA-BOOM" at a jack-o'-lantern, "fwoooOOOM" at a toy dinosaur) and LTX-2.5 renders the effect into the scene, so it lights the room and leaves its mark: a blown-out candle stays out. Each sound picks the effect and sets its frame, size and length. The render's real onset is then measured and moved onto your cue. On 57 test shots, 26 of them on real stock footage, 37 of 42 single hits land within a frame (42 ms) of the cue; straight from the model, none do.
+
+**New here:** a generated effect becomes something you perform.
+- Your sound (and your hand's gesture) picks it, times it and sizes it.
+- Your hand carries it, with each part of the flame keeping the direction it was thrown in.
+- A hum charges it.
+- Performing it again re-times the same render, with no new generation.
+
+The receipt of every shot records how far off the model was and what was measured.
 
 ![The scene reacts: six real clips and photos, each with the sound that cued it](media/hero.jpg)
-<sub>Real stock clips and photos ([credits](samples/CREDITS.md)), each with the sound that cued it; three are cued by real people's recorded voices, two of them one source per hit (call and response). The effect is rendered into the plate by LTX-2.5 + ainvfx-fluid and timed by CueSync. These shots play in the studio's gallery, with no GPU.</sub>
+<sub>Real stock clips and photos ([credits](samples/CREDITS.md)), each with the sound that cued it. Three are cued by real people's recorded voices, two of them with one source per hit (call and response). These shots play in the studio's gallery with no GPU.</sub>
 
 An entry for Comfy's **Open Source Higgsfield** contest, built on the Comfy Developer Platform (the Comfy Python SDK against a self-hosted Comfy API), on open weights only.
 
@@ -17,20 +32,40 @@ An entry for Comfy's **Open Source Higgsfield** contest, built on the Comfy Deve
 
 Preset effects decide for you where and when the effect happens; prompt-based video edits make you type the timing ("at about 2.2 seconds, on his finger snap"). Cue the Boom keeps you in charge of the two things a shot is made of:
 
-- **Where.** Tap the thing it comes from (a toy's mouth, a candle's wick), drag to aim it, or draw it (flames along the top of a pumpkin). For a rhythm, tap a different thing for each hit: "pf, pf, KA-BOOM" pops the little jack-o'-lantern, then the ghost, then blows up the big one (call and response).
-- **When, and how much.** A sound pins the frame, and its loudness and length shape the effect. Your voice is the fun way to do it; the sound already in your clip is the editor's way (hits are cut to sound anyway); press-and-hold works in a quiet room.
+- **Where.** Your hand: your fingertips, your palm, wherever it goes. Or the thing in your shot it comes from: a toy's mouth or a candle's wick. Tap it and drag to aim it, or draw it (flames along the top of a pumpkin). For a rhythm, tap a different thing for each hit: "pf, pf, KA-BOOM" pops the little jack-o'-lantern, then the ghost, then blows up the big one (call and response).
+- **When, and how much.** A sound pins the frame, and its loudness and length shape the effect. Your voice is the fun way to do it. The sound already in your clip is the editor's way, since hits are cut to sound anyway. Press-and-hold works in a quiet room.
 
-The effect is rendered into the scene, so it lights and changes what is around it. On a moving clip CueSync adds only what the effect changed and checks the result; if the check fails, the shot says so and uses the render (on 18 real moving clips, 14 kept their own pixels and 4 fell back to the render).
+In the scene, the effect is rendered into the shot, so it lights and changes what is around it. On a moving clip CueSync adds only what the effect changed and checks the result; if the check fails, the shot says so and uses the render. On 18 real moving clips, 14 kept their own pixels and 4 fell back to the render.
 
 ## Try it
 
-Python 3.10+ (CI runs 3.12); Node 24 for the studio.
+You need Python 3.10+ (CI runs 3.12), and Node 24 for the studio.
 
-**In a minute, no GPU, no npm:** re-time a shipped scene shot, and re-measure the timing of the shipped shots.
+**Firebending in two minutes, no GPU.** The sample hand ships with its fireball rendered ahead of time, and your take fires it:
 
 ```bash
 git clone https://github.com/grzenio22/cue-the-boom && cd cue-the-boom
 pip install "./cuesync[server]"
+cuesync bend --plate samples/plates/hand_cupped.mp4 --voice samples/voices/pf-pf-ka-boom.wav \
+  --again samples/made_ahead/bending/hand_cupped__kaboom__fire_burst --offset-s 0.6
+```
+
+`runs/bend/final.mp4` shows "pf, pf, KA-BOOM" as three fireballs in the palm, one on each beat, each as big as it was loud, with no new render. It takes about two minutes on a laptop CPU. Swap in a recording of your own noise; a hum before the "BOOM" charges an ember first.
+
+**The studio, no GPU.** In two terminals:
+
+```bash
+cuesync serve --instant-only           # terminal 1: the render API, http://127.0.0.1:8765
+cd web && npm install && npm run dev   # terminal 2: the studio, http://localhost:3000
+```
+
+Pick **Your hand: cupped palm**, then **Perform it**. Choose a sample noise or use your microphone (hum, then BOOM), and **Make the shot**.
+
+The scene shots in `samples/made_ahead` play straight away in the gallery, and you can drag their hit to re-time them in seconds. Your own take plays them too: say it or press and hold on a sample clip, and each of your hits plays the render made ahead of time, in about 20 s on the CPU. **Perform it again** does the same after any shot on a still plate. On your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue.
+
+**Re-timing from the command line** (no npm): re-time a shipped scene shot, and re-measure the timing of the shipped shots.
+
+```bash
 cuesync retime --shot samples/made_ahead/scene/jackolantern_kitchen__ka-boom__fire_burst --plate samples/plates/jackolantern_kitchen.mp4 \
   --voice samples/voices/ka-boom.wav --effect fire_burst --x 0.48 --y 0.39 --shift 6 -o runs/retimed
 python tools/measure_timing.py samples/made_ahead/scene -o runs/timing
@@ -38,12 +73,7 @@ python tools/measure_timing.py samples/made_ahead/scene -o runs/timing
 
 `runs/retimed/final.mp4` is the shot moved a quarter of a second later, composited again from the same render; `runs/timing/timing.md` is the timing table for those shots.
 
-**The studio, with no GPU.** The sample scene shots in `samples/made_ahead` play straight away (and you can drag their hit to re-time them, in seconds). Your own take plays them too: say it or press and hold on a sample clip, and each of your hits plays the render made ahead of time, in about 20 s on the CPU (**Perform it again** does the same after any shot on a still plate). On your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue. In two terminals:
-
-```bash
-cuesync serve --instant-only           # terminal 1: the render API, http://127.0.0.1:8765
-cd web && npm install && npm run dev   # terminal 2: the studio, http://localhost:3000
-```
+In the studio:
 
 1. Pick a sample shot or your own clip (phone held still, 1-15 s; the shot uses the first 10 s).
 2. Tap where it comes from (or a different thing for each hit: **One thing per hit**), or draw it.
@@ -114,10 +144,18 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 - **Matte:** a SAM 2.1 matte lets the fingers in front of the flame's root hide it.
 - **Timing:** each hit fires on your arm's strike when the strike falls on the beat.
 - **Light:** your hand is lit from where the fire is.
+- **Charge-up:** hum before the strike ("mmmmmmBOOM") and an ember grows in your palm with your voice. It lights your fingers until the strike releases the fireball, and the hum launches nothing. The ember is the render's own first fire.
+- **First person:** with the phone at your eyes and your hand coming in from below, a handheld camera is measured on the background, so what was already thrown moves with the room, not with the screen. A camera on a tripod is left alone.
 
 **Perform it again** plays the same render on a new rhythm, with no new render.
 
-**Without a GPU:** pick the sample *Your hand: cupped palm* in the studio, perform any rhythm (or pick a sample noise), and its fireball, made ahead of time, fires on each of your hits (about two minutes on a laptop CPU).
+**Without a GPU:** pick the sample *Your hand: cupped palm* in the studio, perform any rhythm (or pick a sample noise), and its fireball, made ahead of time, fires on each of your hits (about two minutes on a laptop CPU). `cuesync bend --again` does the same from the command line ([Try it](#try-it)).
+
+**From the command line, on your own clip** (GPU and the two helper environments below):
+
+```bash
+cuesync bend --plate my_hand.mp4 --voice my_kaboom.wav --x 0.55 --y 0.6 --frame 40   # where on the hand, on frame 40
+```
 
 **On your own clip** it needs the GPU for the render (above), plus two helper environments the server runs as subprocesses. They live apart from `cuesync/.venv` because MediaPipe's opencv-contrib clashes with the core's opencv-python. From the repository root (on Linux and macOS the interpreter is `bin/python`):
 

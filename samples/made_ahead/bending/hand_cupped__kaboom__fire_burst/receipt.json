@@ -103,7 +103,8 @@
    ],
    "scale": 706.45
   },
-  "performed_again": null
+  "performed_again": null,
+  "tap_frame": 60
  },
  "auto": {
   "kind": "boom",

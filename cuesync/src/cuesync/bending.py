@@ -804,6 +804,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         "inputs": {"point": list(spec.point), "seed": spec.seed, "offset_s": spec.offset_s, "cue": c.source},
         "render": {"seconds": round(seconds, 1), "prompt": prompt, "guide_scale": round(scale, 3)},
         "bending": {"track": str(track_path), "mask": None if mask is None else str(mask_path), "k_hit": int(k_launch),
+                    "tap_frame": int(tap_k),
                     "k_launch": int(k_launch), "ignition": int(ign), "offset": int(offset), "lag_frames": lag,
                     "snap": snap, "hits": [{"frame": int(off + ign), "gain": round(g, 3), "size": round(sz, 3),
                                             "snap": sn} for (off, g, sz), sn in zip(plays, snaps)],
