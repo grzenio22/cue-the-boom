@@ -57,15 +57,15 @@ BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording 
 LAG_FRAMES = {"fire_breath": 10, "fire_burst": 2, "flame_plume": 5, "smoke_puff": 6, "steam_jet": 10}  # the far end's
 # age in frames: how long ago the emitter threw it (a jet crosses its reach in about 0.4 s)
 LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a jet of about six hands
-SIZE = {"jet": (6.0, 0.75), "burst": (1.3, 0.3), "plume": (1.8, 0.45), "puff": (2.5, 0.4)}  # per behaviour: its reach in
+SIZE = {"jet": (6.0, 0.75), "burst": (2.0, 0.45), "plume": (1.8, 0.45), "puff": (2.5, 0.4)}  # per behaviour: its reach in
 # hand sizes, and at most this share of the frame's short side (a close-up hand made a fireball fill the frame)
 IGNITION = 0.15  # an element has ignited once its light is this share of its brightest frame's
 LOST_FADE = 4  # frames over which an element fades out once the hand has been lost for more than 8
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
 # a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
 ROOT_ROUND = 0.15  # how far the root's fade curves back at the sides, in its own length over its width squared
-ROOT_FADE_SHARE = {"steam_jet": 0.05, "fire_breath": 0.06}  # steam has no nozzle to hide (over the full fade it
-# started a hand from the palm), and a jet six hands long left a gap at the fingertip
+ROOT_FADE_SHARE = {"steam_jet": 0.05, "fire_breath": 0.06, "flame_plume": 0.04}  # steam has no nozzle to hide (over
+# the full fade it started a hand from the palm); a jet six hands long or a lighter's flame left a gap at the finger
 CANVAS = 16  # the guide's ground: a dark grey, not black, so a keyframe before the hit says "nothing here yet" (over
 # pure black the model took the empty keyframes as unconstrained and had steam there from the first frame)
 GROW_FROM, GROW_FRAMES = 0.35, 6  # a flame or a jet grows out of the hand over its first frames, from this share of its
@@ -755,6 +755,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         effect = effect or "fire_burst"
         auto = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
     eff = load_effect(effect)
+    if eff.behaviour == "plume":  # a flame standing on the hand burns straight up, however the hand turns (it tipped over
+        # sideways on a turning fist, like a lighter's never does)
+        track = track | {"dir": [[0.0, -1.0]] * len(track["dir"])}
 
     if old:  # perform it again: the element as rendered for the earlier take, where its hand was then
         ref = (np.asarray(old["bending"]["ref"]["xy"], np.float64), np.asarray(old["bending"]["ref"]["dir"], np.float64),
