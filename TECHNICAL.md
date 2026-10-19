@@ -50,10 +50,10 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
   - On a handheld stand-in with a known camera path, the error is 0.6 px median over the flame's 10-frame history, against 27 px of camera motion.
   - The tracker's ground truth in [`cuesync/tests/bending/gt/`](cuesync/tests/bending/gt) is provisional: points marked by eye on gridded crops (AI-assisted), not hand-clicked.
 
-**The path a judge's laptop takes, on ten phone takes.** Ten of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library.
-- Every one of the ten made a shot, in 32 to 75 s each on a desktop CPU.
-- The hand was lost on at most 14 % of a clip's frames.
-- The picks: a palm's "pf" a pop of fire, a fist's strike a burst, a roar from pointing fingers a flamethrower, a BOOM a fireball. One snap with no voice became a pop of fire where a lighter's flame was meant; a tap on the badge changes it.
+**The path a judge's laptop takes, on nineteen phone takes.** Nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library.
+- Every one of the nineteen made a shot, in 32 to 100 s each on a desktop CPU.
+- The hand was lost on at most 23 % of a clip's frames.
+- The picks: a palm's "pf" a pop of fire, a fist's strike a burst, a roar from pointing fingers a flamethrower, a held "fffff" over an open palm a flame in it, a BOOM a fireball. One snap with no voice became a pop of fire where a lighter's flame was meant; a tap on the badge changes it.
 
 | take | the room | the cue | picked | seconds | hand lost |
 |---|---|---|---|---|---|
@@ -67,6 +67,15 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 | finger gun sweeping, first person | dim room | roar | flamethrower | 61 | 0 % |
 | finger gun | dim room | BOOM | fireball | 37 | 0 % |
 | snap, then a thumb | dark bathroom | snap | pop of fire | 39 | 14 % |
+| fist punch | olive wall, lamplight | BOOM | burst | 35 | 0 % |
+| fist punch | olive wall | BOOM | burst | 51 | 23 % |
+| fist thrown at the wall | olive wall | BOOM | burst | 60 | 15 % |
+| finger gun | olive wall | bang | fireball | 36 | 12 % |
+| still palm, three beats | olive wall | fff, fff, fff | a flame each | 70 | 0 % |
+| fist opening into a palm | olive wall | pf | pop of fire | 47 | 0 % |
+| fist opening, a held breath | olive wall | fffff | flame | 54 | 0 % |
+| palm, fist, palm | olive wall | its own sound | fireball | 79 | 0 % |
+| palm carried through the house, the camera walking | hallway to kitchen | fffff | flame | 100 | 0 % |
 
 **Try it live** ([`Live.tsx`](web/components/Live.tsx), [`live.ts`](web/lib/live.ts)) runs MediaPipe's hand landmarker in the browser. Its runtime and model load from jsDelivr and Google's model storage. The microphone's level is read every frame:
 - a fast rise well over the room is a hit;
