@@ -744,3 +744,24 @@ def test_your_own_hand_with_no_gpu_gets_an_element_rendered_ahead(tmp_path, make
     assert done["status"] == "done", done.get("error")
     b = done["receipt"]["bending"]
     assert b["instant"]["no_gpu"] and b["performed_again"] is None and done["receipt"]["effect"]["id"] == "fire_burst"
+
+
+def test_the_studio_is_served_beside_the_api_and_sets_up_the_hand_tracker_only_locally(tmp_path, monkeypatch):
+    studio = tmp_path / "studio"
+    studio.mkdir()
+    (studio / "index.html").write_text("<h1>Cue the Boom</h1>")
+    remote = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), studio=studio))
+    assert "Cue the Boom" in remote.get("/").text and remote.get("/api/health").json()["ok"]  # one address, both
+    assert remote.post("/api/hands/install").status_code == 403  # not served locally: no installing
+    import subprocess
+
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0, "", ""))
+    local = TestClient(create_app(None, tmp_path / "jobs2", instant=FakeRenderer(), local=True))
+    assert local.get("/api/health").json()["hand"]["can_install"]
+    assert local.post("/api/hands/install").json()["running"]
+    for _ in range(40):
+        if calls:
+            break
+        time.sleep(0.05)
+    assert calls and calls[0][-2:] == ["hands", "--install"]

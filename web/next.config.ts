@@ -16,4 +16,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// tools/build_static_studio.py: a static export that `cuesync serve` itself serves (same origin: no proxy, no rewrites)
+const staticConfig: NextConfig = {
+  agentRules: false,
+  devIndicators: false,
+  output: "export",
+  trailingSlash: true, // pages as folders: the API serves a folder's index.html
+  images: { unoptimized: true },
+};
+
+export default process.env.CUESYNC_STATIC === "1" ? staticConfig : nextConfig;

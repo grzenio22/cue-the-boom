@@ -39,7 +39,7 @@ In the scene, the effect is rendered into the shot, so it lights and changes wha
 
 ## Try it
 
-You need Python 3.10+ (CI runs 3.12), and Node 24 for the studio.
+You need Python 3.10+ (CI runs 3.12). That's all: the studio ships built and the API serves it.
 
 **Firebending in two minutes, no GPU.** The sample hand ships with its fireball rendered ahead of time, and your take fires it:
 
@@ -52,14 +52,15 @@ cuesync bend --plate samples/plates/hand_cupped.mp4 --voice samples/voices/pf-pf
 
 `runs/bend/final.mp4` shows "pf, pf, KA-BOOM" as three fireballs in the palm, one on each beat, each as big as it was loud, with no new render. It takes about a minute on a laptop CPU. Swap in a recording of your own noise; a hum before the "BOOM" charges an ember first.
 
-**The studio, no GPU, one command** (Node 24 for the web app):
+**The studio, no GPU, one command:**
 
 ```bash
-cuesync studio          # the render API and the studio together; opens http://localhost:3000
-cuesync hands --install # once, about a minute: the hand tracker (CPU), so a clip of your own hand works too
+cuesync studio          # the studio and its render API at one address; opens http://127.0.0.1:8765
 ```
 
-Pick **Your hand: cupped palm**, then **Perform it**. Choose a sample noise or use your microphone (hum, then BOOM), and **Make the shot**. With the tracker installed, pick **Use your own clip**, then **Your hand**: tap your palm or fingertips, drag to aim, and make the noise. The fire is an element rendered ahead of time with LTX-2.5, carried on your hand, in a minute or two on a laptop CPU. (Two terminals instead: `cuesync serve --instant-only` and `cd web && npm install && npm run dev`.)
+For a clip of your own hand, the studio offers **Set up the hand tracker** (about a minute, once, CPU). Or run `cuesync hands --install` beforehand.
+
+Pick **Your hand: cupped palm**, then **Perform it**. Choose a sample noise or use your microphone (hum, then BOOM), and **Make the shot**. With the tracker installed, pick **Use your own clip**, then **Your hand**: tap your palm or fingertips, drag to aim, and make the noise. The fire is an element rendered ahead of time with LTX-2.5, carried on your hand, in a minute or two on a laptop CPU. (To work on the studio itself, `cuesync studio --dev` runs web/ with Next.js, which needs Node 24.)
 
 The scene shots in `samples/made_ahead` play straight away in the gallery, and you can drag their hit to re-time them in seconds. Your own take plays them too: say it or press and hold on a sample clip, and each of your hits plays the render made ahead of time, in about 20 s on the CPU. **Perform it again** does the same after any shot on a still plate. On your own clip, instant mode places pre-rendered LTX-2.5 elements, timed by your cue.
 

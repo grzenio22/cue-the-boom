@@ -258,14 +258,29 @@ def cmd_studio(args) -> int:
     import time
     import webbrowser
 
+    from .server import STUDIO_STATIC
+
+    serve_cmd = [sys.executable, "-m", "cuesync.cli", "serve"] + ([] if os.environ.get("COMFY_BASE_URL") else ["--instant-only"])
+    if not args.dev and (STUDIO_STATIC / "index.html").exists():  # the studio as shipped: the API serves it, no Node
+        api = subprocess.Popen(serve_cmd)
+        print("the studio: http://127.0.0.1:8765  (Ctrl+C stops it)")
+        try:
+            time.sleep(4)
+            if not args.no_browser:
+                webbrowser.open("http://127.0.0.1:8765")
+            api.wait()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            api.terminate()
+        return 0
     root = next((r for r in (Path.cwd(), *Path.cwd().parents) if (r / "web" / "package.json").exists()), None)
     npm = shutil.which("npm")
     if root is None or npm is None:
         raise SystemExit("run this from the cue-the-boom checkout, with Node 24 installed (npm on the PATH)")
     if not (root / "web" / "node_modules").exists():
         subprocess.run([npm, "install"], cwd=root / "web", check=True)
-    api = [sys.executable, "-m", "cuesync.cli", "serve"] + ([] if os.environ.get("COMFY_BASE_URL") else ["--instant-only"])
-    procs = [subprocess.Popen(api, cwd=root), subprocess.Popen([npm, "run", "dev"], cwd=root / "web")]
+    procs = [subprocess.Popen(serve_cmd, cwd=root), subprocess.Popen([npm, "run", "dev"], cwd=root / "web")]
     print("the studio: http://localhost:3000  (the render API: http://127.0.0.1:8765; Ctrl+C stops both)")
     try:
         time.sleep(6)
@@ -475,8 +490,9 @@ def build_parser() -> argparse.ArgumentParser:
     hd.add_argument("--check", action="store_true", help="say what is installed")
     hd.set_defaults(func=cmd_hands)
 
-    st = sub.add_parser("studio", help="the studio in one command: the render API and the web app (Node 24)")
+    st = sub.add_parser("studio", help="the studio in one command (the API serves it; --dev: the Next.js dev server)")
     st.add_argument("--no-browser", action="store_true")
+    st.add_argument("--dev", action="store_true", help="run web/ with Next.js (Node 24) instead of the built studio")
     st.set_defaults(func=cmd_studio)
 
     sv = sub.add_parser("serve", help="HTTP API for the web app (renders through COMFY_BASE_URL)")

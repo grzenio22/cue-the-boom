@@ -92,7 +92,7 @@ export interface Health {
   modes: Mode[];
   made_ahead?: Mode[]; // modes with sample shots made ahead of time (they play with the GPU offline)
   queued: number;
-  hand?: { tracker: boolean; library: boolean }; // a hand of your own: the tracker installed, the elements shipped
+  hand?: { tracker: boolean; library: boolean; can_install?: boolean; installing?: boolean; install_error?: string | null };
 }
 
 /** What each sample noise does to a sample plate in scene mode (an effect id, or {effect, seed}). */

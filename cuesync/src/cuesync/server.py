@@ -157,8 +157,11 @@ class JobQueue:
 
 
 def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None, shot_defaults: dict | None = None,
-               instant=None, samples_dir: Path = SAMPLES, precomputed: Path | None = None):
-    """``renderer``: full renders (None: an instant-only server). ``instant``: the library renderer, if any."""
+               instant=None, samples_dir: Path = SAMPLES, precomputed: Path | None = None, local: bool = False,
+               studio: Path | None = None):
+    """``renderer``: full renders (None: an instant-only server). ``instant``: the library renderer, if any.
+    ``local``: served on this machine only (it may then set up the hand tracker when asked). ``studio``: the static
+    studio (tools/build_static_studio.py) to serve at the root, beside the API."""
     from .effects import _candidate_dirs, load_effect
     from .pipeline import ShotSpec
 
@@ -232,7 +235,36 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
         return {"ok": True, "renderer": getattr(renderer, "name", None), "modes": available_modes(),
                 "made_ahead": sorted({e["mode"] for e in cache.values()}), "queued": jq.queued("render"),
-                "hand": {"tracker": helpers_ready(), "library": library_dir() is not None}}  # what a hand of your own needs
+                "hand": {"tracker": helpers_ready(), "library": library_dir() is not None,  # what a hand of your own needs
+                         "can_install": local, "installing": setup["running"], "install_error": setup["error"]}}
+
+    setup = {"running": False, "error": None}
+
+    @app.post("/api/hands/install")
+    def install_hands():
+        """Set up the hand tracker's environment (cuesync hands --install), in the background: only on this machine."""
+        import subprocess
+        import sys
+
+        if not local:
+            raise HTTPException(403, "the hand tracker is set up on the machine that serves the studio")
+        if setup["running"]:
+            return {"running": True}
+
+        def run() -> None:
+            setup.update(running=True, error=None)
+            try:
+                r = subprocess.run([sys.executable, "-m", "cuesync.cli", "hands", "--install"], capture_output=True,
+                                   text=True, timeout=1800)
+                if r.returncode != 0:
+                    setup["error"] = (r.stderr.strip().splitlines() or ["the install failed"])[-1][:300]
+            except Exception as exc:  # report it in health
+                setup["error"] = f"{type(exc).__name__}: {exc}"[:300]
+            finally:
+                setup["running"] = False
+
+        threading.Thread(target=run, daemon=True).start()
+        return {"running": True}
 
     @app.get("/api/objects")
     def objects():
@@ -698,7 +730,14 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             raise HTTPException(404, "not ready yet")
         return FileResponse(job.dir / name, media_type="application/json" if name.endswith(".json") else "video/mp4")
 
+    if studio is not None and (Path(studio) / "index.html").exists():  # the studio itself, beside the API
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=str(studio), html=True), name="studio")
     return app
+
+
+STUDIO_STATIC = Path(__file__).resolve().parent / "studio_static"  # tools/build_static_studio.py
 
 
 def serve(*, workflow: Path | None, jobs_dir: Path, host: str = "127.0.0.1", port: int = 8765,
@@ -714,5 +753,6 @@ def serve(*, workflow: Path | None, jobs_dir: Path, host: str = "127.0.0.1", por
     full = ComfyRenderer(Path(workflow), timeout=timeout) if workflow else None
     if full is None and instant is None:
         raise SystemExit(f"nothing to serve: no --workflow and no element library at {lib}")
-    app = create_app(full, jobs_dir, allow_origins, instant=instant, precomputed=precomputed)
+    app = create_app(full, jobs_dir, allow_origins, instant=instant, precomputed=precomputed,
+                     local=host in ("127.0.0.1", "localhost", "::1"), studio=STUDIO_STATIC)
     uvicorn.run(app, host=host, port=port, log_level="info")

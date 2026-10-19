@@ -86,6 +86,21 @@ export default function Studio() {
     setAimFrame(p.hand?.frame ?? 0);
   };
   const handLive = health?.modes.includes("bending") ?? false;
+  const [settingUp, setSettingUp] = useState(false);
+  const setUpHands = async () => { // the server sets the tracker up; the hand appears when health says it is ready
+    setSettingUp(true);
+    try {
+      await fetch("/api/hands/install", { method: "POST" });
+      for (let i = 0; i < 600; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const h = await fetchHealth();
+        setHealth(h);
+        if (h.hand?.tracker || h.hand?.install_error || !h.hand?.installing) break;
+      }
+    } finally {
+      setSettingUp(false);
+    }
+  };
   // with the GPU offline, a sample hand clip whose element was made ahead: your take plays it on the hand
   const handAhead = !handLive && (health?.made_ahead?.includes("bending") ?? false) && !!plate?.hand;
   const toHand = (on: boolean) => {
@@ -143,10 +158,16 @@ export default function Studio() {
             <button className="secondary" disabled={rendering} onClick={() => setPlate(null)}>Different shot</button>
           </div>
           {!pointSet && !handLive && !handAhead && health?.hand && !health.hand.tracker && (
-            <p className="muted">
-              <strong>Your hand</strong> (fire off your fingers or palm) needs the hand tracker: run <code>cuesync hands --install</code>{" "}
-              once (about a minute), then restart the server. The sample <em>Your hand: cupped palm</em> plays without it.
-            </p>
+            <div className="row">
+              <span className="muted"><strong>Your hand</strong> (fire off your fingers or palm) needs the hand tracker, set up once
+                (about a minute). The sample <em>Your hand: cupped palm</em> plays without it.</span>
+              {health.hand.can_install ? (
+                <button className="secondary" disabled={!!health.hand.installing || settingUp} onClick={() => void setUpHands()}>
+                  {health.hand.installing || settingUp ? "Setting up the hand tracker…" : "Set up the hand tracker"}
+                </button>
+              ) : <code>cuesync hands --install</code>}
+              {health.hand.install_error && <span className="chip bad">{health.hand.install_error}</span>}
+            </div>
           )}
           {!pointSet && (handLive || handAhead) && (
             <div className="row" role="radiogroup" aria-label="What it comes from">
