@@ -1,36 +1,38 @@
-﻿"""V12 contest cut: generation becomes a reusable voice instrument (<=120 s).
+"""V13 contest polish: generation becomes a reusable voice instrument (<=120 s).
 
-Edit plan: cold open with recorded-voice cue; moving raw fire -> hand with the
-name over the picture; 18 s unified proof triptych (three complete voice takes,
-all together, quiet/loud); readable actual ComfyUI model/LoRA/output nodes and
-Comfy Python SDK role; matching fire -> hand breakdown; walk; 4 s procedural
-lightning/water; sequential lanterns; dinosaur; expanded recorded Studio with
-its full finished fire; explicit contribution over pipeline; qualified laptop
-invitation, installation, repository and credits.
+Four review edits, with every other v12 beat preserved:
+* Proof: remove the 3.5 s ensemble replay and 0.5 s of silence before the first
+  BOOM. Keep all three complete voice performances and the quiet/loud comparison.
+* Workflow: sequential close-ups of the actual API graph's model loader, fluid
+  LoRA, sampler and output, then its stored fire. Retain both narration lines
+  and App -> Comfy Python SDK -> ComfyUI -> LTX-2.5 on the close-ups.
+* Studio: cut from Make the shot directly into the finished BOOM, replay the
+  aligned author's recorded voice, show its waveform and hold the bright final
+  frame for three seconds. This deliberate hold is declared explicitly.
+* Contribution: overview -> one asset -> voice -> result highlights timed to
+  the unchanged narration, ending on moving small/large hits from the proof.
 
-All footage is reused read-only from demo_v11/clips. Only cards and Kokoro-82M
-narration are new. No footage rebuild or model generation is needed. Measured
-phrase captions preserve the complete contribution recording. Full voice takes
-and the Studio result are never shortened to meet the time limit.
+All footage is reused read-only from demo_v11/clips. All narration, measured
+phrase captions, invitation and credits are reused read-only from demo_v12.
+No new footage, narration or model generation. Kokoro-82M remains the credited
+narration voice. The absent fluid_element.json canvas is represented faithfully
+from the available fluid_element.api.json, using exact nodes/settings/links.
 
 Run with the project Python and this checkout's cuesync/src on PYTHONPATH:
-  make_v11_voice.py --lines tools/demo/vo12_lines.json
-  make_v11_voice.py --lines tools/demo/vo12_lines.json --only new12 --speed 1.15
-  v12_cards.py
+  v13_cards.py
+  v13_contribution.py
   make_storyboard.py
-  build_demo.py tools/demo/storyboard.json -o D:/openHiggsfield/runs/demo_v12/demo_v12.mp4
-  check_v11.py --video D:/openHiggsfield/runs/demo_v12/demo_v12.mp4
-The second narration pass gives the complete contribution a natural 14.4 s.
+  build_demo.py tools/demo/storyboard.json -o D:/openHiggsfield/runs/demo_v13/demo_v13.mp4
+  check_v11.py --video D:/openHiggsfield/runs/demo_v13/demo_v13.mp4
 Final beat groups: 00:00 hook; 00:08 moving introduction; 00:18 proof;
-00:36 workflow; 00:48 compositing and light; 00:57 walk/flamethrower;
-01:02.25 procedural effects; 01:06.25 lanterns/dinosaur; 01:16.125 Studio;
-01:35.125 contribution; 01:49.75 invitation; 01:55.50 credits; 02:00 end.
+00:32 workflow; 00:44 compositing and light; 00:53 walk/flamethrower;
+00:58.25 procedural effects; 01:02.25 lanterns/dinosaur; 01:12.125 Studio;
+01:31.625 contribution; 01:46.25 invitation; 01:52 credits; 01:56.50 end.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import math
 from pathlib import Path
 
 FPS = 24
@@ -39,9 +41,9 @@ CLAIM = "1 LTX generation · 3 performances · 0 additional AI generations"
 
 def make(root: Path, run: Path) -> dict:
     clips = root / "runs/demo_v11/clips"
-    cards, voice = run / "cards", run / "vo12"
+    cards, voice = run / "cards", root / "runs/demo_v12/vo12"
     durations = json.loads((voice / "durations.json").read_text(encoding="utf-8"))
-    spoken = json.loads((run / "vo_lines.json").read_text(encoding="utf-8"))
+    spoken = json.loads((voice.parent / "vo_lines.json").read_text(encoding="utf-8"))
     mine = "Author's phone footage + own voice · fire rendered with LTX-2.5 + ainvfx-fluid"
     sample = "Author's phone footage · sample noise (synthetic) · procedural CPU effect"
     studio = "Recorded Studio · author's clip + voice · included LTX effect · GPU offline"
@@ -64,6 +66,8 @@ def make(root: Path, run: Path) -> dict:
     ]
     proof = dict(panels=panels, headline=CLAIM, element_src=str(clips / "how_raw.mp4"), element_at=2.92,
                  stamp="Same hand footage + one LTX-2.5 element · author's recorded pf and BOOM")
+    turn_panels = [dict(q) for q in panels]
+    turn_panels[0].update(start=.5, dur=3, audio_from=.5, pops=[[2.17, "BOOM"]])
     beats = [
         dict(id="cold_open", type="clip", src=shot("explosion_palm"), start=0, dur=8, fill=True,
              portrait_backdrop=True, pops=[[1.46, "BOOM"]], pop_x=1.35, pop_y=.55,
@@ -77,16 +81,16 @@ def make(root: Path, run: Path) -> dict:
         dict(id="intro_finished", type="clip", src=shot("proof_boom"), start=2.4, dur=6,
              speed=.15, fill=True, portrait_backdrop=True, headline="Cue the Boom",
              subline="Your voice performs the effect.", stamp="The same fire, carried on the hand · slow motion"),
-        dict(id="performance_turns", type="turns", dur=10.5, audio_gain=4.5,
-             subline="Listen to each complete performance", **proof),
-        dict(id="comparison_together", type="compare", dur=3.5, audio="mix", audio_gain=4.5,
-             subline="All three together · the same generated element", **proof),
+        dict(id="performance_turns", type="turns", dur=10, audio_gain=4.5,
+             subline="Listen to each complete performance", **dict(proof, panels=turn_panels)),
         dict(id="small_and_big", type="compare", dur=4, loop=3.5, audio=1, audio_gain=4.5, highlight=1,
              subline="Quiet pf → small. Loud BOOM → big.", **proof, **say("size12", at=0)),
-        dict(id="comfy_model", type="image", src=str(cards / "comfy_model.png"), dur=6, zoom=1,
+        dict(id="comfy_model", type="image", src=str(cards / "comfy_model.png"), dur=2.5, zoom=1,
              **say("ltx12", at=.5, text="LTX-2.5, with the fluid LoRA, makes this fire in ComfyUI.")),
-        dict(id="comfy_output", type="image", src=str(cards / "comfy_output.png"), dur=4, zoom=1,
-             **say("sdk12", at=.7)),
+        dict(id="comfy_lora", type="image", src=str(cards / "comfy_lora.png"), dur=2.5, zoom=1),
+        dict(id="comfy_sampler", type="image", src=str(cards / "comfy_sampler.png"), dur=2.5, zoom=1,
+             **say("sdk12", at=1.7)),
+        dict(id="comfy_output", type="image", src=str(cards / "comfy_output.png"), dur=2.5, zoom=1),
         dict(id="workflow_fire", type="clip", src=str(clips / "how_raw.mp4"), start=2.4, dur=2,
              speed=.45, crop=[.22, .06, .82, .94], fill=True, portrait_backdrop=True,
              chip="The generated LTX fire", stamp="The same stored output · slow motion"),
@@ -112,7 +116,7 @@ def make(root: Path, run: Path) -> dict:
              subline="In turn: 1 → 2 → 3 · pf · pf · BOOM",
              stamp="Pixabay footage, first frame held · real CC0 voices (Freesound) · LTX-2.5 fire",
              **say("scene12", at=3.1)),
-        dict(id="dino", type="clip", src=shot("scene_dino"), start=.25, dur=4.25, fill=True,
+        dict(id="dino", type="clip", src=shot("scene_dino"), start=.25, dur=3.375, fill=True,
              chip="fwoooom · into the scene", stamp="Real stock footage (Pexels) · sample noise (synthetic) · LTX-2.5 render"),
         dict(id="upload", type="clip", src=str(clips / "studio.mp4"), start=1, dur=4, fill=True,
              crop=[0, .03, 1, .78], chip="1. Upload a clip", stamp=studio, **say("upload12")),
@@ -124,23 +128,30 @@ def make(root: Path, run: Path) -> dict:
              pops=[[2.37, "pf"], [2.77, "pf"], [3.77, "BOOM"]], pop_x=.76, pop_y=.57, stamp=studio),
         dict(id="make", type="clip", src=str(clips / "studio.mp4"), start=36.5, dur=2.5, fill=True,
              crop=[.06, .27, .79, .82], chip="4. Make the shot", stamp=studio, **say("make12", at=.15)),
-        dict(id="result", type="clip", src=str(clips / "studio_result.mp4"), start=0, dur=3.5, fill=True,
+        dict(id="result", type="clip", src=str(clips / "studio_result.mp4"), start=2.5, dur=4, fill=True,
              portrait_backdrop=True, crop=[0, .18, 1, .84],
-             chip="The finished shot · included LTX effect", stamp=studio),
-        dict(id="innovation", type="image", src=str(cards / "pipeline.png"), dur=14, zoom=1, **say("new12", at=.1)),
-        dict(id="try", type="image", src=str(cards / "try_it.png"), dur=5.75, zoom=1, **say("try12", at=.1)),
-        dict(id="credits", type="image", src=str(cards / "credits.png"), dur=4.5, zoom=1,
+             audio_src=str(clips / "studio_say_own.wav"), audio_from=5.272875,
+             audio_gain=4, audio_replace=True, author_voice=True, hold_tail=True,
+             hold_reason="Bright finished fire held for three seconds after the complete recorded BOOM",
+             wave=True, pops=[[7 / 24, "BOOM"]], pop_x=1.1, pop_y=.45,
+             chip="The finished shot", stamp=studio),
+        dict(id="innovation", type="image", src=str(cards / "pipeline_overview.png"), dur=4, zoom=1,
+             **say("new12", at=.1)),
+        dict(id="innovation_asset", type="image", src=str(cards / "pipeline_asset.png"), dur=116 / FPS, zoom=1),
+        dict(id="innovation_voice", type="image", src=str(cards / "pipeline_voice.png"), dur=27 / FPS, zoom=1),
+        dict(id="innovation_result", type="image", src=str(cards / "pipeline_result.png"), dur=28 / FPS, zoom=1),
+        dict(id="innovation_hits", type="clip", src=shot("proof_pf_pf_boom"), start=0, dur=3.5,
+             fill=True, portrait_backdrop=True, crop=tall, wave=True,
+             audio_src=str(clips / "proof_pf_pf_boom.wav"), audio_gain=4.5, audio_replace=True, author_voice=True,
+             pops=[[1.21, "pf"], [1.58, "pf"], [2.67, "BOOM"]], pop_x=1.1, pop_y=.55,
+             headline="One LTX render. Two sizes.", subline="Quiet pf → small. Loud BOOM → big.",
+             stamp="Same hand footage + stored LTX fire · author's recorded voice · no additional generation"),
+        dict(id="try", type="image", src=str(root / "runs/demo_v12/cards/try_it.png"), dur=5.75, zoom=1, **say("try12", at=.1)),
+        dict(id="credits", type="image", src=str(root / "runs/demo_v12/cards/credits.png"), dur=4.5, zoom=1,
              audio_src=str(root / "runs/demo_v10/credits_crackle.wav"), audio_from=.8, audio_gain=.3),
     ]
-    # Keep full narration tails; trim only dinosaur time if needed for 120 s.
-    by_id = {b["id"]: b for b in beats}
-    for bid, key in (("innovation", "new12"), ("try", "try12")):
-        by_id[bid]["dur"] = max(by_id[bid]["dur"], math.ceil((durations[key] + .2) * FPS) / FPS)
-    excess = sum(b["dur"] for b in beats) - 120
-    if excess > 0:
-        by_id["dino"]["dur"] -= math.ceil(excess * FPS) / FPS
-        if by_id["dino"]["dur"] < 2.5:
-            raise ValueError("Narration leaves too little time for the retained dinosaur demonstration")
+    # The 14.625 s contribution covers the unchanged 14.4 s WAV. Never extend
+    # untouched beats to spend the time saved by tightening the proof.
     phrase_path = voice / "caption_phrases.json"
     if phrase_path.exists():
         phrases = json.loads(phrase_path.read_text(encoding="utf-8"))
@@ -163,17 +174,18 @@ def make(root: Path, run: Path) -> dict:
         elapsed = end
     if elapsed > 120.00001 or narration_end > elapsed:
         raise ValueError(f"Overlength: picture={elapsed:.2f}s, narration end={narration_end:.2f}s")
-    return dict(version=12, duration=elapsed, beats=beats, schedule=schedule,
-                provenance=str(clips / "manifest.json"), narration="vo12/provenance.json",
+    return dict(version=13, duration=elapsed, beats=beats, schedule=schedule,
+                provenance=str(clips / "manifest.json"), narration=str(voice / "provenance.json"),
                 source_policy="Read-only v11 clips reused; no new AI generations or footage rebuilds")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", type=Path, default=Path("D:/openHiggsfield"))
-    parser.add_argument("--run", type=Path, default=Path("D:/openHiggsfield/runs/demo_v12"))
+    parser.add_argument("--run", type=Path, default=Path("D:/openHiggsfield/runs/demo_v13"))
     parser.add_argument("--output", type=Path, default=Path(__file__).with_name("storyboard.json"))
     args = parser.parse_args()
+    args.run.mkdir(parents=True, exist_ok=True)
     board = make(args.root, args.run)
     payload = json.dumps(board, indent=2, ensure_ascii=False) + "\n"
     args.output.write_text(payload, encoding="utf-8")
