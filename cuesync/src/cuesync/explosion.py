@@ -566,12 +566,14 @@ class Outline:
         size = (x1 - x0, y1 - y0)
         up = lambda a: cv2.resize(a.astype(np.float32), size, interpolation=cv2.INTER_LINEAR)[..., None]  # noqa: E731
         q, p = Q[y0:y1, x0:x1], P[y0:y1, x0:x1]
-        d = q - p - (1.0 - up(near)) * np.maximum(q - p, 0.0)
-        small = cv2.resize(d, near.shape[::-1], interpolation=cv2.INTER_AREA)
+        base = np.maximum(p, 0.02)
+        rel = (q - p - (1.0 - up(near)) * np.maximum(q - p, 0.0)) / base  # (what it does to the room, as a share
+        # of the room: softened as a difference, the dark it laid on a white switch plate spread black onto the wall)
+        small = cv2.resize(rel, near.shape[::-1], interpolation=cv2.INTER_AREA)
         soft = up(outer)
-        d = d * (1.0 - soft) + soft * cv2.resize(cv2.GaussianBlur(small, (0, 0), 2.0), size,
-                                                 interpolation=cv2.INTER_LINEAR)
-        d *= up(dens)
+        rel = rel * (1.0 - soft) + soft * cv2.resize(cv2.GaussianBlur(small, (0, 0), 2.0), size,
+                                                     interpolation=cv2.INTER_LINEAR)
+        d = base * rel * up(dens)
         d += up(desat) * ((d @ C._LUMA)[..., None] - d)
         Q[y0:y1, x0:x1] = np.maximum(p + d, 0.0)
 
