@@ -129,18 +129,6 @@
   "seed": 1,
   "tap_frame": 30,
   "real": true,
-  "rank": -102.8
- },
- "bending|hand_open.mp4|shhhhh-sploosh.wav|water_whip@made|0.53,0.71|1": {
-  "dir": "hand_open__shhhhh__water_whip",
-  "title": "shhhhh · a water whip",
-  "plate": "hand_open.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_whip",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -101.8
+  "rank": -100.8
  }
 }
