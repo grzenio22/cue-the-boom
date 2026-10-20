@@ -14,7 +14,7 @@
    0.654
   ],
   "seed": 1,
-  "offset_s": 1.225,
+  "offset_s": 1.95,
   "cue": "voice"
  },
  "render": {
@@ -25,36 +25,36 @@
  "bending": {
   "track": "hand_track.json",
   "mask": "hand_mask.npz",
-  "k_hit": 29,
+  "k_hit": 70,
   "tap_frame": 54,
   "aim": null,
-  "k_launch": 29,
+  "k_launch": 70,
   "snap": {
-   "cue": 29,
-   "motion": 38,
-   "frame": 29,
-   "used": "cue",
-   "mismatch": true
+   "cue": 74,
+   "motion": 70,
+   "frame": 70,
+   "used": "motion",
+   "mismatch": false
   },
   "hits": [
    {
-    "frame": 29,
-    "gain": 1.0,
-    "size": 1.0,
+    "frame": 47,
+    "gain": 0.975,
+    "size": 0.962,
     "snap": {
-     "cue": 29,
+     "cue": 47,
      "motion": 38,
-     "frame": 29,
+     "frame": 47,
      "used": "cue",
      "mismatch": true
     }
    },
    {
     "frame": 70,
-    "gain": 0.954,
-    "size": 0.931,
+    "gain": 1.0,
+    "size": 1.0,
     "snap": {
-     "cue": 71,
+     "cue": 74,
      "motion": 70,
      "frame": 70,
      "used": "motion",
@@ -64,12 +64,8 @@
   ],
   "holds": [
    [
-    30,
-    65
-   ],
-   [
-    71,
-    74
+    48,
+    77
    ]
   ],
   "performed_again": null,
@@ -81,5 +77,5 @@
   "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
   "foley_gain": 0.65
  },
- "seconds_total": 21.4
+ "seconds_total": 17.5
 }

@@ -130,5 +130,17 @@
   "tap_frame": 30,
   "real": true,
   "rank": -100.8
+ },
+ "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_ball@made|0.51,0.65|1": {
+  "dir": "hand_palm__zzzzz__lightning_ball",
+  "title": "zzzzz · ball lightning in the dark",
+  "plate": "hand_palm.mp4",
+  "voice": "zzzzz-tsst.wav",
+  "effect": "lightning_ball",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -101.0
  }
 }
