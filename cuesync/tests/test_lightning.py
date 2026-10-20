@@ -1,13 +1,15 @@
 """Lightning made from the hand (cuesync.lightning): arcs from a fingertip and a ball over a palm, on small synthetic
 plates, tracks and mattes."""
 
+import colorsys
+
 import cv2
 import numpy as np
 import pytest
 
 from cuesync import lightning as L
 from cuesync.elements import Timeline
-from cuesync.transfer import lin
+from cuesync.transfer import gam, lin
 
 LUMA = np.array([0.2126, 0.7152, 0.0722], np.float32)
 W, H = 270, 480  # a quarter of a phone's 1080x1920
@@ -75,9 +77,11 @@ def landmarks(cx: float, cy: float, s: float, middle_out: bool = False) -> np.nd
 
 
 def take(n: int, at, s: float = 60.0, emitter: str = "index", middle_out: bool = False, palm=(225, 150, 130),
-         wall=(150, 142, 128), texture: float = 18.0):
+         wall=(150, 142, 128), texture: float = 18.0, size: tuple[int, int] = (W, H)):
     """(plate uint8 [n, H, W, 3], track dict, matte uint8 [n, H, W]): a wall and a hand held up, both with ``texture``
-    (code values), whose middle knuckle is at ``at(t)``, the emitter on its index fingertip or on its palm."""
+    (code values), whose middle knuckle is at ``at(t)``, the emitter on its index fingertip or on its palm; the picture
+    ``size`` (w, h) px."""
+    W, H = size
     rng = np.random.default_rng(5)
     tex = cv2.GaussianBlur(rng.normal(0, 1, (H, W)).astype(np.float32), (0, 0), 1.5) * texture
     plate = np.zeros((n, H, W, 3), np.uint8)
@@ -262,6 +266,53 @@ def test_no_fork_or_streamer_crosses_or_rejoins_another_channel():
                 assert crossings(chans, free) == 0, (middle_out, speed, seed, t)
 
 
+def test_no_fork_or_streamer_runs_alongside_another_channel_and_streamers_are_short():
+    """A fork or a streamer lies within ALONG's distance of another channel for at most ALONG's share of its length
+    past where it leaves (a fork ran 30 px beside its channel for 150 px: two wires side by side), and a streamer
+    reaches at most SIDE_REACH's half of its main channel's reach (at 60-70 % they read as wires)."""
+    n, s = 24, 60.0
+    plate, track, _ = take(n, lambda t: (135, 330), s)
+    hand = L._hand(plate, track)
+    tip = np.asarray(track["landmarks"][0][8][:2])
+    near = 0.8 * L.ALONG[0] * s  # (a little inside the rule's own distance: it is drawn on whole pixels)
+    for seed in range(3):
+        bolts, _ = L.arc_frames(hand, voice(np.full(n, 1.0), hits=[0]), seed=seed)
+        for frame in bolts:
+            streams = [p for p, _, _ in frame if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s]
+            reach = sorted(np.linalg.norm(p[-1] - tip) for p in streams)
+            assert len(reach) < 2 or reach[-2] <= L.SIDE_REACH[1] * reach[-1] + 1e-6  # (the main channel the longest)
+            chans = [p for p, _, _ in frame  # (the crackle: short arcs out of and up to the tip)
+                     if not (np.allclose(p[0], tip) and np.linalg.norm(p - p[0], axis=1).max() < 0.35 * s
+                             or np.allclose(p[-1], tip))]
+            for i, c in enumerate(chans[1:], 1):
+                seg = np.linalg.norm(np.diff(c, axis=0), axis=1)
+                cum = np.concatenate([[0.0], np.cumsum(seg)])
+                past = (cum > 0.2 * cum[-1]) & (np.linalg.norm(c - c[0], axis=1) > 0.2 * s)
+                seen = (c[:, 0] >= 0) & (c[:, 0] < W) & (c[:, 1] >= 0) & (c[:, 1] < H)
+                others = [o for j, o in enumerate(chans)  # (not its own forks, which leave from it)
+                          if j != i and np.linalg.norm(c[1:] - o[0], axis=1).min() > 1e-6]
+                if not others:
+                    continue
+                gap = np.min(np.linalg.norm(c[:, None] - np.concatenate(others)[None], axis=-1), axis=1)
+                by = past & seen & (gap < near)
+                assert seg[by[1:] & by[:-1]].sum() <= (L.ALONG[2] + 0.05) * cum[-1]
+
+
+def test_a_branch_fades_along_its_length_and_a_main_channel_does_not():
+    """Drawn with a brighter channel, a dim one (a streamer or a fork) fades towards its end as TAPER says, to about a
+    third of itself; the brightest drawn keeps its brightness end to end."""
+    line = np.stack([np.full(80, 30.0), np.linspace(10, 150, 80)], 1)
+    other = line + (60.0, 0.0)
+    box = (0, 160, 0, 120)
+    main = L.draw([(line, 2.0, 1.0)], box)[..., 0]
+    branch = L.draw([(line, 2.0, 0.3), (other, 2.0, 1.0)], box)[..., 0]  # (the same stretches as the main: drawn first)
+    start, end = slice(12, 25), slice(135, 148)  # (the first and last tenth of it)
+    ratio = (branch[end, 26:35].max(1) / main[end, 26:35].max(1)).mean() / \
+        (branch[start, 26:35].max(1) / main[start, 26:35].max(1)).mean()
+    assert ratio < 0.5
+    assert main[end, 26:35].max() > 0.5 * main[start, 26:35].max()
+
+
 def test_a_long_finger_keeps_its_own_way_and_a_short_one_points_into_the_scene():
     """A finger pointing away from the camera but long and clear in the picture keeps its direction there (bent
     towards the picture's middle by its vanishing point, the arcs left a finger pointing up and left straight up); one
@@ -394,6 +445,65 @@ def test_two_fingers_at_the_voices_peak_strike_a_channel_each_not_a_thicket():
         assert flashes(out, plate) < 2.0
 
 
+def struck(frame: list, tip: np.ndarray, s: float) -> bool:
+    """Whether a main channel leaves ``tip`` on this frame, struck or re-struck (not left dark): the widest stream from
+    it, at least a quiet main channel's width, and bright."""
+    streams = [(wd, it) for p, wd, it in frame if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s]
+    widest = max(streams, default=(0.0, 0.0))
+    return widest[0] >= 0.99 * L._width_k(s) * L.ARC_WIDTH[0] and widest[1] > 0.3
+
+
+def test_two_fingers_one_behind_the_other_along_the_aim_both_strike_at_the_peak():
+    """Fingertips lined up along the aim (the second behind the first): over the voice's peak both strike a main
+    channel on at least 70 % of frames, the second's leaving past the first's tip (dropped on its first failure to
+    keep clear, it struck on few frames and its tip fed only a jumper into the first's), and the room flashes less than
+    twice a second."""
+    n, s = 36, 60.0
+    plate, track, mask = take(n, lambda t: (135, 330), s, middle_out=True, wall=(142, 122, 139), palm=(200, 140, 125))
+    e = np.clip(0.93 + 0.07 * np.sin(np.arange(n) / 3.0), 0, 1)
+    tl = voice(e, hits=[0, 20], aim=270.0)  # (pointing left: the index's tip in front of the middle finger's)
+    hand = L._hand(plate, track)
+    tips = [np.asarray(track["landmarks"][0][f][:2]) for f in (8, 12)]
+    assert abs(tips[1][1] - tips[0][1]) < 0.1 * s and tips[1][0] - tips[0][0] > 0.2 * s  # (lined up, the middle behind)
+    for seed in range(3):
+        bolts, _ = L.arc_frames(hand, tl, seed=seed)
+        assert np.mean([struck(b, tips[0], s) and struck(b, tips[1], s) for b in bolts]) >= 0.7
+        assert flashes(L.render(plate, track, mask, tl, "arc", seed=seed), plate) < 2.0
+
+
+def test_two_fingers_at_the_peak_at_full_size_are_not_a_blaze_of_white():
+    """Two fingers at the voice's peak at a phone's 1080x1920: the white-hot core (luminance over 0.85, 0.3 over the
+    plate) covers at most 1.5 % of the frame on any frame (the test's quarter-size picture draws the channels thicker
+    against it)."""
+    n, s, k = 12, 240.0, 4
+    plate, track, mask = take(n, lambda t: (135 * k, 330 * k), s, middle_out=True, wall=(142, 122, 139),
+                             palm=(200, 140, 125), size=(W * k, H * k))
+    e = np.clip(0.93 + 0.07 * np.sin(np.arange(n) / 3.0), 0, 1)
+    out = L.render(plate, track, mask, voice(e, hits=[0]), "arc", seed=0)
+    Y, P = lin(out) @ LUMA, lin(plate) @ LUMA
+    assert ((Y > 0.85) & (Y - P > 0.3)).mean((1, 2)).max() < 0.015
+
+
+def test_the_room_is_never_darker_than_the_plate_while_bolts_strike():
+    """Over a dark, a mid and a light lavender wall, with the camera exposing down for the arcs, the room away from them
+    nets no darker than the plate on any frame they strike at the voice's peak, with one finger or two (the exposure's
+    0.3 stops outweighed the capped room light: at the loudest, two fingers over a mid wall dimmed the room they lit
+    by 0.12 stops)."""
+    n, s = 16, 60.0
+    far = np.zeros((H, W), bool)
+    far[400:, 210:] = True  # (the wall below and right of the hand, away from the channels' own glow)
+    e = np.clip(0.93 + 0.07 * np.sin(np.arange(n) / 3.0), 0, 1)
+    for wall, palm in (((40, 34, 40), (70, 50, 45)), ((142, 122, 139), (200, 140, 125)), ((200, 190, 200), (220, 160,
+                                                                                                          140))):
+        for middle_out in (False, True):
+            plate, track, mask = take(n, lambda t: (135, 330), s, middle_out=middle_out, wall=wall, palm=palm,
+                                      texture=0.0)
+            out = L.render(plate, track, mask, voice(e, hits=[0]), "arc", seed=2)
+            here = far & (mask[0] == 0)
+            stops = np.log2((lin(out) @ LUMA)[:, here].mean(1) / (lin(plate) @ LUMA)[:, here].mean(1))
+            assert stops.min() > 0.0, (wall, middle_out)
+
+
 def up_of(ends: np.ndarray, tip: np.ndarray) -> np.ndarray:
     """Degrees clockwise from straight up, from ``tip`` to each of ``ends``."""
     return np.degrees(np.arctan2(ends[:, 0] - tip[0], tip[1] - ends[:, 1]))
@@ -523,9 +633,10 @@ def test_the_ball_shows_from_a_soft_start_without_sputtering_and_hovers_off_the_
 
 
 def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
-    """It grows from a point while the voice holds, at most half its size on its first frame, and shrinks when the
-    voice stops, its body as dense as ever while it is a ball at all (it shrinks rather than fading out); a ball
-    barely charged has no body, only its filaments' crackle, reaching past where its skin will be."""
+    """It grows from a point while the voice holds, over about 5 frames rather than popping into being (its body on
+    its first frame at most 0.35 of its size 6 frames on: sized from its charge, it was 60-65 % of its full size), and
+    shrinks when the voice stops, its body as dense as ever while it is a ball at all (it shrinks rather than fading
+    out); a ball barely charged has no body, only its filaments' crackle, reaching past where its skin will be."""
     n, s = 40, 80.0
     plate, track, _ = take(n, lambda t: (135, 300), s, emitter="palm")
     e = np.r_[np.zeros(4), np.full(24, 0.9), np.zeros(12)]
@@ -533,7 +644,9 @@ def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
     assert all(b is None for b in balls[:4])
     r = [b[2] / s for b in balls[4:28]]
     lo, hi = L.BALL_R
-    assert r[0] < 0.55 * r[-1] and r[-1] > lo + 0.6 * (hi - lo) and np.all(np.diff(r) > 0)
+    assert r[-1] > lo + 0.6 * (hi - lo) and np.all(np.diff(r) > 0)
+    first = next(t for t in range(4, n) if L._dense(balls[t][3], balls[t][4]) > 0)
+    assert balls[first][2] <= 0.35 * balls[first + 6][2]
     assert balls[31] is None or balls[31][2] < 0.7 * balls[27][2]
     assert L._dense(balls[30][3], balls[30][4]) == 1.0  # (shrinking, still dense)
     assert L._dense(0.05, 0.01) == 0.0
@@ -586,6 +699,58 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines():
     assert (near[:, 2] - near[:, 0]).mean() > (far[:, 2] - far[:, 0]).mean() + 4  # ...and it lights the wall blue
 
 
+def hue(rgb) -> float:
+    """Degrees: the hue of a colour as shown (code values)."""
+    r, g, b = (float(v) / 255.0 for v in rgb)
+    return 360.0 * colorsys.rgb_to_hsv(r, g, b)[0]
+
+
+def hue_gap(a: float, b: float) -> float:
+    return abs((a - b + 180.0) % 360.0 - 180.0)
+
+
+def test_the_balls_body_is_white_in_its_middle_then_cyan_then_blue_not_a_clipped_disc():
+    """The body rolls off to white with its hue kept: white-hot in its middle and coloured round that (each channel
+    clipped on its own, it was a flat pale-aqua disc at (205-215, 247-254, 253), its luma flat from its middle to its
+    outline), at 0.2 of its radius at least 1.15 times as bright as at 0.7, its colour the arcs' own blue (within 25
+    degrees of their glow's hue: in a greener blue it read aqua beside them)."""
+    n, s = 24, 80.0
+    tl = voice(np.full(n, 0.95), hits=[0])
+    plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
+    out = L.render(plate, track, mask, tl, "ball", seed=0)
+    t = n - 1
+    x, y, R = L.ball_frames(L._hand(plate, track), tl, 0)[2][t][:3]
+    yy, xx = np.indices((H, W))
+    d = np.hypot(xx - x, yy - y) / R
+    o = out[t].astype(np.float32)
+    lum = lin(out[t]) @ LUMA
+
+    def at(r: float) -> np.ndarray:
+        return np.abs(d - r) < 0.05
+
+    assert lum[at(0.2)].mean() > 1.15 * lum[at(0.7)].mean()
+    body = (d > 0.4) & (d < 0.85)
+
+    def sat(sel: np.ndarray) -> float:
+        return colorsys.rgb_to_hsv(*(o[sel].mean(0) / 255.0))[1]
+
+    assert sat(d < 0.1) < 0.08 and sat(body) > 0.15  # (white in its middle, coloured round it)
+    assert ((o[body, 1] >= 250) & (o[body, 2] >= 250)).mean() < 0.1  # (not two channels clipped: pale aqua)
+    line = np.stack([np.full(60, 50.0), np.linspace(10, 90, 60)], 1)
+    E, _ = L.layer([(line, 4.0, 1.0)], [], None, 60.0, (0, 100, 0, 100), L.GLOW_CAP["arc"], 0.0, np.zeros(2), [])
+    glow = E[30:70, 52:62].reshape(-1, 3).mean(0)  # (the arcs' glow, 2-12 px off a channel)
+    assert hue_gap(hue(o[body].mean(0)), hue(gam(np.ascontiguousarray(glow[None, None] / glow.max()))[0, 0])) < 25.0
+
+
+def test_the_hue_keeping_roll_off_keeps_a_little_over_exposed_blue_blue_and_takes_a_lot_to_white():
+    blue = np.array([0.2, 0.5, 1.0], np.float32)
+    P = np.stack([blue * k for k in (0.6, 1.3, 5.0)])
+    Q = L.hue_shoulder(P)
+    assert np.allclose(Q[0], P[0]) and (Q <= 1.0).all()
+    assert hue_gap(hue(gam(Q[1:2])[0]), hue(gam(blue[None])[0])) < 8.0 and Q[1, 0] / Q[1, 2] < 0.4
+    assert Q[2].min() / Q[2].max() > 0.85  # (white)
+
+
 def test_a_gap_between_the_fingers_does_not_show_through_the_ball():
     """The wall in a gap between two fingers behind the ball's top is scattered in its glowing body: a soft shade at
     most, not a sharp dark window through it (seen sharp, a glass marble)."""
@@ -630,16 +795,31 @@ def test_the_ball_settles_the_exposure_once_for_a_phrase(monkeypatch):
     assert stops[gone - 1] < -0.25 and stops[-1] > -0.03 and np.all(np.diff(stops[gone:]) > -0.005)
 
 
-def test_the_balls_glare_is_the_same_light_over_skin_and_wall():
-    """The glare is screened over the picture as shown: either side of an outline, at the same distance from the
-    ball, it takes the same share of what is left to white, and that share is bluest."""
-    frame = np.zeros((101, 101, 3), np.uint8)
-    frame[:, :50], frame[:, 50:] = (225, 150, 130), (110, 104, 90)  # a palm, an olive wall
+def test_the_camera_holds_through_a_gap_between_phrases_and_comes_back_after_a_long_one():
+    """The render looks ahead: the ball out for longer than it takes the camera to let go, but back within the frames
+    it holds, the exposure holds through the gap (no rise over 0.05 stops: let go, it rose by 0.2 and fell again); out
+    for longer than that, it comes back in between."""
+    bright = np.zeros(150)
+    bright[0:20], bright[44:64], bright[120:140] = 0.9, 0.9, 0.9  # (gaps of 24 and 56 frames)
+    dip = L.exposure_dip(bright, *L.EXPOSURE["ball"])
+    assert np.ptp(dip[16:64]) < 0.05
+    assert dip[110] < dip[64] - 0.2
+
+
+def test_the_balls_glare_is_the_same_cool_white_over_skin_and_wall():
+    """Round the ball's outline its glare is the same cool white over a palm at the top of red and over an olive wall:
+    at 1.05-1.2 of its radius their hues within 20 degrees of each other, blue over green over red (screened alone, it
+    was pink-magenta over skin and cyan over the wall); further out it fades, and the palm's lines come through it."""
+    frame = np.zeros((161, 161, 3), np.uint8)
+    frame[:, :80], frame[:, 80:] = (240, 165, 148), (110, 104, 90)  # a palm, an olive wall
+    frame[::6, :80] -= 12  # (lines on the palm)
     lit = frame.copy()
-    L.glare(lit, (50.0, 50.0, 20.0, 1.0, 1.0, 1.0))
-    share = (lit.astype(float) - frame) / (255.0 - frame)
-    assert np.allclose(share[50, 40], share[50, 60], atol=0.025)  # (code values: a share of 30 is 1/60 a step)
-    assert share[50, 40, 2] > share[50, 40, 1] > share[50, 40, 0] > 0
+    L.glare(lit, (80.0, 80.0, 40.0, 1.0, 1.0, 1.0))
+    for r in (1.05, 1.12, 1.2):
+        skin, wall = lit[80, int(80 - r * 40)], lit[80, int(80 + r * 40)]
+        assert hue_gap(hue(skin), hue(wall)) < 20.0 and skin[2] > skin[1] > skin[0] and wall[2] > wall[1] > wall[0]
+    rows = lit[60:100, 22:28].astype(float).mean((1, 2))  # (1.3-1.45 radii out over the palm)
+    assert np.ptp(rows) > 0.5 * np.ptp(frame[60:100, 22:28].astype(float).mean((1, 2)))
 
 
 def test_the_balls_light_wraps_the_edges_of_the_fingers_facing_it():
