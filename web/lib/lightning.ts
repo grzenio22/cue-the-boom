@@ -1,4 +1,4 @@
-/** Live lightning uses the camera's edges as strike surfaces and the tracked fingertip as its sole emitter.
+/** Live lightning uses the camera's edges as strike surfaces and a tracked fingertip or explicit palm source.
  * Uneven cores, faint branches and surface-shaped contact light keep the discharge attached to the picture.
  * The palm holds a translucent irregular core threaded with short filaments at several depths; tracked fingers
  * hide the rear filaments. Its nearby light follows the palm and the inner faces of the fingers. */
@@ -25,13 +25,14 @@ const ARC_WIDTH = [2.2, 4.8]; // px at 1080 for a hand HAND_PX across: its width
 const HAND_PX = 220, WIDTH_K = [0.6, 1.2]; // (widths scale with the hand, within these: a root of 3-5 px)
 const ARC_LEAD = 0.2; // of its reach: a main channel's first stretch runs along the finger's aim
 const ARC_JITTER = 0.07, ARC_OFF = 0.21; // radians: a new main channel's own turn off its aim, and the most it may be
-const FORK_INTEN = [0.15, 0.35], FORK_WIDTH = 0.45, FORK_TURN = [0.17, 0.6]; // a fork against what it leaves
+const FORK_INTEN = [0.3, 0.5], FORK_WIDTH = 0.38, FORK_TURN = [0.52, 1.05]; // a fork against what it leaves
+const FORK_LENGTH = [40, 125], MAIN_TAPER = [0.22, 0.7]; // px at 1080; main width at its far end and taper exponent
 const REDRAW = 4; // a branch is struck again this many times to keep clear of the others, then dropped
 const LIFE = [1, 2, 3], LIFE_P = [0.25, 0.45, 0.3]; // frames a path is kept, and how often each
 const RESTROKE = [0.45, 0.5]; // a re-stroke flashes with this chance plus this times the level, else it is dark
 export const TAPER = [0.9, 1.2]; // a branch fades along its length to 1 - 0.9 of itself, as the 1.2th power of how far
 // (to a third, a 1 px streamer still read as a hairline to its end)
-export const BRANCH_W = [1.5, 0.35, 0.5]; // and thins from this many times its width to this, never under 0.5 px: a
+export const BRANCH_W = [1, 0.22, 0.4]; // and thins from its width to a fine tail, never under 0.4 px: a
 // wedge, not a wire (cuesync.lightning's BRANCH_W)
 const CHUNKS = 12; // Short overlapping stretches carry the main core's uneven current and the branches' taper.
 
@@ -53,7 +54,7 @@ const EDGE_MIN = 40; // the gradient (Sobel, code values, at that size, softened
 const EDGE_NEAR = 3; // ...and at least this many more edge px round it (in its 5 x 5): a line, not a speck
 export const IMPACT_MIN = 0.15; // a stroke at least this bright strikes with a contact flash: all but one gone dark
 // (only bright ones had one, and a dim re-stroke ended in a hook in the dark)
-const POOL = [150, 0.33, 0.45]; // (px at 1080 along the surface, its width across against that, alpha): its light
+const POOL = [115, 1 / 1.8, 0.35]; // (px at 1080 along the surface, its width across against that, alpha): its light
 // pooled along the surface it strikes (at 110 px and 0.45 it barely lit the floor; at 0.6 two side by side, added,
 // made a white strip)
 export const SPLASH = [3, 6, 30, 80, 0.55, 0.8, 0.45, 2]; // (count, its range; length px at 1080, its range;
@@ -65,7 +66,10 @@ export const BRUSH = [2, 3, 0.06, 0.14, 0.3, 0.5, 0.26, 0.7]; // (count, its ran
 /** A channel: its points, width (px), brightness against its bolt's main channel (1), forks, the parent's point it
  * forks from (``at``), and (a main channel) ``strikes``: which way the surface its far end strikes runs, or none. */
 export interface Channel { pts: P2[]; width: number; inten: number; forks: Channel[]; at: number; strikes?: P2; diffuse?: boolean;
-  rootSoft?: number }
+  rootSoft?: number; softness?: number; source?: PalmSource }
+
+/** An observed open palm's compact source and the fingers that may pass in front of it. */
+export interface PalmSource { at: P2; radius: number; scale: number; landmarks: P2[]; aim: number; level?: number }
 
 /** Midpoint displacement from ``a`` to ``b``: each midpoint pushed across its segment by up to ``rough`` of its length
  * (gently at the coarse levels so it runs on, sharply at the fine ones so it kinks), ``depth`` levels. */
@@ -141,31 +145,38 @@ function course(pts: P2[], n: number): P2[] {
 /** How a channel is struck beyond its course: ``at``, the parent's point it forks from; ``inten``, its brightness
  * against the bolt's main channel; ``lead``, a point its first stretch runs to before it turns to its end;
  * ``keepOff``, channels its forks keep clear of; ``clear``, how far (in its own units; its width by default). */
-export interface Strike { at?: number; inten?: number; lead?: P2; keepOff?: P2[][]; clear?: number }
+export interface Strike { at?: number; inten?: number; lead?: P2; keepOff?: P2[][]; clear?: number; px?: number }
 
-/** A channel from ``a`` to ``b``: jagged (six levels of midpoints by default), with dim, thin forks now and then,
- * more towards its far end, each kept off the channel, its other forks and the ``keepOff`` channels (struck again
- * REDRAW times, then dropped). */
+/** A channel from ``a`` to ``b``: jagged (six levels of midpoints by default), with two or three short weaker forks
+ * when there is room. Each stays off its parent, siblings and ``keepOff`` channels, retried REDRAW times then dropped. */
 export function channel(a: P2, b: P2, rand: () => number, width = 2, rough = 0.28, depth = 6, forkRate = 0.12,
   strike: Strike = {}): Channel {
-  const { at = 0, inten = 1, lead, keepOff = [], clear = width } = strike;
+  const { at = 0, inten = 1, lead, keepOff = [], clear = width, px = 1 } = strike;
   const pts = lead
     ? [...displace(a, lead, rand, rough, depth - 2).slice(0, -1), ...displace(lead, b, rand, rough, depth)]
     : displace(a, b, rand, rough, depth);
   const forks: Channel[] = [];
-  if (width > 0.8 && depth > 3) {
+  if (width > 0.8 && depth > 3 && forkRate > 0) {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    for (let i = Math.floor(pts.length * 0.15); i < pts.length - 2; i += 2) {
+    const candidates = Array.from({ length: Math.max(0, Math.floor(pts.length * 0.35)) }, (_, i) =>
+      Math.floor(pts.length * 0.15) + 2 * i).filter((i) => i < pts.length - 2);
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    const wanted = forkRate > 0 && inten >= 0.85 ? 2 + Number(rand() < 0.25) : 0;
+    for (const i of candidates) {
+      if (forks.length >= (wanted || 2)) break;
       const along = i / pts.length;
-      if (rand() >= forkRate * (0.3 + 1.4 * along) * 0.25) continue;
-      const [px, py] = pts[i], [qx, qy] = pts[Math.min(i + 3, pts.length - 1)];
+      if (!wanted && rand() >= forkRate * (0.3 + 1.4 * along) * 0.25) continue;
+      const [sx, sy] = pts[i], [qx, qy] = pts[Math.min(i + 3, pts.length - 1)];
       const side = rand() < 0.5 ? -1 : 1;
-      const ang = Math.atan2(qy - py, qx - px) + side * (FORK_TURN[0] + (FORK_TURN[1] - FORK_TURN[0]) * rand());
-      const l = len * (1 - along) * (0.25 + 0.4 * rand());
+      const ang = Math.atan2(qy - sy, qx - sx) + side * (FORK_TURN[0] + (FORK_TURN[1] - FORK_TURN[0]) * rand());
+      const l = Math.min(len * (1 - along) * 0.66, (FORK_LENGTH[0] + (FORK_LENGTH[1] - FORK_LENGTH[0]) * rand()) * px);
       for (let tries = 0; tries <= REDRAW; tries++) {
         const dim = FORK_INTEN[0] + (FORK_INTEN[1] - FORK_INTEN[0]) * rand();
-        const f = channel(pts[i], [px + Math.cos(ang) * l, py + Math.sin(ang) * l], rand, width * FORK_WIDTH, rough,
-          depth - 2, forkRate * 0.5, { at: i, inten: inten * dim, clear: clear * FORK_WIDTH });
+        const f = channel(pts[i], [sx + Math.cos(ang) * l, sy + Math.sin(ang) * l], rand, width * FORK_WIDTH, rough,
+          depth - 2, 0, { at: i, inten: inten * dim, clear: clear * FORK_WIDTH });
         if (!crosses(f.pts, pts, clear, 2) && !keepOff.some((o) => crosses(f.pts, o, clear)) &&
           !forks.some((o) => crosses(f.pts, o.pts, clear))) { forks.push(f); break; }
       }
@@ -447,7 +458,7 @@ export function streamStep(s: Stream, root: P2, aim: number, reach: number, widt
   const turn = Math.abs(((Math.atan2(far[1] - root[1], far[0] - root[0]) - aim + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
   const leadShare = hit && !hit.diffuse && turn > Math.PI / 2 ? 0.07 : ARC_LEAD;
   const lead: P2 = [root[0] + Math.cos(aim) * leadShare * span, root[1] + Math.sin(aim) * leadShare * span];
-  const ch = channel(root, far, rand, width, 0.26, 6, 0.1 + 0.1 * level, { lead });
+  const ch = channel(root, far, rand, width, 0.26, 6, 0.1 + 0.1 * level, { lead, px });
   if (hit) { ch.strikes = hit.along; ch.diffuse = hit.diffuse; }
   else ch.forks.push(...brush(ch, rand));
   if (hit?.two) { // (a second prong, from far along it to the second point)
@@ -480,7 +491,7 @@ function inside(p: P2, root: P2, size: P2 | null): P2 {
   return [root[0] + (p[0] - root[0]) * u, root[1] + (p[1] - root[1]) * u];
 }
 
-/** One tracked fingertip's main stream. The side list stays empty until another emitter can be tracked explicitly. */
+/** One tracked source's main stream. The side list stays empty until another emitter can be tracked explicitly. */
 export interface Arcs { main: Stream; sides: Stream[] }
 
 /** No arcs yet: the first frame strikes them. */
@@ -492,20 +503,37 @@ function widthK(scale: number, px: number): number {
   return Math.max(WIDTH_K[0], Math.min(WIDTH_K[1], scale / (HAND_PX * px)));
 }
 
-/** One tracked fingertip's discharge, aimed along its distal joints. A full channel requires a camera surface
- * to strike; no extra root can be inferred from voice level. The first camera frame waits for the picture reading. */
+/** Explicitly recognizes a palm cue: four extended fingers and a cue well away from every fingertip. The source
+ * remains centered over the palm, lifted towards the camera; a 2D track uses the upward projected lift. This is
+ * opt-in support: the current Live caller still selects fingertip arcs or an open-palm ball. */
+export function palmSource(landmarks: P2[], emitter: P2, scale: number, px: number, lift: P2 = [0, -140 * px]): PalmSource | null {
+  if (landmarks.length !== 21 || scale <= 0 || !landmarks.every((p) => p.every(Number.isFinite))) return null;
+  const indices = [0, 5, 9, 13, 17];
+  const palm: P2 = [0, 1].map((axis) => indices.reduce((sum, i) => sum + landmarks[i][axis], 0) / 5) as P2;
+  const distance = (a: P2, b: P2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  if ([8, 12, 16, 20].some((tip) => distance(landmarks[tip], palm) < 1.4 * distance(landmarks[tip - 2], palm)) ||
+    [4, 8, 12, 16, 20].some((tip) => distance(emitter, landmarks[tip]) <= 0.6 * scale)) return null;
+  return { at: [palm[0] + 1.6 * lift[0], palm[1] + 1.6 * lift[1]], radius: 0.035 * scale,
+    scale, landmarks, aim: -Math.PI / 2 };
+}
+
+/** One tracked source's discharge, normally a fingertip aimed along its distal joints. An explicit palm source
+ * supplies its own center and upward aim. A full channel requires a camera surface; voice level invents no roots. */
 export function arcStep(arcs: Arcs, tip: P2, aim: number, scale: number, level: number, strike: boolean,
-  frame: number, px = 1, plate: Plate | null = seen): Arcs {
+  frame: number, px = 1, plate: Plate | null = seen, source: PalmSource | null = null): Arcs {
+  tip = source?.at ?? tip;
+  aim = source?.aim ?? aim;
   const kw = widthK(scale, px) * px;
   const width = kw * (ARC_WIDTH[0] + (ARC_WIDTH[1] - ARC_WIDTH[0]) * level);
   const diag = plate ? Math.hypot(plate.w * plate.k, plate.h * plate.k) : 1.6 * 1080 * px;
   const reach = diag * (ARC_REACH[0] + (ARC_REACH[1] - ARC_REACH[0]) * level);
-  const want = diag * (TARGET_AT[0] + (TARGET_AT[1] - TARGET_AT[0]) * level);
+  const want = diag * (TARGET_AT[0] + (TARGET_AT[1] - TARGET_AT[0]) * level) * (source ? 0.65 : 1);
   const main = streamStep(arcs.main, tip, aim, reach, width, strike, frame, level, plate, px, want, true);
   if (main.ch) {
     const old = arcs.main.ch?.pts[0] ?? tip;
     const move = Math.hypot(tip[0] - old[0], tip[1] - old[1]);
     main.ch.rootSoft = (0.7 + Math.min(2.5, 0.12 * move / Math.max(px, 1e-6))) * px;
+    main.ch.source = source ? { ...source, level } : undefined;
   }
   return { main, sides: [] };
 }
@@ -517,6 +545,14 @@ export function arcChannels(arcs: Arcs, level: number): [Channel, number][] {
   const out: [Channel, number][] = [];
   const m = arcs.main;
   if (m.ch && m.ch.inten > 0 && (m.flash ?? 1) > 0.02) out.push([m.ch, (m.flash ?? 1) * g]);
+  if (m.ch?.source && m.ch.inten > 0) {
+    const source = m.ch.source, rand = rng(m.seed + (m.age ?? 0) * 104729);
+    for (let i = 0; i < 2; i++) {
+      const angle = -Math.PI * (0.15 + 0.7 * rand()), reach = source.scale * (0.04 + 0.08 * rand());
+      out.push([channel(source.at, [source.at[0] + reach * Math.cos(angle), source.at[1] + reach * Math.sin(angle)],
+        rand, 0.3 * m.ch.width, 0.2, 4, 0, { inten: 0.35 }), (m.flash ?? 1) * g]);
+    }
+  }
   if (m.ch && (m.age ?? 0) < SPLASH[7]) for (const s of m.splash ?? []) out.push([s, (m.flash ?? 1) * g]);
   for (const s of arcs.sides) if (s.ch && (s.flash ?? 1) > 0.02) out.push([s.ch, (s.flash ?? 1) * g]);
   return out;
@@ -534,11 +570,13 @@ export function stretches(c: Channel, gain: number): [P2[], number, number][] {
     const a = Math.floor((k * n) / CHUNKS), b = Math.floor(((k + 1) * n) / CHUNKS);
     if (b <= a) continue;
     const u = (k + 0.5) / CHUNKS;
-    const current = 0.5 + 0.5 * Math.sin(phase + 2.35 * k + 0.5 * Math.sin(1.4 * k));
-    const thin = (0.54 + 0.72 * current) * (1 - 0.3 * u) * (1 - branch) +
+    let current = 0.5 + 0.5 * Math.sin(phase + 2.35 * k + 0.5 * Math.sin(1.4 * k));
+    if (k % 2) current *= 0.16; // Quiet necks remain distinct after the camera compresses the hottest stretches.
+    const taper = 1 - (1 - MAIN_TAPER[0]) * u ** MAIN_TAPER[1];
+    const thin = (0.2 + 1.35 * current ** 0.7) * taper * (1 - branch) +
       (BRANCH_W[0] + (BRANCH_W[1] - BRANCH_W[0]) * u) * branch;
     out.push([c.pts.slice(a, b + 1), Math.max(branch ? BRANCH_W[2] : 0, c.width * thin),
-      c.inten * gain * (1 - TAPER[0] * branch * u ** TAPER[1]) * (branch + (1 - branch) * (0.52 + 0.48 * current))]);
+      c.inten * gain * (1 - TAPER[0] * branch * u ** TAPER[1]) * (branch + (1 - branch) * (0.1 + 1.05 * current ** 1.2))]);
   }
   return out;
 }
@@ -599,25 +637,38 @@ function drawImpact(ctx: CanvasRenderingContext2D, at: P2, along: P2, amp: numbe
   ctx.scale(1, across);
   const r = len * px;
   const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-  pool.addColorStop(0, `rgba(170, 195, 255, ${alpha * amp})`);
-  pool.addColorStop(0.15, `rgba(120, 160, 255, ${0.45 * alpha * amp})`);
-  pool.addColorStop(0.45, `rgba(90, 130, 255, ${0.15 * alpha * amp})`);
-  pool.addColorStop(1, "rgba(80, 120, 255, 0)");
+  for (let i = 0; i <= 16; i++) {
+    const u = i / 16, d = u * len, fade = (1 - u * u) ** 2;
+    const response = fade * Math.exp(-0.5 * (d / (0.6 * len)) ** 2) / (1 + (d / 34) ** 2);
+    pool.addColorStop(u, `rgba(100, 170, 255, ${alpha * amp * response})`);
+  }
   ctx.fillStyle = pool;
   ctx.fillRect(-r, -r, 2 * r, 2 * r);
   ctx.restore();
   if (diffuse) return;
   ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.translate(at[0], at[1]);
+  ctx.rotate(Math.atan2(along[1], along[0]));
+  ctx.scale(1, 4 / 16);
+  const spill = ctx.createRadialGradient(0, 0, 0, 0, 0, 48 * px);
+  spill.addColorStop(0, `rgba(95, 175, 255, ${Math.min(1, 0.75 * amp)})`);
+  spill.addColorStop(0.33, `rgba(80, 150, 255, ${0.45 * amp})`);
+  spill.addColorStop(1, "rgba(60, 130, 255, 0)");
+  ctx.fillStyle = spill;
+  ctx.fillRect(-48 * px, -48 * px, 96 * px, 96 * px);
+  ctx.restore();
+  ctx.save();
   ctx.globalCompositeOperation = "screen";
   ctx.translate(at[0], at[1]);
   ctx.rotate(Math.atan2(along[1], along[0]));
-  ctx.scale(1, 0.18);
-  const hot = ctx.createRadialGradient(0, 0, 0, 0, 0, 13 * px);
-  hot.addColorStop(0, `rgba(210, 232, 255, ${0.65 * amp})`);
-  hot.addColorStop(0.32, `rgba(135, 190, 255, ${0.35 * amp})`);
+  ctx.scale(1, 1.4 / 6);
+  const hot = ctx.createRadialGradient(0, 0, 0, 0, 0, 18 * px);
+  hot.addColorStop(0, `rgba(225, 243, 255, ${Math.min(1, 1.8 * amp)})`);
+  hot.addColorStop(0.33, `rgba(160, 210, 255, ${0.9 * amp})`);
   hot.addColorStop(1, "rgba(100, 160, 255, 0)");
   ctx.fillStyle = hot;
-  ctx.fillRect(-13 * px, -13 * px, 26 * px, 26 * px);
+  ctx.fillRect(-18 * px, -18 * px, 36 * px, 36 * px);
   ctx.restore();
 }
 
@@ -639,13 +690,16 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
     const parts = stretches(c, g);
     for (let i = 0; i < parts.length; i++) {
       const [pts, w, a] = parts[i];
-      flat.push([pts, w, a, branch, i < 2 ? c.rootSoft ?? 0.6 * px : 0.25 * px]);
+      flat.push([pts, w, a, branch, c.softness ?? (i < 2 ? c.rootSoft ?? 0.6 * px : 0.25 * px)]);
     }
     c.forks.forEach((f) => walk(f, g));
   };
   list.forEach(([c, g]) => walk(c, g));
   const lit = flat.filter(([pts, , a]) => pts.length > 1 && a > 0.01);
   ctx.save();
+  const source = list.find(([c]) => c.source)?.[0].source;
+  if (source) drawSourceReflection(ctx, source);
+  if (source) clipFingers(ctx, source.landmarks, source.scale);
   ctx.globalCompositeOperation = "lighter";
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -677,7 +731,8 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
       stroke(ctx, pts);
     }
   }
-  for (const [pts, w, a] of lit) { // the rim
+  for (const [pts, w, a, , softness] of lit) { // the rim shares the filament's focus, including its far stretches
+    ctx.filter = `blur(${softness}px)`;
     ctx.strokeStyle = `rgba(${look_.rim}, ${Math.min(1, 0.3 * a)})`;
     ctx.lineWidth = Math.max(2.5 * px, 2.5 * w);
     stroke(ctx, pts);
@@ -690,6 +745,7 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
     stroke(ctx, pts);
   }
   ctx.filter = "none";
+  if (source) drawSpark(ctx, source.at, source.radius, 0.65 * Math.max(0, ...list.map(([, gain]) => gain)));
   ctx.restore();
   const impacts = (c: Channel, g: number) => { // (a channel's, and a prong's of it)
     if (c.strikes && c.inten * g >= IMPACT_MIN) drawImpact(ctx, c.pts[c.pts.length - 1], c.strikes, c.inten * g, px, c.diffuse);
@@ -809,6 +865,27 @@ function handLayer(ctx: CanvasRenderingContext2D, name: string, lm: P2[], scale:
   return mask;
 }
 
+/** The hovering source reflects as one concentrated cool pool on the receiving hand, underneath its channels. */
+function drawSourceReflection(ctx: CanvasRenderingContext2D, source: PalmSource) {
+  const level = Math.max(0, Math.min(1, source.level ?? 1));
+  if (level <= 0) return;
+  const mask = handLayer(ctx, "palm-source-reflection", source.landmarks, source.scale);
+  if (!mask) return;
+  const indices = [0, 5, 9, 13, 17];
+  const palm = [0, 1].map((axis) => indices.reduce((sum, i) => sum + source.landmarks[i][axis], 0) / 5) as P2;
+  const at: P2 = [0.6 * source.at[0] + 0.4 * palm[0], 0.6 * source.at[1] + 0.4 * palm[1]];
+  const sigma = 0.18 * source.scale, radius = 3.5 * sigma;
+  const pool = mask.createRadialGradient(at[0], at[1], 0, at[0], at[1], radius);
+  for (let i = 0; i <= 14; i++) {
+    const u = i / 14, alpha = i === 14 ? 0 : 0.7 * level * Math.exp(-0.5 * (3.5 * u) ** 2);
+    pool.addColorStop(u, `rgba(205, 233, 255, ${alpha})`);
+  }
+  mask.fillStyle = pool;
+  mask.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.globalCompositeOperation = "screen";
+  ctx.drawImage(mask.canvas, 0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
 // ---- the ball over the palm
 const BALL_R = [0.12, 0.5]; // hand sizes: its radius, from a point to one held long and loud
 export const BALL_RISE = 0.2; // its growth (0-1) rises at most this much a frame: from a crackle to full over ~5 frames
@@ -821,9 +898,7 @@ const BALL_TURN = 0.02; // radians a frame: it turns slowly (the shot's 0.05 at 
 const BALL_LIFT = 150; // px at 1080: it hovers this far up the picture off the palm (on it, it was a sticker on skin)
 export const SHELL = [6, 10]; // Sparse short filaments leave dark gaps through the volume instead of outlining a globe.
 const SHELL_OUTLINE = 0.12, SHELL_SPAN = [0.38, 1.08]; // Rare limb tangencies; short open spans cannot close a rim.
-const SHELL_INNER = [0.6, 0.5, 0.85]; // share, radii: of them, this many crawl over a sphere this far in, seen through
-// its body (dimmer, SHELL_INNER_INTEN)
-const SHELL_INNER_INTEN = 0.65, SHELL_BACK = 0.3; // Interior and rear filaments are dimmer than the near-facing ones.
+const SHELL_INNER = 0.65; // Most filaments thread the volume rather than trace nested spheres inside it.
 export const SHELL_SKIN = 0.05; // radii: a shell arc is held this close to its sphere, however jagged (thrown past it,
 // its arcs lay on the palm like glowing veins)
 export const GROUND = [0.1, 0.35, 0.35, 0.2]; // how often a side of it (the thumb's, the little finger's) throws 0, 1,
@@ -916,27 +991,77 @@ export function dense(level: number, charge: number): number {
   return Math.max(0, Math.min(1, (2 * (0.3 * level + 0.7 * charge)) / BALL_FORMED - 1));
 }
 
-/** A short open filament in the volume: independently oriented, often inside it, with a restrained jagged wander. */
+/** Midpoint displacement perpendicular to each segment in 3D, down to a .025-radius segment. */
+function displace3(a: P3, b: P3, rand: () => number): P3[] {
+  const span = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  const levels = Math.max(0, Math.min(10, Math.ceil(Math.log2(Math.max(span / 0.025, 1)))));
+  let pts: P3[] = [a, b];
+  for (let level = 0; level < levels; level++) {
+    const out: P3[] = [pts[0]], rough = 0.28 * (0.45 + 0.55 * Math.min(1, level / 3));
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const p = pts[i], q = pts[i + 1], d: P3 = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+      const length = Math.hypot(...d), direction = unit3(d), noise: P3 = [gauss(rand), gauss(rand), gauss(rand)];
+      const along = noise[0] * direction[0] + noise[1] * direction[1] + noise[2] * direction[2];
+      const middle = [0, 1, 2].map((axis) => (p[axis] + q[axis]) / 2 +
+        (noise[axis] - along * direction[axis]) * rough * length) as P3;
+      out.push(middle, q);
+    }
+    pts = out;
+  }
+  return pts.map((p): P3 => { const k = Math.min(1, 0.98 / (Math.hypot(...p) || 1)); return [p[0] * k, p[1] * k, p[2] * k]; });
+}
+
+/** Reject projected loops and tight knots by measuring their course at thirteen equal distances. */
+function shellKnotted(pts: P3[]): boolean {
+  const cumulative = [0];
+  for (let i = 1; i < pts.length; i++) cumulative.push(cumulative[i - 1] +
+    Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = cumulative[cumulative.length - 1];
+  if (total < 1e-9) return true;
+  const sampled: P2[] = [];
+  for (let i = 0, segment = 0; i <= 12; i++) {
+    const at = total * i / 12;
+    while (segment < pts.length - 2 && cumulative[segment + 1] < at) segment++;
+    const length = cumulative[segment + 1] - cumulative[segment], u = length ? (at - cumulative[segment]) / length : 0;
+    sampled.push([pts[segment][0] + u * (pts[segment + 1][0] - pts[segment][0]),
+      pts[segment][1] + u * (pts[segment + 1][1] - pts[segment][1])]);
+  }
+  const vectors = sampled.slice(1).map((p, i): P2 => [p[0] - sampled[i][0], p[1] - sampled[i][1]]);
+  const courseLength = vectors.reduce((sum, p) => sum + Math.hypot(...p), 0);
+  if (Math.hypot(sampled[12][0] - sampled[0][0], sampled[12][1] - sampled[0][1]) < 0.45 * courseLength) return true;
+  const angles = vectors.map(([x, y]) => Math.atan2(y, x));
+  const turns = angles.slice(1).map((angle, i) => ((angle - angles[i] + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+  return turns.some((_, i) => i + 5 <= turns.length &&
+    Math.abs(turns.slice(i, i + 5).reduce((sum, turn) => sum + turn, 0)) > 200 * Math.PI / 180);
+}
+
+/** Most filaments cross the charge at changing radii; the rest remain short open paths near its skin. */
 function shellArc(rand: () => number): P3[] {
-  const outline = rand() < SHELL_OUTLINE;
-  const inner = rand() < SHELL_INNER[0];
-  const r = inner ? SHELL_INNER[1] + (SHELL_INNER[2] - SHELL_INNER[1]) * rand() : 1;
-  const nrm = outline ? unit3([0.25 * gauss(rand), 0.25 * gauss(rand), 1])
-    : unit3([gauss(rand), gauss(rand), gauss(rand)]);
-  const e1 = unit3(cross3(nrm, [gauss(rand), gauss(rand), gauss(rand)]));
-  const e2 = cross3(nrm, e1);
-  const start = 2 * Math.PI * rand(), span = SHELL_SPAN[0] + (SHELL_SPAN[1] - SHELL_SPAN[0]) * rand();
-  const n = 33;
-  const pts: P3[] = [];
-  let wob = 0, vel = 0;
-  for (let i = 0; i < n; i++) {
-    const phi = start + (span * i) / (n - 1);
-    vel = 0.6 * vel + 0.07 * gauss(rand); // (a jagged wander off the circle, across it: at 0.09 and 0.35, drawn
-    wob = Math.max(-0.28, Math.min(0.28, wob + vel)); // over its face, crumpled foil)
-    const p: P3 = [0, 1, 2].map((k) => (Math.cos(phi) * e1[k] + Math.sin(phi) * e2[k]) * r + wob * nrm[k] * r) as P3;
-    const l = Math.hypot(...p) || 1;
-    const held = Math.max(r - SHELL_SKIN, Math.min(r + SHELL_SKIN, l)) / l;
-    pts.push([p[0] * held, p[1] * held, p[2] * held]);
+  const inner = rand() < SHELL_INNER, outline = !inner && rand() < SHELL_OUTLINE;
+  let pts: P3[] = [];
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (inner) {
+      const startDirection = unit3([gauss(rand), gauss(rand), gauss(rand)]), radius = 0.65 + 0.3 * rand();
+      const a = startDirection.map((v) => v * radius) as P3;
+      const direction = unit3([gauss(rand), gauss(rand), gauss(rand)]), reach = 0.25 + 0.3 * rand();
+      const b = direction.map((v, axis) => -0.45 * a[axis] + v * reach) as P3;
+      pts = displace3(a, b, rand);
+    } else {
+      const nrm = outline ? unit3([0.25 * gauss(rand), 0.25 * gauss(rand), 1]) : unit3([gauss(rand), gauss(rand), gauss(rand)]);
+      const e1 = unit3(cross3(nrm, [gauss(rand), gauss(rand), gauss(rand)])), e2 = cross3(nrm, e1);
+      const start = 2 * Math.PI * rand(), span = SHELL_SPAN[0] + (SHELL_SPAN[1] - SHELL_SPAN[0]) * rand();
+      pts = [];
+      let wobble = 0, velocity = 0;
+      for (let i = 0; i < 33; i++) {
+        const phi = start + span * i / 32;
+        velocity = 0.6 * velocity + 0.07 * gauss(rand);
+        wobble = Math.max(-0.28, Math.min(0.28, wobble + velocity));
+        const p = [0, 1, 2].map((axis) => Math.cos(phi) * e1[axis] + Math.sin(phi) * e2[axis] + wobble * nrm[axis]) as P3;
+        const length = Math.hypot(...p) || 1, held = Math.max(1 - SHELL_SKIN, Math.min(1 + SHELL_SKIN, length)) / length;
+        pts.push([p[0] * held, p[1] * held, p[2] * held]);
+      }
+    }
+    if (!shellKnotted(pts)) break;
   }
   return pts;
 }
@@ -967,7 +1092,7 @@ export function ballStep(b: Ball | null, level: number, hit: boolean, frame: num
     const old = b?.shell[i], rand = rng((i + 1) * 104729 + frame);
     if (old && old.left > 0 && !hit) { shell.push({ ...old, left: old.left - 1, flash: restroke(rand) }); continue; }
     const pts = shellArc(rand);
-    shell.push({ pts, inten: Math.hypot(...pts[16]) < 0.9 ? SHELL_INNER_INTEN : 1, left: life(rand) - 1, flash: 1 });
+    shell.push({ pts, inten: 1, left: life(rand) - 1, flash: 1 });
   }
   const rand = rng(frame * 15485863 + 7);
   const share = body > 0 && size >= GROUND_GONE * top ? Math.min(1, size / BALL_R[1]) : 0;
@@ -1026,9 +1151,9 @@ export function ballAt(palm: P2, px: number): P2 {
 /** Translucent material from the irregular core outwards, [radii, r, g, b, alpha]. The edge fades without a bright
  * rim and the camera remains visible through its middle; filaments carry the hottest light. */
 export const BODY_STOPS: [number, number, number, number, number][] = [
-  [0, 190, 224, 255, 0.64], [0.15, 184, 219, 255, 0.62], [0.3, 155, 205, 255, 0.56],
-  [0.45, 122, 184, 255, 0.42], [0.6, 95, 164, 255, 0.26], [0.75, 80, 150, 255, 0.11],
-  [0.9, 70, 137, 255, 0.035], [1.15, 70, 137, 255, 0],
+  [0, 135, 202, 255, 0.185], [0.15, 142, 207, 255, 0.203], [0.3, 125, 195, 255, 0.185],
+  [0.45, 108, 182, 255, 0.157], [0.6, 95, 164, 255, 0.11], [0.75, 80, 150, 255, 0.052],
+  [0.9, 70, 137, 255, 0.0145], [1.15, 70, 137, 255, 0],
 ];
 
 const plasmaCanvas = new WeakMap<object, Ctx2D>();
@@ -1095,7 +1220,8 @@ export function plasmaAt(x: number, y: number, turns: { share: number; k: P3; c:
 
 /** A small translucent volume texture. A slowly changing contour and broad ridges break its shape and density;
  * the inner light has no opaque central point and the edge has no enclosing shell. */
-function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: number): Ctx2D | null {
+function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: number,
+  hand?: { landmarks: P2[]; scale: number; center: P2; radius: number }): Ctx2D | null {
   const main = ctx.canvas as HTMLCanvasElement | undefined;
   if (!main?.width || typeof ctx.drawImage !== "function") return null;
   let t = plasmaCanvas.get(main);
@@ -1106,7 +1232,7 @@ function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: num
     if (!made) return null;
     plasmaCanvas.set(main, (t = made));
   }
-  const n = PLASMA_PX, img = t.createImageData(n, n), turns = plasmaTurns(seconds);
+  const n = PLASMA_PX, img = t.createImageData(n, n), turns = plasmaTurns(seconds), phase = 1.7 * seconds;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const x = ((i + 0.5) / n) * 2 - 1, y = ((j + 0.5) / n) * 2 - 1;
     const phi = Math.atan2(y, x), contour = 0.84 + 0.09 * Math.sin(3 * phi + 0.7 * seconds) +
@@ -1117,10 +1243,13 @@ function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: num
     const a = BODY_STOPS[Math.max(0, k - 1)], b = BODY_STOPS[k];
     const u = b[0] > a[0] ? (r - a[0]) / (b[0] - a[0]) : 0;
     const rgb = [1, 2, 3].map((v) => a[v] + (b[v] - a[v]) * u);
-    const s = plasmaAt(x / Math.max(contour, 0.1), y / Math.max(contour, 0.1), turns);
-    const alpha = (a[4] + (b[4] - a[4]) * u) * amount * (0.7 + 0.3 * Math.max(-1, s));
+    const s = plasmaAt(0.78 * x + 0.08 * Math.sin(phase), 0.8 * y + 0.06 * Math.cos(phase), turns);
+    const density = 0.1 + 0.22 * Math.max(0, Math.min(1, (s + 0.5) / 1.5)) ** 0.7;
+    const cover = hand ? fingerCoverage([hand.center[0] + x * hand.radius, hand.center[1] + y * hand.radius],
+      hand.landmarks, hand.scale) : 0;
+    const alpha = (a[4] + (b[4] - a[4]) * u) * amount * density * (1 - 0.8 * cover);
     const o = 4 * (j * n + i);
-    img.data.set([...rgb.map((v) => Math.round(v + (255 - v) * Math.max(0, s) * 0.35)),
+    img.data.set([...rgb.map((v) => Math.round(v + (255 - v) * Math.max(0, s) * 0.06)),
       Math.round(255 * Math.min(1, alpha))], o);
   }
   t.putImageData(img, 0, 0);
@@ -1135,7 +1264,8 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
   const lm = ballHands.get(ctx);
   ctx.save();
   if (body > 0) {
-    const plasma = plasmaLayer(ctx, b.frame / 60, body * (0.9 + 0.1 * b.flare));
+    const plasma = plasmaLayer(ctx, b.frame / 60, body * (0.9 + 0.1 * b.flare),
+      lm ? { landmarks: lm, scale, center: c, radius: R } : undefined);
     ctx.globalCompositeOperation = "screen";
     ctx.filter = `blur(${Math.max(0.55 * px, PLASMA_SOFT * R)}px)`;
     if (plasma) ctx.drawImage(plasma.canvas, c[0] - R, c[1] - R, 2 * R, 2 * R);
@@ -1169,25 +1299,37 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
   for (let k = 0; k < b.shell.length; k++) {
     const s = b.shell[k];
     if (s.flash <= 0.02) continue;
+    const shellGain = s.pts.reduce((sum, p) => sum + Math.hypot(...p), 0) / Math.max(1, s.pts.length) > 0.9 ? 0.55 : 1;
     const seen3 = s.pts.map(([x, y, z]): P3 => {
       const x1 = x * cs + z * sn, z1 = -x * sn + z * cs;
       return [x1, y * ct - z1 * st, y * st + z1 * ct];
     });
-    let run: P2[] = [], depth = 0;
+    let run: P2[] = [], depth = 0, far = false;
     const flush = () => {
       if (run.length > 1) {
         const z = depth / run.length;
-        const gain = (0.42 + 0.58 * Math.max(0, z)) * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade;
-        lines.push([{ pts: run, width: width * (z < 0 ? 0.6 : 1), inten: 0.85, forks: [], at: 0,
-          rootSoft: Math.max(0.45 * px, z < 0 ? 0.018 * R : 0.007 * R) }, gain * (z < 0 ? SHELL_BACK : 1)]);
+        const focusGain = far ? 0.22 : 1 + 0.3 * Math.max(0, z);
+        const gain = focusGain * shellGain * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade * (k < 2 ? 1 : 0.35);
+        lines.push([{ pts: run, width: width * (far ? 0.6 : 1), inten: 0.85, forks: [], at: 0,
+          softness: far ? 2.5 * px : Math.max(0.45 * px, 0.004 * R) }, gain]);
       }
       run = []; depth = 0;
     };
     for (let i = 0; i < seen3.length; i++) {
       const [x, y, z] = seen3[i], p: P2 = [c[0] + R * reach * x, c[1] + R * reach * y];
-      const hidden = z < 0 && lm && fingerCover(p, lm, scale);
-      const gap = (i + 3 * k) % 13 >= 10;
+      const nextFar = z < -0.1;
+      let boundary: P2 | null = null;
+      if (run.length && nextFar !== far) {
+        const [prevX, prevY, prevZ] = seen3[i - 1], u = (-0.1 - prevZ) / (z - prevZ);
+        boundary = [c[0] + R * reach * (prevX + u * (x - prevX)), c[1] + R * reach * (prevY + u * (y - prevY))];
+        if (!far || !lm || !fingerCover(boundary, lm, scale)) { run.push(boundary); depth -= 0.1; }
+        flush();
+      }
+      far = nextFar;
+      const hidden = far && lm && fingerCover(p, lm, scale);
+      const gap = (Math.floor(i * 32 / Math.max(1, seen3.length - 1)) + 3 * k) % 13 >= 10;
       if (hidden || gap) { flush(); continue; }
+      if (boundary && (!far || !lm || !fingerCover(boundary, lm, scale))) { run.push(boundary); depth -= 0.1; }
       run.push(p); depth += z;
     }
     flush();
@@ -1196,14 +1338,47 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
   ctx.restore();
 }
 
-/** Only the distal fingers pass in front of the rear charge. The palm receives its light, so using the palm's
- * broad polygon as foreground would cut opaque bands through a volume that hovers in front of it. */
+/** Foreground finger coverage, with a soft silhouette and gradual MCP-to-PIP fade. The palm remains a receiver;
+ * this wider tapered contour avoids cutting narrow capsule-shaped holes into the faint volume. */
+export function fingerCoverage(p: P2, lm: P2[], scale: number): number {
+  if (lm.length !== 21 || scale <= 0) return 0;
+  const smooth = (v: number) => { const u = Math.max(0, Math.min(1, v)); return u * u * (3 - 2 * u); };
+  let coverage = 0;
+  for (const finger of FINGERS) for (let j = 0; j < finger.length - 1; j++) {
+    const a = lm[finger[j]], b = lm[finger[j + 1]], dx = b[0] - a[0], dy = b[1] - a[1];
+    const pad = 0.11 * scale;
+    if (p[0] < Math.min(a[0], b[0]) - pad || p[0] > Math.max(a[0], b[0]) + pad ||
+      p[1] < Math.min(a[1], b[1]) - pad || p[1] > Math.max(a[1], b[1]) + pad) continue;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+    const radius = scale * (j === finger.length - 2 ? 0.11 - 0.03 * t : 0.11);
+    const distance = Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+    coverage = Math.max(coverage, smooth((radius - distance) / (0.035 * scale)) * (j ? 1 : smooth(t)));
+  }
+  return coverage;
+}
+
 function fingerCover(p: P2, lm: P2[], scale: number): boolean {
-  return FINGERS.some((finger) => finger.slice(1).some((tip, j) => {
-    const a = lm[finger[j]], b = lm[tip];
-    const start: P2 = j ? a : [0.35 * a[0] + 0.65 * b[0], 0.35 * a[1] + 0.65 * b[1]];
-    return toSegment(p, start, b) < 0.075 * scale;
-  }));
+  return fingerCoverage(p, lm, scale) >= 0.35;
+}
+
+/** Clip each tapered finger segment out separately so overlapping fingers keep their union as foreground.
+ * The compact palm source and its channels use this contour; the volume uses soft coverage instead. */
+function clipFingers(ctx: CanvasRenderingContext2D, lm: P2[], scale: number) {
+  for (const finger of FINGERS) for (let j = 0; j < finger.length - 1; j++) {
+    const a = lm[finger[j]], b = lm[finger[j + 1]];
+    const start = a, r0 = j ? 0.11 * scale : 0, r1 = (j === finger.length - 2 ? 0.08 : 0.11) * scale;
+    const angle = Math.atan2(b[1] - start[1], b[0] - start[0]);
+    const nx = -Math.sin(angle), ny = Math.cos(angle);
+    ctx.beginPath();
+    ctx.rect(-100000, -100000, 200000, 200000);
+    ctx.moveTo(start[0] + nx * r0, start[1] + ny * r0);
+    ctx.lineTo(b[0] + nx * r1, b[1] + ny * r1);
+    ctx.arc(b[0], b[1], r1, angle + Math.PI / 2, angle - Math.PI / 2, true);
+    ctx.lineTo(start[0] - nx * r0, start[1] - ny * r0);
+    if (r0) ctx.arc(start[0], start[1], r0, angle - Math.PI / 2, angle + Math.PI / 2, true);
+    ctx.closePath();
+    ctx.clip("evenodd");
+  }
 }
 
 /** Whether a point ``p`` lies on the hand (its 21 landmarks ``lm``, px: the palm and each finger as thick as a finger,
