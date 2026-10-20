@@ -195,6 +195,25 @@ def test_a_sample_made_ahead_of_time_is_answered_at_once_and_shown_in_the_galler
     assert other["cached"] is False  # a different spot is made fresh
 
 
+@pytest.mark.parametrize("again", [None, 0, 1, 2])
+def test_gallery_jobs_preserve_again_from_the_index(tmp_path, again):
+    shot = tmp_path / "pre" / "scene" / "sample"
+    shot.mkdir(parents=True)
+    (shot / "final.mp4").write_bytes(b"finished shot")
+    entry = {"dir": "sample", "title": "Sample", "plate": "sample.mp4", "mode": "scene"}
+    if again is not None:
+        entry["again"] = again
+    (shot.parent / "index.json").write_text(json.dumps({"sample": entry}))
+    client = TestClient(create_app(None, tmp_path / "jobs", precomputed=tmp_path / "pre"))
+
+    gallery = client.get("/api/gallery").json()
+    assert len(gallery) == 1
+    assert gallery[0].get("again") == again
+    if again is not None:
+        assert type(gallery[0]["again"]) is int
+    assert client.get(f"/api/jobs/{gallery[0]['id']}").json().get("again") == again
+
+
 def test_a_finished_shot_is_retimed_through_the_api(instant_client):
     r = instant_client.post("/api/jobs", data={"effect": "fireball", "plate_sample": "mug.mp4", "voice_sample": "pf.wav",
                                                "mode": "instant", "x": "0.5", "y": "0.6"})

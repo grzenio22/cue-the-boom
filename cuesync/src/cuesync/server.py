@@ -52,6 +52,7 @@ class Job:
     mode: str = "render"  # render | scene | instant | compare | retime
     cached: bool = False  # answered from the shots made ahead of time
     title: str = ""
+    again: int | None = None
     retime: dict | None = None  # {"src": Path, "hit_shift": int, "stop": int | None}: re-time a finished shot
     replay: dict | None = None  # {"src": Path | [Path, ...]}: perform finished scene shots again, with no new render
     status: str = "queued"  # queued | running | done | error
@@ -69,7 +70,8 @@ class Job:
         if self.status == "done" and (self.dir / "receipt.json").exists():
             receipt = json.loads((self.dir / "receipt.json").read_text())
         spec_extra = getattr(self.spec, "extra", None) or {}
-        return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "status": self.status,
+        return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "again": self.again,
+                "status": self.status,
                 "effect": getattr(self.spec, "effect", None) or ((receipt or {}).get("effect") or {}).get("id"),
                 "gesture": spec_extra.get("gesture"),
                 "heard": (spec_extra.get("auto") or {}).get("heard"),  # effect "auto": the sound's kind ("whoosh")
@@ -219,7 +221,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             continue
         gid = "g" + hashlib.sha1(key.encode()).hexdigest()[:11]
         job = Job(id=gid, dir=Path(entry["path"]), spec=None, mode=entry["mode"], status="done", stage="done",
-                  progress=1.0, message="Made earlier", cached=True, title=entry["title"])
+                  progress=1.0, message="Made earlier", cached=True, title=entry["title"], again=entry.get("again"))
         jq.jobs[gid] = job
         gallery.append(job)
     ready = {"t": 0.0, "ok": False}

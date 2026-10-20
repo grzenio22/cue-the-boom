@@ -91,6 +91,7 @@ export type CueKind = "voice" | "clip" | "hold";
 
 export interface JobStatus {
   id: string;
+  again?: number | null; // gallery order for performances of the same render
   effect?: string | null; // the effect actually used (the noise may have decided it)
   gesture?: string | null; // how the cue was read: hit, rhythm, sustained, breath, hiss
   heard?: string | null; // effect "auto" on a plate with no map: what the sound is (boom, whoosh, hiss, pop, puff, crackle)
