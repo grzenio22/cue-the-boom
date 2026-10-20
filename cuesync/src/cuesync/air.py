@@ -14,18 +14,24 @@ push covers what is behind it a third at the most, and the shadowgraph moves it 
 
 - ``ball``: a sphere of air standing on the palm, held by the voice, nearer the lens than the palm and so drawn bigger,
   never wider than about one and a half spans of the hand. What carries it is the dust it whirls round in its shell:
-  about a thousand specks, most of them fine, a quarter medium and a few soft flakes, most strung in trains along arcs
-  round one spin axis, each speck at its own pace, so each smears its own length (mostly under 12 px at 1080, a hundred
-  or so longer); the near half's bigger, softer and fainter, the far half's small and sharp and behind the hand's
-  matte; and each train carries a haze of fine dust, a band of fine lines darker than the wall in its hue, densest at
-  the limb, so the swirl reads at phone size as streamers of dust winding round it. Its bend: what is behind it is
-  magnified a little (a weak lens, left off the hand), twisted round its spin axis by lobes that turn with it, and bent
-  6-12 px at 1080 wide by the swirling air inside it (its shell's streaky density, a puff of swirling air through its
-  middle and the streaks it carries, each a filament of denser air), all turning with the spin, gone by a third of a
-  radius past its rim; over the hand only what turns with the spin bends it, so the fingers seen through it ripple a
-  few px about where they are; the same density's shadowgraph ripples over the plate, a broken bright and dark pair
-  runs round its wobbling outline, and its streaks, fragments of arcs no longer than 60 degrees on orbits leaning their
-  own ways, show as a sheen as dark round each as it is light along it. It gathers in from wide as the voice starts,
+  a couple of thousand specks, most of them fine, a third medium and a few soft flakes, more of them towards the
+  shell's outside and strongest on its outer third, where the shell is seen edge on, so its round edge reads at a
+  glance; most strung in trains along arcs round one spin axis, each speck at its own pace, so each smears its own
+  length (mostly under 12 px at 1080, a tenth or so longer); the near half's bigger, softer and fainter, the far
+  half's small and sharp and behind the hand's matte, the near half's moving dust in front of the fingers, laid there
+  as its own colour; and each train carries a haze of fine dust, a band of fine lines lighter and darker than the wall
+  in its hue, line by line, densest at the limb, so the swirl reads at phone size as grey streamers of dust winding
+  round it. Its bend: what is behind it is magnified a little (a weak lens, left off the hand), twisted round its spin
+  axis by lobes that turn with it, and bent 6-12 px at 1080 wide by the swirling air inside it (its shell's streaky
+  density, a puff of swirling air through its middle and the streaks it carries, each a filament of denser air), all
+  turning with the spin, gone by a third of a radius past its rim; past that, the room's air it drags round with it
+  pushes what is seen through it out and in by a few px in lobes turning with it, out to nearly three radii, so a
+  switch plate near it wobbles on every frame; over the hand only what turns with the spin bends it, its mean over the
+  hand taken out, so the fingers seen through it ripple a few px about where they are; the same density's fine
+  shadowgraph ripples over the plate, one faint bright band broken into arcs runs round its wobbling outline, and its
+  streaks, fragments of arcs no longer than 60 degrees on orbits leaning their own ways, show as a sheen as dark round
+  each as it is light along it. As it is born the room's air is drawn into it, a ring converging on it from two radii
+  that kinks what it passes towards the ball; it gathers in from wide as the voice starts,
   grows and spins faster the longer and louder the voice holds (twice as fast for a few frames after each of its hits),
   rides out a breath, pops when the voice comes back after a dip (its streaks widen, its bend flashes and it swells on
   the hit, the whole picture lifting little more than before, throwing a push of air whose dust is there at once and
@@ -37,20 +43,25 @@ push covers what is behind it a third at the most, and the shadowgraph moves it 
   it is bent outward 6-10 px in a band 40-60 px wide at its front, all the way across the room, so a switch plate's
   straight edges kink as it passes; the band is a shadowgraph, with squeezed air darker behind it and thinned air
   lighter behind that; over the hand it bends nothing), a turbulent wake behind it smears what it passes, and after
-  it, at about half its pace: a burst of dust thrown off the palm and the hand's outline, mostly across the picture
-  (towards the lens it grows and goes soft), fine specks, medium ones and a few tumbling flakes, some of it drifting on
-  slowly, and a thin vortex ring of dusty air rolling out of the palm, bending what is seen through it and showing
+  it, at about half its pace: a body of dust thrown off the fingers and the hand's outline in a cone about 40 degrees
+  wide along the push (towards the lens it grows and goes soft; all round for a true push at the lens), fine specks, a
+  third of them medium and a few tumbling flakes, with a haze of finer dust riding with it a dozen grey levels lighter
+  than the wall in its hue, some of it drifting on slowly, and a thin vortex ring of dusty air rolling out of the
+  palm, bending what is seen through it and showing
   only as a faint haze in the colour of what it covers (brighter on its side towards the room's light, less so on the
   other, under a third opaque, far less over the hand; each push's ring a little different) trailing a wake; the
   room's own dust near the push is shoved outward as the front passes it, and what lies on its ledges is kicked up
-  a frame or two after as specks and puffs of dust lit by the room (one pool for the shot, which the next push throws
-  again), and all of it then slows, swirls, drifts down and settles over twenty to thirty frames; what goes behind
+  a frame or two after as specks and puffs of dust lit by the room, in the hue of what they cover, the puffs rising
+  and spreading as they fade within about twelve frames (one pool for the shot, which the next push throws again),
+  and all of it then slows, swirls, drifts down and settles over twenty to thirty frames; what goes behind
   the palm's plane is hidden by the hand, what is in front of it is drawn over the hand, the dust faintly, the ring in
   soft faint puffs near the palm's plane and with its body further in front or when the whole ring crosses the hand.
   A ring swelling past the frame shows only its lumps and body, never a haze over the whole frame. A true push at the
   lens sends a doughnut of dusty air at the lens, starting off the palm with its middle above it so it rings the
   hand, its lower arc in front of the hand, drifting towards the frame's middle and swelling as it comes. Every push
-  sweeps a few motes of dust past the lens, soft discs out of focus that grow as they leave the frame. What was
+  sweeps a few motes of dust past the lens, big soft discs out of focus lit in the room's hue that grow as they leave
+  the frame, one or two within three frames, and a push out of a palm veils the lens for the frame its gust reaches it
+  (the picture a few per cent lighter). What was
   thrown stays in the room: on a handheld shot it moves with the room, not with the screen. Every push knocks the
   phone 10-15 px at 1080 wide, smearing the picture out from the push as it is hit, which swings back past where it
   was and settles as a damped spring; one at the lens also swells and smears the picture outward as the gust reaches
@@ -69,10 +80,10 @@ from . import fx_light as fx
 from .elements import FORMS, Timeline
 from .transfer import gam, lin
 
-_BALL, _BLAST, _ROOM, _GRAIN, _CLOUD, _SWIRL, _LENS, _DUST = 11, 12, 13, 14, 15, 16, 17, 18  # mixed into each
-# seed, so one seed gives each part its own randomness (_SWIRL, _LENS: a push's second and third streams, for its
-# ring's eddies and the dust it sweeps past the lens; _DUST a ball's second, for its dust: what the first stream draws
-# does not hang on them)
+_BALL, _BLAST, _ROOM, _GRAIN, _CLOUD, _SWIRL, _LENS, _DUST, _DRAFT = 11, 12, 13, 14, 15, 16, 17, 18, 19  # mixed
+# into each seed, so one seed gives each part its own randomness (_SWIRL, _LENS: a push's second and third streams, for
+# its ring's eddies and the dust it sweeps past the lens; _DUST, _DRAFT a ball's second and third, for its dust and the
+# air it drags round it: what the first stream draws does not hang on them)
 
 # ---- the hand -------------------------------------------------------------------------------------------------------
 TURN_EDGE = 0.3  # a palm whose normal faces the lens less than this (its z) is close to edge-on: there its side is
@@ -153,13 +164,17 @@ BEND_SLOPE = 0.25  # no bend shifts what is behind it by more than this many px 
 # behind the air wobbles smoothly and never steps (a ball's pulse bent a switch plate's divider by 8-10 px over a few)
 BALL_CA = 0.03  # colour fringe of the bend, none over the hand and just past its edge (0.22 drew red and cyan
 # outlines round the fingers; over the matte, a thin cyan line ran along the thumb)
-BALL_WOB = (0.045, 0.03)  # radii: its outline wobbles this much in three lobes and in five, turning with the spin and
+BALL_WOB = (0.035, 0.02)  # radii: its outline wobbles this much in three lobes and in five, turning with the spin and
 # slowly changing (round to 3.5 % and ringed by a crisp band, it was a crystal ball; at 9 % and 6 % with its rim's
-# bright and dark pair, a lumpy jelly)
-BALL_SHADOW = (0.07, 0.8)  # the shadowgraph: the rim focuses the room's light into a band this much brighter, with
-# a darker band inside it this share as dark: a faint bright and dark pair, broken into arcs (at 0.12 its band drew a
-# hard round outline; at 0.07 alone with the streaks still painted, a grey ring; at 0.05 alone, unseen; at 0.09 as a
-# pair, the most visible thing about the ball at half size)
+# bright and dark pair, a lumpy jelly; at 4.5 % and 3 %, with that pair, 2-3 nested lumpy contours: a water drop)
+BALL_SHADOW = (0.07, 0.6, 0.3)  # the shadowgraph: the rim focuses the room's light into one band this much
+# brighter (about 4 grey levels), shown on this share of the round, where the rim's arc noise is highest, easing in
+# over this much of its spread: arcs turning with the spin (at 0.12 its band drew a hard round outline; at 0.07 alone
+# with the streaks still painted, a grey ring; with a darker band inside it, a bright and dark pair that drew nested
+# contours round the ball: a ripple, a water drop)
+RIPPLE_FINE = 0.12  # radii: the shadowgraph's ripples come from the density's detail finer than this, so the band is
+# the one contour round the ball (its broad build, the shell's limb and the puff's dome, drew a second and a third
+# ring inside it: a water drop)
 BALL_BAND = 0.05  # radii: the band's softness (at 0.035 it was a drawn line)
 MIST_CORE = 0.55  # the shell's density: this share of it through the ball's depth, densest through its middle as a
 # solid ball of air is (all of it densest at the limb, the ball bent as a hollow jar)
@@ -188,6 +203,13 @@ SHEEN = (0.16, 18.0, 6.0)  # the streaks' sheen is a shadowgraph of them, neithe
 STREAK_SKIN = (0.06, 0.3)  # over the hand the streaks are drawn only as broad wisps, at this density at the most, and
 # show this much of themselves, their far half not at all (a fine bright arc across the palm read as a white glare
 # smear on the skin; at 0.25, every streak sat in front of the hand)
+NEAR_LIT = 0.6  # its lint in front of the hand is this much of the way from the wall's colour, lighter, to the
+# room's lit tone: dust catching the light (as the wall's colour alone, over a lit palm it read as grey smears) ...
+NEAR_SKIN = (0.0, 0.8, 3.0, 6.0, 0.5, 0.4)  # ... and the ball's near half is in front of the fingers: over the hand, laid as
+# its own colour (_in_front), its specks show this share of themselves as they barely move, and this share once
+# smeared from the third to the fourth px at 1080 or longer (moving dust, not dirt on the skin), and its haze's lines
+# this share; its grit this share of that (dark dots on the skin read as dirt); the far half's none (its dust cut to a
+# third over the skin and its haze to nothing, the swirl sat behind the fingertips like a decal on the wall)
 HAND_SOFT = 6.0  # px at 1080: the matte is softened this much wherever the ball eases off over the hand (cut at its
 # edge, a fingertip got a jagged bite)
 STREAK_PX = (1.3, 9.0)  # px at 1080: a fine streak's softness, and a broad wisp's, at its head (a wisp under 3 px
@@ -197,9 +219,9 @@ STREAK_TAPER = (0.4, 0.55)  # ... and past this share of its length it is drawn 
 STREAK_STEP = 0.7  # px between the points a streak is drawn from (further apart a soft streak turned to beads)
 STREAK_END = (3.0, 0.3)  # where a streak turns towards the lens it is brighter by its foreshortening (up to the first)
 # to this power
-SHELL_DUST, ROOM_DUST = 1100, 24  # dust whirled round in the ball's shell; and the room's dust drawn in (45 specks
+SHELL_DUST, ROOM_DUST = 2400, 24  # dust whirled round in the ball's shell; and the room's dust drawn in (45 specks
 # inside it, a third of an opacity of 0.35 lit a little, changed the wall by 9-10 grey levels at phone size: the ball
-# nearly vanished) ...
+# nearly vanished; 1100 in its shell read at phone size as a faint whorl) ...
 DUST_MIX = (0.6, 0.34)  # ... this share of it fine specks, this share medium ones, the rest soft flakes (all alike,
 # 4 px across and smeared 25-30 px, every speck was the same hard-ended rod: grass clippings, iron filings, gnats)
 SHELL_R = ((1.2, 2.0), (2.8, 3.8), (5.0, 8.0))  # px at 1080: the core of a fine speck, a medium one and a flake ...
@@ -208,7 +230,12 @@ SHELL_SEEN = ((12.0, 20.0), (30.0, 48.0), (10.0, 15.0))  # ... and how many 8-bi
 SHELL_LEVELS = 48.0  # the most of those (each speck's strength is its share of it)
 SHELL, SHELL_TRAINS = (0.6, 1.0), (30, 0.3, 1.25)  # radii: the shell the dust turns in; most of it strung in this many
 # trains along arcs of it, this share loose, a train up to this many rad long: the swirl reads as streamers of dust
-# winding round it (spread evenly, the specks read as scribbles at phone size)
+# winding round it (spread evenly, the specks read as scribbles at phone size) ...
+SHELL_OUT = 1.5  # ... more of it towards the shell's outside: its depth in the shell is a uniform share to this power
+# (spread evenly through it, the ball had no edge at phone size, a whorl, not a ball)
+LIMB = (0.8, 0.6, 0.25)  # the specks seen past this share of its radius (the second) are up to this much stronger
+# (the first), fully this much further out: on the outer third the shell is seen edge on and its trains pile up, so
+# its medium specks there make 35-50 grey levels and the ball's round edge reads at a glance
 DUST_SPIN = (0.6, 0.3)  # the dust turns this many times as fast as the ball's spin, and up to this much more (each
 # train its own pace) ...
 DUST_SURGE = (0.12, (1.5, 3.0))  # ... each speck surging ahead of its train and falling back by up to this many rad,
@@ -216,10 +243,10 @@ DUST_SURGE = (0.12, (1.5, 3.0))  # ... each speck surging ahead of its train and
 # as one drew a run of identical rods)
 DUST_LOUD = (0.85, 0.15)  # ... and shows this much on a quiet voice, and this much more at its loudest
 DUST_BACK = 0.6  # the far side's dust shows this much (seen through the near side's air), and not through the hand
-DUST_NEAR = (0.45, 2.0, 0.3, 0.25)  # the near half's dust is drawn this much bigger, softened this many px at 1080
+DUST_NEAR = (0.45, 2.0, 0.1, 0.25)  # the near half's dust is drawn this much bigger, softened this many px at 1080
 # (nearer the lens than the hand the lens is focused on) and this much fainter; the far half's this much smaller and
 # sharp: the swirl has depth
-LONG = (15.0, 120, 0.6)  # px at 1080 and specks: no more than this many of the ball's specks are smeared longer than
+LONG = (15.0, 0.11, 0.6)  # px at 1080 and shares: no more than this share of the ball's specks are smeared longer than
 # this at once, the rest shortened to between this share of it and all of it, each speck its own (cut to it alone, on
 # a hit's fast spin most specks were 15 px rods again)
 HAZE = (20.0, 4.0, 0.35, 8, (0.035, 0.065))  # the trains carry a haze of fine dust, too fine to see a speck of, each
@@ -232,9 +259,22 @@ HAZE = (20.0, 4.0, 0.35, 8, (0.035, 0.065))  # the trains carry a haze of fine d
 HAZE_MOST = 1.6  # ... and where its lines pile up (at the limb, crossing) it is never more than this many times one
 # line's full strength, thicker haze adding less and less (at 2.2 and 15 levels, piled up 25-30 levels darker, the
 # swirl read as charcoal scribbles on the wall)
-HAZE_LIT = (0.5, 1.0)  # this share of the trains carries dust lit by the room: its haze this much as many grey levels
-# lighter than what is behind it, not darker (all of it darker, the swirl read as grime on the wall)
-BALL_PAD = 1.4  # radii: the ball's air (its bend, the dust it draws in) reaches this far from its middle
+HAZE_LIT = (0.55, 1.0)  # this share of each train's haze lines carries dust lit by the room: this much as many grey
+# levels lighter than what is behind it, not darker (all of it darker, the swirl read as grime on the wall; lit or dark
+# a train at a time, the lit trains read as chalk smears and the dark as charcoal: mixed, each is a grainy grey band)
+BALL_PAD = 1.4  # radii: the ball's air (its bend, the dust it draws in) reaches this far from its middle ...
+DRAFT = (6.0, (0.9, 1.25), (1.6, 2.8), 0.5)  # ... and the room's air it drags round it, out past its rim: what is
+# seen through it is pushed out and in by about this many px at 1080 (their spread; up to about twice it), in lobes
+# turning with the spin, eased in over the first pair of radii and out over the second, and dragged round with it this
+# share as far: a switch plate or a door's edge near the ball wobbles on every frame (with its bend gone by a third of
+# a radius past its rim, a plate two radii off it bent only as a hit swelled the ball)
+DRAFT_LOBES = ((3, 4, 5, 7), (0.7, 1.0, 0.8, 0.5), (0.25, 0.45))  # its lobes: this many round, this strong each,
+# turning this many to this many times as fast as the ball (the room's air lags it, each lobe at its own pace, so the
+# wobble changes as it travels)
+GATHER = (5, (2.1, 1.0), 4.0, 30.0)  # as a ball is born the room's air is drawn into it: over its first this many
+# frames a ring converges on it from the first to the second of its radii (as formed), pulling what is seen through it
+# this many px at 1080 towards it, in a band this many px at 1080 across (sigma): the plate's edge kinks towards it as
+# the air comes in (with nothing, the voice's first hit bent nothing)
 PULSE_DIP, PULSE_GAP = 0.35, 12  # a hit the voice comes back with after dipping under this (of its loudest) in the six
 # frames before, at least this many frames into the ball's life and after its last pulse, ...
 PULSE_BURST, PULSE_TAU = 0.5, 3.0  # ... bursts the ball this far, swelling it this much wider by the frame after the
@@ -407,31 +447,52 @@ SCATTER = (3.0, 0.3, 0.15, 3.0)  # ... and it blurs what is behind it towards th
 # off the hand where it is thickest and this share over the hand, its share taken from its opacity blurred this many
 # times as far (dust scatters what is seen through it: a white switch plate's crisp edge cut every lump that crossed
 # it; over the hand in full, a ring in front of the palm blurred it under a veil)
-DUST_N, FLAKES = 300, 24  # a burst of dust and grit flung out of the palm behind the front; bigger flakes that
-# tumble (450 specks too faint to see covered 0.4 % of the frame at phone size by frame 50; 1400 read as sensor snow;
-# 50 soft round flakes, a sixth of the burst, read as snow out of focus)
+DUST_N, FLAKES = 600, 30  # a body of dust and grit thrown off the hand behind the front; bigger flakes that tumble
+# (300 fanned out all round, the wall between the hand and the front was clean at phone size once the front passed: a
+# stock ripple, not air carrying something; 450 specks too faint to see covered 0.4 % of the frame at phone size by
+# frame 50; 1400 read as sensor snow; 50 soft round flakes, a sixth of the burst, read as snow out of focus)
 DUST_R = (3.0, 5.0)  # px at 1080 at the palm's depth: a speck of the room's dust's core (1.1-2.4, and 2-4 at 20 grey
 # levels, too fine to read at phone size) ...
-DUST_SEEN = (0.6, 0.72)  # ... and it shows this much of itself (SPECK_LEVELS: 22-26 grey levels lighter or darker than
-# the wall), more of it as it moves fast, and 0.75 of that as it hangs
-DEBRIS = (0.62, 0.6)  # of the burst's specks (its flakes aside) this share fine, the rest medium; and this share of all
-# of it thrown off the hand's outline, most from its side the push goes out of, the rest out of the palm (all out of
-# the palm, alike, it fanned out of two or three gaps between the fingers as needles: a hedgehog)
-DEBRIS_R = ((1.6, 2.4), (2.8, 4.0), (5.0, 8.0), (2.4, 3.4))  # px at 1080: the core of a fine speck, a medium one, a
+DUST_SEEN = (0.43, 0.52)  # ... and it shows this much of itself (SPECK_LEVELS: 22-26 grey levels lighter or darker
+# than the wall), more of it as it moves fast, and 0.75 of that as it hangs
+DEBRIS = (0.64, 0.85)  # of the burst's specks (its flakes aside) this share fine, the rest medium; and this share of
+# all of it thrown off the hand's outline, most from its side the push goes out of, the rest out of the palm (all out
+# of the palm, alike, it fanned out of two or three gaps between the fingers as needles: a hedgehog)
+DEBRIS_R = ((1.6, 2.4), (3.0, 4.0), (5.0, 8.0), (2.4, 3.4))  # px at 1080: the core of a fine speck, a medium one, a
 # flake and one drifting (DRIFT) ...
-DEBRIS_SEEN = ((0.4, 0.55), (0.7, 0.9), (0.72, 1.0), (0.6, 0.75))  # ... and how much of SPECK_LEVELS each shows
+DEBRIS_SEEN = ((0.29, 0.4), (0.75, 1.0), (0.52, 0.72), (0.43, 0.54))  # ... and how much of SPECK_LEVELS each shows
+# (fine 14-20 grey levels, medium 35-50: what reads of the body at phone size) ...
+DEBRIS_HANG = 0.9  # ... all of it moving fast (12 px a frame at 1080), and this much of it as it slows and hangs (at
+# 0.75, the body slowing behind the front faded at phone size)
+BODY = (0.2, 0.35, (0.4, 0.58))  # out of a palm, the body of dust goes out round the push's way in the picture, spread
+# this many rad (sigma) and cut at this many either side of it (a cone 40 degrees wide; all round for a true push at
+# the lens), each speck leaving at this share of the front's pace, so its leading edge rides at about half the front's
+# (fanned all round at up to 0.6, the dust spread thin over the whole room)
+BODY_HAZE = (14.0, 1.35, 16.0, 0.3)  # ... and a haze of dust too fine to see a speck of rides with it: this many grey
+# levels lighter than what is behind it, in its hue, where the body is as thick as as it leaves, piling up to this many
+# times that at the most, this soft (px at 1080), each speck carrying this much of it (with specks alone, at phone size
+# the push was a ripple ring on a clean wall)
 DRIFT = (0.25, 0.35, 10)  # this share of the burst's specks drift: leaving at this share of the others' pace and
 # hanging this many frames longer, still in the air once the rest has settled (by frame 65 the room was clean)
-MOTES = (8, 15)  # dust swept past the lens by a push, this many motes on its softest and on its hardest: what says the
-# air reached the camera, with the knock (every speck flew across the wall) ...
+MOTES = (4, 6)  # dust swept past the lens by a push, this many motes on its softest and on its hardest: what says the
+# air reached the camera, with the knock (every speck flew across the wall; 8-15 small faint ones read as smudges on
+# the lens, and none at phone size) ...
 MOTE_FROM = 0.12  # short sides: ... coming from round the palm this far ...
-MOTE_D = (30.0, 70.0)  # ... each this many px at 1080 across (out of focus so near the lens: a soft disc, its softness
+MOTE_D = (60.0, 140.0)  # ... each this many px at 1080 across (out of focus so near the lens: a soft disc, its softness
 # a third of that) ...
 MOTE_GROW = 1.5  # ... growing this many times as wide as it comes ...
-MOTE_RUN = (1, 3, 3.0, 6.0)  # ... showing from this many frames after the push to this many, and out past the frame's
+MOTE_RUN = (1, 3, 4.0, 6.5)  # ... showing from this many frames after the push to this many, and out past the frame's
 # edge this many to this many frames later ...
-MOTE_LEVELS = (11.0, 15.0)  # ... this many 8-bit grey levels lighter than what is behind it, in its hue
-DUST_FOLLOW = 0.6  # the burst leaves the palm at up to this share of the front's speed, so it follows the front ...
+MOTE_FAST = (2, 2.0, 3.0)  # ... but the first this many out past it within this many to this many frames: the gust
+# sweeps them off the lens
+MOTE_LEVELS = (18.0, 28.0)  # ... this many 8-bit grey levels lighter than what is behind it, the room's light they
+# scatter, in its lit hue
+GUST = (2, 0.04, 0.03)  # frames after the push its gust reaches the lens, and on that frame alone the picture is lifted
+# this share, with the room's lit tone laid over it this share of the picture's mean: a veil of dust on the lens (with
+# motes alone, nothing said the air hit the camera)
+BURST_N = (300, 24)  # a ball's burst flings this many specks and flakes of its shell's dust all round, with no body of
+# it nor its haze (the push's 600 and their haze after each of a ball's pops hung a light veil over the room) ...
+DUST_FOLLOW = 0.6  # ... at up to this share of the front's speed, so it follows the front ...
 DUST_DRAG = 10.0  # ... slowing over this many frames, out into the room behind it (out at a third of the short side a
 # frame, it outran the front; slowed over 6 at half its speed, it hung over the hand)
 DUST_AIM = (0.7, 0.2, 0.4)  # ... flying out round the push's own way, this much along it in the picture (along the
@@ -450,15 +511,19 @@ ROOM_PUSH = 0.045  # share of the short side a frame: how fast the front throws 
 # as fast as the front, the dust it threw ran along with it)
 ROOM_SEEN = 0.75  # thrown, it shows at least this much as it slows, fading out with its life (seen only while fast, it
 # flashed past and was gone before the eye found it; held, it hung through the next push)
-LEDGE = (60, 4, (1, 3), 1.15, 0.6, 0.5)  # the room's dust lying on its ledges, where the plate has a level edge (a
+LEDGE = (60, 8, (1, 3), 1.15, 0.6, 0.5)  # the room's dust lying on its ledges, where the plate has a level edge (a
 # skirting board's top, a switch plate's, the floor's line): this many specks, each with a puff of finer dust in this
 # many parcels, kicked up this many frames after the front reaches it, lying this many palm depths from the lens (on
 # the wall, behind the hand), thrown at this share of the floating dust's pace and lifted off the ledge by this share
 # of it: the front kicks dust off the surfaces it passes (with only dust in the air, the room never reacted to it)
-LEDGE_PUFF = (0.3, 1.5, 7.0, 1.5, 0.3)  # a puff: fine dust lit by the room, covering what is behind it this much at
-# the most, as bright as it times the second, in the room's lit hue (made lighter in its own hue, a puff along a switch
-# plate's shadow was a string of orange glints, and on the plate a white sparkle); its parcels this soft (px at 1080),
-# drifting apart at up to this many px a frame, carried at this share of its speck's pace
+LEDGE_PUFF = (0.3, 1.5, 9.0, 4.5, 0.3, 4.0, 12, 3.0)  # a puff: fine dust lit by the room's light as it falls there
+# (the scene round it, blurred), covering what is behind it this much at the most, as bright as that light times the
+# second and in the hue of what it covers, so it lifts what is behind it in its own hue, never more than the last times
+# (in the room's lit hue, on an orange skirting it lifted the blue alone: violet stains; lit as the scene round it,
+# where the wall's grey met the skirting it still lifted its blue most); its parcels this soft (px at 1080), drifting
+# apart at up to this many px a frame, carried at this share of its speck's pace, rising this many px a frame (fine
+# dust floats), and gone this many frames after it is kicked up (hanging where it was kicked up for 10-15 frames, it
+# read as a blotch)
 DUST_LIFE = (18, 12)  # frames: thrown dust hangs this long after the push, then settles out over the next this many,
 # drifting down (gone by 20 frames after the push, the room was clean again before the eye found the dust)
 FOCAL = 1.0  # focal length in short sides (a phone's main camera: about 53 degrees across the short side)
@@ -653,13 +718,15 @@ def _up(small: np.ndarray, box: tuple[int, int, int, int]) -> np.ndarray:
 
 
 def _at(small: np.ndarray, ys: np.ndarray, xs: np.ndarray) -> np.ndarray:
-    """A map SCENE_Q times smaller than the frame (_behind's grid, (h, w)) read at frame px (``ys``, ``xs``), as _up
-    draws it (bilinearly between its cells' middles, its edge held)."""
+    """A map SCENE_Q times smaller than the frame (_behind's grid, (h, w) or (h, w, channels)) read at frame px
+    (``ys``, ``xs``), as _up draws it (bilinearly between its cells' middles, its edge held)."""
     q = SCENE_Q
     fy = np.clip((ys + 0.5) / q - 0.5, 0, small.shape[0] - 1)
     fx_ = np.clip((xs + 0.5) / q - 0.5, 0, small.shape[1] - 1)
     iy, ix = fy.astype(np.int64), fx_.astype(np.int64)
     ty, tx = (fy - iy).astype(np.float32), (fx_ - ix).astype(np.float32)
+    if small.ndim == 3:
+        ty, tx = ty[:, None], tx[:, None]
     iy1, ix1 = np.minimum(iy + 1, small.shape[0] - 1), np.minimum(ix + 1, small.shape[1] - 1)
     return (small[iy, ix] * (1 - ty) + small[iy1, ix] * ty) * (1 - tx) + (small[iy, ix1] * (1 - ty)
                                                                         + small[iy1, ix1] * ty) * tx
@@ -964,6 +1031,18 @@ def spin_axis(normal: np.ndarray) -> np.ndarray:
     return np.array([*(d * math.sqrt(1 - BALL_AXIS_Z ** 2)), BALL_AXIS_Z])
 
 
+def _turn_sense(B: np.ndarray) -> float:
+    """Which way (+1 or -1, as the picture's angles grow) the near side of a ball with axes ``B`` (rows e1, e2, the
+    spin axis) crosses the picture as it spins."""
+    ph = np.linspace(0, 2 * np.pi, 64, endpoint=False)
+    pt = np.cos(ph)[:, None] * B[0] + np.sin(ph)[:, None] * B[1]
+    vel = -np.sin(ph)[:, None] * B[0] + np.cos(ph)[:, None] * B[1]
+    near = pt[:, 2] > 0
+    if not near.any():
+        return 1.0
+    return float(np.sign(np.mean(pt[near, 0] * vel[near, 1] - pt[near, 1] * vel[near, 0])) or 1.0)
+
+
 class _Ball:
     """One ball of air: its seeded streaks, dust and textures, and the state it carries from frame to frame (how far
     it has spun, its axes)."""
@@ -997,20 +1076,24 @@ class _Ball:
         # along arcs (SHELL_TRAINS), each train at its own pace and swaying in latitude as one, the rest loose
         tr = dr.integers(0, nt, m)
         loose = dr.random(m) < SHELL_TRAINS[1]
+        def deep(k_):  # depths in the shell, more of them towards its outside (SHELL_OUT)
+            return SHELL[1] - (SHELL[1] - SHELL[0]) * dr.random(k_) ** SHELL_OUT
+
         self.t_lat = np.arcsin(dr.uniform(-0.8, 0.8, nt))  # (round its middle: specks near its poles barely move)
-        self.t_rho, self.t_phase = dr.uniform(*SHELL, nt), dr.uniform(0, 2 * np.pi, nt)
+        self.t_rho, self.t_phase = deep(nt), dr.uniform(0, 2 * np.pi, nt)
         self.t_len = dr.uniform(0.3, 1.0, nt) * SHELL_TRAINS[2]
         self.t_turn = DUST_SPIN[0] + DUST_SPIN[1] * dr.random(nt)
         self.t_sway = dr.uniform(0, 2 * np.pi, nt)
-        self.t_lit = dr.random(nt) < HAZE_LIT[0]  # its haze lit by the room (HAZE_LIT)
-        nl = HAZE[3]  # its haze's fine lines (HAZE): off the train across its band, how strong, and their gaps
+        nl = HAZE[3]  # its haze's fine lines (HAZE): off the train across its band, how strong, their gaps, and which
+        # are lit by the room (HAZE_LIT)
         self.h_lat = dr.uniform(-1, 1, (nt, nl)) * dr.uniform(*HAZE[4], nt)[:, None]
         self.h_rho = dr.normal(0, 0.015, (nt, nl))
         self.h_w = dr.uniform(0.35, 1.0, (nt, nl))
         self.h_gap = dr.uniform(1.0, 3.5, (nt, nl))
         self.h_gph = dr.uniform(0, 2 * np.pi, (nt, nl))
+        self.h_lit = dr.random((nt, nl)) < HAZE_LIT[0]
         self.d_lat = np.where(loose, np.arcsin(dr.uniform(-0.8, 0.8, m)), self.t_lat[tr] + dr.normal(0, 0.05, m))
-        self.d_rho = np.where(loose, dr.uniform(*SHELL, m), np.clip(self.t_rho[tr] + dr.normal(0, 0.03, m), *SHELL))
+        self.d_rho = np.where(loose, deep(m), np.clip(self.t_rho[tr] + dr.normal(0, 0.03, m), *SHELL))
         self.d_phase = np.where(loose, dr.uniform(0, 2 * np.pi, m),
                                 self.t_phase[tr] + dr.uniform(0, 1, m) * self.t_len[tr])
         self.d_turn = np.where(loose, DUST_SPIN[0] + DUST_SPIN[1] * dr.random(m), self.t_turn[tr])
@@ -1033,7 +1116,12 @@ class _Ball:
         self.cut = dr.uniform(LONG[2], 1.0, m + q)  # (LONG)
         self.noise = _tile_noise(rng, 256, 256, 6.0, 6.0, 3)  # the co-rotating shimmer, and the caustics
         self.mist = _tile_noise(rng, 160, 640, 16.0, 1.8)  # lat x lon: long along the flow, thin across it
-        self.arcs = _tile_noise(rng, 1, 512, 18.0, 0.5).reshape(1, -1)  # where round the rim its band is strong
+        self.arcs = _tile_noise(rng, 1, 512, 18.0, 0.5).reshape(1, -1)  # where round the rim its band is strong ...
+        self.arc_cut = float(np.quantile(self.arcs, 1 - BALL_SHADOW[1]))  # ... over this (BALL_SHADOW's share of it)
+        gr = fx._rng(seed, _BALL, salt, _DRAFT)  # the air it drags round it (DRAFT_LOBES): each lobe's phase and pace,
+        # and the drag's own lobes
+        nlb = len(DRAFT_LOBES[0])
+        self.l_ph, self.l_pace = gr.uniform(0, 2 * np.pi, (2, nlb)), gr.uniform(*DRAFT_LOBES[2], (2, nlb))
         self.spin = 0.0
         self.axes: np.ndarray | None = None  # rows e1, e2, a: carried frame to frame
 
@@ -1152,7 +1240,7 @@ class _Ball:
         """The haze of fine dust each train carries (HAZE), as points ``step`` px apart along its fine lines, each
         smeared over the shutter's share of ``omega``: (x, y px off the ball's middle; depth px towards the lens;
         weight, a line's own, broken along it, fading in and out at its ends and thinner where the eye looks through
-        the shell than at its limb, per px of it; whether its train's dust is lit, HAZE_LIT), where its specks
+        the shell than at its limb, per px of it; whether its line's dust is lit, HAZE_LIT), where its specks
         are."""
         spread = 1 + 1.4 * (1 - form) ** 2
         rr = (self.t_rho[:, None] + self.h_rho) * R * spread * (1 + 0.8 * rel)  # (train, line)
@@ -1169,7 +1257,7 @@ class _Ball:
         limb = HAZE[2] + (1 - HAZE[2]) * (1 - np.abs(p[..., 2]) / rr[..., None]) ** 2
         broken = np.clip(0.45 + 0.75 * np.sin(2 * np.pi * self.h_gap[..., None] * s + self.h_gph[..., None]), 0, 1)
         wt = self.h_w[..., None] * np.sin(np.pi * s) ** 0.6 * broken * limb * ds
-        lit = np.broadcast_to(self.t_lit[:, None, None], wt.shape)
+        lit = np.broadcast_to(self.h_lit[..., None], wt.shape)
         return p[..., 0].ravel(), p[..., 1].ravel(), p[..., 2].ravel(), wt.ravel(), lit.ravel()
 
     def field(self, dx: np.ndarray, dy: np.ndarray, R: float, vis: float, t: int, turn: float,
@@ -1221,22 +1309,75 @@ class _Ball:
         return (-m * dx * lens + tx * swirl + nz[..., 0] * tb, -m * dy * lens + ty * swirl + nz[..., 1] * tb, r, phi,
                 wob, nz)
 
+    def stir(self, frame: np.ndarray, c: np.ndarray, R: float, vis: float, gather: tuple[float, float] | None,
+             hand: np.ndarray | None, k: float) -> None:
+        """In place on ``frame`` (uint8 RGB, the whole frame as displayed: this is a bend alone): what is seen through
+        the room's air round the ball (middle ``c``, radius ``R`` px, ``vis`` how much of it there is), which it drags
+        round with it (DRAFT): pushed out and in by lobes turning with its spin (DRAFT_LOBES) and dragged round the
+        way its near side goes, from its rim out to DRAFT's last radii; and as it is born the room's air drawn into it
+        (GATHER; ``gather``: the converging ring's radius and pull, px, or None). None of it over the hand's matte
+        ``hand`` (uint8 (h, w), or None), grown and softened as the blast's front leaves it (FRONT_HAND), so nothing
+        next to the hand is read from the hand."""
+        h, w = frame.shape[:2]
+        if vis <= 1e-3 and gather is None:
+            return
+        cx, cy = float(c[0]), float(c[1])
+        reach = DRAFT[2][1] * R if gather is None else max(DRAFT[2][1] * R, gather[0] + 3 * GATHER[3] * k)
+        box = _clip_box(cx, cy, reach, reach, w, h)
+        if box is None:
+            return
+        y0, y1, x0, x1 = box
+        q = 4  # (it is smooth: worked out on a grid this many px apart)
+        gx, gy = _coarse_grid(box, q)
+        dx, dy = gx - cx, gy - cy
+        dist = np.sqrt(dx * dx + dy * dy) + np.float32(1e-3)
+        nx, ny = dx / dist, dy / dist
+        phi, r = np.arctan2(dy, dx), dist / np.float32(R)
+        turn = 1.0 if self.axes is None else _turn_sense(self.axes)
+        m_, a_ = DRAFT_LOBES[0], DRAFT_LOBES[1]
+        rms = math.sqrt(sum(a * a for a in a_) / 2)
+        lobes = [sum(a * np.sin(m * (phi - turn * self.spin * self.l_pace[j, i]) + self.l_ph[j, i])
+                     for i, (m, a) in enumerate(zip(m_, a_, strict=True))) / rms for j in range(2)]  # (unit spread)
+        env = _smooth((r - DRAFT[1][0]) / (DRAFT[1][1] - DRAFT[1][0])) * _smooth(
+            (DRAFT[2][1] - r) / (DRAFT[2][1] - DRAFT[2][0]))
+        amp = np.float32(DRAFT[0] * k * vis) * env
+        radial = amp * lobes[0]
+        across = amp * np.float32(DRAFT[3] * turn) * (0.5 + 0.5 * lobes[1])
+        if gather is not None:  # (pulled towards the ball: read from further out)
+            radial = radial - np.float32(gather[1]) * np.exp(-0.5 * ((dist - gather[0]) / (GATHER[3] * k)) ** 2)
+        if hand is not None:
+            hc = cv2.resize(hand[y0:y1, x0:x1].astype(np.float32) * np.float32(1 / 255), (gx.shape[1], gy.shape[0]),
+                            interpolation=cv2.INTER_AREA)
+            g_ = max(1, round(FRONT_HAND[0] * k / q))
+            hc = cv2.dilate(hc, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * g_ + 1, 2 * g_ + 1)))
+            off = 1 - np.clip(cv2.GaussianBlur(hc, (0, 0), max(0.5, FRONT_HAND[1] * k / q)), 0, 1)
+            radial, across = radial * off, across * off
+        fx_, fy_ = _tame(-nx * radial + ny * across, -ny * radial - nx * across, q)
+        if float(np.abs(fx_).max() + np.abs(fy_).max()) < 0.05:
+            return
+        bh, bw = y1 - y0, x1 - x0
+        mx = np.arange(x0, x1, dtype=np.float32)[None, :] + _upsample(fx_.astype(np.float32), bh, bw)
+        my = np.arange(y0, y1, dtype=np.float32)[:, None] + _upsample(fy_.astype(np.float32), bh, bw)
+        frame[y0:y1, x0:x1] = cv2.remap(frame, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+
     def draw(self, P: np.ndarray, off: tuple[int, int], c: np.ndarray, R: float, a: np.ndarray, form: float,
              rel: float, pulse: float, flash: float, idle: float, omega: float, loud: float, t: int,
-             hand: np.ndarray | None, noise: np.ndarray | None, code: float, k: float) -> np.ndarray | None:
+             hand: np.ndarray | None, noise: np.ndarray | None, code: float, k: float,
+             tone: np.ndarray | None = None) -> np.ndarray | None:
         """Draws the ball on ``P`` (a linear crop of the frame whose top-left is ``off`` = (x, y) in frame px) in
         place: centre ``c`` (frame px), radius ``R`` (px), spin axis ``a``; ``form`` 0..1 how gathered, ``rel`` 0..1
         how far it has let go, ``pulse`` how far a comeback hit has burst it (PULSE_BURST at the most) and ``flash``
         0..1 how much its shell flashes with it (PULSE_FLASH), ``idle`` how much of itself it is between two sounds,
         ``omega`` its spin this frame (rad), ``loud`` the voice's level, ``hand`` the matte over the crop (0..1;
-        softened by HAND_SOFT, and bent as the hand seen through the ball is); the hand's edge redrawn last
-        (_reedge). First its bend: the lens and twist (field) and the swirling air's density (BALL_DENS: its shell,
-        its middle's puff and its streaks, smoothed) bending what is behind towards where it is denser, over the hand
-        HAND_BEND at the most, eased off by BALL_REACH and never steeper than BEND_SLOPE; then the light it gathers
-        and spreads: that density's shadowgraph, a band round its rim and the sheen of its streaks, as much darker as
-        lighter (SHEEN); then the dust it whirls round: its trains' haze (HAZE), and specks lighter and darker than
-        what is behind them (_specks). Returns the crop as bent, before its dust was laid on it (None when it drew
-        nothing)."""
+        softened by HAND_SOFT, and bent as the hand seen through the ball is), ``tone`` the room's lit tone (linear, or
+        None: the light its lint in front of the hand catches, NEAR_LIT); the hand's edge redrawn last (_reedge).
+        First its bend: the lens and twist (field) and the swirling air's density (BALL_DENS: its shell, its middle's
+        puff and its streaks, smoothed) bending what is behind towards where it is denser, over the hand HAND_BEND at
+        the most, eased off by BALL_REACH and never steeper than BEND_SLOPE; then the light it gathers and spreads:
+        that density's fine shadowgraph, a band round its rim and the sheen of its streaks, as much darker as lighter
+        (SHEEN); then the dust it whirls round: its trains' haze (HAZE), and specks lighter and darker than what is
+        behind them (_specks), the near half's in front of the hand (_in_front). Returns the crop as bent, before its
+        dust was laid on it (None when it drew nothing)."""
         self.spin += omega
         B = self.turn_axes(a)
         h, w = P.shape[:2]
@@ -1249,13 +1390,7 @@ class _Ball:
         if vis <= 1e-3:
             return None
         spread = max(rel, pulse)  # how far its streaks and dust are flung out
-        # which way the near side's air crosses the picture: the plate behind is dragged the same way
-        ph = np.linspace(0, 2 * np.pi, 64, endpoint=False)
-        pt = np.cos(ph)[:, None] * B[0] + np.sin(ph)[:, None] * B[1]
-        vel = -np.sin(ph)[:, None] * B[0] + np.cos(ph)[:, None] * B[1]
-        near = pt[:, 2] > 0
-        turn = float(np.sign(np.mean(pt[near, 0] * vel[near, 1] - pt[near, 1] * vel[near, 0])) or 1.0) if near.any() \
-            else 1.0
+        turn = _turn_sense(B)  # (the plate behind is dragged the way its near side's air crosses the picture)
 
         # ---- the streaks it carries, splatted: filaments of denser air in its bend and its sheen; the far side's
         # behind the fingers, and over the skin only broad and barely there
@@ -1315,9 +1450,16 @@ class _Ball:
             # as the smoothing bends what is behind it BALL_REFRACT's first at its steepest)
             fx_, fy_ = fx_ + pull * ddx, fy_ + pull * ddy  # (read from up the density: a bump of it magnifies what is
             # behind it, as the lens does)
-            if keep is not None:  # over the hand, a ripple of HAND_BEND at the most
+            if keep is not None:  # over the hand, a ripple of HAND_BEND at the most, about where the fingers are: its
+                # mean over the hand inside the ball taken out each frame (left in, the fingers sat a steady 1-2 px one
+                # way)
                 cap = HAND_BEND * k / np.maximum(keep, 1e-3)
-                fx_, fy_ = (f * np.minimum(1, cap / np.maximum(np.hypot(fx_, fy_), 1e-6)) for f in (fx_, fy_))
+                on = keep * keep * (r < 1.0)
+                for capped in (False, True):  # (the cap moves the mean a little: taken out again after it)
+                    if capped:
+                        fx_, fy_ = (f * np.minimum(1, cap / np.maximum(np.hypot(fx_, fy_), 1e-6)) for f in (fx_, fy_))
+                    if float(on.sum()) > 1.0:
+                        fx_, fy_ = (f - keep * np.float32(float((f * on).sum()) / float(on.sum())) for f in (fx_, fy_))
             reach = _smooth((BALL_REACH[1] - np.hypot(dx, dy) / R) / (BALL_REACH[1] - BALL_REACH[0]))
             fx_, fy_ = _tame(fx_ * reach, fy_ * reach, FIELD_Q)
             ca = BALL_CA if keep is None else _upsample((BALL_CA * (1 - keep)).astype(np.float32), bh, bw)
@@ -1329,15 +1471,17 @@ class _Ball:
                                                 np.arange(bh, dtype=np.float32)[:, None] + DY, cv2.INTER_LINEAR,
                                                 borderMode=cv2.BORDER_REPLICATE)
                 hand = cv2.GaussianBlur(matte, (0, 0), HAND_SOFT * k)
-            # the shadowgraph: ripples where the density curves (light gathered where it is denser), and a soft band
-            # on the rim, broken into arcs that turn with the spin and wander in and out with them, darker inside it;
-            # over the hand eased off as the bend is (its bright arc across a lit palm read as glare on the skin)
-            ripple = np.clip(-cv2.Laplacian(dens, cv2.CV_32F) * np.float32(sig * sig / 2), -1.5, 1.5)
+            # the shadowgraph: ripples where the density's detail curves (light gathered where it is denser,
+            # RIPPLE_FINE), and one soft band on the rim, broken into arcs that turn with the spin and wander in and
+            # out with them; over the hand eased off as the bend is (its bright arc across a lit palm read as glare on
+            # the skin)
+            ripple = np.clip(-cv2.Laplacian(dens - cv2.GaussianBlur(dens, (0, 0), RIPPLE_FINE * R / FIELD_Q),
+                                            cv2.CV_32F) * np.float32(sig * sig / 2), -1.5, 1.5)
             arc = cv2.remap(self.arcs, (((phi - turn * self.spin * 0.6) % (2 * np.pi)) * (512 / (2 * np.pi)))
                             .astype(np.float32), np.zeros_like(phi, np.float32), cv2.INTER_LINEAR,
                             borderMode=cv2.BORDER_WRAP)
-            band = (np.exp(-((r - 1.0 - 0.06 * arc) / BALL_BAND) ** 2) - BALL_SHADOW[1] * np.exp(
-                -((r - 0.9 - 0.06 * arc) / BALL_BAND) ** 2)) * np.clip(0.75 + 0.45 * arc, 0.2, 1.6)
+            band = np.exp(-((r - 1.0 - 0.04 * arc) / BALL_BAND) ** 2) * _smooth(
+                (arc - self.arc_cut) / BALL_SHADOW[2] + 0.5)
             gain_ = (BALL_SHADOW[0] * vis * band + BALL_RIPPLE * ripple) * bend
             if hc is not None:  # the palm under it takes the light the spinning air focuses, in moving patches
                 gain_ = gain_ + BALL_CAUSTIC * vis * hc * (np.clip(nz[..., 2], 0, None) ** 2 - 0.4) * \
@@ -1354,42 +1498,49 @@ class _Ball:
             Q *= 1 + np.clip(g, -cap, cap)[..., None]
         bent = P.copy()  # (bent and lit, before the dust it carries is laid on)
         behind = _behind(P)
+        before_hand = None if hand is None else (_unhanded(behind, hand), hand, tone)  # (its near half in front of
+        # the hand)
         sc = 4
 
-        # ---- the haze of fine dust its trains carry: darker than what is behind it, in its hue; the far side's
-        # behind the hand, and none over the skin
+        # ---- the haze of fine dust its trains carry: lighter or darker than what is behind it, in its hue; the far
+        # side's behind the hand, the near side's in front of it, fainter (NEAR_SKIN)
         hq = 2  # (its fine lines drawn at half size)
         hx, hy, hz, hw, hl = self.haze(R, B, form, spread, omega, 0.5 * hq)
         hx, hy = hx + cx, hy + cy
         hw = hw * vis * (DUST_LOUD[0] + DUST_LOUD[1] * loud) * np.where(hz < 0, DUST_BACK, 1.0)
         if hand is not None:
-            hw = hw * (1 - hand[np.clip(hy.astype(np.int64), 0, h - 1), np.clip(hx.astype(np.int64), 0, w - 1)])
+            hw = hw * (1 - hand[np.clip(hy.astype(np.int64), 0, h - 1), np.clip(hx.astype(np.int64), 0, w - 1)] * (
+                1 - NEAR_SKIN[4] * _smooth(hz / (0.3 * R))))
         for lit_, levels in ((False, -HAZE[0]), (True, HAZE_LIT[1] * HAZE[0])):
             hb = np.zeros((-(-h // hq), -(-w // hq)), np.float32)
             _splat(hb, (hx[hl == lit_] + 0.5) / hq - 0.5, (hy[hl == lit_] + 0.5) / hq - 0.5, hw[hl == lit_] / hq)
-            _lay_haze(P, _line_blur(hb, HAZE[1] * k / hq), hq, behind, levels)
+            _lay_haze(P, _line_blur(hb, HAZE[1] * k / hq), hq, behind, levels, front=before_hand)
 
         # ---- the dust it whirls round: the near half's bigger, softer and fainter, the far half's smaller and sharp,
-        # and no more than LONG's second smeared longer than its first
+        # the outer third's stronger (LIMB), and no more than LONG's second smeared longer than its first; over the
+        # hand the near half's moving specks in front of the fingers (NEAR_SKIN), the far half's behind them
         was, now, zp, wgt, r0, dark = self.specks(R, B, form, spread, vis, omega, t, loud)
         near, far = _smooth(zp / (0.6 * R)), _smooth(-zp / (0.6 * R))
         r0 = r0 * (1 + DUST_NEAR[0] * near - DUST_NEAR[3] * far)
         wgt = wgt * (DUST_BACK + (1 - DUST_BACK) * _smooth((zp / R + BALL_NEAR) / (2 * BALL_NEAR))) * (
-            1 - DUST_NEAR[2] * near)
+            1 - DUST_NEAR[2] * near) * (1 + LIMB[0] * _smooth((np.hypot(*now.T) / R - LIMB[1]) / LIMB[2]))
         was, now = was + (cx, cy), now + (cx, cy)
         smear = np.hypot(*(now - was).T)
-        long_ = np.argsort(-smear)[LONG[1]:]
+        long_ = np.argsort(-smear)[int(LONG[1] * len(smear)):]
         most = LONG[0] * k * self.cut[long_]
         cut, most = long_[smear[long_] > most], most[smear[long_] > most]
         was[cut] = now[cut] + (was[cut] - now[cut]) * (most / smear[cut])[:, None]
         if hand is not None:
             xi, yi = np.clip(now[:, 0].astype(np.int64), 0, w - 1), np.clip(now[:, 1].astype(np.int64), 0, h - 1)
-            wgt = wgt * (1 - hand[yi, xi] * np.where(zp < 0, 1.0, 1 - DUST_SKIN))
+            moving = _smooth((np.hypot(*(now - was).T) / k - NEAR_SKIN[2]) / (NEAR_SKIN[3] - NEAR_SKIN[2]))
+            front = _smooth(zp / (0.3 * R)) * (NEAR_SKIN[0] + (NEAR_SKIN[1] - NEAR_SKIN[0]) * moving) * np.where(
+                dark, NEAR_SKIN[5], 1.0)
+            wgt = wgt * (1 - hand[yi, xi] * (1 - front))
         lit_s, drk_s = _speck_bufs(h, w, sc)
         _specks(was, now, np.clip(1 - zp / (FOCAL * 1080 * k), 0.5, 1.5), wgt, r0, dark, lit_s, drk_s, sc, k,
                 soft=DUST_NEAR[1] * near)
         _lay_specks(P, lit_s, drk_s, sc, None if noise is None else (lambda y0, y1, x0, x1: noise[y0:y1, x0:x1]),
-                    code, k, behind=behind, levels=SHELL_LEVELS)
+                    code, k, behind=behind, levels=SHELL_LEVELS, front=before_hand)
         if matte is not None:
             _reedge(P, bent, matte, k)
         return bent
@@ -1449,12 +1600,19 @@ def _ball_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarray
             if box is None:
                 ball.spin += omega
                 continue
+            matte = None if mask is None else mask[min(t, len(mask) - 1)]
+            vis = BALL_IDLE + (1 - BALL_IDLE) * idle
+            kf = t - t0
+            ball.stir(out[t], c, R, float(form * (1 - rel) ** 1.5 * vis * (1 - burst)), None if kf >= GATHER[0] else (
+                R0 * (GATHER[1][0] + (GATHER[1][1] - GATHER[1][0]) * kf / max(1, GATHER[0] - 1)),
+                GATHER[2] * k * (1 - 0.4 * kf / max(1, GATHER[0] - 1))), matte, k)  # (the room's air round it; burst,
+            # its air is flung out thin, and the push it throws bends the room)
             y0, y1, x0, x1 = box
             P = lin(out[t, y0:y1, x0:x1])  # (over the ball before it, still bursting)
-            hand = None if mask is None else mask[min(t, len(mask) - 1), y0:y1, x0:x1].astype(np.float32) / 255.0
+            hand = None if matte is None else matte[y0:y1, x0:x1].astype(np.float32) / 255.0
             noise = _grain(seed, _BALL, t, y1 - y0, x1 - x0)
-            bent = ball.draw(P, (x0, y0), c, R, spin_axis(normal[t]), form, rel, burst, flash,
-                             BALL_IDLE + (1 - BALL_IDLE) * idle, omega, e, t, hand, noise, code, k)
+            bent = ball.draw(P, (x0, y0), c, R, spin_axis(normal[t]), form, rel, burst, flash, vis, omega, e, t, hand,
+                             noise, code, k, None if hand is None else _tone(out[t]))
             drawn = gam(P)
             if bent is not None and any(f - 1 <= t <= f + 2 for f in pulses):  # the whole picture's lift round a
                 # pulse (PULSE_RISE): only the light it lays on is cut (cut with the bend, the fingers seen through it
@@ -1559,34 +1717,37 @@ class _Blast:
             d[:, 2] *= DUST_AIM[2]
             return d / np.linalg.norm(d, axis=-1, keepdims=True)
 
-        # a burst of dust and flakes out of the palm and off the hand's outline, following the front: fine specks,
-        # medium ones and tumbling flakes (DEBRIS), a share of it fine dust drifting slowly and hanging on (DRIFT)
-        N = DUST_N + FLAKES
-        sp = rng.uniform(0.35, 1.0, N) ** 1.3 * DUST_FOLLOW * self.run * gain  # px a frame at the palm's depth
-        p, v = thrown(ahead(rng.standard_normal((N, 3))), sp, DUST_AIM[1])
+        # dust and flakes following the front: fine specks, medium ones and tumbling flakes (DEBRIS), a share of it
+        # fine dust drifting slowly and hanging on (DRIFT). Out of a palm, a body of it thrown off the hand's outline
+        # (most from its side the push goes out of; out of the palm without one) in a cone round the push's way (BODY,
+        # all round for a true push at the lens); out of a ball's burst, flung all round out of its shell (BURST_N)
+        specks, flakes = (DUST_N, FLAKES) if ring is None else BURST_N
+        N = specks + flakes
         delay = rng.uniform(0, 2.5, N).astype(int)
-        flake = np.arange(N) >= DUST_N
+        flake = np.arange(N) >= specks
         kind = np.where(flake, 2, (rng.random(N) >= DEBRIS[0]).astype(int))  # fine, medium, flake
         drift = ~flake & (rng.random(N) < DRIFT[0])
         kind = np.where(drift, 3, kind)
         r0 = np.choose(kind, [rng.uniform(*r, N) for r in DEBRIS_R])
         bright = np.choose(kind, [rng.uniform(*s, N) for s in DEBRIS_SEEN])
         dark = rng.random(N) < GRIT
-        v[drift] *= DRIFT[1]
         hang = np.where(drift, DUST_LIFE[0] + DRIFT[2], DUST_LIFE[0])  # frames each hangs before settling out
-        if ring is None and outline is not None and len(outline):  # off the hand's outline, most from its side the
-            # push goes out of
-            rim = rng.random(N) < DEBRIS[1]
-            rel = outline - self.o
-            rd = rel / np.maximum(np.hypot(*rel.T), 1e-6)[:, None]
-            pick = (1 - self.q) + self.q * np.clip(rd @ self.u, 0, 1) + 0.15
-            at_ = rng.choice(len(outline), int(rim.sum()), p=pick / pick.sum())
-            d = np.column_stack([0.9 * rd[at_] + DUST_AIM[0] * self.u + 0.35 * rng.standard_normal((len(at_), 2)),
-                                 DUST_AIM[2] * n3[2] * rng.uniform(-0.3, 1.0, len(at_))])
-            d /= np.linalg.norm(d, axis=1, keepdims=True)
-            p[rim] = np.column_stack([outline[at_], np.ones(len(at_))])
-            v[rim] = np.column_stack([d[:, 0] * sp[rim], d[:, 1] * sp[rim], -d[:, 2] * sp[rim] / f]) * np.where(
-                drift[rim], DRIFT[1], 1.0)[:, None]
+        if ring is None:
+            sp = rng.uniform(*BODY[2], N) * self.run * gain  # px a frame at the palm's depth
+            half = BODY[1] + (np.pi - BODY[1]) * float(_smooth((LENS_Q[0] - self.q) / LENS_Q[0]))
+            ang = math.atan2(self.u[1], self.u[0]) + np.clip(rng.normal(0, BODY[0] * half / BODY[1], N), -half, half)
+            d = np.column_stack([np.cos(ang), np.sin(ang), DUST_AIM[2] * n3[2] * rng.uniform(-0.3, 1.0, N)])
+            p, v = thrown(d / np.linalg.norm(d, axis=1, keepdims=True), sp, DUST_AIM[1])
+            if outline is not None and len(outline):
+                rim = rng.random(N) < DEBRIS[1]
+                rel = outline - self.o
+                pick = np.clip((rel / np.maximum(np.hypot(*rel.T), 1e-6)[:, None]) @ self.u, 0, 1) ** 2 + 0.05
+                at_ = rng.choice(len(outline), int(rim.sum()), p=pick / pick.sum())
+                p[rim] = np.column_stack([outline[at_], np.ones(len(at_))])
+        else:
+            sp = rng.uniform(0.35, 1.0, N) ** 1.3 * DUST_FOLLOW * self.run * gain
+            p, v = thrown(ahead(rng.standard_normal((N, 3))), sp, DUST_AIM[1])
+        v[drift] *= DRIFT[1]
         # the dusty air: a vortex ring (ring() places its parcels), a share of it a wake. At the lens it comes at the
         # lens, and a true push's starts off the palm with its middle above it (LENS_LIFT; a ball's starts where the
         # ball is) and drifts to the frame's middle (LENS_MID), growing round the hand as it comes (along the push's
@@ -1682,6 +1843,7 @@ class _Blast:
         self.m_d = mr.uniform(*MOTE_D, nm) * self.k
         self.m_t0 = mr.integers(MOTE_RUN[0], MOTE_RUN[1] + 1, nm)
         run = mr.uniform(MOTE_RUN[2], MOTE_RUN[3], nm)
+        run[:MOTE_FAST[0]] = mr.uniform(MOTE_FAST[1], MOTE_FAST[2], min(nm, MOTE_FAST[0]))
         self.m_xy, self.m_v = at0, d * ((reach + 0.6 * self.m_d) / run)[:, None]
         self.m_run = run
         self.m_lev = mr.uniform(*MOTE_LEVELS, nm) * min(1.0, 0.5 + 0.5 * gain)
@@ -1833,9 +1995,11 @@ class _Blast:
         return 1 - hand[yi, xi] * np.where(self.behind(p), 1.0, 1.0 - front)
 
     def dust(self, kf: int, H: np.ndarray, H_prev: np.ndarray, lit: list, drk: list, scale: float, haze: np.ndarray,
-             fore: np.ndarray, puffs: np.ndarray, hand: np.ndarray | None) -> tuple[float, float, float]:
+             fore: np.ndarray, puffs: np.ndarray, hand: np.ndarray | None,
+             body: np.ndarray | None = None) -> tuple[float, float, float]:
         """Moves the dust and the dusty air on a frame (``kf``: frames since the push; ``H``: the start frame's px ->
-        this frame's, ``H_prev`` the frame before's) and splats them: the dust into ``lit`` and ``drk`` (_specks), the
+        this frame's, ``H_prev`` the frame before's) and splats them: the dust into ``lit`` and ``drk`` (_specks) and,
+        out of a palm, the fine dust riding with it into ``body`` (``scale`` times smaller, BODY_HAZE; or None), the
         dusty air into ``haze`` (CLOUD_Q times smaller), and again into ``fore`` as much as it is well in front of the
         palm (CLOUD_FORE) and into ``puffs`` as much as it shows over the hand in puffs (HAND_PUFF). What is behind the
         palm is hidden by the hand's matte ``hand`` (0..1, or None); the dusty air in front of it shows over the hand
@@ -1897,10 +2061,14 @@ class _Blast:
         sel = self.alive & go & (life > 0)
         if not sel.any():
             return depth, life_c, broad
-        bright = self.bright * np.clip(0.75 + disp / (12 * k), 0.75, 1.0)  # dust shows most as it moves
+        bright = self.bright * np.clip(DEBRIS_HANG + disp / (12 * k), DEBRIS_HANG, 1.0)  # dust shows most as it moves
         bright = np.where(self.flake, bright * (0.4 + 0.6 * np.abs(np.cos(self.tum + self.tumf * kf)) ** 3), bright)
         _specks(after[sel] + (before[sel] - after[sel]) * SHUTTER, after[sel], zz[sel], (bright * life * seen)[sel],
                 self.r0[sel], self.dark[sel], lit, drk, scale, k)
+        if body is not None and not self.burst:  # (BURST_N)
+            fine = sel & ~self.flake
+            _splat(body, (after[fine, 0] + 0.5) / scale - 0.5, (after[fine, 1] + 0.5) / scale - 0.5,
+                   (life * seen)[fine] * BODY_HAZE[3])
         return depth, life_c, broad
 
 
@@ -1933,7 +2101,7 @@ def _eddies(age):
     return (1 - np.exp(-np.asarray(age, np.float64) / 4.0)) * np.exp(-np.asarray(age, np.float64) / DUST_CALM)
 
 
-SPECK_LEVELS = 36.0  # a speck at full strength makes what is behind it this many 8-bit grey levels lighter (lint) or
+SPECK_LEVELS = 50.0  # a speck at full strength makes what is behind it this many 8-bit grey levels lighter (lint) or
 # darker (grit) in its own hue, which reads at phone size (lit 1.45 times in linear light at an opacity of 0.35, specks
 # changed a wall by about 8 levels and vanished; in the room's lit tone they were white dots; laid as a colour at half
 # opacity, lint lifted the wall half as far again as grit could sink it)
@@ -2008,12 +2176,47 @@ def _speck_gain(behind: np.ndarray, levels: float) -> np.ndarray:
     return np.minimum(gain, 60.0).astype(np.float32)
 
 
+def _unhanded(behind: np.ndarray, hand: np.ndarray) -> np.ndarray:
+    """_behind's map ``behind`` with what the hand's matte ``hand`` (0..1, the size of the frame it was made from)
+    covers filled in from the room round it: the colour dust in front of the hand has, lit as the room is (where the
+    hand covers it all, ``behind`` itself)."""
+    room = 1 - cv2.resize(hand.astype(np.float32), behind.shape[1::-1], interpolation=cv2.INTER_AREA)
+    filled = behind
+    for sig in (36.0, 12.0, 4.0):  # cells: from the room far round a wide palm, then nearer where there is some
+        n = cv2.GaussianBlur(room, (0, 0), sig)
+        fill = cv2.GaussianBlur(behind * room[..., None], (0, 0), sig) / np.maximum(n, 1e-6)[..., None]
+        filled = filled + (fill - filled) * _smooth((n - 0.02) / 0.1)[..., None]
+    return (behind + (filled - behind) * (1 - room[..., None])).astype(np.float32)
+
+
+def _in_front(q_: np.ndarray, q0: np.ndarray, s: np.ndarray, ys: np.ndarray, xs: np.ndarray, levels: float,
+              front: tuple[np.ndarray, np.ndarray, np.ndarray | None]) -> None:
+    """In place on ``q_`` (pixels at frame px ``ys``, ``xs``: dust laid over ``q0``, what they were, ``s`` its strength
+    0..1): where ``front`` = (room, cover, tone) says the dust is in front of what is there (``cover``, 0..1 (h, w),
+    the hand's matte), it is laid as its own colour, what it is against the room (``room``: _unhanded, ``levels`` grey
+    levels lighter or darker than it), lint lighter, NEAR_LIT of the way to the room's lit ``tone`` (linear, or None),
+    covering what is there by its strength: dust in front of a lit palm reads as dust, not as a lighter or darker patch
+    of skin (laid in the skin's own hue, over a bright palm it barely showed)."""
+    room, cover, tone = front
+    c_ = cover[ys, xs]
+    on = c_ > 1e-3
+    if not on.any():
+        return
+    yo, xo = ys[on], xs[on]
+    own = _at(room, yo, xo) * _at(_speck_gain(room, levels), yo, xo)[:, None]
+    if levels > 0 and tone is not None:
+        own = own + (tone.astype(np.float32) - own) * np.float32(NEAR_LIT)
+    q_[on] += c_[on, None] * (q0[on] + s[on, None] * (own - q0[on]) - q_[on])
+
+
 def _lay_specks(P: np.ndarray, lit: list, drk: list, scale: int, grain, code: float, k: float,
-                behind: np.ndarray | None = None, levels: float = SPECK_LEVELS) -> None:
+                behind: np.ndarray | None = None, levels: float = SPECK_LEVELS,
+                front: tuple[np.ndarray, np.ndarray, np.ndarray | None] | None = None) -> None:
     """In place: the specks splatted into ``lit`` and ``drk`` (_specks) laid over ``P`` (linear, (h, w, 3)), each
     class blurred to its softness, the grit making what is behind it darker and the lint lighter, by ``levels`` at
-    full strength (_speck_gain of ``behind``, _behind of ``P``, worked out here when None), with the plate's grain
-    (``grain(y0, y1, x0, x1)``: unit grain for that box, or None). Only the pixels they touch are touched."""
+    full strength (_speck_gain of ``behind``, _behind of ``P``, worked out here when None), and in front of the hand
+    as their own colour (``front``: _in_front's, or None), with the plate's grain (``grain(y0, y1, x0, x1)``: unit
+    grain for that box, or None). Only the pixels they touch are touched."""
     h, w = P.shape[:2]
     for bufs, sign, gr in ((drk, -1.0, None), (lit, 1.0, grain)):
         a = np.zeros((h, w), np.float32)
@@ -2046,18 +2249,24 @@ def _lay_specks(P: np.ndarray, lit: list, drk: list, scale: int, grain, code: fl
         s = s[ys, xs]
         f = _at(_speck_gain(behind, sign * levels), ys + y0, xs + x0)
         Q = P[y0:y1, x0:x1]
-        q_ = Q[ys, xs] * (1 + (f - 1) * s)[:, None]
+        q0 = Q[ys, xs]
+        q_ = q0 * (1 + (f - 1) * s)[:, None]
+        if front is not None:
+            _in_front(q_, q0, s, ys + y0, xs + x0, sign * levels, front)
         if gr is not None and code > 0:  # (the footage's grain in what it changed)
             i = (np.sqrt(np.clip(q_ @ fx._LUMA, 0.0, 1.0)) * np.float32(1023)).astype(np.int32)
             q_ *= 1 + (s * gr(y0, y1, x0, x1)[ys, xs] * (np.float32(code) * _STEP_LUT[i]))[:, None]
         Q[ys, xs] = q_
 
 
-def _lay_haze(P: np.ndarray, haze: np.ndarray, scale: int, behind: np.ndarray, levels: float) -> None:
+def _lay_haze(P: np.ndarray, haze: np.ndarray, scale: int, behind: np.ndarray, levels: float,
+              most: float = HAZE_MOST,
+              front: tuple[np.ndarray, np.ndarray, np.ndarray | None] | None = None) -> None:
     """In place: a haze of fine dust (``haze``: how thick, 1 where one train's is thickest, ``scale`` times coarser
     than ``P``) laid over ``P`` (linear (h, w, 3)) as what is behind it made about ``levels`` grey levels lighter
-    (darker, below 0) in its own hue where it is 1, thicker haze adding less and less up to HAZE_MOST times that;
-    ``behind``: _behind of ``P``. Only the pixels it touches are touched."""
+    (darker, below 0) in its own hue where it is 1, thicker haze adding less and less up to ``most`` times that, and
+    in front of the hand as its own colour (``front``: _in_front's, or None); ``behind``: _behind of ``P``. Only the
+    pixels it touches are touched."""
     box = _bbox(haze > 1e-3)
     if box is None:
         return
@@ -2066,18 +2275,24 @@ def _lay_haze(P: np.ndarray, haze: np.ndarray, scale: int, behind: np.ndarray, l
     Y0, Y1, X0, X1 = y0 * scale, min(h, y1 * scale), x0 * scale, min(w, x1 * scale)
     a = cv2.resize(haze[y0:y1, x0:x1], ((x1 - x0) * scale, (y1 - y0) * scale),
                    interpolation=cv2.INTER_LINEAR)[:Y1 - Y0, :X1 - X0]
-    a = np.float32(HAZE_MOST) * (1 - np.exp(-a / np.float32(HAZE_MOST)))
+    a = np.float32(most) * (1 - np.exp(-a / np.float32(most)))
     ys, xs = np.nonzero(a > 2e-3)
     f = _at(_speck_gain(behind, levels), ys + Y0, xs + X0)
     Q = P[Y0:Y1, X0:X1]
-    Q[ys, xs] *= (1 + (f - 1) * a[ys, xs])[:, None]
+    q0 = Q[ys, xs]
+    q_ = q0 * (1 + (f - 1) * a[ys, xs])[:, None]
+    if front is not None:
+        _in_front(q_, q0, np.minimum(a[ys, xs], 1.0), ys + Y0, xs + X0, levels, front)
+    Q[ys, xs] = q_
 
 
-def _lay_puffs(P: np.ndarray, puffs: np.ndarray, scale: int, tone: np.ndarray, k: float) -> None:
+def _lay_puffs(P: np.ndarray, puffs: np.ndarray, scale: int, behind: np.ndarray, k: float) -> None:
     """In place: the puffs of fine dust kicked off the room's ledges (``puffs``: their parcels splatted ``scale`` times
-    coarser than ``P``, each as much as it shows) laid over ``P`` (linear (h, w, 3)) as soft dust lit by the room
-    (LEDGE_PUFF): over what is behind it, as bright as that times the lift, in the hue of the room's lit ``tone``, so it
-    reads as dust on a wall, a white plate or a shadow alike. Only the pixels it touches are touched."""
+    coarser than ``P``, each as much as it shows) laid over ``P`` (linear (h, w, 3)) as soft dust lit by the room's
+    light as it falls there (LEDGE_PUFF; ``behind``: _behind of ``P``, the scene round each pixel): over what is behind
+    it, as bright as the scene round it times the lift and in the hue of what it covers, never darker than it, so it
+    lifts what is behind it in its own hue and reads as dust on a wall, a skirting board, a white plate or a shadow
+    alike. Only the pixels it touches are touched."""
     s = LEDGE_PUFF[2] * k / scale
     a = cv2.GaussianBlur(puffs, (0, 0), s) * np.float32(2 * math.pi * s * s)  # (a lone parcel peaks at its share)
     box = _bbox(a > 1e-3)
@@ -2092,16 +2307,18 @@ def _lay_puffs(P: np.ndarray, puffs: np.ndarray, scale: int, tone: np.ndarray, k
     ys, xs = np.nonzero(a > 2e-3)
     Q = P[Y0:Y1, X0:X1]
     q = Q[ys, xs]
-    hue = tone.astype(np.float32) / max(float(tone @ fx._LUMA), 1e-4)
-    col = np.minimum((q @ fx._LUMA)[:, None] * np.float32(LEDGE_PUFF[1]) * hue, 0.95)
+    lift = (_at(behind, ys + Y0, xs + X0) @ fx._LUMA) * np.float32(LEDGE_PUFF[1]) / np.maximum(q @ fx._LUMA, 1e-4)
+    col = np.minimum(q * np.clip(lift, 1.0, LEDGE_PUFF[7])[:, None], 0.95)  # (the same for each channel: its hue)
     Q[ys, xs] = q + a[ys, xs, None] * (col - q)
 
 
-def _lay_motes(P: np.ndarray, motes: np.ndarray, behind: np.ndarray) -> None:
+def _lay_motes(P: np.ndarray, motes: np.ndarray, behind: np.ndarray, tone: np.ndarray) -> None:
     """In place: dust passing the lens (rows of _Blast.motes) laid over ``P`` (linear (h, w, 3), the whole frame;
-    ``behind``: _behind of it) as soft discs out of focus, smeared along their motion, lighter than what is behind them
-    in its hue. Only the pixels they touch are touched."""
+    ``behind``: _behind of it) as soft discs out of focus, smeared along their motion, the room's light they scatter
+    added over what is behind them in the hue of its lit ``tone``, as many grey levels lighter as each row says. Only
+    the pixels they touch are touched."""
     h, w = P.shape[:2]
+    hue = tone.astype(np.float32) / max(float(tone @ fx._LUMA), 1e-4)
     for x0_, y0_, x1_, y1_, s, lev in motes:
         pad = 3 * s
         box = _clip_box(0.5 * (x0_ + x1_), 0.5 * (y0_ + y1_), 0.5 * abs(x1_ - x0_) + pad, 0.5 * abs(y1_ - y0_) + pad,
@@ -2117,7 +2334,8 @@ def _lay_motes(P: np.ndarray, motes: np.ndarray, behind: np.ndarray) -> None:
         ys, xs = np.nonzero(a > 2e-3)
         f = _at(_speck_gain(behind, float(lev)), ys + y0, xs + x0)
         Q = P[y0:y1, x0:x1]
-        Q[ys, xs] *= (1 + (f - 1) * a[ys, xs])[:, None]
+        q = Q[ys, xs]
+        Q[ys, xs] = q + ((f - 1) * a[ys, xs] * (q @ fx._LUMA))[:, None] * hue
 
 
 def _ledges(frame_u8: np.ndarray, hand: np.ndarray | None, first: _Blast, rng: np.random.Generator) -> np.ndarray:
@@ -2200,13 +2418,15 @@ class _Room:
             dark = np.concatenate([dark, rr.random(n_) < GRIT])
             kind, lag = np.concatenate([kind, kind_l]), np.concatenate(
                 [lag, np.repeat(rr.integers(LEDGE[2][0], LEDGE[2][1] + 1, nl), per)])
-            puff = np.concatenate([puff, np.column_stack([np.cos(ang), np.sin(ang)]) * (
-                LEDGE_PUFF[3] * self.k * rr.uniform(0.4, 1.0, n_) * (kind_l == 2))[:, None]])
+            puff = np.concatenate([puff, (np.column_stack([np.cos(ang), np.sin(ang)]) * (
+                LEDGE_PUFF[3] * rr.uniform(0.2, 1.0, n_))[:, None] - (0.0, LEDGE_PUFF[5])) * (
+                self.k * (kind_l == 2))[:, None]])
         n = len(p)
         self.p, self.v = p, np.zeros((n, 3))
         self.r0, self.bright, self.dark = r0, bright, dark
         self.kind, self.lag, self.puff = kind, lag, puff  # 0 the room's floating dust, 1 a speck on a ledge, 2 its
-        # puff's parcels; the frames each is kicked up after the front reaches it; a puff's parcels' drift apart
+        # puff's parcels; the frames each is kicked up after the front reaches it; a puff's parcels' drift apart and
+        # up
         self.kick = np.full(n, -1)  # the frame each speck was last thrown on (-1: not yet)
         self.gain = np.zeros(n)  # ... and how hard that push was
         self.curl = _Curl(rr, 0.1 * side)
@@ -2251,7 +2471,7 @@ class _Room:
         cx, cy = self.curl(self.p[thrown, 0], self.p[thrown, 1], t)
         turb = 0.5 * DUST_STIR * self.side * self.gain[thrown] * _eddies(age[thrown])  # (the room's air is calmer)
         self.v[thrown, 0] += cx * turb
-        self.v[thrown, 1] += cy * turb + DUST_FALL * self.side
+        self.v[thrown, 1] += cy * turb + DUST_FALL * self.side * (self.kind[thrown] < 2)  # (a puff's fine dust floats)
         self.p[thrown] += self.v[thrown]
         after = _project(self.p, self.pp)
         before, after = _cam(H_prev, before), _cam(H, after)
@@ -2259,7 +2479,8 @@ class _Room:
         a0 = after + (before - after) * SHUTTER
         disp = np.hypot(*(after - before).T) * 0.5
         seen = b.seen(np.column_stack([_cam(Hb, self.p[:, :2]), self.p[:, 2]]), after, hand, DUST_SKIN)
-        life = np.clip(1 - (age - DUST_LIFE[0]) / DUST_LIFE[1], 0, 1) * _smooth(age / 1.5)
+        life = np.where(self.kind == 2, np.clip(1 - age / LEDGE_PUFF[6], 0, 1), np.clip(
+            1 - (age - DUST_LIFE[0]) / DUST_LIFE[1], 0, 1)) * _smooth(age / 1.5)  # (a puff spreads and is gone soon)
         fade = np.clip(1 - age / (DUST_LIFE[0] + DUST_LIFE[1]), 0, 1)
         weight = self.bright * np.clip(ROOM_SEEN * fade + disp / (2.5 * self.k), 0, 1) * life * seen * thrown
         sel = (weight > 0) & (self.kind < 2)
@@ -2455,8 +2676,10 @@ def _push_frames(plate: np.ndarray, out: np.ndarray, blasts: list[_Blast], mask:
             hand, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * round(FRONT_HAND[0] * k) + 1,) * 2)), (0, 0),
             FRONT_HAND[1] * k)  # (what the front leaves unbent)
         lit, drk = _speck_bufs(h, w, sc)
+        body = np.zeros((-(-h // sc), -(-w // sc)), np.float32)
         air_ = _Haze.empty(hq)
         lump = 2.0
+        gust = 0.0
         motes = np.concatenate([b.motes(t - b.start) for b in live])
         for b in live:
             kf = t - b.start
@@ -2470,7 +2693,7 @@ def _push_frames(plate: np.ndarray, out: np.ndarray, blasts: list[_Blast], mask:
                 b.bend(P, kf, o, u, zoom, held)
                 room.throw(b, kf, t, camera_between(cam, room.start, b.start))
             haze, fore, puffs = (np.zeros(hq, np.float32) for _ in range(3))
-            depth, shows, wide = b.dust(kf, H, Hp, lit, drk, sc, haze, fore, puffs, hand)
+            depth, shows, wide = b.dust(kf, H, Hp, lit, drk, sc, haze, fore, puffs, hand, body)
             if haze.any():  # the dusty air: diffusing as it goes and out of focus near the lens (CLOUD_SOFT_MAX at
                 # the most), as thick as its parcels are close together
                 near = zoom / (depth * CLOUD_Q)
@@ -2493,6 +2716,8 @@ def _push_frames(plate: np.ndarray, out: np.ndarray, blasts: list[_Blast], mask:
                 lump = max(lump, math.hypot(core, soft))  # (its core as blurred)
             if kf == b.knock():
                 buffets.append((t, o, b.gain * (1 - b.q), KNOCK_PX * k * b.gain, u, ZOOM_BLUR[0] * k * b.gain))
+            if kf == GUST[0] and not b.burst:  # (a ball's pop keeps its punch round the ball: PULSE_RISE)
+                gust = max(gust, min(1.0, b.gain))
         b = started[-1]
         puffs = np.zeros((-(-h // sc), -(-w // sc)), np.float32)
         room.dust(t, camera_between(cam, room.start, t), camera_between(cam, room.start, max(room.start, t - 1)), lit,
@@ -2502,11 +2727,22 @@ def _push_frames(plate: np.ndarray, out: np.ndarray, blasts: list[_Blast], mask:
         P0 = None if hand is None else P.copy()  # (bent, before what the air carries is laid on: _reedge)
         if air_.dens.any():
             _lay_cloud(P, air_, tone_s, light, lump, hand, (seed, t), code)
+        behind = _behind(P)
         if puffs.any():
-            _lay_puffs(P, puffs, sc, tone_s, k)
-        _lay_specks(P, lit, drk, sc, lambda y0, y1, x0, x1: _grain(seed, _BLAST, t, y1 - y0, x1 - x0), code, k)
+            _lay_puffs(P, puffs, sc, behind, k)
+        if body.any():  # the fine dust riding with the thrown body (BODY_HAZE: its specks' weight within its blur)
+            s_ = BODY_HAZE[2] * k / sc
+            _lay_haze(P, cv2.GaussianBlur(body, (0, 0), s_) * np.float32(2 * math.pi * s_ * s_), sc, behind,
+                      BODY_HAZE[0], BODY_HAZE[1])
+        _lay_specks(P, lit, drk, sc, lambda y0, y1, x0, x1: _grain(seed, _BLAST, t, y1 - y0, x1 - x0), code, k,
+                    behind=behind)
         if len(motes):
-            _lay_motes(P, motes, _behind(P))
+            _lay_motes(P, motes, behind, tone_s)
+        if gust > 0:  # the gust at the lens: a veil of dust on it, lit by the room, on this frame alone (GUST)
+            hue = tone_s.astype(np.float32) / max(float(tone_s @ fx._LUMA), 1e-4)
+            veil = np.float32(GUST[2] * gust * float((P[::8, ::8] @ fx._LUMA).mean())) * hue
+            P *= np.float32(1 + GUST[1] * gust)
+            P += veil
         if hand is not None:
             _reedge(P, P0, hand, k)
         out[t] = gam(P)
