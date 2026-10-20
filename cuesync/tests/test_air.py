@@ -1,6 +1,8 @@
 """Air, made rather than rendered (cuesync.air): a ball of air over the palm sized to the hand and held by the voice,
-which leaves the hand seen through it whole and bursts into a push of air when the voice lets go; a push of air whose
-front runs out across the room, whose ring of dusty air rolls away from the palm, whose dust stays in the room on a
+which leaves the hand seen through it whole, bends what is behind it without a tear or a colour fringe on the hand,
+pops and gathers tight again on a comeback hit, and bursts into a push of air when the voice lets go; a push of air
+whose front runs out across the room, whose ring of dusty air rolls away from the palm (at the lens, ringing the hand
+and swelling past the frame), shows its lumps and never a fog or a grey smudge, whose dust stays in the room on a
 handheld shot and is one pool the next push throws again, placed on the open hand, and which knocks the phone when it
 comes at the lens; the same bytes for the same seed, the plate untouched where the air never reaches, and a frame
 within its time."""
@@ -245,7 +247,8 @@ def test_dusty_air_in_front_of_the_palm_shows_over_the_hand_once_it_has_left_it(
 
 
 def test_a_push_at_the_lens_sends_a_ring_at_it_that_swells_past_the_frame():
-    # pushed at the lens, the ring hung over the hand as grey puffs between the fingers
+    # pushed at the lens, the ring hung over the hand as grey puffs between the fingers; centred on a palm low in the
+    # frame, only its top arch was on screen, and read as smoke rising behind the hand
     w, h, size = 1080, 1920, 300.0
     b = air._Blast((540, 1500), (0.0, -1.0), 0.1, (0.0, -0.1, 0.99), size, w, h, 0, 1.0, 0, 0)
 
@@ -254,10 +257,39 @@ def test_a_push_at_the_lens_sends_a_ring_at_it_that_swells_past_the_frame():
         c = np.median(xy, 0)
         return c, float(np.median(np.hypot(*(xy - c).T)))
 
-    (c0, r0), (c8, r8) = ring(0), ring(8)
+    (c0, r0), (c4, r4), (c8, r8) = ring(0), ring(4), ring(8)
     assert r0 < 1.2 * size and r8 > 2.0 * size  # rushing out past the frame's edges ...
     assert np.hypot(*(c8 - c0)) < 0.5 * r8  # ... round the hand, not sliding off sideways
+    assert c0[1] < 1500 - 0.4 * size and c0[1] + r0 > 1500  # its middle above the palm, its lower arc across it
+    assert abs(c8[1] - h / 2) < 0.5 * abs(c0[1] - h / 2)  # drifting to the frame's middle as it swells ...
+    assert c4[1] - r4 > 0 and c4[1] + r4 < h  # ... so the whole ring is still on screen half way
     assert air.RING_WAKE * (1 - b.at) < 0.05 and b.c_wake.mean() < 0.05  # no stem filling its hole
+
+
+def test_the_dusty_air_shows_its_lumps_not_a_fog_over_the_frame():
+    # a ring swelling past the frame laid a fog over all of it: the whole picture lifted by 8 grey levels
+    P0 = np.full((960, 540, 3), 0.15, np.float32)
+    y, x = np.mgrid[0:240, 0:135]
+    fog = np.full((240, 135), 20.0, np.float32)
+    lump = (40 * np.exp(-((x - 67) ** 2 + (y - 120) ** 2) / 30.0)).astype(np.float32)
+    light, tone = np.array([0.0, -1.0]), np.array([0.6, 0.55, 0.5])
+    lifts = []
+    for dens in (fog, fog + lump):
+        P = P0.copy()
+        air._lay_cloud(P, dens, dens, np.zeros_like(dens), tone, light, 3.0, None, (0, 0), 0.0)
+        lifts.append(P - P0)
+    assert np.abs(lifts[0]).mean() < 0.1 * np.abs(lifts[1]).max()  # the even fog hardly shows ...
+    assert lifts[1][480, 270].mean() > 0.05  # ... the lump does
+
+
+def test_dusty_air_is_no_darker_than_a_bright_floor_it_covers():
+    # over a bright floor, a ring forming read as a grey smudge
+    P = np.full((960, 540, 3), 0.8, np.float32)
+    y, x = np.mgrid[0:240, 0:135]
+    dens = (40 * np.exp(-((x - 67) ** 2 + (y - 120) ** 2) / 30.0)).astype(np.float32)
+    air._lay_cloud(P, dens, dens, np.zeros_like(dens), np.array([0.5, 0.45, 0.4]), np.array([0.0, -1.0]), 3.0, None,
+                   (0, 0), 0.0)
+    assert P.mean(-1).min() > 0.85 * 0.8
 
 
 def test_each_push_rolls_its_own_ring():
@@ -270,11 +302,12 @@ def test_each_push_rolls_its_own_ring():
 
 def test_the_dusty_air_is_lit_on_the_side_towards_the_light():
     # in one flat tone the cloud read as a glow: a lump is brighter towards the room's light, darker away from it
-    P = np.full((160, 160, 3), 0.2, np.float32)
-    y, x = np.mgrid[0:40, 0:40]
-    dens = (30 * np.exp(-((x - 20) ** 2 + (y - 20) ** 2) / 50.0)).astype(np.float32)
-    air._lay_cloud(P, dens, np.array([0.6, 0.6, 0.6]), np.array([0.0, -1.0]), 2.0, None, (0, 0), 0.0)
-    top, bottom = P[80 - 4 * 4, 80].mean(), P[80 + 4 * 4, 80].mean()
+    P = np.full((1080, 1080, 3), 0.2, np.float32)
+    y, x = np.mgrid[0:270, 0:270]
+    dens = (30 * np.exp(-((x - 135) ** 2 + (y - 135) ** 2) / 50.0)).astype(np.float32)
+    air._lay_cloud(P, dens, dens, np.zeros_like(dens), np.array([0.6, 0.6, 0.6]), np.array([0.0, -1.0]), 4.0, None,
+                   (0, 0), 0.0)
+    top, bottom = P[540 - 4 * 4, 540].mean(), P[540 + 4 * 4, 540].mean()
     assert top > bottom + 0.01
 
 
@@ -286,6 +319,49 @@ def test_the_balls_streaks_share_one_spin_axis():
     assert np.all(ball.w[bands, 2] > np.cos(0.2)) and np.all(ball.speed[~ball.inflow] > 0)  # round one axis, one way
     lean = air.spin_axis(np.array([0.0, -0.2, 0.98]))
     assert abs(np.linalg.norm(lean) - 1) < 1e-9 and lean[2] <= air.BALL_AXIS_Z + 1e-9 and lean[1] < 0
+
+
+def test_the_balls_bend_is_continuous_across_its_rim():
+    # switched on outside the rim only, its drag tore a straight edge behind the ball; unsmoothed, the shell's chord
+    # kinked one by 9 px over 2
+    ball = air._Ball(0, 0)
+    R = 500.0
+    g = np.arange(-1.7 * R, 1.7 * R, air.FIELD_Q, dtype=np.float32)
+    for spin in np.linspace(0, 6, 7):
+        ball.spin = spin
+        dx, dy = ball.field(g[None, :], g[:, None], R, 1.0, 0, 1.0, None, 1.0)[:2]
+        step = max(float(np.abs(np.diff(f, axis=ax)).max()) for f in (dx, dy) for ax in (0, 1))
+        assert step / air.FIELD_Q < 1.0  # under a px of shift per px of picture
+
+
+def test_the_balls_bend_draws_no_colour_fringe_over_the_hand():
+    # with a fringe over the matte, a thin cyan line ran along the thumb
+    P = np.zeros((40, 40, 3), np.float32)
+    P[:, 14:] = 0.8  # an edge both sides of the matte's (x 10) read from, 6 px on
+    dx = np.full((40, 40), 6.0, np.float32)
+    ca = np.zeros((40, 40), np.float32)
+    ca[:, :10] = air.BALL_CA  # off the hand
+    air._remap_rgb(P, dx, np.zeros_like(dx), (0, 40, 0, 40), ca)
+    assert np.abs(P[:, 10:, 0] - P[:, 10:, 2]).max() < 1e-6 and np.abs(P[:, :, 0] - P[:, :, 2]).max() > 0
+
+
+def test_a_comeback_hit_pops_the_ball_and_it_gathers_tight_again():
+    # thinned out as it swelled, the ball blinked out on the frame after the hit, then hung on as a huge faint swirl
+    f = 52
+    assert air.ball_pulse(f - 1, [f]) == (0.0, 0.0)
+    burst, flash = air.ball_pulse(f + 1, [f])
+    assert burst == pytest.approx(air.PULSE_BURST) and flash == 1.0 and air.ball_pulse(f, [f])[1] == 1.0
+    assert air.ball_pulse(f + 8, [f])[0] < 0.1 * air.PULSE_BURST and air.ball_pulse(f + 4, [f])[1] < 0.1
+    n = 70
+    e = np.zeros(n)
+    e[4:40] = 0.8
+    e[f:] = 0.8
+    tl = Timeline(n=n, energy=e, hits=[4, f], sizes=[1.0, 1.0], holds=[(4, 40), (f, n)], tap_frame=4)
+    (life,) = air.ball_lives(tl, air.voice_level(tl))
+    assert air.ball_pulses(tl, air.voice_level(tl), life) == [f]
+    plate = wall(n, W, H)
+    out = air.render(plate, track_of(n, W, H, lambda t: (108, 280), scale=22.0), None, tl, "ball", seed=3)
+    assert change(plate, out, f + 1).astype(float).sum() > 1.3 * change(plate, out, f - 1).astype(float).sum()
 
 
 def test_a_hit_after_a_breath_bursts_the_ball_and_it_gathers_again():
