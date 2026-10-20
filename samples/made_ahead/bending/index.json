@@ -84,6 +84,30 @@
   "real": true,
   "rank": -98.5
  },
+ "bending|hand_palm.mp4|pf-pf-boom-author.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
+  "dir": "hand_palm__pfpfboom__again",
+  "title": "pf, pf, BOOM",
+  "plate": "hand_palm.mp4",
+  "voice": "pf-pf-boom-author.wav",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 54,
+  "real": true,
+  "again": 1
+ },
+ "bending|hand_palm.mp4|pf-x4-author.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
+  "dir": "hand_palm__pfx4__again",
+  "title": "pf pf pf PF",
+  "plate": "hand_palm.mp4",
+  "voice": "pf-x4-author.wav",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 54,
+  "real": true,
+  "again": 2
+ },
  "bending|hand_fist.mp4|boooom.wav|explosion@made|0.50,0.52|1": {
   "dir": "hand_fist__boooom__explosion",
   "title": "BOOOOM · an explosion, the smoke clearing",
@@ -143,29 +167,5 @@
   "tap_frame": 54,
   "real": true,
   "rank": -101.0
- },
- "bending|hand_palm.mp4|pf-pf-boom-author.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
-  "dir": "hand_palm__pfpfboom__again",
-  "title": "pf, pf, BOOM",
-  "plate": "hand_palm.mp4",
-  "voice": "pf-pf-boom-author.wav",
-  "effect": "fire_burst",
-  "mode": "bending",
-  "seed": 2,
-  "tap_frame": 54,
-  "real": true,
-  "again": 1
- },
- "bending|hand_palm.mp4|pf-x4-author.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
-  "dir": "hand_palm__pfx4__again",
-  "title": "pf pf pf PF",
-  "plate": "hand_palm.mp4",
-  "voice": "pf-x4-author.wav",
-  "effect": "fire_burst",
-  "mode": "bending",
-  "seed": 2,
-  "tap_frame": 54,
-  "real": true,
-  "again": 2
  }
 }
