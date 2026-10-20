@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { AUDIO_CONSTRAINTS } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
-import { BUZZ_HF, buzzOf, drawChannels, type Stream, streamStep } from "@/lib/lightning";
+import {
+  arcChannels, arcStep, type Arcs, BALL_RGB, type Ball, ballStep, BUZZ_HF, buzzOf, dense, dipStep, drawBall, drawChannels,
+  drawDip, drawLight, drawSpark, HAND_RGB, type Light, lightStep, newArcs, type P2, ROOM_RGB,
+} from "@/lib/lightning";
 import { type LiveElement, liveHand, onsetStep, type OnsetState, playLook, RELEASE_MS, thrownAt } from "@/lib/live";
 
 // MediaPipe's hand landmarker in the browser (Apache-2.0), its runtime and model from Google's own hosting
@@ -100,8 +103,12 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       const pcm = new Float32Array(analyser.fftSize);
       const spectrum = new Float32Array(analyser.frequencyBinCount);
       let buzzRun = 0; // how long a buzz has gone on (it starts the lightning at BUZZ_ON, and it lets go as slowly)
-      let bolts: Stream[] = [];
-      let zapGlow = 0; // the lightning's light on the hand, smoothed (it never strobes)
+      let arcs: Arcs | null = null; // the lightning: arcs from the pointed fingertip, or a ball over the open palm
+      let ball: Ball | null = null;
+      let zapLight: Light | null = null; // the light it throws (it holds while the strokes strike, dies with them)
+      let zapAt: { at: P2; room: string; hand: string; gain: number } | null = null; // where that light comes from,
+      // its colours on the room and the hand, and how strong it is on the hand
+      let zapDip = 0; // stops the camera exposes down for the ball
       let frameNo = 0;
       const pool = Object.values(byEffect).flatMap((el) => [0, 1, 2].map(() => {
         const v = document.createElement("video");
@@ -150,7 +157,7 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
         analyser.getFloatFrequencyData(spectrum);
         const bz = buzzOf(spectrum, pcm, audio.sampleRate); // a voiced "zzzzz": lightning, not fire
         buzzRun = bz.voiced && bz.hf >= BUZZ_HF && db > onset.floor + 12 ? Math.min(BUZZ_MAX, buzzRun + 1) : Math.max(0, buzzRun - 1);
-        const zapping = buzzRun >= BUZZ_ON || (buzzRun > 0 && bolts.length > 0);
+        const zapping = buzzRun >= BUZZ_ON || (buzzRun > 0 && (arcs !== null || ball !== null));
         frameNo++;
         // the hand, or for a few frames the one last seen (a hit on a frame the tracker missed it was dropped)
         if (lm) { lastHand = liveHand(lm); lostFor = 0; } else lostFor++;
@@ -201,35 +208,53 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
           ctx.restore();
           glow = Math.max(glow, p.gain * fading * Math.min(1, t > p.el.ignition ? 1 : 0.4));
         }
-        if (zapping && hand) { // lightning: arcs from the pointed fingertip, or a crackling ball over the palm
-          const level = Math.min(1, Math.max(0, (db - onset.floor) / 40));
-          const px = H / 1080;
-          if (hand.pointing) {
-            const n = 1 + Math.round(2 * level);
-            while (bolts.length < n) bolts.push({ ch: null, left: 0, aim: 0, seed: bolts.length + 1 });
-            bolts = bolts.slice(0, n).map((b) => streamStep(b, hand.tip, Math.atan2(hand.dir[1], hand.dir[0]),
-              hand.scale * (1.5 + 3.5 * level), 1.4 + 2.2 * level, !!step.hit, frameNo));
-          } else {
-            const n = 4 + Math.round(3 * level);
-            while (bolts.length < n) bolts.push({ ch: null, left: 0, aim: 0, seed: bolts.length + 11 });
-            bolts = bolts.slice(0, n).map((b, i) => streamStep(b, hand.palm, (2 * Math.PI * i) / n + frameNo * 0.05,
-              hand.scale * (0.45 + 0.5 * level), 1.0, !!step.hit, frameNo));
+        // lightning: arcs from the pointed fingertip (welded to it, along the finger), or a ball of light over the
+        // open palm; the light they throw goes under them, held while they strike and dying within a few frames, and
+        // the camera exposes down for the ball. It follows the hand the tracker sees (held over a frame it missed,
+        // but no longer: held while the take moved on, a bolt hung in the air where the hand had been)
+        const zapHand = lostFor <= 1 ? hand : null;
+        const level = Math.min(1, Math.max(0, (db - onset.floor) / 40));
+        const px = H / 1080;
+        const pts: P2[] | null = lm ? lm.map((p): P2 => [p.x, p.y]) : null;
+        let drawZap = () => {};
+        let power = 0;
+        if (zapping && zapHand && zapHand.pointing) {
+          ball = null;
+          const tip: P2 = pts ? pts[8] : zapHand.tip; // (welded to the fingertip, along its last two joints)
+          const aim = pts ? Math.atan2(pts[8][1] - pts[6][1], pts[8][0] - pts[6][0])
+            : Math.atan2(zapHand.dir[1], zapHand.dir[0]);
+          const now = arcStep(arcs ?? newArcs(), tip, aim, zapHand.scale, level, !!step.hit, frameNo, px);
+          arcs = now;
+          const lines = arcChannels(now, level);
+          power = Math.max(0, ...lines.map(([, g]) => g));
+          const end = now.main.ch!.pts[now.main.ch!.pts.length - 1];
+          const at: P2 = [(2 * tip[0] + end[0]) / 3, (2 * tip[1] + end[1]) / 3]; // (the bolt's light comes from it)
+          zapAt = { at, room: ROOM_RGB, hand: HAND_RGB, gain: 1 };
+          drawZap = () => {
+            drawChannels(ctx, lines, px);
+            drawSpark(ctx, tip, 0.12 * zapHand.scale, (0.35 + 0.65 * level) * Math.max(0.4, power));
+          };
+        } else if (zapping && zapHand) {
+          arcs = null;
+          const now = ballStep(ball, level, !!step.hit, frameNo);
+          ball = now;
+          if (now) {
+            power = (0.4 + 0.6 * now.level) * (now.born ? dense(now.level, now.charge) : 0.1); // (a crackle: dim)
+            zapAt = { at: zapHand.palm, room: BALL_RGB, hand: BALL_RGB, gain: 0.45 }; // (under it: a pool, not a wash)
+            drawZap = () => drawBall(ctx, now, zapHand.palm, zapHand.scale, px);
           }
-          drawChannels(ctx, bolts.map((b) => b.ch!).filter(Boolean), px, 0.7 + 0.6 * level);
-          zapGlow = zapGlow * 0.85 + 0.15 * (0.25 + 0.5 * level); // (a slow light: no strobing on the room)
-          const at = hand.pointing ? hand.tip : hand.palm;
-          const g = ctx.createRadialGradient(at[0], at[1], 0, at[0], at[1], hand.scale * 2.5);
-          g.addColorStop(0, `rgba(150, 160, 255, ${0.4 * zapGlow})`);
-          g.addColorStop(1, "rgba(120, 130, 255, 0)");
-          ctx.save();
-          ctx.globalCompositeOperation = "screen";
-          ctx.fillStyle = g;
-          ctx.fillRect(0, 0, W, H);
-          ctx.restore();
         } else {
-          bolts = [];
-          zapGlow *= 0.8;
+          arcs = null;
+          ball = null;
         }
+        zapLight = lightStep(zapLight, power);
+        zapDip = dipStep(zapDip, ball?.born ? power : 0);
+        drawDip(ctx, zapDip, W, H);
+        if (zapAt && zapLight.held > 0) {
+          drawLight(ctx, zapAt.at, zapHand?.scale ?? H / 6, zapLight.held, zapHand ? pts : null,
+            zapAt.room, zapAt.hand, W, H, zapAt.gain);
+        }
+        drawZap();
         // that it sees you and hears you, before anything is thrown: a faint ring on the palm, the microphone's level
         if (hand && lm) {
           ctx.save();
