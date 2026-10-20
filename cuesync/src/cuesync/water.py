@@ -439,6 +439,8 @@ SPLASH_CONE = 1.0  # they fly on along its motion, spread over a cone this wide 
 SPLASH_CARRY = 0.3  # ... keeping this much of its speed
 SPRAY_LIFE = 7  # frames the fine spray lasts
 SPLAT = (1.0, 0.12, 0.03)  # palm contact: radius, thickness and air content of a thin sheet spreading on the skin
+COLLAPSE = (3, 9, 26, 72)  # frames from release to first contact, last slumping volume, drained sheet and dry skin;
+# the sheet and the falling body overlap, so a spill has continuous visible volume instead of a one-frame burst
 BURST_SWELL = (1.12, 0.3, ((3, 0.05), (5, 0.025)))  # the burst's first frame: its body swollen to this share of its
 # radius, frothing this much, wobbling in these lobes (of its radius) (spread into a ring of pieces with its torn skin
 # inside, it was a flat lid stuck in the air; wrinkled in five to nine lobes, a cellophane flower; frothing more, a
@@ -988,6 +990,8 @@ class Blob(NamedTuple):
     lie: float = 0.0  # 0..1: how much of a stream here lies on the skin, a rivulet (RIVULET, REST)
     lead: float = 0.0  # 0..1: how much its smear over the exposure is sharp at its front and trails behind (BLUR_LEAD;
     # 0: even along it)
+    folds: tuple = ()  # ((angle, angular width, reach in radii), ...): localized flowing folds in this body's own
+    # surface, so a stretching lobe shares its optical depth instead of becoming a second little lens at the join
 
 
 @dataclass
@@ -1026,6 +1030,8 @@ class Scene:
     # stream lies, a band through those points
     film: list = field(default_factory=list)  # the water on the room's wall where the orb burst on it: a Sheet, Trails
     # and Beads (_wall), drawn on the plate behind the water in the air (_film)
+    coat: tuple | None = None  # (x, y, radius, wetness, flowing): the palm's thin, rippled water coat after a spill;
+    # its broad reflections follow the skin's relief instead of making a circle of white particles
 
 
 class Sheet(NamedTuple):
@@ -1120,7 +1126,7 @@ class Field:
         for b in blobs:
             if b.r < 0.5 or b.w <= 0:
                 continue
-            sig = b.r * SIG_K * (1.0 + sum(abs(a) for _, a, _ in b.modes))
+            sig = b.r * SIG_K * (1.0 + sum(abs(a) for _, a, _ in b.modes) + sum(a for _, _, a in b.folds))
             S = np.asarray(b.shape, np.float64).reshape(2, 2)
             C = S @ S.T
             ex, ey = REACH * sig * math.sqrt(C[0, 0]), REACH * sig * math.sqrt(C[1, 1])
@@ -1164,9 +1170,12 @@ class Field:
         Si = np.linalg.inv(np.asarray(b.shape, np.float64).reshape(2, 2)).astype(np.float32)
         u, v = Si[0, 0] * dx + Si[0, 1] * dy, Si[1, 0] * dx + Si[1, 1] * dy  # in the blob's own frame: a circle
         q = (u * u + v * v) * np.float32(1.0 / (sig * sig))
-        if b.modes:
+        if b.modes or b.folds:
             th = np.arctan2(v, u)
             m = 1.0 + sum(np.float32(a) * np.cos(np.float32(l) * th - np.float32(ph)) for l, a, ph in b.modes)
+            for angle, width, reach in b.folds:
+                turn = np.arctan2(np.sin(th - angle), np.cos(th - angle))
+                m += np.float32(reach) * np.exp(-0.5 * (turn / np.float32(width)) ** 2)
             q = q / (m * m)
         r2 = REACH * REACH
         t = np.clip((r2 - q) * np.float32(1.0 / (r2 - 0.64 * r2)), 0.0, 1.0)
@@ -1640,6 +1649,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     facing += pool * (_ss(POOL_EDGE[0], POOL_EDGE[1], face)
                       * _ss(-0.2, 0.6, noise.flow(13, X, Y, fvx, fvy, k, POOL_EDGE[2] * s)) - facing)
     men = MENISCUS[0] * flat * np.exp(-((sdp - MENISCUS[1]) / MENISCUS[2]) ** 2) * facing
+    if sc.coat is not None:
+        men *= 1.0 - 0.75 * pool
     if st.size:  # (along a stream, in lengths: lit all along, a tube)
         men[st] *= 1.0 - sw[st] * (1.0 - seg)
     film = np.maximum(rest_p, pool)  # (lying on the skin, no dark lines round it but with its bright one: all round,
@@ -1677,6 +1688,9 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         gyw += WINDOW[5] * big * (gyb - gyw)
     nw = np.sqrt(gxw * gxw + gyw * gyw + 1.0)
     spec = GLINT[0] * _window(-gxw / nw, -gyw / nw, 1.0 / nw, Lk, 1.0)
+    if sc.coat is not None:
+        # The shallow junction between the spreading sheet and a run must not mirror one long window stripe.
+        spec *= 1.0 - 0.94 * pool
     nc = np.sqrt(gxc * gxc + gyc * gyc + 1.0)
     saddle = _ss(-0.02, -0.3, (hxx * hyy - hxy * hxy)[iy, ix] * R * R)  # ... and where the surface curves both ways it
     spec += (GLINT_CORE[0] / max(float(room.white[k]), 0.3) * (1.0 - GLINT_CORE[3] * saddle)  # mirrors it twice over:
@@ -1694,6 +1708,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     # a fast stream only (the thrown orb at its speed went milky): froth in torn bits, and its edges catching the key
     # light as a cylinder's do
     spec *= 1.0 - GLINT_FAST * whip  # (its broad glints, smeared by its speed, were a slab of white streaks)
+    if sc.coat is not None:
+        spec *= 1.0 - 0.25 * pool
     if st.size:  # a thin bright line along its edge towards the light, all along it in the air and in lengths lying on
         # the skin, and fast, a dimmer one along the other (where the light grazed both edges, lit all along, they were
         # a glass tube's; broken into lengths in the air, cellophane's folds)
@@ -1714,6 +1730,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     # length)
     cres += (RIM_LIT[0] * edge * _ss(*RIM_LIT[1], rr) * _ss(0.0, 0.85, face)
              * np.clip(1.0 + CREST_LIGHT[1] * crest, 0.6, 1.4))  # the rim towards the light
+    if sc.coat is not None:
+        cres *= 1.0 - 0.85 * _ss(0.10, 0.45, flat)
     net = INNER_GLOW * np.exp(-(inner / 0.22) ** 2) * deep * (1.0 - F)
     col += (spec + cres + net).astype(np.float32)[:, None] * lit[None, :]
     # froth: sparse entrained air lit by the room, carried in streaks along a stream. The airborne body remains clear
@@ -3183,8 +3201,214 @@ def _film(P: np.ndarray, items: list, matte: np.ndarray | None, room: Room, k: i
     return boxes
 
 
+def _orb_folds(sc: Scene, k: int, formed: int, c: np.ndarray, r: float, shape: np.ndarray,
+               modes: list, seed: int, drops: Drops) -> None:
+    """Pull one continuous surface into a travelling fold, then narrow it and release a drop. Giving the root a
+    separate small blob makes its thickness switch to a small ball lens and draws a glass ring inside the body."""
+    cycle, age = divmod(k - formed + seed * 3, 20)
+    grow = float(_ss(0.0, 13.0, age))
+    relax = 1.0 - float(_ss(14.0, 20.0, age))
+    angle = (-2.5 if cycle % 2 == 0 else -0.25) + 0.22 * math.sin(0.10 * k + seed)
+    d = np.array([math.cos(angle), math.sin(angle)])
+    radius = 1.0 + sum(a * math.cos(l * angle - ph) for l, a, ph in modes)
+    reach = (0.12 + 0.52 * grow) * relax
+    width = 0.29 - 0.13 * grow
+    sc.blobs[0] = sc.blobs[0]._replace(folds=((angle, width, reach),))
+    tip = c.copy()
+    tip[:2] += shape @ d * r * (radius + reach + 0.07)
+    tip[2] -= 0.06 * r
+    rd = 0.10 * r
+    if age == 14:
+        velocity = np.r_[shape @ d * (0.05 * r) + np.array([0.0, -0.018 * r]), 0.0]
+        drops.add(k, tip, velocity, rd, life=9, fade=3, shutter=SHUTTER, g=0.012 * r)
+    if 10 <= age < 14:
+        sc.blobs.append(Blob(*tip, rd * float(_ss(9, 12, age))))
+
+
+def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, shape: np.ndarray,
+                modes: list, hand: Hand, seed: int, mask: np.ndarray | None, strength: float,
+                cam: np.ndarray | None) -> None:
+    """Transfer a released orb into a palm sheet over several exposures, then drain it. The raised body overlaps
+    the sheet; returning splash drops merge into it, and runoff leaves the measured silhouette as airborne water.
+    The film follows the tracked skin; airborne water inherits its birth velocity and then moves independently.
+    Each frame is evaluated from those fixed paths, with no frame-order dependence."""
+    rng = _rng(seed, _ORB, 19)
+    p0, s0 = hand.p[release], float(hand.s[release])
+    n = len(scenes)
+    contact, slump, drain, dry = COLLAPSE
+    pace = 0.65 + 0.35 * float(np.clip(strength, 0.0, 1.0))
+    # Three routes reach the webs between fingers; two more drain over the palm's sides.
+    if hand.off is not None:
+        lm = hand.off[release, :, :2]
+        routes = [0.5 * (lm[a] + lm[b]) + 0.35 * (0.5 * (lm[a + 1] + lm[b + 1])
+                                                               - 0.5 * (lm[a] + lm[b])) - p0
+                  for a, b in ((5, 9), (9, 13), (13, 17))]
+    else:
+        routes = [np.array([dx, -0.48]) * s0 for dx in (-0.27, 0.0, 0.27)]
+    routes += [np.array([-0.53, 0.05]) * s0, np.array([0.48, 0.20]) * s0]
+    edges = []
+    for route in routes:
+        d = route / max(np.linalg.norm(route), 1e-6)
+        reach = max(float(np.linalg.norm(route)), 0.4 * s0)
+        if mask is not None:
+            distances = np.linspace(0.12 * s0, max(reach, 0.9 * s0), 64)
+            pts = p0 + distances[:, None] * d
+            xx = np.clip(np.rint(pts[:, 0]).astype(int), 0, mask.shape[2] - 1)
+            yy = np.clip(np.rint(pts[:, 1]).astype(int), 0, mask.shape[1] - 1)
+            off = np.flatnonzero(mask[release, yy, xx] < 128)
+            if off.size:
+                reach = float(distances[max(0, off[0] - 1)])
+        edges.append(d * reach / s0)
+    bead_offsets = rng.uniform((-0.30, -0.20), (0.30, 0.20), (5, 2))
+    bead_sizes = rng.uniform(0.011, 0.019, 5)
+    inherited = scenes[release - 1].blobs[0].folds if release and scenes[release - 1].blobs else ()
+    # Unequal launch times and arcs keep the spray away from a circular crown or an even dotted ring.
+    spray = [(int(rng.integers(contact, contact + 5)), float(rng.uniform(12.0, 18.0)),
+              rng.uniform((-0.22, -0.18), (0.22, 0.08)), rng.uniform(-0.035, 0.035),
+              float(rng.uniform(0.024, 0.041)), float(rng.uniform(0.38, 0.78))) for _ in range(12)]
+    runoff = [(9 + j * 2, edge, float(rng.uniform(0.022, 0.030))) for j, edge in enumerate(edges[:3])]
+    runoff += [(10 + j * 5, edge, float(rng.uniform(0.035, 0.048))) for j, edge in enumerate(edges[-2:])]
+    births = {}
+    for born in {item[0] for item in spray + runoff}:
+        kb = min(n - 1, release + born)
+        previous = hand.p[max(0, kb - 1)]
+        inverse = None if cam is None else np.linalg.inv(cam[kb])
+        if cam is not None and kb:
+            motion = cam[kb] @ np.linalg.inv(cam[kb - 1])
+            previous = previous @ motion[:2, :2].T + motion[:2, 2]
+        births[born] = (kb, hand.p[kb], float(hand.s[kb]), hand.p[kb] - previous, inverse)
+
+    def airborne(born, tau, relative, velocity, k):
+        """An airborne path in its birth frame's units, projected through subsequent camera movement."""
+        kb, pb, sb, impulse, inverse = births[born]
+        xy = pb + sb * relative + impulse * tau
+        vel = sb * velocity + impulse
+        if cam is not None:
+            motion = cam[k] @ inverse
+            xy = xy @ motion[:2, :2].T + motion[:2, 2]
+            vel = vel @ motion[:2, :2].T
+        return xy, vel, sb, kb
+
+    landings = []
+    for born, life, off, vx, rb, height in spray:
+        kl = min(n - 1, release + born + int(math.ceil(life)))
+        landing = off + np.array([vx * pace * life, 0.08 * pace])
+        xy, _, sb, kb = airborne(born, life, landing, np.zeros(2), kl)
+        on_skin = np.linalg.norm(xy - hand.p[kl]) < 0.7 * float(hand.s[kl])
+        if mask is not None:
+            ix, iy = int(round(xy[0])), int(round(xy[1]))
+            on_skin = 0 <= ix < mask.shape[2] and 0 <= iy < mask.shape[1] and mask[kl, iy, ix] > 128
+        landings.append((kl, xy, bool(on_skin)))
+    for k in range(release, min(n, release + 100)):
+        age = k - release
+        sc = scenes[k]
+        p, nrm, s = hand.p[k], hand.nrm[k], float(hand.s[k])
+        ratio = s / s0
+        zp = float(hand.depth(k, p[0:1], p[1:2], fingers=False)[0])
+        un = _unit(nrm[:2]) if np.linalg.norm(nrm[:2]) > 1e-6 else np.array([0.0, 1.0])
+        disc = np.asarray(_shape(un, max(abs(float(nrm[2])), 0.45), 1.0)).reshape(2, 2)
+        fall = float(_ss(0, slump, age))
+        if age < slump:
+            rr = R * ratio * (1.0 - 0.34 * fall)
+            thickness = 1.0 - 0.88 * fall
+            target = np.r_[p, zp] + nrm * (rr * thickness + 0.015 * s)
+            carried = np.r_[p + (c0[:2] - p0) * ratio, zp + (c0[2]
+                                - float(hand.depth(release, p0[0:1], p0[1:2], fingers=False)[0])) * ratio]
+            touching = float(_ss(0, contact, age))
+            at = carried * (1.0 - touching) + target * touching
+            deform = np.asarray(_shape(un, 1.0 - 0.55 * fall, 1.0 + 0.70 * fall)).reshape(2, 2) @ shape
+            sc.blobs.append(Blob(*at, rr, tuple(deform.ravel()), vy=0.03 * s,
+                                 modes=tuple((l, a * (1.0 - 0.5 * fall), ph + 0.1 * age) for l, a, ph in modes),
+                                 flat=thickness, foam=0.025 * fall, move=(0.0, 0.012 * s),
+                                 folds=tuple((ang, width, reach * (1.0 - fall)) for ang, width, reach in inherited)
+                                 + ((2.35, 0.35, 0.35 * math.sin(math.pi * fall)),)))
+            sc.held = (*at, rr, 1.0 - float(_ss(0, slump, age)))
+            sc.wave = WAVE[0] * (1.0 - 0.6 * fall)
+            for j in range(2):
+                ang = 1.4 + j * 2.0
+                sc.trains.append((at[0], at[1], rr, math.cos(ang), math.sin(ang), 0.1,
+                                  0.035 * (1.0 - fall), 0.8 * rr, age * 0.22 * rr))
+        spread = float(_ss(contact - 1, 11, age))
+        remaining = 1.0 - float(_ss(15, drain, age))
+        if contact - 1 <= age < drain:
+            rr = R * ratio * (0.38 + 1.0 * spread)
+            sc.blobs.append(Blob(p[0], p[1], zp + 0.015 * s, rr, tuple(disc.ravel()),
+                                 modes=((3, 0.08, 0.3 + 0.12 * age), (5, 0.035, 1.3 - 0.08 * age)),
+                                 flat=(0.15 - 0.065 * spread) * remaining,
+                                 w=TAU + (1.0 - TAU) * remaining, foam=0.018 * remaining))
+            for j, edge in enumerate(edges):
+                front = float(_ss(contact + j * 0.35, 11 + j * 0.5, age))
+                tip = p + s * edge * front
+                u = np.linspace(0.12, 1.0, 8)
+                xy = p + (tip - p)[None, :] * u[:, None]
+                xy[:, 0] += 0.018 * s * np.sin(u * math.pi) * math.sin(j + age * 0.2)
+                z = hand.depth(k, xy[:, 0], xy[:, 1]) + 0.012 * s
+                pts = np.c_[xy, z]
+                arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
+                width = (0.10 - 0.065 * u) * s * remaining * front
+                if width.max() >= 0.5 and arc[-1] > 1.0:
+                    sc.blobs += [b._replace(stream=()) for b in
+                                 _stream(pts, np.zeros_like(pts), width, np.zeros(8), np.zeros((8, 2)), arc,
+                                         np.full(8, 0.075))]
+        wet = spread * (1.0 - float(_ss(25, dry, age)))
+        if wet > 0.001:
+            across = math.atan2(un[1], un[0]) + 0.5 * math.pi
+            sc.wet.append((p[0], p[1], 1.48 * R * ratio, 1.48 * R * ratio * max(abs(float(nrm[2])), 0.5),
+                           across, 0.24 * wet, 2.7, 0.0, 0.4))
+            sc.coat = (p[0], p[1], 1.48 * R * ratio, wet, remaining)
+            for j, edge in enumerate(edges):
+                points = p + np.linspace(0.2, 1.0, 8)[:, None] * edge * s
+                sc.band.append((points, np.linspace(0.055, 0.025, 8) * s, 0.16 * wet))
+        if age >= 13:
+            for j, (off, rb) in enumerate(zip(bead_offsets, bead_sizes)):
+                left = max(0.0, 1.0 - (age - 13) / (72 + 3 * j))
+                if left > 0:
+                    xy = p + s * (off + np.array([0.015, 0.11]) * float(_ss(13, 62, age)))
+                    z = float(hand.depth(k, xy[0:1], xy[1:2])[0])
+                    sc.blobs.append(Blob(xy[0], xy[1], z + rb * s * 0.3, rb * s * math.sqrt(left),
+                                         free=True, flat=0.45, glint=0.30 * left))
+        for (born, life, off, vx, rb, height), (kl, land_xy, on_skin) in zip(spray, landings):
+            tau = age - born
+            if not 0 <= tau <= life + (3 if on_skin else 18):
+                continue
+            u = tau / life
+            if 2.0 <= tau and (tau <= life or not on_skin):
+                relative = off + pace * np.array([vx * tau, 0.08 * u - 4.0 * height * u * (1.0 - u)])
+                velocity = pace * np.array([vx, (0.08 - 4.0 * height * (1.0 - 2.0 * u)) / life])
+                xy, vel, sb, kb = airborne(born, tau, relative, velocity, k)
+                pb = hand.p[kb] + sb * off
+                z = float(hand.depth(kb, pb[0:1], pb[1:2])[0]) + sb * (0.04 + 0.30 * max(0.0, u * (1.0 - u)))
+                radius = rb * sb * min(1.0, (life + 18 - tau) / 3.0)
+                shp, move = _moving(radius, vel, 1.15, SHUTTER)
+                sc.blobs.append(Blob(xy[0], xy[1], z, radius, shp, *vel, free=True, move=move, glint=0.55))
+            elif tau > life and remaining > 0.05:
+                xy = land_xy + p - hand.p[kl]
+                sc.plops.append((xy[0], xy[1], (tau - life + 1) * 0.018 * s,
+                                 0.12 * (1.0 - (tau - life) / 4.0)))
+        for born, edge, rb in runoff:
+            tau = age - born
+            if not 0 <= tau < 17:
+                continue
+            outward = _unit(edge) * rb * 1.3
+            relative = edge + outward + np.array([0.006 * tau * np.sign(edge[0]), 0.0035 * tau * tau])
+            xy, velocity, sb, kb = airborne(born, tau, relative,
+                                           np.array([0.006 * np.sign(edge[0]), 0.007 * tau]), k)
+            lip = hand.p[kb] + sb * edge
+            z = float(hand.depth(kb, lip[0:1], lip[1:2])[0]) + 0.04 * sb
+            radius = rb * sb * min(1.0, (17 - tau) / 4.0)
+            shp, move = _moving(radius, velocity, 1.0 + min(1.5, tau * 0.12), SHUTTER)
+            sc.blobs.append(Blob(xy[0], xy[1], z, radius, shp, *velocity, free=True, move=move, glint=0.5))
+            if tau < 4:
+                # A short thinning connection holds the drop at the lip before gravity pulls it clear.
+                root = p + s * edge
+                at = 0.5 * (root + xy)
+                sc.blobs.append(Blob(at[0], at[1], z, max(0.6, rb * s * (1.0 - tau / 4.0)),
+                                     _shape(np.array([0.0, 1.0]), 1.0 + 0.5 * tau, 0.6), free=True, glint=0.25))
+
+
 def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], seed: int,
-               cam: np.ndarray | None, plate: np.ndarray | None = None) -> list[Scene]:
+               cam: np.ndarray | None, plate: np.ndarray | None = None,
+               mask: np.ndarray | None = None) -> list[Scene]:
     """The orb, frame by frame (see the module's docstring and orb_plan). ``plate`` (the shot's frames, uint8 RGB, or
     None: every wall taken as plain) says whether what it is thrown at is a plain wall it stays on (_plain)."""
     n = tl.n
@@ -3229,9 +3453,10 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
     m2, m2v = np.zeros(2), np.zeros(2)
     circ = 0.0
     modes: list[tuple] = []
+    shape = np.eye(2)
     next_drip = g1 + int(rng.integers(*DRIP_EVERY))
     drip_side = float(rng.uniform(*DRIP_SIDE) * rng.choice([-1.0, 1.0]))
-    fly = None  # the orb in the air: (frame, centre, velocity, radius, thrown, the palm's normal, the wall's depth);
+    fly = None  # the thrown orb in the air: (frame, centre, velocity, radius, the wall's depth);
     # centre None: burst
     falling: list[tuple] = []  # drops to let go off the wall later (_wall)
     cast = None  # thrown at a plain wall: (the frame it strikes it on, px there, its radius px there)
@@ -3281,7 +3506,8 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 drops.add(k, np.tile(np.r_[at, zl], (m, 1)), d * rng.uniform(*DRIP_WET[4], (m, 1)) * s / FPS,
                           rd * rng.uniform(0.25, 0.4, m), life=4.0, fade=2.0)
         t = k / FPS
-        sc.wave = WAVE[0] + WAVE[1] * float(e[k])
+        if rel is None or k <= rel or plan.throw:
+            sc.wave = WAVE[0] + WAVE[1] * float(e[k])
         circ += (CIRCULATE[0] + CIRCULATE[1] * float(e[k])) / FPS
         if rel is None or k < rel:
             zp = float(hand.depth(k, np.float32([p[0]]), np.float32([p[1]]))[0])
@@ -3354,6 +3580,8 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 # gathers (at full strength once a third of it was there, it popped on with only a few drops in the
                 # air; at its share of the water, the focus was white hot while the orb was still forming)
                 sc.lobes = ((2, k2 - 1.0, math.atan2(u2[1], u2[0])), *modes)
+                if k >= g1:
+                    _orb_folds(sc, k, g1, c, r, shape, modes, seed, drops)
                 sc.net = float(_ss(g1, g1 + SPOT_IN, k))
                 slope = RIPPLES[2][0] + (RIPPLES[2][1] - RIPPLES[2][0]) * float(e[k])
                 for u3, lam, hz in zip(sources, lams, hzs):  # its small waves, running out over it in trains from
@@ -3408,27 +3636,28 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
             for kj, u3, z in rings:
                 if k - kj < 3 * RING[3]:
                     sc.rings.append((c[0], c[1], r, *u3, k - kj, RING[0] * z, RING[1] * r, RING[2] * r))
-        elif fly is None or fly[1] is not None:  # let go and not yet burst
-            if fly is None:  # let go: thrown along the aim, or dropped onto the palm
+        elif not plan.throw:
+            if k == rel:
+                c = spring.x.copy() if spring is not None else np.r_[p, 0.0] + nrm * (R + ORB_GAP * s)
+                _palm_spill(scenes, k, c, R, shape, modes, hand, seed, mask, plan.size, cam)
+        elif fly is None or fly[1] is not None:  # thrown and not yet burst
+            if fly is None:  # the measured thrust throws it along the aim
                 c = spring.x if spring is not None else np.array([p[0], p[1], 0.0]) + nrm * (R + ORB_GAP * s)
                 v0 = spring.v / FPS if spring is not None else np.zeros(3)
-                if plan.throw:
-                    aim = _aim(tl, hand, k)
-                    sp = THROW_SPEED * s / FPS * (0.6 + 0.4 * plan.size)
-                    v = 0.5 * v0 + np.array([aim[0] * sp, aim[1] * sp, -RECEDE * sp])
-                else:
-                    v = v0
+                aim = _aim(tl, hand, k)
+                sp = THROW_SPEED * s / FPS * (0.6 + 0.4 * plan.size)
+                v = 0.5 * v0 + np.array([aim[0] * sp, aim[1] * sp, -RECEDE * sp])
                 zp = float(hand.depth(k, np.float32([p[0]]), np.float32([p[1]]))[0])
-                fly = (k, c.copy(), v, R, plan.throw, nrm.copy(), zp - ROOM_DEPTH * max(H, W))
-                for tq in range(1, 4 * FPS) if plan.throw else ():  # where and when it will strike the wall
+                fly = (k, c.copy(), v, R, zp - ROOM_DEPTH * max(H, W))
+                for tq in range(1, 4 * FPS):  # where and when it will strike the wall
                     sq = float(hand.s[min(n - 1, k + tq)])
                     cq = c + v * (tq * tq / (2 * TAKEOFF) if tq < TAKEOFF else tq - TAKEOFF / 2) + np.array(
                         [0.0, 0.5 * G * sq / FPS ** 2 * tq * tq, 0.0])
-                    kq = ZCAM * sq / max(ZCAM * sq - (min(cq[2], fly[6]) - c[2]), 0.2 * ZCAM * sq)
+                    kq = ZCAM * sq / max(ZCAM * sq - (min(cq[2], fly[4]) - c[2]), 0.2 * ZCAM * sq)
                     xq = np.array([W / 2.0, H / 2.0]) + (cq[:2] - np.array([W / 2.0, H / 2.0])) * kq
                     if min(xq[0] + R * kq, W + R * kq - xq[0], xq[1] + R * kq, H + R * kq - xq[1]) < 0:
                         break
-                    if cq[2] <= fly[6]:
+                    if cq[2] <= fly[4]:
                         if _plain(None if plate is None or k + tq >= n else plate[k + tq], xq[0], xq[1], R * kq):
                             cast = (k + tq, xq, R * kq)
                         break
@@ -3437,64 +3666,50 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 m = int(rng.integers(PALM_DROPS[0][0], PALM_DROPS[0][1] + 1))
                 d_off = rng.normal(size=(m, 2)) * np.array([0.35, 0.16]) * PALM_DROPS[2] * R
                 sat = (k, foot - p, R, d_off, s * rng.uniform(*PALM_DROPS[1], m))
-            k0, c0, v, R0, thrown, nrm0, zw = fly
+            k0, c0, v, R0, zw = fly
             tau = k - k0
             gone = hit = False
             if cast is not None and 0 < cast[0] - k <= WALL_CAST[0]:  # its shadow on the wall it will strike
                 sc.cast.append((cast[1][0], cast[1][1], cast[0] - k, cast[2],
                                 WALL_CAST[3] * float(_ss(WALL_CAST[0] + 1.0, 1.0, cast[0] - k))))
-            if thrown:
-                go = tau * tau / (2 * TAKEOFF) if tau < TAKEOFF else tau - TAKEOFF / 2
-                c = c0 + v * go + np.array([0.0, 0.5 * G * s / FPS ** 2 * tau * tau, 0.0])
-                vel = v * min(1.0, tau / TAKEOFF) + np.array([0.0, G * s / FPS ** 2 * tau, 0.0])  # (at full speed
-                # from the frame it was let go on, it was drawn stretched into a long tear lying over the palm)
-                hit = c[2] <= zw  # it reached the wall
-                if hit:
-                    c[2] = zw
-                kz = ZCAM * s / max(ZCAM * s - (c[2] - c0[2]), 0.2 * ZCAM * s)
-                xy = np.array([W / 2.0, H / 2.0]) + (c[:2] - np.array([W / 2.0, H / 2.0])) * kz
-                gone = min(xy[0] + R0 * kz, W + R0 * kz - xy[0], xy[1] + R0 * kz, H + R0 * kz - xy[1]) < 0
-                done = hit or gone
-                hold = max(0.0, 1.0 - tau / (TAKEOFF + 2))  # it takes its light off the palm as it goes
-            else:  # falling onto the palm under it
-                c = c0 + v * tau - nrm0 * 0.5 * G * s / FPS ** 2 * tau * tau
-                vel = v - nrm0 * G * s / FPS ** 2 * tau
-                kz, xy = 1.0, c[:2]
-                done = float((c0 - c) @ nrm0) >= ORB_GAP * s
-                hold = max(0.0, 1.0 - tau / 3.0)
+            go = tau * tau / (2 * TAKEOFF) if tau < TAKEOFF else tau - TAKEOFF / 2
+            c = c0 + v * go + np.array([0.0, 0.5 * G * s / FPS ** 2 * tau * tau, 0.0])
+            vel = v * min(1.0, tau / TAKEOFF) + np.array([0.0, G * s / FPS ** 2 * tau, 0.0])
+            hit = c[2] <= zw
+            if hit:
+                c[2] = zw
+            kz = ZCAM * s / max(ZCAM * s - (c[2] - c0[2]), 0.2 * ZCAM * s)
+            xy = np.array([W / 2.0, H / 2.0]) + (c[:2] - np.array([W / 2.0, H / 2.0])) * kz
+            gone = min(xy[0] + R0 * kz, W + R0 * kz - xy[0], xy[1] + R0 * kz, H + R0 * kz - xy[1]) < 0
+            done = hit or gone
+            hold = max(0.0, 1.0 - tau / (TAKEOFF + 2))
             sc.held = (left[0][0], left[0][1], left[0][2], left[1], hold)
             if done and not gone:  # burst: from here on only its drops are left
                 at = np.array([xy[0], xy[1], c[2]])
-                if hit and _plain(None if plate is None else plate[k], xy[0], xy[1], R0 * kz):  # on the wall: it
+                if _plain(None if plate is None else plate[k], xy[0], xy[1], R0 * kz):  # on the wall: it
                     # spreads over it the way it was thrown and stays there, draining, dripping (flung off it as
                     # pieces in the air, it was soap bubbles and shards that all went at once)
                     fan = v[:2] / max(float(np.hypot(*v[:2])), 1e-6)
                     falling += _wall(scenes, drops, (k, xy[0], xy[1], c[2], R0 * kz, s * kz, fan, plan.size), n, cam,
                                      rng)
-                elif hit:  # on what is no plain wall (a coat rack, shelves): it bursts flat against it and its drops
+                else:  # on what is no plain wall (a coat rack, shelves): it bursts flat against it and its drops
                     # fall, leaving nothing on it
                     sc.blobs += splash(drops, k, at, R0 * kz, vel, plan.size, s * kz, rng, np.array([0.0, 0.0, 1.0]))
-                else:
-                    # The sphere touches the palm with its underside; a flattened sheet belongs on that contact
-                    # plane, not at the old sphere centre a radius above it.
-                    at -= nrm0 * R0
-                    sc.blobs += splash(drops, k, at, R0 * kz, vel, plan.size, s, rng, nrm0)
             if done:
-                fly = (k0, None, v, R0, thrown, nrm0, zw)
+                fly = (k0, None, v, R0, zw)
             else:  # airborne: slight stretch and a detached, dispersed trail, without a neck bridging back to the palm
                 fade = max(0.0, 1.0 - tau / TAKEOFF)  # its wobble and its air go as it is flung (dropped on the
                 # frame it was let go, the ball went still and empty at once)
                 vs = vel[:2] * kz
                 sp = float(np.hypot(*vs))
                 u = vs / max(sp, 1e-6)
-                stretch = 1.0 + min(THROWN_STRETCH, sp / (2.5 * R0)) if thrown else 1.0
-                shape, move = (_moving(R0 * kz, vs, stretch, THROWN_SHUTTER, (THROWN_LONG - stretch) * 2.0 * R0 * kz)
-                               if thrown else _moving(R0 * kz, vs, stretch))
+                stretch = 1.0 + min(THROWN_STRETCH, sp / (2.5 * R0))
+                shape, move = _moving(R0 * kz, vs, stretch, THROWN_SHUTTER, (THROWN_LONG - stretch) * 2.0 * R0 * kz)
                 sc.blobs.append(Blob(xy[0], xy[1], c[2], R0 * kz, shape, vs[0], vs[1], CIRCULATE[0] / FPS,
-                                     THROWN_FOAM[0] * min(1.0, 2.0 * (1.0 - fade)) if thrown else 0.0,
+                                     THROWN_FOAM[0] * min(1.0, 2.0 * (1.0 - fade)),
                                      modes=tuple((l, a * fade, ph) for l, a, ph in modes), move=move,
-                                     lead=1.0 if thrown else 0.0))  # (sharp at its front, smeared behind)
-                if thrown and tau >= 1:  # the key light mirrored along its flight
+                                     lead=1.0))  # (sharp at its front, smeared behind)
+                if tau >= 1:  # the key light mirrored along its flight
                     sc.streak = (xy[0], xy[1], u[0], u[1], float(np.hypot(*move)) if move else 0.0, R0 * kz,
                                  min(1.0, tau / TAKEOFF))
                 if fade > 0:  # (its air, small waves and points of light go with its wobble)
@@ -3506,7 +3721,7 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                                           lam * R0 * kz, lam * R0 * kz * hz * t))
                     sc.sparks = _sparks(seed, k, xy, R0 * kz, fade)
                     sc.sweep = (xy[0], xy[1], R0 * kz, loop[1], sweep0 + 2.0 * math.pi * t / SWEEP[0], fade)
-                if thrown and tau >= 1:  # drops torn off its back by the air, flung out in a cone behind it
+                if tau >= 1:  # drops torn off its back by the air, flung out in a cone behind it
                     m = int(rng.integers(TRAIL[0][0], TRAIL[0][1] + 1))
                     f_ = rng.uniform(*TRAIL[2], (m, 1))
                     ca = rng.uniform(-TRAIL[3], TRAIL[3], m)
@@ -4149,12 +4364,14 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
           code: float, seed: int) -> np.ndarray:
     """Frame ``k`` with its water: uint8 RGB, the plate's own bytes wherever there is none."""
     out = plate_k.copy()
-    if not sc.blobs and not sc.wet and not sc.band and not sc.film and not sc.plops and not sc.cast:
+    if not sc.blobs and not sc.wet and not sc.band and not sc.film and not sc.plops and not sc.cast and sc.coat is None:
         return out
     H, W = plate_k.shape[:2]
     P = lin(plate_k)
     boxes = (_wet(P, sc.wet, matte, room.lit(k), _unit(room.key(k, (sc.wet or [(W / 2.0, H / 2.0)])[0][:2])[:2]),
                   sc.band) if sc.wet or sc.band else [])
+    if sc.coat is not None and matte is not None:
+        boxes += _palm_gloss(P, sc.coat, matte, hand, room, noise, k)
     if sc.plops:
         boxes += _plops(P, sc.plops, matte, room.lit(k), _unit(room.key(k, sc.plops[0][:2])[:2]))
     if sc.cast:
@@ -4193,6 +4410,39 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
         sel = changed[span]
         out[span][sel] = gam(P[span][sel])
     return out
+
+
+def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room: Room, noise: Noise,
+                k: int) -> list[tuple]:
+    """The broad key light reflected in a draining skin film. Its normals combine travelling shallow folds with
+    the palm's plane and the plate's own skin relief, retaining skin detail through the transparent wet response."""
+    x, y, r, wet, flowing = coat
+    H, W = P.shape[:2]
+    s = float(hand.s[k])
+    y0, y1 = max(0, int(y - r)), min(H, int(y + r) + 2)
+    x0, x1 = max(0, int(x - 1.15 * r)), min(W, int(x + 1.15 * r) + 2)
+    if min(y1 - y0, x1 - x0) < 3:
+        return []
+    yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+    radius = np.sqrt(((xx - x) / r) ** 2 + ((yy - y) / (0.8 * r)) ** 2)
+    ripple = noise.flow(13, xx, yy, np.zeros_like(xx), np.full_like(yy, 0.018 * s), k, 0.16 * s)
+    height = (0.004 + 0.008 * flowing) * s * ripple
+    gy, gx = np.gradient(cv2.GaussianBlur(height.astype(np.float32), (0, 0), 1.2))
+    patch = P[y0:y1, x0:x1]
+    lum = patch @ fx._LUMA
+    smooth = cv2.GaussianBlur(np.log(np.maximum(lum, 0.01)), (0, 0), 1.4)
+    sy, sx = np.gradient(smooth)
+    normal = hand.nrm[k]
+    nx, ny = normal[0] - gx - 0.5 * sx, normal[1] - gy - 0.5 * sy
+    nz = np.full_like(nx, max(float(normal[2]), 0.45))
+    norm = np.sqrt(nx * nx + ny * ny + nz * nz)
+    L = room.key(k, (x, y))
+    half = _unit(L + np.array([0.0, 0.0, 1.0]))
+    ndh = np.clip((nx * half[0] + ny * half[1] + nz * half[2]) / norm, 0.0, 1.0)
+    envelope = wet * _ss(1.06, 0.52, radius + 0.065 * ripple) * matte[y0:y1, x0:x1].astype(np.float32) / 255.0
+    specular = (0.14 * ndh ** 72 + 0.35 * ndh ** 220) * envelope
+    patch += specular[..., None] * room.lit(k)
+    return [(y0, y1, x0, x1)]
 
 
 def _cast(P: np.ndarray, items: list, matte: np.ndarray | None, room: Room, k: int) -> list[tuple]:
@@ -4335,7 +4585,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     say("water", 0.0, "Working out where the water goes")
     hand = hand_of(track, n)
     cam = None if timeline.camera is None else np.asarray(timeline.camera, np.float64)
-    scenes = (orb_scenes(timeline, track, hand, (H, W), seed, cam, plate) if form == "orb"
+    scenes = (orb_scenes(timeline, track, hand, (H, W), seed, cam, plate, mask) if form == "orb"
               else whip_scenes(timeline, track, hand, (H, W), seed, cam, mask, plate))
     room = Room(plate)
     noise = Noise(seed)
