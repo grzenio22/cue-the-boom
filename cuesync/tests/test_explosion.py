@@ -80,31 +80,82 @@ def disc(h, w, r, colour, floor=4):
     return E, np.hypot(xx - w // 2, yy - h // 2)
 
 
-def test_the_fireballs_rim_breaks_into_tongues_and_its_smokes_outer_third_into_wisps():
+def test_the_fireballs_rim_breaks_into_tongues_and_its_smokes_outer_third_is_eaten_into_crisp_wisps():
     E, d = disc(240, 240, 70, (255, 160, 40))
     ang = np.linspace(0, 2 * np.pi, 720, endpoint=False)
+    top = np.sin(ang) < 0
 
     def ring(img, rr):
-        return img[(120 + rr * np.sin(ang)).round().astype(int), (120 + rr * np.cos(ang)).round().astype(int)]             .max(-1).astype(int)
+        return img[(120 + rr * np.sin(ang)).round().astype(int), (120 + rr * np.cos(ang)).round().astype(int)] \
+            .max(-1).astype(int)
 
     assert ring(E, 71).max() == 4 and ring(E, 68).min() == 255  # a hard round rim
+    ball = E.copy()
     o = X.Outline(240, 240, 240, seed=1)
-    near, desat, dens, _ = o.warp(E, 4, (0, 240, 0, 240), 10, 0.0, [])
-    assert 0.1 < (ring(E, 71) > 30).mean() < 0.5 and (ring(E, 72) > 30).any()  # tongues past it, here and there
+    maps = o.warp(E, 4, (0, 240, 0, 240), 10, 0.0, [])
+    past = ring(E, 74) > 30
+    assert 0.05 < past.mean() < 0.5  # tongues past it, here and there...
+    assert (ring(E, 82)[top] > 30).any() and not (ring(E, 82)[~top] > 30).any()  # ...a fifth of its radius out on top
+    assert np.array_equal(E[d < 56], ball[d < 56])  # (the ball inside them untouched)
     assert ring(E, 68).min() < 0.75 * ring(E, 68).max()  # the rim's band thinned between them: see-through
-    dq = d[2::4, 2::4]  # (the maps are at a quarter size)
-    assert near[dq < 63].min() > 0.9 and dens[dq < 63].min() > 0.99 and desat.max() > 0.25  # its rim less saturated
+    near, desat = maps[:2]
+    assert near.min() >= 0 and X.Outline.density(maps, (240, 240), 240)[d < 63].min() > 0.99  # the fire whole...
+    assert desat.max() > 0.15  # ...its rim less saturated
     S, _ = disc(240, 240, 70, (40, 40, 40))
     q = X.Outline(240, 240, 240, seed=1)
-    near, desat, dens, outer3 = q.warp(S, 4, (0, 240, 0, 240), 10, 0.0, [])
-    outer, inner = (dq > 70 * 0.7) & (dq < 70 * 0.95), dq < 70 * 0.4
-    assert near.max() < 0.1 and desat.max() < 0.05  # smoke: no tongues, its colour kept
-    assert dens[inner].min() > 0.95 and 0.35 < dens[outer].mean() < 0.65 and dens[outer].std() > 0.12  # wisps
-    late = q.warp(S.copy(), 4, (0, 240, 0, 240), 60, 0.0, [])[2]
-    rows = np.arange(2, 240, 4)[:, None]
-    crown, base = (dq < 60) & (rows < 120 - 35), (dq < 60) & (rows > 120 + 35)
-    assert late[crown].mean() < 0.75 * dens[crown].mean() and np.allclose(late[base], dens[base], atol=0.02)  # it
-    # thins from its crown as it climbs
+    maps = q.warp(S, 4, (0, 240, 0, 240), 10, 0.0, [])
+    assert maps[0].max() < 0.1 and maps[1].max() < 0.05  # smoke: no tongues, its colour kept
+    dens = X.Outline.density(maps, (240, 240), 240)
+    outer, inner = (d > 70 * 0.7) & (d < 70 * 0.98), d < 70 * 0.5
+    assert dens[inner].min() > 0.95 and 0.4 < dens[outer].mean() < 0.85 and dens[outer].std() > 0.25  # eaten away...
+    assert ((dens[outer] > 0.15) & (dens[outer] < 0.85)).mean() < 0.3  # ...into wisps cut sharp, not feathered
+    rows = np.arange(240)[:, None]
+    crown, base = (d < 66) & (rows < 120 - 35), (d < 66) & (rows > 120 + 35)
+    later = {t: X.Outline.density(q.warp(S.copy(), 4, (0, 240, 0, 240), t, 0.0, []), (240, 240), 240) for t in (30, 60)}
+    assert later[60][crown].mean() < 0.75 * dens[crown].mean()  # it thins from its crown as it climbs...
+    assert later[30][base].mean() < 0.7 * dens[base].mean() < later[30][crown].mean()  # ...and its underside draws in
+    # sooner (its lobes hung below it like ink drips)
+
+
+def test_the_soot_fills_in_over_frames_and_keeps_its_billows():
+    el = np.full((16, 96, 96, 3), 4, np.uint8)
+    yy, xx = np.mgrid[:96, :96]
+    d = np.hypot(xx - 48, yy - 48)
+    for k in range(16):  # a lit ring of smoke round a dark middle, open to the outside until frame 6
+        el[k][(d > 22) & (d < 34)] = 120
+        if k < 6:
+            el[k][(np.abs(xx - 48) < 5) & (yy > 48)] = 4
+    raw = [X.soot_shape(f[::2, ::2], 4, 3, 1.0)[24, 24] for f in el]
+    assert raw[5] < 0.2 and raw[6] > 0.8  # measured frame by frame, its middle filled at once when the gap closed...
+    shapes = X.SootShapes(el, 4, 0, 1.0, 96)
+    seen = [float(shapes.at(k)[24, 24]) for k in range(16)]
+    steps = np.diff(seen)
+    assert steps.max() <= X.SOOT_RAMP + 1e-6 and seen[-1] > 0.8  # ...it fills in over frames
+    rng = np.random.default_rng(0)
+    E = np.full((80, 80, 3), 4, np.uint8)
+    E[10:70, 10:70] = (4 + rng.integers(0, 20, (60, 60, 1))).astype(np.uint8)  # a dark cloud with folds in it
+    sil = np.zeros((80, 80), np.float32)
+    sil[10:70, 10:70] = 1
+    F = X.fill_soot(E, 4, (0, 80, 0, 80), sil, np.ones((80, 80), np.float32))[20:60, 20:60].astype(int)
+    assert F.min() >= 4 + X.SOOT_FILL[1] * 251 - 1 and F.max(-1).std() > 3  # dense, its folds kept
+
+
+def test_the_hand_keeps_its_skin_and_is_lit_on_the_rim_facing_the_fire():
+    m = np.zeros((200, 200), np.float32)
+    m[60:140, 60:140] = 1.0  # an arm's matte; the fire to its left
+    rim = X.rim_light(m, (0.0, 100.0))
+    assert rim[100, 60:70].max() > 0.3 and rim[100, 130:140].max() < 0.05 and rim[100, 90:110].max() < 0.05  # its
+    # edge facing the fire, not its far side, nor its face
+    from cuesync.transfer import gam, lin
+
+    skin = np.full((200, 200, 3), (246, 162, 149), np.uint8)
+    P = lin(skin).astype(np.float32)
+    lit = P + np.float32(0.6) * np.array([2.8, 0.57, 0.02], np.float32)  # the fire's orange light, hard on it
+    out = gam(X.warm_light(P, lit, m, rim)).astype(int)
+    front, edge, wall = out[100, 100], out[100, 60 + int(np.argmax(rim[100, 60:70]))], out[100, 20]
+    assert edge[1] > 162 + 10 and edge[1] <= X.SKIN_GR * edge[0] + 1 and edge[2] <= 149 + 6  # an orange-pink rim...
+    assert (front - (246, 162, 149)) @ np.array([0.2126, 0.7152, 0.0722]) <= X.SKIN_LIFT[0] + 1  # ...its face hardly lit
+    assert wall[1] - 162 <= X.LIGHT_WARM * (wall[0] - 246) + 2 or wall[0] >= 254  # the room's light kept warm
 
 
 def test_the_fireball_rolls_up_lights_the_room_while_it_burns_and_not_once_it_is_soot():
@@ -128,4 +179,4 @@ def test_the_fireball_rolls_up_lights_the_room_while_it_burns_and_not_once_it_is
     def middle(t):
         return float((dark[t] * rows).sum() / dark[t].sum())
 
-    assert middle(46) < middle(36) - 2 < middle(26) - 4  # its smoke rises, and keeps rising
+    assert middle(56) < middle(41) - 2 < middle(26) - 4  # its smoke rises, and keeps rising
