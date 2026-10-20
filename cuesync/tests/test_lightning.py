@@ -40,6 +40,55 @@ def test_ball_revision_fingers_cover_rear_volume_without_hiding_the_palm():
     assert not cover[mask[0] == 0].any()
 
 
+def test_finger_occlusion_fades_into_the_palm_without_a_capsule_end():
+    """The proximal finger blends into its knuckle instead of carving a hard pill-shaped hole in the charge."""
+    plate, track, mask = take(1, lambda t: (135, 300), 80, emitter="palm", middle_out=True)
+    hand = L._hand(plate, track)
+    cover = L.finger_cover(hand, 0, mask[0], (0, H, 0, W))
+    assert 0.15 < cover[292, 111] < 0.6
+    assert cover[260, 111] > 0.95
+    assert cover[315, 135] == 0
+
+
+def test_finger_occlusion_edges_match_soft_phone_footage():
+    """A crossing finger keeps its opaque centre but has a resolved soft transition into the luminous interior."""
+    plate, track, mask = take(1, lambda t: (135, 300), 80, emitter="palm", middle_out=True)
+    cover = L.finger_cover(L._hand(plate, track), 0, mask[0], (0, H, 0, W))
+    assert np.count_nonzero((cover[260, 98:124] > 0.05) & (cover[260, 98:124] < 0.95)) >= 8
+    assert cover[260, 111] > 0.95
+
+
+def test_suspended_palm_source_lights_near_skin_more_than_the_wrist():
+    """A reflected local pool distinguishes the skin immediately under the charge from the distant wrist."""
+    plate, track, mask = take(4, lambda t: (135, 300), 80, emitter="palm", middle_out=True,
+                              wall=(20, 20, 20), palm=(80, 60, 50), texture=0)
+    out = L.render(plate, track, mask, voice(np.full(4, 0.9)), "arc", seed=1)
+    lift = (out.astype(float) - plate) @ LUMA
+    near = lift[-1, 300:323, 125:156].mean()
+    wrist = lift[-1, 360:400, 125:156].mean()
+    assert near > 2.0 * wrist and near > 25
+
+
+def test_source_pool_has_strong_local_falloff_toward_the_wrist():
+    """A hovering source has a compact reflection under it, rather than washing the whole forearm equally."""
+    pool = L.source_pool((100, 100), (100, 250), 200, 1, 480, 270)
+    assert pool is not None
+    (y0, y1, x0, x1), field = pool
+    full = np.zeros((480, 270), np.float32)
+    full[y0:y1, x0:x1] = field
+    assert full[160, 100] > 0.5 and full[280, 100] < 0.02
+    assert full[400, 100] == 0
+
+
+def test_ball_haze_has_no_visible_edge_at_the_cropped_layer_boundary(monkeypatch):
+    """The optical halo reaches zero before its work buffer ends, avoiding a rectangular composite on a dark wall."""
+    plate, track, _ = take(1, lambda t: (135, 300), wall=(30, 30, 30), palm=(30, 30, 30), texture=0)
+    ball = L.Ball(135, 240, 40, 1, 1, 1)
+    monkeypatch.setattr(L, "ball_frames", lambda *args: ([[]], [[]], [ball]))
+    out = L.render(plate, track, None, voice([0.9]), "ball", seed=1)[0]
+    assert np.abs(np.diff(out[240, 10:65].astype(float), axis=0)).max() <= 3
+
+
 def test_ball_revision_contact_light_follows_the_finger_surface():
     """A finger's landing light is a narrow pad response along its axis rather than a circular white bead."""
     emission, _ = L.layer([], [(50, 50, 1.6, 2.5, 0.3)], None, 220, (0, 101, 0, 101),
@@ -244,7 +293,7 @@ def test_one_main_channel_leaves_each_fingertip_with_dim_thin_forks():
     fork = np.stack([np.full(60, 120.0), np.linspace(10, 90, 60)], 1)
     E, _ = L.layer([(main, 4.0, 1.0), (fork, 4.0 * L.FORK_WIDTH, L.FORK_INTEN[1])], [], None, 60.0, (0, 100, 0, 170),
                    L.GLOW_CAP["arc"], 0.0, np.zeros(2), [])
-    assert E[30, 50, 0] > 1.0 > E[30, 120, 0]  # (red: the glow round both is blue, a white needs red as well)
+    assert E[15:75, 50, 0].max() > 1.0 > E[15:75, 120, 0].max()  # only the main channel has white-hot sections
 
 
 def test_a_loud_main_channel_forks_two_to_four_times_in_clear_dimmer_lines():
@@ -292,7 +341,8 @@ def test_a_main_channel_tapers_to_its_end_round_a_white_core_in_a_narrow_blue_ri
     assert wide(slice(14, 30)) >= 2.5 * wide(slice(210, 226))
     E, _ = L.layer([(line, 6.0, 1.0)], [], None, 300.0, box, L.GLOW_CAP["arc"], 0.0, np.zeros(2), [])
     glow = E[60:100, :, 2].mean(0)
-    assert E[60:100, 60].min() > 1.0 and glow[75] < 0.5 and glow[100] < 0.25
+    assert E[15:130, 60, 0].max() > 1.0 and E[60:100, 60, 0].min() < 0.6
+    assert glow[75] < 0.5 and glow[100] < 0.25
 
 
 def test_a_bolt_strikes_an_edge_in_the_plate_with_a_contact_flash_and_a_splash():
@@ -514,7 +564,8 @@ def test_a_strike_on_a_surface_flashes_there_on_every_stroke():
     E, _ = L.layer([], [], None, 60.0, box, L.GLOW_CAP["arc"], 0.0, np.zeros(2), [], side=1080,
                    impacts=[(100.0, 100.0, 1.0, 0.0, 1.0, True)])
     y_ = fx_lum(E)
-    assert 6 <= (y_[100] >= 1.0).sum() <= 10  # (the white-hot point, 6-10 px across)
+    assert 12 <= (y_[100] >= 1.0).sum() <= 20  # elongated hot contact, at most four pixels across the surface
+    assert (y_[:, 100] >= 1.0).sum() <= 4
     assert y_[100, 120] > 0.05 and y_[100, 120] > 4 * y_[100, 160]  # (in a glow about 40 px across)
 
 
@@ -608,12 +659,14 @@ def test_over_a_bright_wall_a_bolt_stands_off_it():
     assert b1 == 1.0 and b0 == 0.0 and np.isclose(w1, (1.0 + L.BRIGHT_WIDTH) * w0)
 
 
-def test_a_tap_on_the_palm_strikes_from_a_fingertip():
-    """With the emitter on the palm (no tip within FINGER_NEAR of it), the arcs leave the index or the middle
-    fingertip, whichever reaches further along the aim, never the middle of the hand (from there a bolt ran up the
-    fingers and a fork down the palm, drawn on the skin)."""
+def test_a_palm_tap_on_a_two_finger_gesture_still_uses_the_extended_tips():
+    """A palm tap on a two-finger gesture still chooses its tips; only a spread open hand holds a central source."""
     n, s = 12, 60.0
     plate, track, mask = take(n, lambda t: (135, 330), s, emitter="palm", middle_out=True)
+    for row in track["landmarks"]:
+        for base in (13, 17):
+            x = row[base][0]
+            row[base:base + 4] = [[x, 333, 0], [x, 315, 0], [x, 324, -30], [x, 336, -70]]
     hand = L._hand(plate, track)
     assert L._fingers(hand, 0) in ([12, 8], [8, 12])
     bolts, spots, _ = L.arc_frames(hand, voice(np.full(n, 0.9), hits=[0]), seed=1, matte=mask)
@@ -1452,12 +1505,10 @@ def test_the_balls_arcs_and_shell_go_with_it():
 
 
 def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines(monkeypatch):
-    """A palm already at the top of red in the picture: the ball is the brightest thing over it and reads blue, not a
-    white disc: its white-hot middle well over the luminance of the palm round it, and its body never darker towards
-    its edge than the skin just outside it (a dark limb made it a glass marble). It hides the palm behind its dense
-    middle, but its outer part is light over the palm, whose lines show through it; the palm just past its edge is lit
-    and keeps its lines; the camera exposes down for it, and the wall round it is lit, a cool white, against the room
-    further off."""
+    """Over already bright skin, hot knots remain brighter than the illuminated palm while the bulk stays faint.
+    Foreground fingers keep their photographed colour and texture; the unoccluded volume scatters the view behind it.
+    Its outer part has no dark outline, nearby skin keeps its lines, and the exposure and local wall light still respond.
+    """
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
@@ -1465,15 +1516,16 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines(monkeypatch
     flat, _, _ = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), texture=0.0)
     out_flat = L.render(flat, track, mask, tl, "ball", seed=0)  # the same lightning over a palm with no lines
     t = n - 1
-    x, y, R = L.ball_frames(L._hand(plate, track), tl, 0)[2][t][:3]
+    hand = L._hand(plate, track)
+    x, y, R = L.ball_frames(hand, tl, 0)[2][t][:3]
     yy, xx = np.indices((H, W))
     d = np.hypot(xx - x, yy - y) / R
     on = mask[t] > 0
-    under = (d < 0.85) & on
+    clear = L.finger_cover(hand, t, mask[t], (0, H, 0, W)) < 0.2
+    under = (d < 0.85) & on & clear
     o, p = out[t].astype(np.float32), plate[t].astype(np.float32)
     lum = lin(out[t]) @ LUMA
-    assert np.percentile(lum[(d < 0.5) & on], 90) > 1.3 * lum[(d > 1.75) & (d < 2.5) & on].mean()  # distributed hot regions
-    # thing there (its saturated blue has little luminance of its own), the fingers round it lit by it (FILL)
+    assert np.percentile(lum[(d < 0.5) & on & clear], 90) > 1.15 * lum[(d > 1.75) & (d < 2.5) & on].mean()
 
     monkeypatch.setattr(L, "SHELL", (0, 0))  # (its body alone, the arcs crossing its edge aside)
     monkeypatch.setattr(L, "GROUND", (1.0,))
@@ -1493,7 +1545,7 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines(monkeypatch
     def kept(sel: np.ndarray) -> float:
         return float(np.std(lines[0][sel]) / np.std(lines[1][sel]))
 
-    assert kept((d < 0.3) & on) < 0.2 and kept((d > 0.8) & (d < 1.0) & on) > 0.18  # (hidden behind its dense
+    assert kept((d < 0.3) & on & clear) < 0.2 and kept((d > 0.8) & (d < 1.0) & on & clear) > 0.18  # (hidden behind its dense
     # middle, showing through its outer part, seen through its blue: TRANSMIT)
     round_it = (d > 1.15) & (d < 1.6) & on  # the palm just past its edge: lit, not veiled or milky
     assert lum[round_it].mean() > (lin(plate[t]) @ LUMA)[round_it].mean()
@@ -1524,23 +1576,23 @@ def test_the_balls_body_has_hot_regions_inside_a_clear_cyan_blue_volume():
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
     out = L.render(plate, track, mask, tl, "ball", seed=0)
     t = n - 1
-    x, y, R = L.ball_frames(L._hand(plate, track), tl, 0)[2][t][:3]
+    hand = L._hand(plate, track)
+    x, y, R = L.ball_frames(hand, tl, 0)[2][t][:3]
     yy, xx = np.indices((H, W))
     d = np.hypot(xx - x, yy - y) / R
     o = out[t].astype(np.float32)
     lum = lin(out[t]) @ LUMA
 
-    def at(r: float) -> np.ndarray:
-        return np.abs(d - r) < 0.05
-
-    assert lum[at(0.15)].mean() >= 1.2 * lum[at(0.5)].mean()
-    body = (d > 0.4) & (d < 0.85)
+    clear = L.finger_cover(hand, t, mask[t], (0, H, 0, W)) < 0.2
+    body = (d > 0.4) & (d < 0.85) & clear
+    assert np.percentile(lum[(d < 0.8) & clear], 95) >= 1.15 * np.median(lum[body])
 
     def sat(sel: np.ndarray) -> float:
         return colorsys.rgb_to_hsv(*(o[sel].mean(0) / 255.0))[1]
 
-    assert sat(d < 0.4) <= 0.25
-    sel = (d > 0.4) & (d < 0.7) & (mask[t] > 0)
+    hot = (d < 0.8) & clear & (lum >= np.percentile(lum[(d < 0.8) & clear], 90))
+    assert sat(hot) <= 0.25
+    sel = (d > 0.4) & (d < 0.7) & (mask[t] > 0) & clear
     assert 195.0 <= hue(o[sel].mean(0)) <= 240.0 and 0.15 <= sat(sel) <= 0.6
     assert ((o[body, 1] >= 250) & (o[body, 2] >= 250)).mean() < 0.1  # (not two channels clipped: pale aqua)
     line = np.stack([np.full(60, 50.0), np.linspace(10, 90, 60)], 1)
@@ -1550,23 +1602,33 @@ def test_the_balls_body_has_hot_regions_inside_a_clear_cyan_blue_volume():
 
 
 def test_the_balls_body_has_interior_contrast_without_a_bright_circular_rim():
-    """At phone resolution the volume retains filament contrast and an inside brighter than its broken boundary.
-    These material checks replace the circular gradient profile that required the old marble appearance."""
+    """The emitted volume retains contrast and a faint boundary at phone resolution. Material radiance is measured
+    before hand reflections and foreground occlusion, which can legitimately outshine or hide its interior."""
     k, n = 4, 24
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135 * k, 300 * k), 80.0 * k, emitter="palm", palm=(80, 65, 60), wall=(45, 40, 35),
                               size=(W * k, H * k))
-    out = L.render(plate, track, mask, tl, "ball", seed=0)
-    balls = L.ball_frames(L._hand(plate, track), tl, 0)[2]
-    yy, xx = np.indices(out.shape[1:3])
+    hand = L._hand(plate, track)
+    bolts, spots, balls = L.ball_frames(hand, tl, 0, mask)
+    composite = L.render(plate, track, mask, tl, "ball", seed=0)
+    yy, xx = np.indices(plate.shape[1:3])
     for t in (n - 6, n - 1):
         x, y, R = balls[t][:3]
         d = np.hypot(xx - x, yy - y) / R
-        y = out[t].astype(np.float32) @ np.array([0.299, 0.587, 0.114], np.float32)
+        emission, _ = L.layer(bolts[t], spots[t], balls[t], hand.s[t], (0, H * k, 0, W * k),
+                              L.GLOW_CAP["ball"], 1.5, np.zeros(2), [], seed=0, frame=t)
+        y = gam(L.hue_shoulder(emission + 0.02)).astype(np.float32) @ np.array([0.299, 0.587, 0.114], np.float32)
         inside = y[(d > 0.25) & (d < 0.8)]
         rim = y[(d > 0.9) & (d < 1.05)]
         assert inside.std() >= 14.0
         assert inside.mean() >= rim.mean() - 5.0
+        phone = cv2.resize(composite[t], (360, 640), interpolation=cv2.INTER_AREA).astype(np.float32) @ \
+            np.array([0.299, 0.587, 0.114], np.float32)
+        distance = cv2.resize(d.astype(np.float32), (360, 640), interpolation=cv2.INTER_AREA)
+        cover = cv2.resize(L.finger_cover(hand, t, mask[t], (0, H * k, 0, W * k)), (360, 640),
+                           interpolation=cv2.INTER_AREA)
+        visible = (distance > 0.25) & (distance < 0.8) & (cover < 0.2)
+        assert visible.sum() > 30 and phone[visible].std() >= 10.0
 
 
 def test_the_hue_keeping_roll_off_keeps_a_little_over_exposed_blue_blue_and_takes_a_lot_to_white():
@@ -1847,6 +1909,107 @@ def test_arc_revision_the_main_core_has_local_width_and_brightness_changes():
     peaks = columns.max(0)
     assert widths.max() >= 1.6 * widths.min()
     assert peaks.max() >= 1.7 * peaks.min()
+
+
+def test_channel_current_variation_survives_phone_downsampling():
+    """Bright and faint stretches remain distinct after bloom, the camera shoulder and phone reduction."""
+    from cuesync.bending import shoulder
+
+    p = np.c_[np.linspace(20, 1060, 300), np.full(300, 60.0)]
+    e, _ = L.layer([(p, 5.0, 1.0)], [], None, 330.0, (0, 121, 0, 1080), L.GLOW_CAP["arc"],
+                   1.2, np.zeros(2), [], seed=4)
+    picture = e + 0.1
+    shoulder(picture)
+    phone = cv2.resize(gam(picture), (360, 40), interpolation=cv2.INTER_AREA).astype(np.float32)
+    contrast = phone.mean(2) - 89.0
+    peaks = contrast[:, 20:250].max(0)
+    lo, hi = np.percentile(peaks, [10, 90])
+    assert hi > 1.4 * lo
+
+
+def test_open_palm_arc_has_one_source_over_the_middle_of_the_palm():
+    """An open palm carries a compact hovering source rather than selecting its outermost extended finger."""
+    plate, track, mask = take(8, lambda t: (135, 300), 80, emitter="palm", middle_out=True)
+    hand = L._hand(plate, track)
+    bolts, spots, _ = L.arc_frames(hand, voice(np.full(8, 0.9)), seed=1, matte=mask)
+    for t in range(8):
+        assert len(spots[t]) == 1
+        x, y, sigma, _ = spots[t][0]
+        assert 130 < x < 155 and 250 < y < 280
+        assert sigma < 4.0
+        assert any(np.linalg.norm(p[0] - (x, y)) < 1e-6 for p, _, _ in bolts[t])
+
+
+def test_a_palm_source_stops_when_the_observed_fingers_close():
+    """Choosing the source on an open hand must not let a later closed fist continue to emit or restrike."""
+    plate, track, mask = take(12, lambda t: (135, 300), 80, emitter="palm", middle_out=True)
+    for row in track["landmarks"][6:]:
+        for base in (5, 9, 13, 17):
+            x = row[base][0]
+            row[base:base + 4] = [[x, 304, 0], [x, 280, 0], [x, 292, -30], [x, 308, -70]]
+    bolts, spots, impacts = L.arc_frames(L._hand(plate, track), voice(np.full(12, 0.9)), seed=1, matte=mask)
+    assert all(bolts[:6])
+    assert not any(bolts[6:]) and not any(spots[6:]) and not any(impacts[6:])
+
+
+def test_foreground_finger_hides_the_source_core_as_well_as_the_channel():
+    """A source behind a crossing finger cannot leave a white spot painted on top of the skin."""
+    box = (0, 101, 0, 101)
+    args = ([], [(50, 50, 3.0, 1.0)], None, 220, box, L.GLOW_CAP["arc"], 0, np.zeros(2), [])
+    exposed, _ = L.layer(*args)
+    cover = np.zeros((101, 101), np.float32)
+    cover[:, 40:61] = 1.0
+    hidden, _ = L.layer(*args, hide=cover)
+    assert (hidden[50, 50] @ LUMA) < 0.15 * (exposed[50, 50] @ LUMA)
+
+
+def test_contact_spill_is_concentrated_at_the_receiving_point():
+    """The wall or floor carries a bright local contact, with little light a hundred pixels along it."""
+    (y0, _, x0, _), light = L.pool_light(300, 200, 1, 0, 1, 1080, 400, 600)
+    center = light[200 - y0, 300 - x0]
+    assert light[200 - y0, 400 - x0] < 0.06 * center
+    assert light[230 - y0, 300 - x0] > 0.2 * center
+
+
+def test_ball_rear_filaments_have_depth_softness_before_compositing():
+    """Rear channels retain their depth when projected, so the rasterizer can soften them independently."""
+    plate, track, mask = take(12, lambda t: (135, 300), 80, emitter="palm", middle_out=True)
+    bolts, _, _ = L.ball_frames(L._hand(plate, track), voice(np.full(12, 0.95)), seed=3, matte=mask)
+    rear = [c for frame in bolts for c in frame if getattr(c, "softness", 0) > 0]
+    assert len(rear) > 5
+    assert max(c[2] for c in rear) < 0.4
+
+
+def test_front_filament_stops_at_its_depth_boundary_before_the_rear_vertex(monkeypatch):
+    """The first rear vertex must not inherit the front run's sharp bright core across an occluding finger."""
+    segment = np.array([[-0.7, 0.0, 0.5], [0.6, 0.0, -0.6]])
+    monkeypatch.setattr(L, "_shell", lambda rng: [(segment, 1.0, 1.0)])
+    plate, track, _ = take(10, lambda t: (135, 300), 80, emitter="palm")
+    bolts, _, balls = L.ball_frames(L._hand(plate, track), voice(np.full(10, 0.95)), seed=3)
+    b = balls[8]
+    near = [p for c in bolts[8] for p, _, _ in [c] if isinstance(c, L._Filament) and c.softness == 0]
+    assert near
+    assert max(p[:, 0].max() for p in near) < b.x + 0.2 * b.R
+
+
+def test_most_charge_filaments_wander_through_the_volume_instead_of_a_spherical_cage():
+    """Most channels move between depths and radii; nested constant-radius arcs would recreate hollow wire loops."""
+    radial_spread = [np.std(np.linalg.norm(L._shell(np.random.default_rng(seed))[0][0], axis=1))
+                     for seed in range(100)]
+    assert np.mean(np.asarray(radial_spread) > 0.08) > 0.45
+
+
+def test_crossing_fingers_hide_the_bulk_of_the_rear_luminous_interior():
+    """A finger crossing the charge reveals its silhouette, with only the thin front layer and haze before it."""
+    ball = L.Ball(120, 120, 60, 1, 1, 1)
+    out = np.zeros((241, 241, 3), np.float32)
+    hidden = np.zeros_like(out)
+    veil = np.zeros((241, 241), np.float32)
+    cover = np.zeros_like(veil)
+    cover[:, 110:131] = 1.0
+    L._sphere(out, veil, (0, 241, 0, 241), ball, seed=3, frame=5)
+    L._sphere(hidden, veil.copy(), (0, 241, 0, 241), ball, seed=3, frame=5, cover=cover)
+    assert hidden[105:135, 115:126].sum() < 0.6 * out[105:135, 115:126].sum()
 
 
 def test_arc_revision_a_tap_beside_a_curled_middle_still_uses_the_extended_index():
