@@ -160,10 +160,38 @@ def test_a_louder_voice_strikes_more_streams_further():
     def strikes(level):
         bolts, _ = L.arc_frames(hand, voice(np.full(n, level)), seed=6)
         ends = [mains(b, tip, s) for b in bolts]
-        return np.mean([len(e) for e in ends]), np.mean([np.linalg.norm(a - tip) for e in ends for a in e]) / s
+        return np.mean([len(e) for e in ends]), np.mean([max(np.linalg.norm(a - tip) for a in e) for e in ends]) / s
 
     (few, near), (many, far) = strikes(0.35), strikes(1.0)
-    assert many >= few + 1 and far > 1.8 * near
+    assert many >= few + 1 and far > 1.7 * near  # (the main channel: the streamers beside it are shorter)
+
+
+def test_a_strike_is_one_main_channel_with_dim_thin_branches():
+    """A loud voice is one channel with branches, not a rope of equal wires: the streamers beside a finger's main
+    channel are at most half as thick, a bolt's forks are much dimmer and thinner and leave along its way, and drawn,
+    only the main channel clips to white."""
+    n, s = 30, 60.0
+    plate, track, _ = take(n, lambda t: (120, 330), s)
+    bolts, _ = L.arc_frames(L._hand(plate, track), voice(np.full(n, 1.0)), seed=6)
+    tip = np.asarray(track["landmarks"][0][8][:2])
+    main_w, seen = L._width_k(s) * L.ARC_WIDTH[1], 0
+    for frame in bolts:
+        widths = [wd for p, wd, _ in frame if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s]
+        main = sum(np.isclose(wd, main_w) for wd in widths)
+        assert main <= 1 and all(np.isclose(wd, main_w) or wd <= L.SIDE_WIDTH * main_w + 1e-9 for wd in widths)
+        seen += main
+    assert seen > 0.8 * n
+    tree = L.bolt_tree((0.0, 0.0), (0.0, -1.0), 400.0, np.random.default_rng(3), 4.0, fork=0.3)
+    assert len(tree) > 3
+    for p, wd, it in tree[1:]:
+        assert it <= L.FORK_INTEN[1] + 1e-9 and wd <= L.FORK_WIDTH * 4.0 + 1e-9
+        d = p[-1] - p[0]
+        assert np.degrees(np.arccos(-d[1] / np.linalg.norm(d))) < 90  # (none heads back towards the hand)
+    main = np.stack([np.full(60, 50.0), np.linspace(10, 90, 60)], 1)
+    fork = np.stack([np.full(60, 120.0), np.linspace(10, 90, 60)], 1)
+    E, _ = L.layer([(main, 4.0, 1.0), (fork, 4.0 * L.FORK_WIDTH, L.FORK_INTEN[1])], [], None, 60.0, (0, 100, 0, 170),
+                   L.GLOW_CAP["arc"], 0.0, np.zeros(2), [])
+    assert E[50, 50, 0] > 1.0 > E[50, 120, 0]  # (red: the glow round both is blue, a white needs red as well)
 
 
 def test_the_arcs_leave_along_the_finger_and_from_two_fingers_held_together():
@@ -226,6 +254,49 @@ def test_a_stuttering_voice_flickers_the_arcs_but_not_the_room():
     assert flashes(strobe, plate) >= 10.0
 
 
+def test_the_light_dies_with_the_channels():
+    """The light on the hand and the room follows what can be seen: a few frames after the voice stops (the crackle at
+    the tip left), it is a fraction of what it was, and once that is gone and the camera has come back the frames are
+    the plate's own."""
+    n = 40
+    plate, track, mask = take(n, lambda t: (120, 330), wall=(170, 160, 150))
+    e = np.r_[np.full(10, 0.9), np.zeros(n - 10)]
+    out = L.render(plate, track, mask, voice(e, hits=[0]), "arc", seed=3)
+    lit = (lin(out) @ LUMA - lin(plate) @ LUMA).clip(0, None)
+    wall = mask[0] == 0
+    assert lit[15][wall].mean() < 0.25 * lit[8][wall].mean()
+    assert np.array_equal(out[32:], plate[32:])
+
+
+def test_the_light_only_adds_to_the_plate(monkeypatch):
+    """With the camera's exposure held, no pixel is darker than the plate's: the roll-off to white that softens the
+    channels never dims the plate's own highlights."""
+    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1.0, 1.0))
+    n = 8
+    plate, track, mask = take(n, lambda t: (120, 330), wall=(250, 248, 245))
+    plate[:, :60] = 255  # a window blown out to white
+    out = L.render(plate, track, mask, voice(np.full(n, 0.9), hits=[0]), "arc", seed=2)
+    assert (out.astype(int) >= plate).all() and (out[:, :60] == 255).all()
+
+
+def test_the_ball_shows_from_a_soft_start_without_sputtering_and_hovers_off_the_palm():
+    """A voice that begins softly and dips for a frame before it swells shows the ball on every frame from its start,
+    fading in; a palm seen from above (its fingers further from the camera than its wrist) holds the ball further up
+    the picture than the palm's middle, over it."""
+    n, s = 20, 80.0
+    plate, track, _ = take(n, lambda t: (135, 300), s, emitter="palm")
+    for lm in track["landmarks"]:
+        for p in lm:
+            p[2] = 1.2 * (300 + s - p[1])  # (the higher in the picture, the further away)
+    e = np.r_[np.zeros(3), 0.21, 0.13, 0.2, np.full(n - 6, 0.9)]
+    hand = L._hand(plate, track)
+    _, sparks, balls = L.ball_frames(hand, voice(e), seed=1)
+    assert all(b is None for b in balls[:3]) and all(b is not None for b in balls[3:])
+    assert balls[3][3] < balls[5][3] < balls[10][3]  # faded in
+    for t in range(3, n):
+        assert track["xy"][t][1] - balls[t][1] > 0.1 * s and abs(balls[t][0] - track["xy"][t][0]) < 0.05 * s
+
+
 def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
     n, s = 40, 80.0
     plate, track, _ = take(n, lambda t: (135, 300), s, emitter="palm")
@@ -233,13 +304,15 @@ def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
     _, _, balls = L.ball_frames(L._hand(plate, track), voice(e), seed=0)
     assert all(b is None for b in balls[:4])
     r = [b[2] / s for b in balls[4:28]]
-    assert r[0] < 0.2 and r[-1] > 0.33 and np.all(np.diff(r) > 0)
+    lo, hi = L.BALL_R
+    assert r[0] < lo + 0.05 and r[-1] > lo + 0.6 * (hi - lo) and np.all(np.diff(r) > 0)
     assert balls[31] is None or balls[31][2] < 0.7 * balls[27][2]
 
 
-def test_the_ball_keeps_the_palm_its_detail_and_glows_blue_over_it():
-    """A palm already at the top of red in the picture: under the ball it keeps its lines, does not go white, and
-    turns blue-violet; the wall round it is lit blue."""
+def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines():
+    """A palm already at the top of red in the picture: the ball is the brightest thing over it and reads blue, not a
+    white disc; the palm's lines still show through it; the camera exposes down for it, and the wall round it is lit
+    blue against the room further off."""
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
@@ -250,17 +323,21 @@ def test_the_ball_keeps_the_palm_its_detail_and_glows_blue_over_it():
     c = np.asarray(track["xy"][t])
     yy, xx = np.indices((H, W))
     d = np.hypot(xx - c[0], yy - c[1]) / s
-    under = (d < 0.35) & (mask[t] > 0)
+    on = mask[t] > 0
+    under, round_it = (d < 0.35) & on, (d > 0.7) & (d < 1.0) & on
     o, p = out[t].astype(np.float32), plate[t].astype(np.float32)
+    lum = lin(out[t]) @ LUMA
+    assert lum[(d < 0.25) & on].mean() > 1.5 * lum[round_it].mean()  # a light: the brightest thing there
     white = (o > 245).all(-1)
-    assert white[under].mean() < 0.1  # the channels' white cores, not a white disc
+    assert white[under].mean() < 0.1  # its white-hot middle and channels, not a white disc
+    assert (o[under, 2] - o[under, 0]).mean() > (p[under, 2] - p[under, 0]).mean() + 40  # blue
     lines = (o - out_flat[t]).mean(-1), (p - flat[t]).mean(-1)  # the palm's lines, as they come through
     assert np.corrcoef(lines[0][under], lines[1][under])[0, 1] > 0.8
-    assert 0.4 < np.std(lines[0][under]) / np.std(lines[1][under]) < 1.2
-    assert (o[under, 2] - o[under, 0]).mean() > (p[under, 2] - p[under, 0]).mean() + 40  # bluer
-    wall = (d > 0.6) & (d < 1.0) & (mask[t] == 0)
-    gain = (o[wall] - p[wall]).mean(0)
-    assert gain[2] > gain[1] > gain[0] and gain[2] > 4  # the room round it lit blue
+    assert 0.25 < np.std(lines[0][under]) / np.std(lines[1][under]) < 1.2
+    near, far = (d > 0.6) & (d < 1.0) & ~on, (d > 1.8) & ~on
+    near, far = (o - p)[near], (o - p)[far]
+    assert far.mean() < -5  # the camera exposed down for it...
+    assert (near[:, 2] - near[:, 0]).mean() > (far[:, 2] - far[:, 0]).mean() + 4  # ...and it lights the wall blue
 
 
 def test_bad_inputs_are_refused():
