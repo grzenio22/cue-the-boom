@@ -81,7 +81,7 @@
   "seed": 1,
   "tap_frame": 54,
   "real": true,
-  "rank": -103.2
+  "rank": -100.5
  },
  "bending|hand_point.mp4|zzzzz-tsst.wav|lightning_arc@made|0.83,0.31|1": {
   "dir": "hand_point__zzzzz__lightning",
@@ -93,6 +93,6 @@
   "seed": 1,
   "tap_frame": 48,
   "real": true,
-  "rank": -101.5
+  "rank": -103.2
  }
 }
