@@ -80,20 +80,29 @@ def disc(h, w, r, colour, floor=4):
     return E, np.hypot(xx - w // 2, yy - h // 2)
 
 
+def fire_weight(E):
+    from cuesync import composite as C
+
+    return np.clip(C.fire_weight_map(C._black_floor_f(E, 4), X.PARAMS, E.shape[1], True), 0.0, 1.0).astype(np.float32)
+
+
+def shown(a):
+    """Display values (0-255) of linear ``a``."""
+    return np.clip(a, 0, 1) ** (1 / 2.2) * 255
+
+
 def burning(size=240, r=70, colour=(255, 160, 40), wall=0.35, since=10, burn=1.0, seed=1):
     """A ball of render fire on a lit wall through Fire.layer: (the result, linear; the composite it was drawn over;
     the room; distance from the ball's middle)."""
-    from cuesync import composite as C
-
     E, d = disc(size, size, r, colour)
-    wf = np.clip(C.fire_weight_map(C._black_floor_f(E, 4), X.PARAMS, size, True), 0.0, 1.0).astype(np.float32)
+    wf = fire_weight(E)
     room = np.full((size, size, 3), wall, np.float32)
     Q = room.copy()
     Q[d < r + 6] *= 0.5  # (the composite's dull ball and a dark band round it: the sticker and its shadow)
     under = Q.copy()
     fire = X.Fire(size, size, size, seed)
     box = (0, size, 0, size)
-    fire.layer(Q, room, E, wf, box, 4, burn, since, fire.ball(wf) if burn > 0 else None)
+    fire.layer(Q, room, E, wf, box, 4, burn, 0.0, since, fire.ball(wf, burn) if burn > 0 else None)
     return Q, under, room, d
 
 
@@ -111,13 +120,128 @@ def test_the_burning_ball_is_a_light_with_one_edge_and_tongues_licking_off_its_t
 
     assert ring(66).min() > wall  # ...its limb too (no dark rim, no pale line: one edge)
     assert (shown[d > 72] >= wall - 1.0 / 255).all()  # nothing round it darker than the wall (no drop shadow)
-    lick = ring(76) > wall + 0.03
+    lick = ring(72) > wall + 0.03
     assert 0.1 < lick[top].mean() < 0.9 and not lick[np.sin(ang) > 0.3].any()  # tongues off its top, here and there
     assert not (ring(70 + 0.35 * 70) > wall + 0.03).any()  # (under a third of its radius long)
     later = burning(since=13)[0]
-    assert np.abs(later - Q)[(d > 72) & (d < 88)].max() > 0.05  # they flicker and rise
-    dead = burning(burn=0.0)[0]
-    assert dead[(d > 72) & (d < 75)].max() < 0.9 * 0.35  # as it dies the composite's soot round it comes back
+    assert np.abs(later - Q)[(d > 72) & (d < 88)].max() > 0.05  # they come and go
+    dead = burning(burn=0.0, colour=(170, 60, 10))[0]  # (its fire dim)
+    lum = np.array([0.2126, 0.7152, 0.0722], np.float32)
+    assert (dead @ lum)[(d > 72) & (d < 75)].mean() < 0.3 < 0.35 <= (Q @ lum)[(d > 72) & (d < 75)].mean()  # as it
+    # dies the composite's soot round it comes back (a little lit by its glow)
+
+
+def test_the_tongues_rise_off_the_ball_never_apart_from_it_and_are_its_own_fire():
+    import cv2
+
+    E, d = disc(240, 240, 70, (255, 160, 40))
+    rng = np.random.default_rng(0)
+    E[d <= 70] = np.clip(E[d <= 70] * rng.uniform(0.7, 1.0, (int((d <= 70).sum()), 1)), 0, 255).astype(np.uint8)
+    wf = fire_weight(E)
+    fire = X.Fire(240, 240, 1080, 1)  # (its px at 1080)
+    A, _, mid, rf = fire.ball(wf)
+    u = fire.exposed(E, 4)[1]
+    tall = []
+    for since in range(8, 20):
+        a, col, at = fire.tongue_layer(A, u, mid, rf, (0, 0), since)
+        drawn = np.zeros((240, 240), np.uint8)
+        drawn[at] = a > 0.3
+        assert drawn[121:].sum() == 0 and drawn.sum() > 30  # off its upper half
+        n, _ = cv2.connectedComponents(drawn | (A > 0.5).astype(np.uint8))
+        assert n == 2  # every tongue one piece with the ball: none floats free of it
+        y = (col @ np.array([0.2126, 0.7152, 0.0722], np.float32))[a > 0.3]
+        assert y.std() > 0.03  # its own fire, not one flat colour...
+        rows = np.broadcast_to(np.arange(at[0].start, at[0].stop)[:, None], a.shape)[a > 0.3]
+        warm = (col[..., 1] / np.maximum(col[..., 0], 1e-6))[a > 0.3]
+        tips, roots = rows < np.percentile(rows, 30), rows > np.percentile(rows, 70)
+        assert warm[tips].mean() < warm[roots].mean()  # ...cooling to their tips
+        tall.append(drawn.sum(0))
+    change = [np.abs(tall[i + 1].astype(int) - tall[i]).sum() for i in range(len(tall) - 1)]
+    assert min(change) > 0  # they grow, thin and go, frame by frame
+    yy, xx = np.mgrid[:240, :240]
+    E[np.hypot(xx - 185, yy - 75) < 28] = (255, 160, 40)  # a lobe bulging out over the ball's side
+    A, _, mid, rf = fire.ball(fire_weight(E))
+    under = (np.maximum.accumulate(A > 0.5, axis=0)) & (A < 0.05)  # (below the ball in its column, outside it)
+    for since in range(8, 20):
+        t = fire.tongue_layer(A, fire.exposed(E, 4)[1], mid, rf, (0, 0), since)
+        drawn = np.zeros((240, 240), np.float32)
+        drawn[t[2]] = t[0]
+        assert drawn[under].max() < 0.01  # nothing hangs under the lobe
+
+
+def test_the_balls_glow_is_its_highlights_spread_wide_beside_white_hot_fire_none_beside_its_folds():
+    yy, xx = np.mgrid[:240, :240]
+    d = np.hypot(xx - 120, yy - 120)
+    E = np.full((240, 240, 3), 4, np.uint8)
+    E[(d <= 70) & (xx < 120)] = (255, 225, 120)  # white-hot on its left
+    E[(d <= 70) & (xx >= 120)] = (200, 90, 20)  # a deep orange fold on its right
+    wf = fire_weight(E)
+    room = np.full((240, 240, 3), 0.35, np.float32)
+    Q = room.copy()
+    fire = X.Fire(240, 240, 1080, 1)
+    fire.layer(Q, room, E, wf, (0, 240, 0, 240), 4, 1.0, 0.0, 10, fire.ball(wf, 1.0))
+    s, wall = shown(Q) @ np.array([0.299, 0.587, 0.114]), float(shown(room[0, 0]) @ np.array([0.299, 0.587, 0.114]))
+    band = (np.abs(yy - 120) < 30) & (d > 72) & (d < 76)
+    left, right = s[band & (xx < 120)].mean() - wall, s[band & (xx > 120)].mean() - wall
+    assert left > 3 and abs(right) < 0.5  # a glow beside its white-hot side, none beside its fold
+    far = (np.abs(yy - 120) < 30) & (d > 100)
+    assert np.abs(s[far] - wall).max() < 0.5  # (and it dies away within a few tens of px)
+
+
+def test_the_dying_ball_is_its_fire_over_brown_black_soot_not_the_composites_relit_smoke():
+    yy, xx = np.mgrid[:240, :240]
+    d = np.hypot(xx - 120, yy - 120)
+    E = np.full((240, 240, 3), 4, np.uint8)
+    E[d <= 70] = (200, 80, 15)  # a dimming fire...
+    folds = (d <= 70) & ((np.hypot(xx - 100, yy - 110) < 14) | (np.hypot(xx - 140, yy - 135) < 12))
+    E[folds] = (60, 14, 6)  # ...with dark folds in it
+    wf = fire_weight(E)
+    room = np.full((240, 240, 3), 0.35, np.float32)
+    Q = room.copy()
+    Q[d <= 74] = (0.25, 0.03, 0.03)  # the composite's raspberry relit smoke
+    fire = X.Fire(240, 240, 1080, 1)
+    ball = fire.ball(wf, 0.0, E.max(-1) > 20)
+    fire.layer(Q, room, E, wf, (0, 240, 0, 240), 4, 0.0, 1.0, 20, ball)
+    f = shown(Q[folds & (d < 60)])
+    assert (f[:, 2] - f[:, 1]).mean() < -15 and (f[:, 1] / f[:, 0]).mean() < 0.65  # its folds red-brown...
+    assert (f @ np.array([0.299, 0.587, 0.114])).mean() < 120  # ...and dark
+    body = shown(Q[(d < 60) & ~folds])
+    assert body[:, 0].mean() > 200 and body.std(0).max() < 12  # its fire as the render has it, no contour bands
+
+
+def test_an_embers_glow_in_the_soot_goes_orange_to_brown_to_grey_never_pink():
+    E = np.full((160, 160, 3), 4, np.uint8)
+    d = np.hypot(*(np.mgrid[:160, :160] - 80))
+    E[d < 10] = (255, 170, 60)
+    wf = fire_weight(E)
+    room = np.full((160, 160, 3), 0.4, np.float32)
+    Q = np.full((160, 160, 3), 0.08, np.float32)  # grey soot
+    fire = X.Fire(160, 160, 1080, 1)
+    fire.layer(Q, room, E, wf, (0, 160, 0, 160), 4, 0.0, 0.0, 30, None)
+    s = shown(Q)
+    rings = [s[(d >= r) & (d < r + 2)].mean(0) for r in (11, 14, 18, 24, 30, 40, 70)]
+    luma = [float(v @ np.array([0.299, 0.587, 0.114])) for v in rings]
+    assert all(a > b for a, b in zip(luma, luma[1:]))  # it dies away from the ember...
+    assert all(v[2] - v[1] <= -10 for v in rings[:4]) and all(v[2] <= v[1] + 0.5 for v in rings)  # ...never pink
+    assert np.abs(rings[-1] - shown(Q[0, 0])).max() < 1.0 and rings[-1][2] >= rings[-1][1] - 1  # (to the soot's grey)
+
+
+def test_the_soot_hides_a_white_plate_as_it_hides_the_wall():
+    P = np.full((200, 300, 3), 0.25, np.float32)
+    P[80:120, 70:230] = 0.8  # a white switch plate on the wall
+    Q = P * 0.4  # the composite's soot over it, a pure multiply...
+    Q[:, :20] = P[:, :20]  # (none at its left)
+    before = Q.copy()
+    X.scatter(Q, P, (0, 200, 0, 300), 300)
+    s, b = shown(Q) @ np.array([0.299, 0.587, 0.114]), shown(before) @ np.array([0.299, 0.587, 0.114])
+    assert s[100, 150] - s[30, 150] < 0.7 * (b[100, 150] - b[30, 150])  # ...the plate goes under the cloud
+    assert abs(s[30, 150] - b[30, 150]) < 1.5 and abs(s[190, 280] - b[190, 280]) < 1.5  # the smoked wall as it was
+    sharp = [np.abs(np.diff(a[74:87, 150])).max() / (a[86, 150] - a[74, 150]) for a in (b, s)]
+    assert sharp[1] < 0.7 * sharp[0]  # its edge softened
+    assert np.array_equal(Q[:, :10], P[:, :10])  # where there is no soot, nothing
+    lit = P * 1.2
+    X.scatter(lit, P, (0, 200, 0, 300), 300)
+    assert np.allclose(lit, P * 1.2)  # (nor where the fire lights it)
 
 
 def test_the_smokes_outer_third_is_eaten_into_crisp_wisps_and_the_fire_kept_whole():
