@@ -398,6 +398,130 @@ def test_two_fingers_striking_nothing_run_well_apart():
     assert both > n // 2
 
 
+def test_two_fingers_with_nothing_ahead_send_the_second_to_a_surface_round_them(monkeypatch):
+    """Two fingers held out together pointing left over a blank wall, a dark patch high above them, well round from
+    where they point (outside both fingers' first cones, inside TARGET_CONE's third): the first finger's channel runs
+    off into the air, the second's strikes the patch's edge rather than run off beside it (both left the frame to the
+    left side by side); with no wider cone to look in, it runs off too."""
+    n, s = 30, 60.0
+    plate, track, mask = take(n, lambda t: (135, 330), s, middle_out=True, texture=0.0)
+    plate[:, :150, 110:200] = (60, 50, 45)
+    hand = L._hand(plate, track)
+    tips = [np.asarray(track["landmarks"][0][f][:2]) for f in (8, 12)]
+
+    def second_strikes() -> tuple[int, int]:
+        lone = hit = 0
+        for seed in range(3):
+            bolts, _, struck = L.arc_frames(hand, voice(np.full(n, 0.9), aim=290.0), seed=seed, matte=mask,
+                                            plate=plate)
+            for t in range(n):
+                ends = [mains(bolts[t], tp, s) for tp in tips]
+                on = [any(np.hypot(x - e[0], y - e[1]) < 1e-6 for x, y, *_ in struck[t] for e in es) for es in ends]
+                if ends[0] and not on[0]:
+                    lone += 1
+                    hit += on[1]
+        return lone, hit
+
+    lone, hit = second_strikes()
+    assert lone > n and hit >= 0.8 * lone
+    monkeypatch.setattr(L, "TARGET_CONE", L.TARGET_CONE[:2] + (L.TARGET_CONE[1],))
+    assert second_strikes()[1] == 0
+
+
+def test_forks_splashes_and_brushes_keep_inside_the_frame():
+    """No fork, splash or brush runs off the frame or along its very edge: each keeps FORK_EDGE inside it (forks off a
+    strike on a door's edge near the top ran on up it and out of the picture)."""
+    n, s = 30, 60.0
+    plate, track, mask = striped(n, s, step=16)
+    hand = L._hand(plate, track)
+    tip = np.asarray(track["landmarks"][0][8][:2])
+    edge = L.FORK_EDGE * W / 1080.0
+    for seed in range(3):
+        bolts, _, _ = L.arc_frames(hand, voice(np.full(n, 1.0), aim=330.0), seed=seed, matte=mask, plate=plate)
+        for b in bolts:
+            for p, _, _ in b:
+                if np.linalg.norm(p[0] - tip) < 1e-6:
+                    continue  # (a main channel or the crackle, from the fingertip: a channel may run off the frame)
+                q = p[1:]
+                assert (q >= edge - 1e-6).all() and (q[:, 0] <= W - 1 - edge + 1e-6).all() and \
+                    (q[:, 1] <= H - 1 - edge + 1e-6).all()
+
+
+def test_a_strike_on_a_surface_flashes_there_on_every_stroke():
+    """Every stroke down a channel that strikes a surface, a re-stroke as well as a new one, has its contact flash, as
+    bright as the stroke, but for one gone dark (only bright strokes had one: a dim re-stroke ended on a shower hose in
+    a hook in the dark); the flash is a white-hot point IMPACT's px across in a glow about 40 px across at 1080."""
+    n, s = 40, 60.0
+    plate, track, mask = striped(n, s)
+    hand = L._hand(plate, track)
+    tip = np.asarray(track["landmarks"][0][8][:2])
+    bolts, _, struck = L.arc_frames(hand, voice(np.full(n, 0.9)), seed=5, matte=mask, plate=plate)
+    restruck = 0
+    for t in range(n):
+        for x, y, ax, ay, g, fresh in struck[t]:
+            restruck += not fresh
+        for p, _, it in bolts[t]:
+            if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s and it >= L.IMPACT[2] and \
+                    any(np.hypot(p[-1, 0] - x, p[-1, 1] - y) < 1e-6 for at in struck[max(0, t - 3): t + 1]
+                        for x, y, *_ in at):
+                assert any(np.hypot(p[-1, 0] - x, p[-1, 1] - y) < 1e-6 for x, y, *_ in struck[t])
+    assert restruck > 0
+    box = (0, 200, 0, 200)
+    E, _ = L.layer([], [], None, 60.0, box, L.GLOW_CAP["arc"], 0.0, np.zeros(2), [], side=1080,
+                   impacts=[(100.0, 100.0, 1.0, 0.0, 1.0, True)])
+    y_ = fx_lum(E)
+    assert 6 <= (y_[100] >= 1.0).sum() <= 10  # (the white-hot point, 6-10 px across)
+    assert y_[100, 120] > 0.05 and y_[100, 120] > 4 * y_[100, 160]  # (in a glow about 40 px across)
+
+
+def fx_lum(E: np.ndarray) -> np.ndarray:
+    return E @ LUMA
+
+
+def test_two_strikes_side_by_side_pool_their_brighter_not_their_sum():
+    """The light a strike pools on what it strikes is a soft ellipse, along the surface at most 3 times as far as
+    across it and feathered over 30 px and more across it at 1080; two strikes side by side light it as the brighter
+    of the two, not their sum (summed, two strikes blew a baseboard to a hard white strip)."""
+    h, w = 400, 600
+
+    def full(got) -> np.ndarray:
+        (y0, y1, x0, x1), pl = got
+        out = np.zeros((h, w), np.float32)
+        out[y0:y1, x0:x1] = pl
+        return out
+
+    one = full(L.pooled([(300.0, 200.0, 1.0, 0.0, 1.0, True)], 1080, h, w))
+    two = full(L.pooled([(300.0, 200.0, 1.0, 0.0, 1.0, True), (330.0, 200.0, 1.0, 0.0, 1.0, True)], 1080, h, w))
+    assert np.isclose(two.max(), one.max(), rtol=1e-3)
+    assert np.allclose(two, np.maximum(one, full(L.pooled([(330.0, 200.0, 1.0, 0.0, 1.0, True)], 1080, h, w))))
+    half = one >= 0.5 * one.max()
+    ys, xs = np.nonzero(half)
+    assert np.ptp(xs) <= 3.0 * max(np.ptp(ys), 1)
+    across = one[:, 300]
+    assert across[200 + 30] > 0.2 * across[200]  # (still lit 30 px off it, across the surface)
+
+
+def test_in_a_dark_room_the_arcs_light_pulses_with_their_strokes():
+    """In a dark room the light the arcs throw on the room pulses with them, STROBE's swing frame to frame and a dip for
+    a frame every 5-8 frames (a steady wash under a bolt jumping every frame read as a lamp), and still never flashes
+    more than 3 times a second over a large area; in a lit room it holds (strobe: 1 on every frame)."""
+    n = 40
+    plate, track, mask = take(n, lambda t: (120, 330), wall=(30, 28, 30), palm=(70, 50, 45), texture=0.0)
+    out = L.render(plate, track, mask, voice(np.full(n, 0.9), hits=[0]), "arc", seed=2)
+    yy, xx = np.indices((H, W))
+    room = (mask[0] == 0) & (yy > 400) & (xx > 180)
+    lift = (lin(out) @ LUMA - lin(plate) @ LUMA)[:, room].mean(1)[4:]
+    assert np.std(lift) > 0.1 * np.mean(lift) and (lift < 0.6 * np.median(lift)).sum() >= 3
+    assert flashes(out, plate) <= 3.0
+    pulse = L.strobe(np.full(n, 0.9), 2)
+    on = ~np.isclose(pulse, L.STROBE[4])
+    assert (pulse[on] >= L.STROBE[0] - 1e-6).all() and (pulse[on] <= L.STROBE[1] + 1e-6).all()
+    dips = np.flatnonzero(~on)
+    assert len(dips) >= 4 and np.diff(dips).min() >= L.STROBE[3][0] and np.diff(dips).max() <= L.STROBE[3][1]
+    assert np.array_equal(L.strobe(np.r_[np.full(10, 0.9), np.zeros(5)], 2)[10:], np.ones(5))
+    assert np.allclose(L.strobe(np.full(n, 0.9), 2, hold=1.0), 1.0)
+
+
 def test_over_a_bright_wall_a_bolt_stands_off_it():
     """Over a wall brighter than BRIGHT_WALL (a beige wall at 155, where a channel was a faint scribble that all but
     vanished at phone size) the main channel leaves the finger BRIGHT_WIDTH wider, each new stroke burns at full
@@ -949,6 +1073,8 @@ def test_the_arcs_leave_along_the_finger_and_from_two_fingers_held_together(monk
 
 
 def test_a_crackle_stays_at_the_fingertip_a_moment_after_the_voice_stops():
+    """When the voice stops a crackle stays at the burning tip, and RETURN's frames on the last channel is struck once
+    more, half as bright, and fades over two frames: a return stroke down the same path."""
     n, s = 30, 60.0
     plate, track, _ = take(n, lambda t: (120, 330), s)
     e = np.zeros(n)
@@ -956,10 +1082,17 @@ def test_a_crackle_stays_at_the_fingertip_a_moment_after_the_voice_stops():
     bolts, spots, _ = L.arc_frames(L._hand(plate, track), voice(e), seed=2)
     tip = np.asarray(track["landmarks"][0][8][:2])
     assert all(mains(bolts[t], tip, s) for t in range(8))
-    for t in (8, 9, 10):  # the voice has stopped: no stream, a crackle a fraction of a hand long, the tip burning
+    back = 7 + L.RETURN[0]
+    for t in range(8, back):  # the voice has stopped: no stream, a crackle a fraction of a hand long, the tip burning
         assert bolts[t] and not mains(bolts[t], tip, s)
         assert max(np.linalg.norm(p - tip, axis=1).max() for p, _, _ in bolts[t]) < 0.8 * s
         assert spots[t] and spots[t][0][3] > 0
+    for t, share in zip(range(back, back + 3), (L.RETURN[2], *L.RETURN[3])):
+        ends = mains(bolts[t], tip, s)
+        assert len(ends) == 1 and np.allclose(ends[0], mains(bolts[7], tip, s)[0])  # (down the same path)
+        it = max(it for p, _, it in bolts[t] if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s)
+        assert np.isclose(it, share * (0.55 + 0.45 * 0.9))  # (its share of a fresh stroke)
+    assert not any(mains(bolts[t], tip, s) for t in range(back + 3, n))
     assert not any(bolts[t] for t in range(20, n))
 
 
@@ -990,7 +1123,7 @@ def test_the_arcs_do_not_depend_on_the_balls_look(monkeypatch):
     for name, value in (("PLASMA_RGB", rgb), ("BODY_RGB", rgb), ("HALO_RGB", rgb), ("BALL_GLOW_RGB", rgb),
                         ("BALL_HOT", (9.0, 0.6)), ("BODY", (5.0, 0.5)), ("HALO", (2.0, 2.0)), ("BALL_TAU", (9.0, 1.0)),
                         ("HALO_VOICE", (2.0, 3.0)), ("BRIGHT_TONE", (0.3, 0.5)), ("SCATTER", 1.0), ("WRAP_GAIN", 20.0),
-                        ("SPILL", (3.0, 5.0)), ("SHELL", (30, 40)), ("GROUND", (1, 2)), ("LIFT_PX", (0.0, 1.0)),
+                        ("SPILL", (3.0, 5.0)), ("SHELL", (30, 40)), ("GROUND", (0.5, 0.5)), ("LIFT_PX", (0.0, 1.0)),
                         ("BALL_LIGHT", (20.0, 20.0, 5.0, 0.1, 9.0)), ("BALL_COOL", 0.9), ("LAND", (5.0, 9.0, 9.0, 9.0)),
                         ("SHELL_GONE", (0.9, 0.8)), ("TIPS", (8,))):
         monkeypatch.setattr(L, name, value)
@@ -1030,9 +1163,10 @@ def test_the_light_goes_with_the_last_channel_and_holds_through_a_short_gap():
     """In a dark room the bolts light the hand and the room while a channel is on screen, a fifth of that (as shown)
     for one frame after the last, and then only the crackle at the tip lights them, faintly: between two strikes 4
     frames apart and after the last, no lit room with no bolt in it (let go over several frames, it stayed at 45 % of
-    its lift, like a phone's exposure lagging). A gap of LIGHT_BRIDGE frames between strokes holds it (a "ka-ka-ka"
-    would strobe the room)."""
-    n = 30
+    its lift, like a phone's exposure lagging), but for the return stroke down the last path (RETURN), which lights
+    them as its own, dimmer bolt. A gap of LIGHT_BRIDGE frames between strokes holds it (a "ka-ka-ka" would strobe the
+    room)."""
+    n = 32
     plate, track, mask = take(n, lambda t: (120, 330), wall=(30, 28, 30), palm=(70, 50, 45), texture=0.0)
     e = np.zeros(n)
     e[2:10], e[14:20], e[22:24] = 0.9, 0.9, 0.9  # (a gap of 4 frames, then one of 2)
@@ -1040,12 +1174,14 @@ def test_the_light_goes_with_the_last_channel_and_holds_through_a_short_gap():
     yy, xx = np.indices((H, W))
     gray = np.stack([cv2.cvtColor(f, cv2.COLOR_RGB2GRAY) for f in out]).astype(np.float32) - \
         cv2.cvtColor(plate[0], cv2.COLOR_RGB2GRAY).astype(np.float32)
+    back = 23 + L.RETURN[0]  # (the return stroke after the last; the gap of 4 is too short for one)
     for sel in ((mask[0] == 0) & (yy > 400) & (xx > 180), (mask[0] > 0) & (yy > 380)):  # (the room, the palm)
         lift = gray[:, sel].mean(1)
         lit = lift[4:10].mean()
         assert lit > 8.0
         assert lift[10] <= 0.25 * lit and lift[24] <= 0.25 * lift[22:24].mean()  # (a fifth, for one frame)
-        assert lift[11:14].max() <= 0.08 * lit and lift[25:].max() <= 0.08 * lit  # (then the crackle's alone)
+        assert lift[11:14].max() <= 0.08 * lit and lift[25:back].max() <= 0.08 * lit  # (then the crackle's alone)
+        assert 0.08 * lit < lift[back] <= 0.75 * lit and lift[back + 3:].max() <= 0.08 * lit  # (its return stroke)
         assert lift[20:22].min() >= 0.7 * lift[16:20].mean()  # (held through the short gap)
 
 
@@ -1129,66 +1265,124 @@ def jumps(bolts: list, sparks: list) -> list:
     return [p for p, _, _ in bolts if any(np.allclose(p[-1, :2], q) for q in lands)]
 
 
-def test_the_ball_is_ringed_by_a_shell_of_arcs_and_jumps_to_the_fingers():
+def thrown(hand, balls, t: int, bolts: list, sparks: list) -> list[tuple[np.ndarray, int, int, bool]]:
+    """The arcs a ball throws to the fingers on frame t: (points, the landmark it goes to, which side of the ball that
+    is, -1 or 1, as ball_frames splits them by its palm's way up turned a right angle, whether it is struck anew there:
+    its landing spark at full strength)."""
+    marks = list(L.TIPS) + list(L.GROUND_PAD[2])
+    up = L._unit(L._palm_lift(hand)[t])
+    across = np.array([-up[1], up[0]])
+    out, left = [], [q for q, _, _ in bolts[t]]
+    for sp in sparks[t]:
+        if len(sp) != 5:
+            continue
+        p = next(q for q in left if np.allclose(q[-1, :2], sp[:2]))  # (several may land on one point: each once)
+        left = [q for q in left if q is not p]
+        f = marks[int(np.argmin(np.linalg.norm(hand.lm[t, marks] - p[-1], axis=1)))]
+        side = 1 if float((hand.lm[t, f] - (balls[t].x, balls[t].y)) @ across) >= 0 else -1
+        out.append((p, f, side, bool(np.isclose(sp[3], L.LAND[1]))))  # (fully shown: on a re-stroke 0.55-0.9 of it)
+    return out
+
+
+def test_the_ball_is_ringed_by_a_shell_of_arcs_and_throws_uneven_arcs_to_the_fingers():
     """Its arcs crawl over its skin brightest where they run along its outline, which draws it (filaments from its
-    middle out were a radial starburst: a flare), and GROUND's arcs jump from its skin to the fingertips, two or three
-    a side, spread over them, each landing within LAND_NEAR of a fingertip's landmark (to the joints and bases too, they
-    ran down the skin to a dot mid-finger; at 6-10, each with its dot, the ball was a spider on white legs)."""
-    n, s = 24, 80.0
+    middle out were a radial starburst: a flare). Its arcs to the fingers each land within LAND_NEAR of a landmark of
+    theirs, spread over them, and come a side at a time: the two sides strike anew on the same frame only on a hit, at
+    most three a side, now one side, now the other, now none, so the ball is not a pair of wings (both sides every
+    frame, each an arch from its top) nor a spider (6-10 legs); now and then a short one to a finger's pad."""
+    n, s = 60, 80.0
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm")
     hand = L._hand(plate, track)
-    tl = voice(np.full(n, 0.95), hits=[0])
+    tl = voice(np.full(n, 0.95), hits=[0, 40])
     bolts, sparks, balls = L.ball_frames(hand, tl, seed=0, matte=mask)
     k = W / 1080.0
-    rim, face, count = [], [], []
+    rim, face, seen, both_new, pads, spread = [], [], [], [], 0, set()
     for t in range(8, n):
-        b, tips = balls[t], hand.lm[t, list(L.TIPS)]
-        to = jumps(bolts[t], sparks[t])
-        near = [np.linalg.norm(tips - p[-1], axis=1) for p in to]
-        assert all(d.min() <= L.LAND_NEAR * k + 1e-6 for d in near)  # (on a fingertip)
-        assert len({int(np.argmin(d)) for d in near}) >= min(len(to), 2)  # (spread over them)
-        count.append(len(to))
+        b = balls[t]
+        arcs = thrown(hand, balls, t, bolts, sparks)
+        for p, f, _, _ in arcs:
+            assert np.linalg.norm(hand.lm[t, f] - p[-1]) <= L.LAND_NEAR * k + 1e-6  # (on a finger)
+        tips = [(f, sd, new) for _, f, sd, new in arcs if f in L.TIPS]
+        pads += len(arcs) - len(tips)
+        spread |= {f for f, _, _ in tips}
+        seen.append(([sd for _, sd, _ in tips].count(-1), [sd for _, sd, _ in tips].count(1)))
+        both_new.append(len({sd for _, sd, new in tips if new}) == 2)
         for p, _, it in bolts[t]:
-            if any(p is q for q in to):
+            if any(p is q for q, *_ in arcs):
                 continue
             r = np.linalg.norm(p - (b.x, b.y), axis=1).mean() / b.R
             (rim if r > 0.9 else face).append(it)
-    assert L.GROUND[0] - 1 <= np.mean(count) and max(count) <= L.GROUND[1]
+    left, right = np.array(seen).T
+    assert left.max() <= 3 and right.max() <= 3
+    assert np.mean((left > 0) & (right > 0)) < 0.6 and np.mean(left + right <= 1) > 0.25  # (uneven, sparse)
+    assert np.mean(left > 0) > 0.2 and np.mean(right > 0) > 0.2 and len(spread) >= 3  # (both sides, in turn)
+    assert not any(b_ for t, b_ in zip(range(8, n), both_new) if t not in tl.hits)  # (a side strikes a frame)
+    assert pads >= 3
     assert len(rim) > 3 * (n - 8) and np.mean(rim) > np.mean(face)
 
 
-def test_the_balls_shell_stays_on_its_skin_and_its_arcs_bow_through_the_air_to_the_fingers():
+def test_the_balls_shell_stays_on_its_skin_and_its_arcs_are_kinked_channels_through_the_air():
     """Grown, its shell arcs lie within SHELL_SKIN of its skin as seen (thrown 30 % past it, they lay on the palm like
-    glowing veins), and each arc jumping to a finger leaves its skin, bows through the air (its middle GROUND_BOW off
-    the straight line from the ball) off the hand's matte and comes down onto the fingertip past its end, on the skin
-    only for its last LAND_IN (bowed up the picture whatever lay there, many lay on the skin like drawn veins)."""
-    n, s = 24, 80.0
+    glowing veins). Each arc to a finger leaves its skin within GROUND_LEAVE of the point facing where it goes (from its
+    top, they rose as arches), bows GROUND_BOW of its chord through the air, either way, in straight steps (LEADER)
+    kinked between them, its course never turning more than GROUND_TURN in all (one looped round a fingertip), and
+    passes over the hand only as GROUND_ON lets it, coming down onto the finger (evenly wiggling, they were ribbons)."""
+    n, s = 40, 80.0
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm")
     hand = L._hand(plate, track)
     bolts, sparks, balls = L.ball_frames(hand, voice(np.full(n, 0.95), hits=[0]), seed=0, matte=mask)
     k = W / 1080.0
-    lifts = []
+    leave, kinks, bows, count = [], [], [], 0
     for t in range(12, n):
         b = balls[t]
-        to = jumps(bolts[t], sparks[t])
+        arcs = thrown(hand, balls, t, bolts, sparks)
         for p, _, _ in bolts[t]:
-            if any(p is q for q in to):
-                a, e = p[0], p[-1]
-                assert abs(np.hypot(*(a - (b.x, b.y))) - b.R) < 1e-6  # (from its skin)
-                lifts.append(float(np.hypot(*((a + e) / 2.0 - p[len(p) // 2]))))  # (its middle off the chord's)
-                seg = np.linalg.norm(np.diff(p, axis=0), axis=1)
-                cum = np.r_[0.0, np.cumsum(seg)]
-                q = np.round(p).astype(int)
-                on = mask[t][np.clip(q[:, 1], 0, H - 1), np.clip(q[:, 0], 0, W - 1)] >= 128
-                free = (np.hypot(p[:, 0] - b.x, p[:, 1] - b.y) > L.GROUND_FREE * b.R) & \
-                    (cum < cum[-1] - (L.LAND_IN + 3.0) * k)
-                held = free[1:] & free[:-1]
-                assert seg[held & on[1:] & on[:-1]].sum() <= L.GROUND_ON * seg[held].sum() + 1e-6  # (in the air)
-                assert on[-1]  # (and lands on the finger)
-            else:
+            if not any(p is q for q, *_ in arcs):
                 r = np.hypot(p[:, 0] - b.x, p[:, 1] - b.y) / b.R
                 assert r.max() <= 1.0 + L.SHELL_SKIN + 0.01  # (and its young crackle's reach, all but gone)
-    assert len(lifts) > 3 * (n - 12) and np.median(lifts) > 0.8 * L.GROUND_BOW[0][0] * k
+        for p, f, _, _ in arcs:
+            count += f in L.TIPS
+            c, a, e = np.array([b.x, b.y]), p[0], p[-1]
+            assert abs(np.hypot(*(a - c)) - b.R) < 1e-6  # (from its skin)
+            leave.append(np.degrees(np.arccos(np.clip(L._unit(a - c) @ L._unit(hand.lm[t, f] - c), -1.0, 1.0))))
+            assert L._swing(p) <= L.GROUND_TURN + 1e-6
+            chord = e - a
+            off = (p - a) @ np.array([-chord[1], chord[0]]) / np.hypot(*chord) ** 2
+            bows.append(off[np.argmax(np.abs(off))])
+            steps = p[::2]  # (its straight steps' ends)
+            d = np.diff(steps, axis=0)
+            ang = np.degrees(np.abs(np.diff(np.unwrap(np.arctan2(d[:, 1], d[:, 0])))))
+            kinks += list(ang[:-1])  # (the last, straight onto its end, aside)
+            seg = np.linalg.norm(np.diff(p, axis=0), axis=1)
+            cum = np.r_[0.0, np.cumsum(seg)]
+            q = np.round(p).astype(int)
+            on = mask[t][np.clip(q[:, 1], 0, H - 1), np.clip(q[:, 0], 0, W - 1)] >= 128
+            free = (np.hypot(p[:, 0] - b.x, p[:, 1] - b.y) > L.GROUND_FREE * b.R) & \
+                (cum < cum[-1] - L.LAND_NEAR * k)
+            over = free[1:] & free[:-1] & on[1:] & on[:-1]
+            assert f not in L.TIPS or seg[over].sum() <= L.GROUND_ON[0] * seg[free[1:] & free[:-1]].sum() + 1e-6  # (in
+            # the air, but for a short one to a finger's pad)
+    assert count > n - 12
+    assert np.percentile(leave, 90) <= L.GROUND_LEAVE + 2.0
+    assert min(bows) < -0.05 and max(bows) > 0.05  # (bowed either way)
+    assert np.median(kinks) > 15.0  # (kinked, not wiggling)
+
+
+def test_a_jumping_arc_is_straight_steps_kinked_twenty_to_fifty_degrees():
+    """_leader: from (0, 0) to (1, 0), its steps (before each is broken a hair off its line) LEADER's px long, kinking
+    20-50 degrees between them on most, and its course bowed as asked."""
+    rng = np.random.default_rng(3)
+    kinks, lengths = [], []
+    for _ in range(50):
+        q = L._leader(300.0, 0.25, rng, 1.0)
+        assert np.allclose(q[0], 0.0) and np.allclose(q[-1], (1.0, 0.0))
+        steps = q[::2] * 300.0
+        d = np.diff(steps, axis=0)
+        lengths += list(np.hypot(d[:-1, 0], d[:-1, 1]))
+        kinks += list(np.degrees(np.abs(np.diff(np.unwrap(np.arctan2(d[:, 1], d[:, 0])))))[:-1])
+        assert 0.1 < q[:, 1].max() < 0.45 and L._swing(q) < 180.0
+    assert 9.9 <= min(lengths) and max(lengths) <= 40.1
+    assert np.mean((np.array(kinks) >= 15.0) & (np.array(kinks) <= 60.0)) > 0.6
 
 
 def test_the_balls_arcs_and_shell_go_with_it():
@@ -1234,11 +1428,12 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines(monkeypatch
     under = (d < 0.85) & on
     o, p = out[t].astype(np.float32), plate[t].astype(np.float32)
     lum = lin(out[t]) @ LUMA
-    assert lum[(d < 0.2) & on].mean() > 1.5 * lum[(d > 1.75) & (d < 2.5) & on].mean()  # a light: the brightest
-    # thing there (its saturated blue has little luminance of its own)
+    assert lum[(d < 0.2) & on].mean() > 1.3 * lum[(d > 1.75) & (d < 2.5) & on].mean()  # a light: the brightest
+    # thing there (its saturated blue has little luminance of its own), the fingers round it lit by it (FILL)
 
-    for name in ("SHELL", "GROUND"):  # (its body alone, the arcs crossing its edge aside)
-        monkeypatch.setattr(L, name, (0, 0))
+    monkeypatch.setattr(L, "SHELL", (0, 0))  # (its body alone, the arcs crossing its edge aside)
+    monkeypatch.setattr(L, "GROUND", (1.0,))
+    monkeypatch.setattr(L, "GROUND_PAD", (0.0, *L.GROUND_PAD[1:]))
     body = lin(L.render(plate, track, mask, tl, "ball", seed=0)[t]) @ LUMA
     monkeypatch.undo()
 
@@ -1254,8 +1449,8 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines(monkeypatch
     def kept(sel: np.ndarray) -> float:
         return float(np.std(lines[0][sel]) / np.std(lines[1][sel]))
 
-    assert kept((d < 0.3) & on) < 0.2 and kept((d > 0.8) & (d < 1.0) & on) > 0.25  # (hidden behind its dense
-    # middle, showing through its outer part)
+    assert kept((d < 0.3) & on) < 0.2 and kept((d > 0.8) & (d < 1.0) & on) > 0.18  # (hidden behind its dense
+    # middle, showing through its outer part, seen through its blue: TRANSMIT)
     round_it = (d > 1.15) & (d < 1.6) & on  # the palm just past its edge: lit, not veiled or milky
     assert lum[round_it].mean() > (lin(plate[t]) @ LUMA)[round_it].mean()
     assert kept(round_it) > 0.3  # (lit 30-50 levels, skin already at the top of red rolls off)
@@ -1314,11 +1509,12 @@ def test_the_balls_body_is_white_hot_only_in_its_middle_and_a_clear_cyan_blue_ro
     assert hue_gap(hue(o[body].mean(0)), hue(gam(np.ascontiguousarray(glow[None, None] / glow.max()))[0, 0])) < 25.0
 
 
-BALL_PROFILE = ((0.0, 250, 252, 255), (0.15, 231, 241, 255), (0.3, 166, 206, 255), (0.45, 148, 199, 254),
-                (0.6, 166, 203, 254), (0.75, 192, 210, 252), (0.9, 234, 232, 253))  # (radii, r, g, b): the ball's body
-# as shown, white-hot in its middle, a clear cyan-blue round that and the palm, lit, showing through its edge. Try
-# it live's body (web/lib/lightning.ts' BODY_STOPS) is held to this very profile by web/lib/lightning.test.ts, which
-# reads it from here
+BALL_PROFILE = ((0.0, 250, 252, 255), (0.15, 230, 241, 255), (0.3, 159, 206, 255), (0.45, 136, 197, 254),
+                (0.6, 145, 201, 254), (0.75, 157, 206, 253), (0.9, 194, 228, 255))  # (radii, r, g, b): the ball's body
+# as shown, white-hot in its middle, a clear cyan-blue round that and the palm showing through its edge, seen through
+# its blue (TRANSMIT: lit and showing through it pink, its lower edge was (234, 232, 253), lavender). Try it live's
+# body (web/lib/lightning.ts' BODY_STOPS) is held to this very profile by web/lib/lightning.test.ts, which reads it
+# from here
 
 
 def test_the_balls_body_is_the_profile_the_live_preview_draws():
@@ -1354,8 +1550,9 @@ def test_a_gap_between_the_fingers_does_not_show_through_the_ball(monkeypatch):
     most, not a sharp dark window through it (seen sharp, a glass marble). Its dense middle hides most of it; at 0.6 of
     its radius, where it begins to be light added over what is behind it, about a quarter of the step shows, soft. (Its
     arcs aside: those to the fingers take the gap's way through the air.)"""
-    for name in ("SHELL", "GROUND"):
-        monkeypatch.setattr(L, name, (0, 0))
+    monkeypatch.setattr(L, "SHELL", (0, 0))
+    monkeypatch.setattr(L, "GROUND", (1.0,))
+    monkeypatch.setattr(L, "GROUND_PAD", (0.0, *L.GROUND_PAD[1:]))
     n, s = 12, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), texture=0.0)
@@ -1511,7 +1708,7 @@ def test_the_balls_arcs_over_the_skin_are_white_hot_not_magenta():
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
     out = L.render(plate, track, mask, tl, "ball", seed=0)
     hand = L._hand(plate, track)
-    bolts, _, balls = L.ball_frames(hand, tl, 0)
+    bolts, sparks, balls = L.ball_frames(hand, tl, 0, mask)  # (as render draws them, round the hand's matte)
     picked, glow, under = [], [], []
     yy, xx = np.indices((H, W))
     for t in range(n):
@@ -1519,9 +1716,7 @@ def test_the_balls_arcs_over_the_skin_are_white_hot_not_magenta():
             continue
         x, y, R = balls[t][:3]
         core = np.zeros((H, W), np.uint8)
-        for p, _, _ in bolts[t]:
-            if np.linalg.norm(hand.lm[t] - p[-1, :2], axis=1).min() > 1e-6:
-                continue  # (not an arc to a fingertip or knuckle)
+        for p, *_ in thrown(hand, balls, t, bolts, sparks):
             q = np.unique(np.round(p[:, :2]).astype(int), axis=0)
             keep = (np.hypot(q[:, 0] - x, q[:, 1] - y) > 1.3 * R) & (mask[t][q[:, 1], q[:, 0]] > 0)
             picked += [out[t][b, a] for a, b in q[keep]]
@@ -1532,7 +1727,7 @@ def test_the_balls_arcs_over_the_skin_are_white_hot_not_magenta():
         glow += list(out[t][(beside > 0) & clear])
         under += list(out[t][(off > 0) & clear])
     picked = np.array(picked, float)
-    assert len(picked) >= 100 and len(glow) >= 100
+    assert len(picked) >= 40 and len(glow) >= 100
     top = picked[np.argsort(picked @ LUMA)[-40:]].mean(0)
     assert top.min() >= 235 and top[1] >= top[0] - 12 and top[2] >= top[1] - 5
     assert hue_gap(hue(np.mean(glow, 0)), hue(np.mean(under, 0))) <= 15.0
