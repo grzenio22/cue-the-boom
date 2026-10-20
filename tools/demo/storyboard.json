@@ -1,388 +1,1018 @@
 {
- "beats": [
-  {
-   "type": "clip",
-   "src": "runs/takes/gpu2/IMG_6663_fire_burst_comp/composite.mp4",
-   "start": 2.15,
-   "dur": 1.35,
-   "fill": true,
-   "wave": true,
-   "crop": [
-    0,
-    0.31,
-    1,
-    0.6264
-   ],
-   "pop_x": 0.78,
-   "pop_y": 0.5,
-   "pops": [
-    [
-     0.52,
-     "BOOM"
-    ]
-   ],
-   "headline": "Cue the Boom",
-   "subline": "Make the noise. Throw fire.",
-   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
-  },
-  {
-   "type": "turns",
-   "headline": "One render. Perform it again.",
-   "subline": "0 new renders",
-   "panels": [
+  "version": 11,
+  "duration": 118.0,
+  "beats": [
     {
-     "src": "runs/takes/rhythms/pf_pf_boom/composite.mp4",
-     "start": 0.9,
-     "dur": 2.3,
-     "crop": [
-      0,
-      0.36,
-      1,
-      0.92
-     ],
-     "label": "pf · pf · BOOM",
-     "pops": [
-      [
-       0.31,
-       "pf"
+      "id": "cold_open",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\explosion_palm\\composite.mp4",
+      "start": 0,
+      "dur": 7,
+      "fill": true,
+      "portrait_backdrop": true,
+      "pops": [
+        [
+          1.46,
+          "BOOM"
+        ]
       ],
-      [
-       0.68,
-       "pf"
-      ],
-      [
-       1.77,
-       "BOOM"
-      ]
-     ]
+      "pop_x": 1.35,
+      "pop_y": 0.55,
+      "source_gain": 0.2,
+      "audio_src": "D:\\openHiggsfield\\runs\\takes\\plates\\IMG_6666.mp4",
+      "audio_gain": 10,
+      "stamp": "Author's hand + voice · LTX-2.5 fireball · CPU compositing, lighting and shock effects"
     },
     {
-     "src": "runs/takes/rhythms/pf_x4/composite.mp4",
-     "start": 0.8,
-     "dur": 2.6,
-     "crop": [
-      0,
-      0.36,
-      1,
-      0.92
-     ],
-     "label": "pf pf pf PF",
-     "pops": [
-      [
-       0.24,
-       "pf"
+      "id": "title",
+      "type": "title",
+      "text": "Cue the Boom",
+      "sub": "Your voice performs the effect.",
+      "dur": 5,
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\title11.wav",
+      "vo_at": 0.2,
+      "vo_gain": 1.3,
+      "vo_text": "Cue the Boom. Your voice performs the effect."
+    },
+    {
+      "id": "one_generation",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\cards\\proof.png",
+      "dur": 5,
+      "zoom": 1,
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\once11.wav",
+      "vo_at": 0.2,
+      "vo_gain": 1.3,
+      "vo_text": "Generate the effect once. Perform it again with your voice."
+    },
+    {
+      "id": "performance_1",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
+      "start": 0,
+      "dur": 3.5,
+      "fill": true,
+      "portrait_backdrop": true,
+      "crop": [
+        0,
+        0.18,
+        1,
+        0.96
       ],
-      [
-       0.78,
-       "pf"
+      "wave": true,
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom.wav",
+      "audio_replace": true,
+      "audio_gain": 4.5,
+      "audio_from": 0,
+      "pops": [
+        [
+          2.67,
+          "BOOM"
+        ]
       ],
-      [
-       1.24,
-       "pf"
+      "pop_x": 0.82,
+      "pop_y": 0.6,
+      "headline": "Performance 1: BOOM",
+      "subline": "Same LTX-2.5 render. New voice timing and size.",
+      "stamp": "Author's own voice · recorded pf and BOOM cut into new rhythms · 0 new renders"
+    },
+    {
+      "id": "performance_2",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
+      "start": 0,
+      "dur": 3.5,
+      "fill": true,
+      "portrait_backdrop": true,
+      "crop": [
+        0,
+        0.18,
+        1,
+        0.96
       ],
-      [
-       1.7,
-       "PF"
-      ]
-     ]
+      "wave": true,
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom.wav",
+      "audio_replace": true,
+      "audio_gain": 4.5,
+      "audio_from": 0,
+      "pops": [
+        [
+          1.21,
+          "pf"
+        ],
+        [
+          1.58,
+          "pf"
+        ],
+        [
+          2.67,
+          "BOOM"
+        ]
+      ],
+      "pop_x": 0.82,
+      "pop_y": 0.6,
+      "headline": "Performance 2: pf · pf · BOOM",
+      "subline": "Same LTX-2.5 render. New voice timing and size.",
+      "stamp": "Author's own voice · recorded pf and BOOM cut into new rhythms · 0 new renders"
+    },
+    {
+      "id": "performance_3",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
+      "start": 0,
+      "dur": 3.5,
+      "fill": true,
+      "portrait_backdrop": true,
+      "crop": [
+        0,
+        0.18,
+        1,
+        0.96
+      ],
+      "wave": true,
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4.wav",
+      "audio_replace": true,
+      "audio_gain": 4.5,
+      "audio_from": 0,
+      "pops": [
+        [
+          1.04,
+          "pf"
+        ],
+        [
+          1.58,
+          "pf"
+        ],
+        [
+          2.04,
+          "pf"
+        ],
+        [
+          2.5,
+          "PF"
+        ]
+      ],
+      "pop_x": 0.82,
+      "pop_y": 0.6,
+      "headline": "Performance 3: pf pf pf PF",
+      "subline": "Same LTX-2.5 render. New voice timing and size.",
+      "stamp": "Author's own voice · recorded pf and BOOM cut into new rhythms · 0 new renders"
+    },
+    {
+      "id": "comparison_1",
+      "type": "compare",
+      "panels": [
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom.wav",
+          "pops": [
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf · pf · BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom.wav",
+          "pops": [
+            [
+              1.21,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf pf pf PF",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4.wav",
+          "pops": [
+            [
+              1.04,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.04,
+              "pf"
+            ],
+            [
+              2.5,
+              "PF"
+            ]
+          ]
+        }
+      ],
+      "dur": 3.5,
+      "audio": 0,
+      "audio_gain": 4.5,
+      "headline": "1 generation · 3 performances · 0 new renders",
+      "subline": "All three in step · listening to: BOOM",
+      "stamp": "Same hand footage and generated element · three voice-only recordings"
+    },
+    {
+      "id": "comparison_2",
+      "type": "compare",
+      "panels": [
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom.wav",
+          "pops": [
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf · pf · BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom.wav",
+          "pops": [
+            [
+              1.21,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf pf pf PF",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4.wav",
+          "pops": [
+            [
+              1.04,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.04,
+              "pf"
+            ],
+            [
+              2.5,
+              "PF"
+            ]
+          ]
+        }
+      ],
+      "dur": 3.5,
+      "audio": 1,
+      "audio_gain": 4.5,
+      "headline": "1 generation · 3 performances · 0 new renders",
+      "subline": "All three in step · listening to: pf · pf · BOOM",
+      "stamp": "Same hand footage and generated element · three voice-only recordings"
+    },
+    {
+      "id": "comparison_3",
+      "type": "compare",
+      "panels": [
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom.wav",
+          "pops": [
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf · pf · BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom.wav",
+          "pops": [
+            [
+              1.21,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf pf pf PF",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4.wav",
+          "pops": [
+            [
+              1.04,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.04,
+              "pf"
+            ],
+            [
+              2.5,
+              "PF"
+            ]
+          ]
+        }
+      ],
+      "dur": 3.5,
+      "audio": 2,
+      "audio_gain": 4.5,
+      "headline": "1 generation · 3 performances · 0 new renders",
+      "subline": "Three rhythms, the same LTX-2.5 element.",
+      "stamp": "Same hand footage and generated element · three voice-only recordings",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\size11.wav",
+      "vo_at": 1.5,
+      "vo_gain": 1.3,
+      "vo_text": "A quiet puff plays small. A loud boom plays big. No new render."
+    },
+    {
+      "id": "small_and_big",
+      "type": "compare",
+      "panels": [
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom.wav",
+          "pops": [
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf · pf · BOOM",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom.wav",
+          "pops": [
+            [
+              1.21,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.67,
+              "BOOM"
+            ]
+          ]
+        },
+        {
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
+          "start": 0,
+          "crop": [
+            0,
+            0.18,
+            1,
+            0.96
+          ],
+          "label": "pf pf pf PF",
+          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4.wav",
+          "pops": [
+            [
+              1.04,
+              "pf"
+            ],
+            [
+              1.58,
+              "pf"
+            ],
+            [
+              2.04,
+              "pf"
+            ],
+            [
+              2.5,
+              "PF"
+            ]
+          ]
+        }
+      ],
+      "dur": 4,
+      "loop": 3.5,
+      "audio": 1,
+      "audio_gain": 3,
+      "headline": "Quiet pf → small. Loud BOOM → big.",
+      "subline": "The voice controls the timing and the size.",
+      "stamp": "One LTX-2.5 element · no new generation"
+    },
+    {
+      "id": "how",
+      "type": "triptych",
+      "srcs": [
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_carried.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_light_off\\composite.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4"
+      ],
+      "start": 2.4,
+      "dur": 7,
+      "speed": 0.15,
+      "labels": [
+        "LTX-2.5 over black",
+        "Carried on the hand",
+        "Light off",
+        "Finished + light"
+      ],
+      "audio": 3,
+      "stamp": "Same generated element · slow motion · track, matte, composite and light",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\how11.wav",
+      "vo_at": 0.2,
+      "vo_gain": 1.3,
+      "vo_text": "Render the fire over black. Track the hand. Mask it, and add the firelight."
+    },
+    {
+      "id": "light",
+      "type": "triptych",
+      "srcs": [
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_light_off\\composite.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4"
+      ],
+      "labels": [
+        "Light off",
+        "Light on · from the fire's own image"
+      ],
+      "start": 2.4,
+      "dur": 6,
+      "speed": 0.15,
+      "audio": 1,
+      "stamp": "The same tracked hand and LTX element · slow motion to show the light"
+    },
+    {
+      "id": "walk",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\flame_walk\\composite.mp4",
+      "start": 3,
+      "dur": 3.25,
+      "fill": true,
+      "portrait_backdrop": true,
+      "chip": "fffff · carried through a walk, uncut",
+      "stamp": "Author's phone footage + own voice · fire rendered with LTX-2.5 + ainvfx-fluid"
+    },
+    {
+      "id": "flamethrower",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\flamethrower\\composite.mp4",
+      "start": 1.3,
+      "dur": 2,
+      "fill": true,
+      "portrait_backdrop": true,
+      "chip": "fwoooom · fingertip flamethrower",
+      "stamp": "Author's phone footage + own voice · fire rendered with LTX-2.5 + ainvfx-fluid"
+    },
+    {
+      "id": "lightning_point",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\lightning_point\\composite.mp4",
+      "start": 1.5,
+      "dur": 2,
+      "fill": true,
+      "portrait_backdrop": true,
+      "source_gain": 0.35,
+      "chip": "zzzzz · fingertip lightning",
+      "stamp": "Author's phone footage · sample noise (synthetic) · CPU procedural effect",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\cpu11.wav",
+      "vo_at": 0.15,
+      "vo_gain": 1.3,
+      "vo_text": "Lightning and water are made procedurally on the CPU."
+    },
+    {
+      "id": "lightning_dark",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\lightning_dark\\composite.mp4",
+      "start": 1.5,
+      "dur": 2,
+      "fill": true,
+      "portrait_backdrop": true,
+      "source_gain": 0.35,
+      "chip": "zzzzz · in the dark",
+      "stamp": "Author's phone footage · sample noise (synthetic) · CPU procedural effect"
+    },
+    {
+      "id": "lightning_ball",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\lightning_ball\\composite.mp4",
+      "start": 1.5,
+      "dur": 2,
+      "fill": true,
+      "portrait_backdrop": true,
+      "source_gain": 0.35,
+      "chip": "zzzzz · ball lightning",
+      "stamp": "Author's phone footage · sample noise (synthetic) · CPU procedural effect"
+    },
+    {
+      "id": "water",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\water_orb\\composite.mp4",
+      "start": 0,
+      "dur": 2.75,
+      "fill": true,
+      "portrait_backdrop": true,
+      "chip": "shhhhh · water orb",
+      "stamp": "Author's phone footage · sample noise (synthetic) · CPU procedural effect"
+    },
+    {
+      "id": "punch",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\explosion_punch\\composite.mp4",
+      "start": 0.5,
+      "dur": 3,
+      "fill": true,
+      "portrait_backdrop": true,
+      "pops": [
+        [
+          2.17,
+          "BOOM"
+        ]
+      ],
+      "pop_x": 1.35,
+      "pop_y": 0.5,
+      "stamp": "Author's fist + own BOOM · LTX-2.5 fireball · CPU finish"
+    },
+    {
+      "id": "lanterns",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\scene_lanterns\\composite.mp4",
+      "start": 0,
+      "dur": 6.5,
+      "wave": true,
+      "marks": [
+        [
+          1.0,
+          0.42,
+          0.72,
+          "1"
+        ],
+        [
+          1.67,
+          0.64,
+          0.58,
+          "2"
+        ],
+        [
+          2.38,
+          0.43,
+          0.3,
+          "3"
+        ]
+      ],
+      "pops": [
+        [
+          1.0,
+          "pf"
+        ],
+        [
+          1.67,
+          "pf"
+        ],
+        [
+          2.38,
+          "BOOM"
+        ]
+      ],
+      "headline": "Each sound, its own lantern",
+      "subline": "Two people's voices: pf · pf · BOOM",
+      "stamp": "Pixabay real footage, first frame held · real CC0 voices (Freesound) · LTX-2.5 fire",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\scene11.wav",
+      "vo_at": 3.4,
+      "vo_gain": 1.3,
+      "vo_text": "Each sound goes to its own source in the scene."
+    },
+    {
+      "id": "dino",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\scene_dino\\composite.mp4",
+      "start": 0.25,
+      "dur": 6.5,
+      "fill": true,
+      "chip": "fwoooom · into the scene",
+      "stamp": "Real stock footage (Pexels) · sample noise (synthetic) · LTX-2.5 render"
+    },
+    {
+      "id": "upload",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio.mp4",
+      "start": 1,
+      "dur": 3,
+      "fill": true,
+      "crop": [
+        0,
+        0.03,
+        1,
+        0.78
+      ],
+      "chip": "1. Upload a clip",
+      "stamp": "Recorded Studio · author's clip + voice · existing LTX element · GPU offline",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\upload11.wav",
+      "vo_at": 0.2,
+      "vo_gain": 1.3,
+      "vo_text": "Upload a clip."
+    },
+    {
+      "id": "tap",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio.mp4",
+      "start": 7,
+      "dur": 3,
+      "fill": true,
+      "crop": [
+        0.078,
+        0.208,
+        0.578,
+        0.583
+      ],
+      "chip": "2. Tap the palm, drag to aim",
+      "stamp": "Recorded Studio · author's clip + voice · existing LTX element · GPU offline",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\tap11.wav",
+      "vo_at": 0.2,
+      "vo_gain": 1.3,
+      "vo_text": "Tap the palm."
+    },
+    {
+      "id": "perform",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio.mp4",
+      "start": 33,
+      "dur": 3,
+      "fill": true,
+      "crop": [
+        0.078,
+        0.5,
+        0.634,
+        0.917
+      ],
+      "chip": "3. Perform",
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio_say_own.wav",
+      "audio_from": 3.23,
+      "audio_gain": 4,
+      "wave": true,
+      "wave_box": [
+        0.54,
+        0.16,
+        0.4,
+        0.12
+      ],
+      "pops": [
+        [
+          0.87,
+          "pf"
+        ],
+        [
+          1.27,
+          "pf"
+        ],
+        [
+          2.27,
+          "BOOM"
+        ]
+      ],
+      "pop_x": 0.76,
+      "pop_y": 0.57,
+      "stamp": "Recorded Studio · author's clip + voice · existing LTX element · GPU offline"
+    },
+    {
+      "id": "make",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio.mp4",
+      "start": 37.2,
+      "dur": 1,
+      "fill": true,
+      "crop": [
+        0.06,
+        0.27,
+        0.79,
+        0.82
+      ],
+      "chip": "4. Make the shot",
+      "stamp": "Recorded Studio · author's clip + voice · existing LTX element · GPU offline",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\make11.wav",
+      "vo_at": 0.05,
+      "vo_gain": 1.3,
+      "vo_text": "Make the shot."
+    },
+    {
+      "id": "result",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio_result.mp4",
+      "start": 1.34,
+      "dur": 2,
+      "fill": true,
+      "crop": [
+        0,
+        0.42,
+        1,
+        0.73641
+      ],
+      "chip": "The finished shot · existing render",
+      "stamp": "Recorded Studio · author's clip + voice · existing LTX element · GPU offline"
+    },
+    {
+      "id": "comfy",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\cards\\comfy.png",
+      "dur": 6,
+      "zoom": 1,
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\ltx11.wav",
+      "vo_at": 0.1,
+      "vo_gain": 1.3,
+      "vo_text": "LTX-2.5, with the fluid LoRA, in ComfyUI."
+    },
+    {
+      "id": "innovation",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\cards\\pipeline.png",
+      "dur": 5,
+      "zoom": 1,
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\new11.wav",
+      "vo_at": 0.2,
+      "vo_gain": 1.3,
+      "vo_text": "A generated effect becomes an instrument your voice plays."
+    },
+    {
+      "id": "try",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\cards\\try_it.png",
+      "dur": 5,
+      "zoom": 1,
+      "vo": "D:\\openHiggsfield\\runs\\demo_v11\\vo11\\try11.wav",
+      "vo_at": 0.2,
+      "vo_gain": 1.3,
+      "vo_text": "Try it in two minutes. No GPU needed."
+    },
+    {
+      "id": "credits",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\cards\\credits.png",
+      "dur": 5,
+      "zoom": 1,
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v10\\credits_crackle.wav",
+      "audio_from": 0.8,
+      "audio_gain": 0.3
     }
-   ],
-   "stamp": "the author's own hand · the author's pf and BOOM, re-cut into new rhythms · one LTX-2.5 render",
-   "dur": 4.9,
-   "vo": "runs\\demo_v9\\vo9\\again9.wav",
-   "vo_at": 0.1
-  },
-  {
-   "type": "clip",
-   "src": "runs/takes/gpu/IMG_6653_fire_breath_c5/composite.mp4",
-   "start": 1.55,
-   "dur": 0.9,
-   "fill": true,
-   "wave": true,
-   "crop": [
-    0,
-    0.29,
-    1,
-    0.6064
-   ],
-   "pops": [
-    [
-     0.0,
-     "fwooooOOM"
-    ]
-   ],
-   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
-  },
-  {
-   "type": "clip",
-   "src": "runs/takes/gpu2/IMG_6660_flame_plume_comp/composite.mp4",
-   "start": 1.0,
-   "dur": 2.4,
-   "fill": true,
-   "wave": true,
-   "crop": [
-    0,
-    0.5,
-    1,
-    0.8164
-   ],
-   "pops": [
-    [
-     0.4,
-     "fffff"
-    ]
-   ],
-   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid)"
-  },
-  {
-   "type": "triptych",
-   "srcs": [
-    "runs\\demo_v9\\how_render_slow.mp4",
-    "runs\\demo_v9\\how_carried_slow.mp4",
-    "runs\\demo_v9\\nolight_slow.mp4",
-    "runs\\demo_v9\\hero_slow.mp4"
-   ],
-   "labels": [
-    "LTX-2.5, over black",
-    "on your hand",
-    "light off",
-    "light on"
-   ],
-   "start": 0.4,
-   "dur": 3.6,
-   "audio": 3,
-   "caption": "Rendered once, carried on the tracked hand, matted, and lit by its own fire.",
-   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid) · half speed",
-   "vo": "runs\\demo_v9\\vo9\\how9.wav",
-   "vo_at": 0.0
-  },
-  {
-   "type": "clip",
-   "src": "runs/takes/gpu2/IMG_6668_flame_plume_s2_again/composite.mp4",
-   "start": 2.3,
-   "dur": 4.4,
-   "fill": true,
-   "wave": true,
-   "crop": [
-    0,
-    0.42,
-    1,
-    0.7364
-   ],
-   "headline": "One take, uncut",
-   "subline": "It stays in your palm.",
-   "stamp": "the author's own hand and voice, filmed on an iPhone · the fire rendered once over black (LTX-2.5 + ainvfx-fluid) · the camera walking"
-  },
-  {
-   "type": "clip",
-   "src": "runs\\demo_v9/studio_own3/studio.mp4",
-   "start": 7.0,
-   "dur": 2.6,
-   "fill": true,
-   "crop": [
-    0.078,
-    0.208,
-    0.578,
-    0.583
-   ],
-   "chip": "Tap your palm, drag to aim",
-   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)",
-   "vo": "runs\\demo_v9\\vo9\\studio9a.wav",
-   "vo_at": 0.1
-  },
-  {
-   "type": "clip",
-   "src": "runs\\demo_v9/studio_own3/studio.mp4",
-   "start": 23.6,
-   "dur": 2.6,
-   "fill": true,
-   "crop": [
-    0.052,
-    0.181,
-    0.615,
-    0.603
-   ],
-   "chip": "It follows your hand before anything is made",
-   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)",
-   "vo": "runs\\demo_v9\\vo9\\studio9c.wav",
-   "vo_at": 0.53
-  },
-  {
-   "type": "clip",
-   "src": "runs\\demo_v9/studio_own3/studio.mp4",
-   "start": 33.0,
-   "dur": 2.9,
-   "fill": true,
-   "crop": [
-    0.078,
-    0.5,
-    0.634,
-    0.917
-   ],
-   "chip": "Make the noise while it plays",
-   "pop_x": 0.74,
-   "pop_y": 0.52,
-   "audio_src": "runs\\demo_v9/studio_say_own.wav",
-   "audio_from": 3.23,
-   "audio_gain": 4.0,
-   "wave": true,
-   "wave_box": [
-    0.53,
-    0.16,
-    0.42,
-    0.13
-   ],
-   "stamp_top": true,
-   "pops": [
-    [
-     0.87,
-     "pf"
-    ],
-    [
-     1.27,
-     "pf"
-    ],
-    [
-     2.27,
-     "BOOM"
-    ]
-   ],
-   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
-  },
-  {
-   "type": "clip",
-   "src": "runs/jobs/fd58657de8da/composite.mp4",
-   "start": 0.8,
-   "dur": 2.7,
-   "fill": true,
-   "wave": true,
-   "crop": [
-    0,
-    0.42,
-    1,
-    0.7364
-   ],
-   "chip": "Your shot · no GPU, about a minute on a laptop",
-   "pops": [
-    [
-     0.53,
-     "pf"
-    ],
-    [
-     0.95,
-     "pf"
-    ],
-    [
-     1.99,
-     "BOOM"
-    ]
-   ],
-   "stamp": "the studio in a browser, recorded: the author's own clip, the GPU offline (a fireball rendered ahead with LTX-2.5)"
-  },
-  {
-   "type": "clip",
-   "src": "runs/round10/shots/held_together__pf-pf-boom/composite.mp4",
-   "start": 0.6,
-   "dur": 5.0,
-   "wave": true,
-   "marks": [
-    [
-     0.4,
-     0.42,
-     0.72,
-     "1"
-    ],
-    [
-     1.07,
-     0.64,
-     0.58,
-     "2"
-    ],
-    [
-     1.78,
-     0.43,
-     0.3,
-     "3"
-    ]
-   ],
-   "pops": [
-    [
-     0.4,
-     "pf"
-    ],
-    [
-     1.07,
-     "pf"
-    ],
-    [
-     1.78,
-     "BOOM"
-    ]
-   ],
-   "headline": "Or tap anything in your shot",
-   "subline": "One sound, one source.",
-   "stamp": "real stock clip (Pixabay), held on its first frame · real people's voices (CC0, Freesound) · LTX-2.5 + ainvfx-fluid",
-   "vo": "runs\\demo_v7\\vo7\\scene7.wav",
-   "vo_at": 1.9
-  },
-  {
-   "type": "image",
-   "src": "runs\\demo_v9\\comfy.png",
-   "dur": 2.6,
-   "zoom": 1.0,
-   "vo": "runs\\demo_v10\\vo10\\pipe10b.wav",
-   "vo_at": 1.3
-  },
-  {
-   "type": "image",
-   "src": "runs\\demo_v9\\pipeline.png",
-   "dur": 3.0,
-   "zoom": 1.0
-  },
-  {
-   "type": "clip",
-   "src": "runs/takes/live_feed/live_IMG_6660.mp4",
-   "start": 0.6,
-   "dur": 2.3,
-   "fill": true,
-   "wave": true,
-   "crop": [
-    0,
-    0.3,
-    1,
-    0.8625
-   ],
-   "audio_src": "runs\\demo_v10\\credits_crackle.wav",
-   "audio_at": 1.7,
-   "pops": [
-    [
-     0.45,
-     "fffff"
-    ]
-   ],
-   "pop_x": 0.82,
-   "pop_y": 0.4,
-   "headline": "Try it live",
-   "subline": "Your camera. Fire as you say it.",
-   "caption": "Fed a phone clip and its sound: tracked live, flame rendered ahead.",
-   "stamp": "the studio's live preview in a browser · the author's phone clip and sound in place of a webcam · LTX-2.5 flame"
-  },
-  {
-   "type": "credits",
-   "dur": 4.2,
-   "title": "Cue the Boom",
-   "audio_src": "runs\\demo_v10\\credits_crackle.wav",
-   "audio_from": 0.8,
-   "lines": [
-    "LTX-2.5 · Lightricks    ainvfx-fluid IC-LoRA · AInVFX    Gemma text encoder · Google",
-    "ComfyUI + Comfy SDK · Comfy Org",
-    "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
-    "The author's own hand, voice and phone · stock footage: Pexels, Pixabay",
-    "Voices · rykenn, unfa and others (CC0, Freesound)",
-    "Narration · Kokoro-82M, a synthetic voice    Foley · synthesised per shot",
-    "Open weights only, self-hosted on one rented GPU",
-    "Film your hand. Make the noise. Throw fire."
-   ]
-  }
- ]
+  ],
+  "schedule": [
+    {
+      "id": "cold_open",
+      "start": 0.0,
+      "end": 7.0
+    },
+    {
+      "id": "title",
+      "start": 7.0,
+      "end": 12.0
+    },
+    {
+      "id": "one_generation",
+      "start": 12.0,
+      "end": 17.0
+    },
+    {
+      "id": "performance_1",
+      "start": 17.0,
+      "end": 20.5
+    },
+    {
+      "id": "performance_2",
+      "start": 20.5,
+      "end": 24.0
+    },
+    {
+      "id": "performance_3",
+      "start": 24.0,
+      "end": 27.5
+    },
+    {
+      "id": "comparison_1",
+      "start": 27.5,
+      "end": 31.0
+    },
+    {
+      "id": "comparison_2",
+      "start": 31.0,
+      "end": 34.5
+    },
+    {
+      "id": "comparison_3",
+      "start": 34.5,
+      "end": 38.0
+    },
+    {
+      "id": "small_and_big",
+      "start": 38.0,
+      "end": 42.0
+    },
+    {
+      "id": "how",
+      "start": 42.0,
+      "end": 49.0
+    },
+    {
+      "id": "light",
+      "start": 49.0,
+      "end": 55.0
+    },
+    {
+      "id": "walk",
+      "start": 55.0,
+      "end": 58.25
+    },
+    {
+      "id": "flamethrower",
+      "start": 58.25,
+      "end": 60.25
+    },
+    {
+      "id": "lightning_point",
+      "start": 60.25,
+      "end": 62.25
+    },
+    {
+      "id": "lightning_dark",
+      "start": 62.25,
+      "end": 64.25
+    },
+    {
+      "id": "lightning_ball",
+      "start": 64.25,
+      "end": 66.25
+    },
+    {
+      "id": "water",
+      "start": 66.25,
+      "end": 69.0
+    },
+    {
+      "id": "punch",
+      "start": 69.0,
+      "end": 72.0
+    },
+    {
+      "id": "lanterns",
+      "start": 72.0,
+      "end": 78.5
+    },
+    {
+      "id": "dino",
+      "start": 78.5,
+      "end": 85.0
+    },
+    {
+      "id": "upload",
+      "start": 85.0,
+      "end": 88.0
+    },
+    {
+      "id": "tap",
+      "start": 88.0,
+      "end": 91.0
+    },
+    {
+      "id": "perform",
+      "start": 91.0,
+      "end": 94.0
+    },
+    {
+      "id": "make",
+      "start": 94.0,
+      "end": 95.0
+    },
+    {
+      "id": "result",
+      "start": 95.0,
+      "end": 97.0
+    },
+    {
+      "id": "comfy",
+      "start": 97.0,
+      "end": 103.0
+    },
+    {
+      "id": "innovation",
+      "start": 103.0,
+      "end": 108.0
+    },
+    {
+      "id": "try",
+      "start": 108.0,
+      "end": 113.0
+    },
+    {
+      "id": "credits",
+      "start": 113.0,
+      "end": 118.0
+    }
+  ],
+  "provenance": "clips/manifest.json",
+  "narration": "vo11/provenance.json"
 }
