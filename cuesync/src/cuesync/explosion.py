@@ -206,6 +206,8 @@ VOLUME_HANDOFF = (18, 32)  # frames after ignition: resolve the cooling body int
 # last pockets still emit. The burning source keeps its existing exposure and contact treatment.
 VOLUME_DEPTH = 3.4  # optical depth through overlapping soot: background detail fades before its broad illumination,
 # so a bright switch cannot remain a pale rectangular insert inside a thin lobe.
+LOBE_SEPARATE = (28, 36)  # after the cooling handoff, release the filled interior into overlapping lobes. Each
+# lobe keeps its own dense core and thin edge; the low-density wisps disperse faster instead of fading the body flat.
 PARAMS = dataclasses.replace(  # composite.composite_frame's for a fireball rolling into black smoke (its light is ours)
     C.CompositeParams(), light_gain=0.0, fire_gain=0.75, shading_lo=0.5, shading_hi=1.35, interior_blur_frac=0.04,
     interior_lo=0.45, interior_hi=0.9, sat_lo=0.4, sat_hi=0.65)
@@ -855,17 +857,167 @@ class Outline:
 
 
 class SmokeVolume:
-    """Two rolling depths of soot, lit by the current room. Source billows supply the relief; independent buoyant
-    density fields let nearer folds cross the far layer. Beer-Lambert transmission keeps a continuous range of
-    thin wisps instead of cutting opaque holes through one shaded card. All fields are fixed by the shot seed."""
+    """Photographed cooling soot hands over to seeded, self-shadowed turbulent smoke at several depths."""
 
     def __init__(self, h: int, w: int, side: int, seed: int):
         self.side, self.seed = side, seed
         rng = np.random.default_rng([seed, 137])
         self.fields = [_field(rng, max(2, h // 4), max(2, w // 4), side * a / 4, side * b / 4)
                        for a, b in ((0.055, 0.075), (0.032, 0.055))]
+        self.h, self.w = h, w
+        self.volume_noise = None
 
-    def draw(self, room: np.ndarray, source: np.ndarray, silhouette: np.ndarray, floor: int,
+    def draw(self, room, source, silhouette, floor, ambient, since, rise, clear, box, erosion=None):
+        """Keep the cooling source intact, then resolve late soot through real overlapping depths."""
+        if clear <= 0.0:
+            return room.copy()
+        mix = float(C._smoothstep(*LOBE_SEPARATE, since))
+        if mix <= 0.0:
+            return self._cooling(room, source, silhouette, floor, ambient, since, rise, clear, box, erosion)
+        result = self._draw_volume(room, source, silhouette, floor, ambient, since, rise, clear, box, erosion)
+        if mix < 1.0:
+            previous = self._cooling(room, source, silhouette, floor, ambient, since, rise, clear, box, erosion)
+            result = previous + np.float32(mix) * (result - previous)
+        return result
+
+    def _draw_volume(self, room, source, silhouette, floor, ambient, since, rise, clear, box, erosion=None):
+        """Integrate seeded turbulent soot and room light through five unequal bodies, retaining source wrinkles."""
+        hb, wb = source.shape[:2]
+        y0, _, x0, _ = box
+        px = self.side / 1080.0
+        yy, xx = np.mgrid[:hb, :wb].astype(np.float32)
+        peak = np.maximum(source.max(-1).astype(np.float32) - floor, 0.0) / (255 - floor)
+        geometry = np.maximum(C._smoothstep(0.012, 0.085, peak), 0.92 * silhouette)
+        key = geometry if erosion is None else geometry * erosion
+        total = float(key.sum())
+        if total <= 0.01:
+            return room.copy()
+        cy, cx = float((key * yy).sum() / total), float((key * xx).sum() / total)
+        radius = max(1.0, math.sqrt(total / math.pi))
+        # Resolve the dense boundaries at roughly 360 samples across a 1080-wide plate; source wrinkles stay native.
+        q = max(1, round(3 * px))
+        ny, nx, nz = math.ceil(hb / q), math.ceil(wb / q), 40
+        shape = (nz, math.ceil(self.h / q), math.ceil(self.w / q))
+        if self.volume_noise is None:
+            # One fixed 3D field at three scales. Its coordinates rise continuously with the cloud.
+            rng = np.random.default_rng([self.seed, 317])
+            ft = np.fft.rfftn(rng.standard_normal(shape))
+            kz = np.fft.fftfreq(shape[0])[:, None, None]
+            ky = np.fft.fftfreq(shape[1])[None, :, None]
+            kx = np.fft.rfftfreq(shape[2])[None, None, :]
+            self.volume_noise = []
+            for level in (1.0, 2.8, 5.2):
+                sigma = level * 8 * px / q
+                spectrum = ft * np.exp(-2 * np.pi ** 2 * sigma ** 2 * (0.25 * kz ** 2 + ky ** 2 + kx ** 2))
+                field = np.fft.irfftn(spectrum, shape, axes=(0, 1, 2)).astype(np.float32)
+                field /= max(float(field.std()), 1e-6)
+                self.volume_noise.append(field)
+            del ft, spectrum, field, kz, ky, kx
+        yl, xl = np.mgrid[:ny, :nx].astype(np.float32)
+        yn, xn = yl * q, xl * q
+        mx = (xl + x0 / q + 0.10 * rise / q).astype(np.float32)
+        my = (yl + y0 / q + 1.2 * rise / q).astype(np.float32)
+        noise = [np.stack([cv2.remap(a, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP) for a in field])
+                 for field in self.volume_noise]
+        turbulent = 0.40 * noise[0] + 0.60 * noise[1] + 0.65 * noise[2]
+        del noise
+        z = np.linspace(-1.1, 1.1, nz, dtype=np.float32)[:, None, None]
+        density = np.zeros((nz, ny, nx), np.float32)
+        pigment, strongest = np.zeros_like(density), np.zeros_like(density)
+        # Position and unequal depths, radii and albedos: rear shoulders then two denser foreground bodies.
+        lobes = [(-0.44, -0.62, -0.25, 0.47, 0.51, 0.48, 0.434),
+                 (0.14, -0.72, 0.18, 0.54, 0.52, 0.47, 0.448),
+                 (0.54, -0.20, 0.10, 0.41, 0.40, 0.44, 0.378),
+                 (-0.45, -0.35, -0.20, 0.37, 0.22, 0.42, 0.36),
+                 (0.25, 0.02, 0.35, 0.33, 0.26, 0.43, 0.31)]
+        for i, (dx, dy, dz, rx, ry, rz, albedo) in enumerate(lobes):
+            rx, ry = rx * 1.05, ry * 1.05
+            u = (xn - (cx + dx * radius)) / (rx * radius)
+            v = (yn - (cy + dy * radius)) / (ry * radius)
+            r2 = u[None] ** 2 + v[None] ** 2 + ((z - dz) / rz) ** 2
+            local = np.roll(turbulent, (i * 7, i * 9, i * 13), axis=(0, 1, 2))
+            path = np.maximum(1.05 - r2 + 0.30 * local, 0.0)
+            # Upper cores have firmer boundaries than the softer, dispersing foreground bodies.
+            den = np.minimum(path, 1.4) ** (1.7 if i < 2 else 1.5)
+            if i == 3:  # The lighter shoulder disperses before the lower foreground core, breaking a paired skirt.
+                den *= 1.0 - 0.6 * float(C._smoothstep(30.0, 60.0, since))
+            if i == 4:  # Release the hanging foreground skirt before the upper cores; keep its denser fragments.
+                release = float(C._smoothstep(30.0, 48.0, since))
+                kernel = C._smoothstep(0.65, 1.15, den)
+                den *= 1.0 - 0.65 * release * (1.0 - 0.20 * kernel)
+            density += den
+            pigment += den * albedo
+            strongest = np.maximum(strongest, den)
+        albedo = pigment / np.maximum(density, 1e-5)
+        del pigment, u, v, r2, local, path, den, turbulent
+        # Open the connections in the lower body, retaining individual dense kernels rather than fading all soot.
+        lower = C._smoothstep(cy - 0.25 * radius, cy + 0.10 * radius, yn)[None]
+        kernels = C._smoothstep(0.55, 1.15, strongest)
+        density *= 1.0 - 0.30 * lower * (1.0 - kernels)
+        del strongest, kernels
+        overhead = np.cumsum(density, axis=1) * np.float32(0.032 * q / (8 * px))
+        overhead = np.stack([cv2.GaussianBlur(a, (0, 0), max(0.5, 3.5 * px / q)) for a in overhead])
+        frontshade = np.cumsum(density, axis=0) * np.float32(0.025)
+        lighting = 0.40 + 0.60 * np.exp(-overhead - 0.5 * frontshade)
+        del overhead, frontshade
+        # Compact fold faces catch overhead room light; diffuse fill bounds their shadow contrast and preserves
+        # their ambient response. Weak gradients in dilute smoke leave the separate wisps soft.
+        slope = np.tanh(np.gradient(density, axis=1) * (8 * px / q))
+        lighting *= 1.12 * (1.0 + 1.2 * np.maximum(slope, -0.2))
+        del slope
+        # Dilute voxels clear first; deep kernels retain their path instead of the entire cloud fading together.
+        tau = density * np.float32(0.20) * np.float32(clear) ** (0.8 + 1.4 * (1.0 - C._smoothstep(0.3, 1.0, density)))
+        del density
+        transmission = np.ones((ny, nx), np.float32)
+        scattered = np.zeros((ny, nx), np.float32)
+        for iz in range(nz):
+            trans = np.exp(-tau[iz])
+            scattered = scattered * trans + albedo[iz] * lighting[iz] * (1.0 - trans)
+            transmission *= trans
+        del tau, albedo, lighting
+        trans = np.clip(cv2.resize(transmission, (wb, hb), interpolation=cv2.INTER_CUBIC), 0.0, 1.0)
+        smoke = np.maximum(cv2.resize(scattered, (wb, hb), interpolation=cv2.INTER_CUBIC), 0.0)
+        # Source relief adds photographic wrinkles to the lighting and bounded variation to the soot path.
+        grey = cv2.GaussianBlur(peak, (0, 0), max(0.65, 1.5 * px))
+        log = np.log(np.maximum(grey, 0.008))
+        fine = log - smoke_blur(log, geometry, max(1.0, 22 * px))
+        detail = np.clip(fine, -0.8, 0.8)
+        present = geometry > 0.2
+        reference = max(float(np.percentile(grey[present], 65)), 0.025) if present.any() else 0.025
+        normalized = log - math.log(reference)
+        # Unresolved photographic clefts also contain longer soot paths when ambient illumination is zero.
+        path_factor = np.clip(np.exp(-0.25 * np.tanh(normalized) - 0.35 * detail), 0.75, 1.35)
+        folded_trans = trans ** path_factor
+        smoke *= (1.0 - folded_trans) / np.maximum(1.0 - trans, 1e-5)
+        trans = folded_trans
+        slope = np.tanh(np.gradient(smoke_blur(normalized, geometry, max(1.0, 10 * px)), axis=0) * 10 * px)
+        photo = np.clip(np.exp(0.20 * np.tanh(normalized) + 1.15 * detail), 0.35, 2.0) * (1.0 + 0.40 * slope)
+        smoke *= photo
+        # The detached thin smoke follows a faster field and clears ahead of the compact bodies. Put it behind
+        # their depths so opening a channel never restores the old opaque arch across the foreground lobes.
+        wisps = cv2.remap(self.fields[0], (xx + x0 + 0.22 * rise).astype(np.float32) / 4,
+                          (yy + y0 + 2.1 * rise).astype(np.float32) / 4,
+                          cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+        wisp_tau = np.float32(0.12 * clear ** 2.6) * key * C._smoothstep(0.3, 0.75, wisps)
+        wisp_trans = np.exp(-wisp_tau)
+        smoke += trans * np.float32(SOOT_ALBEDO) * (1.0 - wisp_trans)
+        trans *= wisp_trans
+        # A volume may open gaps inside the source support, but cannot paint a new footprint outside it.
+        trans = 1.0 + geometry * (trans - 1.0)
+        smoke *= geometry
+        light = wide_blur(ambient, max(1.0, 0.035 * self.side))
+        wall = wide_blur(room, max(1.0, 0.08 * self.side))
+        result = room * trans[..., None] + light * smoke[..., None]
+        result += (wall - room) * (trans * (1.0 - trans ** 2.5))[..., None]
+        display = np.maximum(room, 0.0) ** np.float32(1 / 2.2)
+        residual = display - cv2.GaussianBlur(display, (0, 0), max(0.5, 0.7 * px))
+        grain = float(np.clip(1.4826 * np.median(np.abs(residual)), 0.35 / 255, 1.5 / 255))
+        n = np.random.default_rng([self.seed, 173, int(since)]).standard_normal((hb, wb)).astype(np.float32)
+        result += (2.2 * grain * np.sqrt(np.maximum(1.0 - trans ** 7, 0.0)) * n)[..., None] \
+            * np.maximum(result, 1e-5) ** np.float32(1 - 1 / 2.2)
+        return np.maximum(result, 0.0)
+
+    def _cooling(self, room: np.ndarray, source: np.ndarray, silhouette: np.ndarray, floor: int,
              ambient: np.ndarray, since: float, rise: float, clear: float, box,
              erosion: np.ndarray | None = None) -> np.ndarray:
         """The cloud over this room crop, in linear light. Detail transmitted through soot is attenuated more than
@@ -1473,23 +1625,27 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         hand = P
         # the fireball and its smoke, behind the arm
         if E8 is not None:
-            comp = C.composite_frame(_by_root(_GAM8, P), E8, PARAMS, holdout_row=None, emission=tuple(o_t),
-                                     fire_energy_ref=None, plate_key=plate_key, grain_sigma=1.5, black_floor=floor,
-                                     fire_effect=True, dense_smoke=True, smoke_ref=smoke_ref, env_rgb=env_rgb,
-                                     seed=seed + t, ambient=amb_t, shading_ref=shading_ref, smoke_albedo=SOOT_ALBEDO,
-                                     g_smoke=1.0 - _ease((since - CLEAR[0]) / CLEAR[1]), thin_soot=True)
-            Q = lin(comp)
-            if billow is not None:  # (as the smoke clears, its billows go with it)
-                y0, y1, x0, x1 = box
-                lit = Q[y0:y1, x0:x1] * (1.0 + (1.0 - _ease((since - CLEAR[0]) / CLEAR[1])) * billow)[..., None]
-                Q[y0:y1, x0:x1] = np.minimum(lit, np.maximum(Q[y0:y1, x0:x1], P[y0:y1, x0:x1]))  # (soot is never
-                # lit brighter than the room behind it)
-            if rim_maps is not None:
-                outline.finish(Q, P, box, rim_maps)
+            volume_mix = float(C._smoothstep(*VOLUME_HANDOFF, since)) * (1.0 - burn)
+            # Once the volume owns the smoke, the older composite would be built only to be overwritten. Keep
+            # the illuminated plate outside it and spend that CPU time resolving depth inside the cloud instead.
+            Q = P.copy()
+            if volume_mix < 1.0:
+                comp = C.composite_frame(_by_root(_GAM8, P), E8, PARAMS, holdout_row=None, emission=tuple(o_t),
+                                         fire_energy_ref=None, plate_key=plate_key, grain_sigma=1.5, black_floor=floor,
+                                         fire_effect=True, dense_smoke=True, smoke_ref=smoke_ref, env_rgb=env_rgb,
+                                         seed=seed + t, ambient=amb_t, shading_ref=shading_ref, smoke_albedo=SOOT_ALBEDO,
+                                         g_smoke=1.0 - _ease((since - CLEAR[0]) / CLEAR[1]), thin_soot=True)
+                Q = lin(comp)
+                if billow is not None:  # (as the smoke clears, its billows go with it)
+                    y0, y1, x0, x1 = box
+                    lit = Q[y0:y1, x0:x1] * (1.0 + (1.0 - _ease((since - CLEAR[0]) / CLEAR[1])) * billow)[..., None]
+                    Q[y0:y1, x0:x1] = np.minimum(lit, np.maximum(Q[y0:y1, x0:x1], P[y0:y1, x0:x1]))
+                if rim_maps is not None:
+                    outline.finish(Q, P, box, rim_maps)
             if box is not None:  # its soot scattering the room's light; its fire as a light (the composite drew it as
                 # lit smoke)
-                scatter(Q, P, box, side)
-                volume_mix = float(C._smoothstep(*VOLUME_HANDOFF, since)) * (1.0 - burn)
+                if volume_mix < 1.0:
+                    scatter(Q, P, box, side)
                 if volume_mix > 0.0:
                     clear = 1.0 - _ease((since - CLEAR[0]) / CLEAR[1])
                     erosion = None

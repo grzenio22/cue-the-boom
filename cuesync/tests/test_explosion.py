@@ -543,3 +543,52 @@ def test_self_shadowed_folds_keep_optical_depth_when_the_light_is_gone():
     # Shadowed smoke has more path through soot; switching its fold structure must change transmitted background
     # even without scattered illumination. Colour shading alone would produce identical grey transmission.
     assert np.abs(shown(a[30:130, 30:170]) - shown(b[30:130, 30:170])).mean() > 1.0
+
+
+def test_late_dense_lobes_leave_gaps_without_dissolving_the_whole_cloud():
+    room = np.full((200, 280, 3), 0.3, np.float32)
+    source = np.full((200, 280, 3), 55, np.uint8)
+    silhouette = np.ones((200, 280), np.float32)
+    volume = X.SmokeVolume(200, 280, 280, seed=2)
+    for clear in (1.0, 0.7):
+        q = volume.draw(room, source, silhouette, 4, np.zeros_like(room), 45, 40,
+                        clear, (0, 200, 0, 280))
+        # With no scattered light, the ratio measures actual transmission. Coincident filled sheets have no
+        # clear interior gaps; fading them uniformly also loses the compact, opaque cores too soon.
+        transmission = (q / room).mean(-1)[30:170, 30:250]
+        assert (transmission > 0.9).mean() > 0.03
+        assert (transmission < 0.12).mean() > 0.08
+        assert ((transmission > 0.2) & (transmission < 0.7)).mean() > 0.1
+
+
+def test_dense_bodies_do_not_inherit_the_wisps_large_interior_cut():
+    room = np.full((200, 280, 3), 0.3, np.float32)
+    source = np.full((200, 280, 3), 55, np.uint8)
+    silhouette = np.ones((200, 280), np.float32)
+    wisps = silhouette.copy()
+    wisps[65:145, 90:190] = 0
+    q = X.SmokeVolume(200, 280, 280, seed=2).draw(
+        room, source, silhouette, 4, np.zeros_like(room), 45, 40, 1.0, (0, 200, 0, 280), wisps)
+    # One cleared wisp layer cannot punch the identical large hole through every depth behind it.
+    transmission = (q / room).mean(-1)[wisps == 0]
+    assert (transmission < 0.6).mean() > 0.15
+
+
+def test_dense_smoke_has_local_relief_over_a_featureless_room():
+    import cv2
+
+    room = np.full((240, 320, 3), 0.3, np.float32)
+    source = np.full(room.shape, 55, np.uint8)
+    silhouette = np.ones(room.shape[:2], np.float32)
+    volume = X.SmokeVolume(240, 320, 320, seed=2)
+    args = (room, source, silhouette, 4)
+    tail = (45, 40, 1.0, (0, 240, 0, 320))
+    unlit = volume.draw(*args, np.zeros_like(room), *tail)
+    lit = volume.draw(*args, room, *tail)
+    core = (unlit / room).mean(-1) < 0.15
+    grey = shown(lit).mean(-1)
+    relief = grey - cv2.GaussianBlur(grey, (0, 0), 2.0)
+    # At phone scale the opaque folds must retain small lit faces and shadowed clefts. Neither the flat source
+    # nor the room supplies texture, and the sub-level sensor grain alone cannot satisfy this contrast.
+    assert core.mean() > 0.08
+    assert relief[core].std() > 1.6
