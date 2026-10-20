@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  type Arcs, arcChannels, arcStep, type Ball, ballRadius, ballStep, beside, BODY_STOPS, BUZZ_HF, buzzOf, channel, crosses,
-  dense, drawBall, drawChannels, type Light, lightStep, newArcs, type P2, ride, rng, streamStep, stretches, TAPER,
+  apart, type Arcs, arcChannels, arcStep, BALL_FILAMENTS, type Ball, ballRadius, ballStep, beside, BODY_STOPS, BRANCH_W,
+  BUZZ_HF, buzzOf, channel, crosses, dense, drawBall, drawBallLight, drawChannels, type Light, lightStep, newArcs,
+  type P2, ride, rng, SIDE_APART, streamStep, stretches, TAPER,
 } from "./lightning";
 
 describe("channel", () => {
@@ -84,10 +85,26 @@ describe("arcStep", () => {
         expect(reach).toBeLessThan(0.6 * mainReach); // (half its reach when struck; the hand moves on a little)
         expect(crosses(c.pts, main.pts, 0, 3)).toBe(false);
         expect(beside(c.pts, main.pts, 0.12 * 150)).toBeLessThan(0.35); // (not a second wire beside it)
+        const end = c.pts[c.pts.length - 1], far = Math.hypot(end[0] - tip[0], end[1] - tip[1]);
+        const there = main.pts.find(([x, y]) => Math.hypot(x - tip[0], y - tip[1]) >= far) ?? main.pts[main.pts.length - 1];
+        const off = Math.atan2(end[1] - tip[1], end[0] - tip[0]) - Math.atan2(there[1] - tip[1], there[0] - tip[0]);
+        expect(Math.abs(((off + 3 * Math.PI) % (2 * Math.PI)) - Math.PI)).toBeGreaterThan(SIDE_APART[0] - 0.05); // (well
+        // round from the main channel where that is as far out: leaving 18 degrees off, two ran beside it as hairlines)
         rest.slice(i + 1).forEach((o) => expect(crosses(c.pts, o.pts, 0, 3)).toBe(false));
       });
     }
     expect(sides).toBeGreaterThan(40); // (two at the loudest, mostly)
+  });
+
+  it("tells a streamer that keeps well round from its main channel from one that runs beside it", () => {
+    const main: P2[] = Array.from({ length: 40 }, (_, i) => [0, -i * 10]); // (straight up, 390 px)
+    const at = (deg: number, bend = 0): P2[] => Array.from({ length: 20 }, (_, i) => {
+      const a = (deg - bend * (i / 19)) * Math.PI / 180, r = i * 8;
+      return [r * Math.sin(a), -r * Math.cos(a)];
+    });
+    expect(apart(main, [0, 0], at(30))).toBe(true);
+    expect(apart(main, [0, 0], at(12))).toBe(false); // (12 degrees off all along: a twin beside it)
+    expect(apart(main, [0, 0], at(-30, -25))).toBe(false); // (leaving 30 degrees off, then bending back towards it)
   });
 
   it("strikes no streamer for a quiet voice and one for a middling one", () => {
@@ -111,14 +128,17 @@ describe("arcStep", () => {
 });
 
 describe("drawing", () => {
-  it("fades a branch along its length and keeps the main channel's brightness, thinning both", () => {
+  it("fades a branch along its length and keeps the main channel's brightness, thinning both, a branch to a wedge", () => {
     const pts: P2[] = Array.from({ length: 65 }, (_, i) => [0, -i * 5]);
     const main = stretches({ pts, width: 4, inten: 1, forks: [], at: 0 }, 1);
     const branch = stretches({ pts, width: 1.6, inten: 0.35, forks: [], at: 0 }, 1);
     expect(main.every(([, , a]) => a === 1)).toBe(true);
-    expect(branch[branch.length - 1][2]).toBeLessThan(0.45 * branch[0][2]);
+    expect(branch[branch.length - 1][2]).toBeLessThan(0.25 * branch[0][2]); // (a streamer fades nearly out)
     expect(branch[branch.length - 1][2] / branch[0][2]).toBeGreaterThan(1 - TAPER[0] - 0.01);
     for (const s of [main, branch]) for (let k = 1; k < s.length; k++) expect(s[k][1]).toBeLessThan(s[k - 1][1]);
+    expect(branch[0][1]).toBeGreaterThan(1.3 * 1.6); // (thicker where it leaves than its width...)
+    expect(branch[branch.length - 1][1]).toBeLessThan(0.5 * 1.6); // (...and under half of it at its end)
+    expect(Math.min(...branch.map(([, w]) => w))).toBeGreaterThanOrEqual(BRANCH_W[2]);
   });
 
   it("stays cheap: a frame of the loudest arcs is a few hundred strokes", () => {
@@ -167,25 +187,54 @@ describe("the ball", () => {
     expect(Math.max(...young.fils.map((f) => Math.hypot(...f.ch!.pts[f.ch!.pts.length - 1])))).toBeGreaterThan(1.2);
   });
 
-  it("is a light: white-hot in its middle, cyan round that, blue to its limb, dense enough to hide the palm", () => {
-    const [mid, ...rest] = BODY_STOPS;
-    expect(mid.slice(1)).toEqual([255, 255, 255, 1]);
-    const cyan = rest.find(([at]) => at > 0.3 && at < 0.5)!;
-    expect(cyan[3]).toBe(255);
-    expect(cyan[2]).toBeGreaterThan(200);
-    expect(cyan[2] - cyan[1]).toBeGreaterThan(40);
-    const limb = rest.find(([at]) => at > 0.6 && at < 1)!;
-    expect(limb[3]).toBe(255);
-    expect(limb[3] - limb[2]).toBeGreaterThan(70); // (blue: well under the cyan's green)
-    expect(limb[2] - limb[1]).toBeGreaterThan(40);
-    expect(Math.min(...BODY_STOPS.filter(([at]) => at < 1).map(([, , , , a]) => a))).toBeGreaterThan(0.9);
+  it("is the shot's ball by radius: white-hot in its middle, a saturated blue to a cyan limb, its outline feathered", () => {
+    const at = (r: number) => { // (the body's colour at r radii, as its gradient draws it)
+      const k = BODY_STOPS.findIndex(([o]) => o >= r);
+      const [o1, ...c1] = BODY_STOPS[k], [o0, ...c0] = BODY_STOPS[Math.max(0, k - 1)];
+      const u = o1 > o0 ? (r - o0) / (o1 - o0) : 0;
+      return c0.map((v, i) => v + u * (c1[i] - v));
+    };
+    BALL_PROFILE.forEach(([r, ...rgb]) => at(r).slice(0, 3).forEach((v, i) => expect(Math.abs(v - rgb[i])).toBeLessThanOrEqual(8)));
+    const sat = ([r, g, b]: number[]) => (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
+    expect(sat(at(0))).toBeLessThan(0.1); // (white in its middle)
+    expect(sat(at(0.75))).toBeGreaterThanOrEqual(0.35); // (a saturated blue towards its limb, not a pale glass sphere)
+    expect(Math.min(...BODY_STOPS.filter(([o]) => o <= 0.95).map(([, , , , a]) => a))).toBeGreaterThan(0.95);
+    expect(BODY_STOPS[BODY_STOPS.length - 1][4]).toBe(0); // (feathered, not a hard-edged disc)
     const ctx = fakeCtx(); // (and it draws its filaments over the body, the brightest at its skin)
     const balls = run();
     drawBall(ctx as unknown as CanvasRenderingContext2D, balls[20]!, [200, 200], 100, 0.66);
     expect(ctx.fills).toBeGreaterThan(0);
     expect(ctx.strokes).toBeGreaterThan(10);
   });
+
+  it("lights what is close round it once it has a body, and nothing before", () => {
+    const balls = run();
+    const lit = fakeCtx(), crackle = fakeCtx();
+    drawBallLight(lit as unknown as CanvasRenderingContext2D, balls[20]!, [200, 200], 100, null, 400, 400);
+    drawBallLight(crackle as unknown as CanvasRenderingContext2D, balls[1]!, [200, 200], 100, null, 400, 400);
+    expect(lit.fills).toBeGreaterThan(0);
+    expect(crackle.fills).toBe(0);
+  });
+
+  it("strikes 5-9 filaments at angles in 3D, reaching its skin at different lengths as seen, not sun-ray spikes", () => {
+    const balls = run();
+    for (const b of balls.slice(10, 27)) {
+      expect(b!.fils.length).toBeGreaterThanOrEqual(BALL_FILAMENTS[0]);
+      expect(b!.fils.length).toBeLessThanOrEqual(BALL_FILAMENTS[1]);
+    }
+    const reach = balls.slice(10, 27).flatMap((b) => b!.fils.map((f) => Math.hypot(...f.ch!.pts[f.ch!.pts.length - 1])));
+    expect(Math.min(...reach)).toBeGreaterThan(0.4);
+    expect(Math.max(...reach) - Math.min(...reach)).toBeGreaterThan(0.3);
+  });
 });
+
+/** The shot's ball by radius, as shown: [radii, r, g, b], the median colour of each thin ring of cuesync.lightning's
+ * ball over the synthetic palm at full charge at 1080x1920 (test_lightning.py's BALL_PROFILE, which holds the shot to
+ * the same numbers): the live preview's body is held within 8 levels of it. */
+const BALL_PROFILE: [number, number, number, number][] = [
+  [0, 246, 252, 255], [0.15, 224, 242, 255], [0.3, 191, 225, 255], [0.45, 177, 208, 255], [0.6, 172, 202, 255],
+  [0.75, 156, 194, 255], [0.9, 172, 214, 255],
+];
 
 /** A canvas context that only counts what is drawn (jsdom has no canvas). */
 function fakeCtx() {
