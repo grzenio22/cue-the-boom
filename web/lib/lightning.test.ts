@@ -2,10 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  apart, type Arcs, arcChannels, arcStep, type Ball, ballAt, ballRadius, ballStep, beside, BODY_STOPS, bowed, BRANCH_W,
-  BUZZ_HF, buzzOf, channel, crosses, dense, drawBall, drawBallLight, drawChannels, GROUND, GROUND_BOW,
-  IMPACT_MIN, type Light, LIGHT_TAIL, lightStep, newArcs, type P2, pickTarget, type Plate, ride, rng, SHELL, SHELL_SKIN,
-  SIDE_APART, SPLASH, streamStep, stretches, surfaces, TAPER, TARGET_APART, TARGET_BORDER, TARGET_CONE,
+  apart, type Arcs, arcChannels, arcStep, type Ball, BALL_HAND_RGB, BALL_LIGHT, BALL_ROOM_RGB, ballAt, ballRadius,
+  ballStep, beside, BODY_STOPS, bowed, BRANCH_W, BUZZ_HF, buzzOf, channel, crosses, dense, DIP, drawBall, drawBallLight,
+  drawChannels, drawLight, GROUND, GROUND_BOW, GROUND_FREE, GROUND_GONE, GROUND_ON, IMPACT_MIN, jumpPath, LAND_IN,
+  LAND_NEAR, type Light, LIGHT_TAIL, lightStep, newArcs, onHand, type P2, pickTarget, type Plate, plasmaAt, plasmaTurns,
+  PRONG, ride, rng, SHELL, SHELL_SKIN, SIDE_APART, SPLASH, streamStep, stretches, surfaces, TAPER, TARGET_APART,
+  TARGET_AT, TARGET_BORDER, TARGET_CONE,
 } from "./lightning";
 
 describe("channel", () => {
@@ -67,11 +69,12 @@ describe("streamStep", () => {
 });
 
 /** A camera's picture, small (1 / 8 of a 1080 x 1920 canvas): a wall (150) over a floor (60) meeting it along a line
- * ``line`` canvas px down, and a speck of dirt on the wall. */
-function plateOf(line: number): Plate {
+ * ``line`` canvas px down (and, with ``also``, a dark band of the wall from there down to ``line``: a second line),
+ * and a speck of dirt on the wall. */
+function plateOf(line: number, also = 0): Plate {
   const w = 135, h = 240, k = 8;
   const lum = new Float32Array(w * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) lum[y * w + x] = y * k < line ? 150 : 60;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) lum[y * w + x] = y * k < line ? (also && y * k >= also ? 100 : 150) : 60;
   lum[40 * w + 30] = 20; // (a speck: no surface)
   return { w, h, k, lum };
 }
@@ -101,13 +104,55 @@ describe("where a bolt strikes", () => {
       const [x, y] = hit.at;
       expect(Math.abs(y - 900)).toBeLessThan(24);
       const off = Math.abs(Math.atan2(x - tip[0], tip[1] - y)) * 180 / Math.PI;
-      expect(off).toBeLessThanOrEqual(TARGET_CONE[1] + 1e-9);
+      expect(off).toBeLessThanOrEqual(TARGET_CONE[last ? 2 : 1] + 1e-9); // (struck again: a wider cone)
       expect(Math.min(x, 1079 - x, y, 1919 - y)).toBeGreaterThanOrEqual(TARGET_BORDER * 1080 - 1e-9);
       if (last) expect(Math.hypot(x - last[0], y - last[1])).toBeGreaterThanOrEqual(TARGET_APART);
       last = hit.at;
     }
     expect(pickTarget(edges, tip, up, up, 300, [1080, 1920], rand)).toBeNull(); // (out of its reach: none)
     expect(pickTarget(edges, tip, 0, 0, 800, [1080, 1920], rand)).toBeNull(); // (aimed along it, not at it: none)
+  });
+
+  it("strikes as far out as it is asked, and now and then in two prongs", () => {
+    const edges = surfaces(plateOf(1100, 500)); // (lines 400 and 1000 px over the fingertip)
+    const rand = rng(5);
+    for (let i = 0; i < 10; i++) {
+      expect(Math.abs(pickTarget(edges, tip, up, up, 450, [1080, 1920], rand)!.at[1] - 1100)).toBeLessThan(24);
+      expect(Math.abs(pickTarget(edges, tip, up, up, 1000, [1080, 1920], rand)!.at[1] - 500)).toBeLessThan(24);
+    }
+    const two = pickTarget(edges, tip, up, up, 1000, [1080, 1920], rand, 1, null, true)!;
+    const gap = Math.hypot(two.two!.at[0] - two.at[0], two.two!.at[1] - two.at[1]);
+    expect(gap).toBeGreaterThanOrEqual(PRONG[1]);
+    expect(gap).toBeLessThanOrEqual(PRONG[2]);
+    let prongs = 0, struck = 0;
+    for (let seed = 1; seed <= 80; seed++) {
+      const s = streamStep({ ch: null, left: 0, aim: up, seed }, tip, up, 1300, 4, false, 1, 1, plateOf(1100, 500), 1,
+        1000);
+      if (!s.ch!.strikes) continue;
+      struck++;
+      const p = s.ch!.forks.filter((f) => f.strikes);
+      prongs += p.length;
+      for (const f of p) expect(f.inten).toBeGreaterThanOrEqual(0.7); // (a prong: as bright as a channel)
+    }
+    expect(prongs / struck).toBeGreaterThan(0.08);
+    expect(prongs / struck).toBeLessThan(0.45);
+  });
+
+  it("reaches and strikes as far as the canvas is big and the voice loud, whatever the hand's size", () => {
+    const plate = plateOf(1100, 500);
+    const ends = (scale: number, level: number) => {
+      let arcs = newArcs(7), far = 0;
+      for (let frame = 1; frame <= 12; frame++) {
+        arcs = arcStep(arcs, tip, up, scale, level, frame === 1, frame, 1, plate);
+        const p = arcs.main.ch!.pts;
+        far = Math.max(far, Math.hypot(p[p.length - 1][0] - tip[0], p[p.length - 1][1] - tip[1]));
+      }
+      return far;
+    };
+    const diag = Math.hypot(1080, 1920);
+    expect(Math.abs(ends(100, 1) - ends(300, 1))).toBeLessThan(30); // (not the hand's size)
+    expect(ends(150, 1)).toBeGreaterThan(0.75 * TARGET_AT[1] * diag); // (loud: the far line)
+    expect(ends(150, 0.1)).toBeLessThan(0.75 * TARGET_AT[1] * diag); // (quiet: the near one)
   });
 
   it("strikes it with a contact flash and a splash for its first frames; with nothing there, ends in a brush", () => {
@@ -312,13 +357,26 @@ describe("the ball", () => {
     expect(400 - ballAt([200, 400], 1)[1]).toBeGreaterThanOrEqual(GROUND_BOW[0]);
   });
 
-  it("lights what is close round it once it has a body, and nothing before", () => {
+  it("lights what is close round it once it has a body, gone by three radii, and nothing before", () => {
     const balls = run();
     const lit = fakeCtx(), crackle = fakeCtx();
     drawBallLight(lit as unknown as CanvasRenderingContext2D, balls[20]!, [200, 200], 100, null, 400, 400);
     drawBallLight(crackle as unknown as CanvasRenderingContext2D, balls[1]!, [200, 200], 100, null, 400, 400);
     expect(lit.fills).toBeGreaterThan(0);
     expect(crackle.fills).toBe(0);
+    const R = ballRadius(balls[20]!, 100);
+    for (const g of lit.gradients) {
+      expect(g.r1).toBeCloseTo(BALL_LIGHT[4] * R, 6); // (out to its reach...)
+      const alpha = g.stops.map(([, c]) => Number(c.match(/([\d.]+)\)$/)![1]));
+      expect(alpha[alpha.length - 1]).toBe(0); // (...and gone there)
+      expect(alpha[0]).toBeLessThan(0.05); // (what its dense middle hides, barely)
+      expect(Math.max(...alpha)).toBeGreaterThan(0.05);
+    }
+    const wash = fakeCtx(); // (and none of the broad wash the arcs throw: a colour grade over the room)
+    drawLight(wash as unknown as CanvasRenderingContext2D, [200, 200], 100, 1, null, BALL_ROOM_RGB, BALL_HAND_RGB, 400,
+      400);
+    expect(wash.fills).toBe(0);
+    expect(DIP[0]).toBeLessThanOrEqual(0.15); // (an eighth of a stop)
   });
 
   it("crawls a shell of arcs over its skin, held to it, never a starburst from its middle", () => {
@@ -335,36 +393,109 @@ describe("the ball", () => {
     }
   });
 
-  it("throws 6-10 arcs to the fingers, each bowing up through the air from its skin onto a finger", () => {
+  it("throws 4-6 arcs to the fingertips, each bowing through the air off the hand and landing past a fingertip", () => {
     const b = run()[20]!;
     expect(b.jumps.length).toBeGreaterThanOrEqual(GROUND[0]);
     expect(b.jumps.length).toBeLessThanOrEqual(GROUND[1]);
     const unit = channel([0, 0], [1, 0], rng(2), 1, 0, 5, 0); // (straight: the bow alone)
-    const arc = bowed(unit, [100, 300], [300, 300], 40, [200, 400], 2);
-    const mid = arc.pts[(arc.pts.length - 1) / 2];
+    const arc = bowed(unit, [100, 300], [300, 300], [0, -40], 2);
     expect(arc.pts[0]).toEqual([100, 300]);
     expect(arc.pts[arc.pts.length - 1][0]).toBeCloseTo(300, 9);
-    expect(300 - mid[1]).toBeCloseTo(40, 6); // (up the picture, as far as it bows)
-    const side = bowed(unit, [200, 100], [200, 300], 40, [100, 200], 2); // (running down the picture, right of the palm)
-    expect(side.pts[(side.pts.length - 1) / 2][0] - 200).toBeCloseTo(40, 6); // (out from the palm's middle)
-    const lm: P2[] = Array.from({ length: 21 }, (_, i) => [100 + 10 * i, 600 + (i % 4) * 30]);
+    expect(300 - arc.pts[(arc.pts.length - 1) / 2][1]).toBeCloseTo(40, 6); // (its middle as far off as it bows)
+    const lm = handUp(200, 600, 100); // (a hand held up, the palm to the camera, the ball over its knuckles)
+    const hand = (p: P2) => onHand(p, lm, 100);
+    const c = ballAt([200, 610], 1), R = 0.4 * 100;
+    let found = 0;
+    for (let k = 0; k < 40; k++) {
+      const rand = rng(k + 1);
+      const tip = [4, 8, 12, 16, 20][k % 5];
+      const pts = jumpPath(channel([0, 0], [1, 0], rand, 1, 0.2, 5, 0), c, R, lm[tip], (2 * rand() - 1),
+        (rand() < 0.5 ? -1 : 1) * GROUND_BOW[0 + (k % 2)], 1, hand);
+      if (!pts) continue;
+      found++;
+      const end = pts[pts.length - 1];
+      expect(Math.hypot(end[0] - lm[tip][0], end[1] - lm[tip][1])).toBeLessThanOrEqual(LAND_NEAR + 1e-9);
+      expect(hand(end)).toBe(true); // (it lands on the finger...)
+      let on = 0, free = 0, run_ = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+        run_ += l;
+        const tail = pts.slice(i).reduce((s_, p, j, a) => (j ? s_ + Math.hypot(p[0] - a[j - 1][0], p[1] - a[j - 1][1]) : 0), 0);
+        if (Math.hypot(pts[i][0] - c[0], pts[i][1] - c[1]) <= GROUND_FREE * R || tail < LAND_IN + 3) continue;
+        free += l;
+        if (hand(pts[i])) on += l;
+      }
+      expect(on).toBeLessThanOrEqual(GROUND_ON * free + 1e-9); // (...and is off the hand till then)
+      expect(run_).toBeGreaterThan(0);
+    }
+    expect(found).toBeGreaterThan(5);
     const ctx = fakeCtx();
-    drawBallLight(ctx as unknown as CanvasRenderingContext2D, b, [200, 700], 100, lm, 400, 800);
-    expect(ctx.strokes).toBeGreaterThan(b.jumps.length);
+    drawBallLight(ctx as unknown as CanvasRenderingContext2D, b, [200, 610], 100, lm, 400, 800);
+    expect(ctx.strokes).toBeGreaterThan(0);
+  });
+
+  it("thins out its arcs as it shrinks, none under GROUND_GONE of its largest, and its shell goes with its body", () => {
+    const balls = run();
+    const top = Math.max(...balls.map((b) => (b ? ballRadius(b, 1) : 0)));
+    let seen = 0;
+    for (const b of balls.slice(27)) {
+      if (!b) continue;
+      if (ballRadius(b, 1) < GROUND_GONE * top) expect(b.jumps.length).toBe(0);
+      if (b.born && b.most >= 0.5 && dense(b.level, b.charge) === 0) {
+        seen++;
+        expect(b.fade).toBe(0); // (its body gone: its crackle with it)
+      }
+    }
+    expect(balls[27]!.jumps.length).toBeGreaterThan(balls.slice(27).filter(Boolean).at(-1)!.jumps.length);
+    expect(seen + balls.slice(27).filter((b) => !b).length).toBeGreaterThan(0);
+  });
+
+  it("has moving plasma on its sphere, not a flat tile turned in the picture", () => {
+    const now = plasmaTurns(0), later = plasmaTurns(0.1);
+    const ring = (turns: ReturnType<typeof plasmaTurns>, r: number) =>
+      Array.from({ length: 64 }, (_, i) => plasmaAt(r * Math.cos((i * Math.PI) / 32), r * Math.sin((i * Math.PI) / 32), turns));
+    const a = ring(now, 0.5), b = ring(later, 0.5);
+    expect(Math.max(...a) - Math.min(...a)).toBeGreaterThan(0.3); // (filaments)
+    expect(a.some((v, i) => Math.abs(v - b[i]) > 0.1)).toBe(true); // (moving)
+    expect(plasmaAt(0.99, 0.1, now)).toBeCloseTo(plasmaAt(0.99, 0.1, now), 12);
+    expect(Math.abs(plasmaAt(0.995, 0, now))).toBeLessThan(0.25); // (faded out over its limb)
+    expect(plasmaAt(1.01, 0, now)).toBe(0);
+    // turned as a flat tile, a point on its outline would keep the value a point at its middle's height had: on the
+    // sphere, the outline's filaments pass edge on, not as the middle's
+    const tile = (r: number, t: number) => plasmaAt(r * Math.cos(t), r * Math.sin(t), now);
+    expect(Array.from({ length: 16 }, (_, i) => Math.abs(tile(0.3, i) - tile(0.9, i))).some((d) => d > 0.05)).toBe(true);
   });
 });
 
-/** A canvas context that only counts what is drawn (jsdom has no canvas). */
+/** A canvas context that only counts what is drawn (jsdom has no canvas), and keeps its radial gradients (their outer
+ * radius and colour stops). */
 function fakeCtx() {
-  const gradient = { addColorStop() {} };
+  const gradients: { r1: number; stops: [number, string][] }[] = [];
   return {
     strokes: 0, fills: 0, globalCompositeOperation: "", strokeStyle: "", fillStyle: "" as unknown, lineWidth: 1,
-    lineJoin: "", lineCap: "",
+    lineJoin: "", lineCap: "", gradients,
     save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, arc() {}, clip() {}, translate() {}, rotate() {},
     scale() {},
     stroke() { this.strokes++; }, fill() { this.fills++; }, fillRect() { this.fills++; },
-    createRadialGradient: () => gradient,
+    createRadialGradient: (_x0: number, _y0: number, _r0: number, _x1: number, _y1: number, r1: number) => {
+      const g = { r1, stops: [] as [number, string][], addColorStop(at: number, c: string) { g.stops.push([at, c]); } };
+      gradients.push(g);
+      return g;
+    },
   };
+}
+
+/** A right hand held up, the palm to the camera, its 21 landmarks (px) for a hand ``s`` px across (wrist to middle
+ * knuckle), the middle knuckle at (x, y): the fingers spread up from it, the thumb out to the left. */
+function handUp(x: number, y: number, s: number): P2[] {
+  const lm: P2[] = Array.from({ length: 21 }, () => [x, y]);
+  lm[0] = [x, y + s];
+  [[1, -0.35, 0.75], [2, -0.55, 0.55], [3, -0.72, 0.38], [4, -0.86, 0.22]].forEach(([i, dx, dy]) => (lm[i] = [x + dx * s, y + dy * s]));
+  [-0.42, -0.12, 0.16, 0.42].forEach((dx, f) => {
+    const b = 5 + 4 * f, lean = dx * 0.5;
+    [0.05, -0.35, -0.6, -0.82].forEach((dy, j) => (lm[b + j] = [x + (dx + lean * j * 0.3) * s, y + dy * s]));
+  });
+  return lm;
 }
 
 describe("buzzOf", () => {
