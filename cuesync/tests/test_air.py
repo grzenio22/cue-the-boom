@@ -207,9 +207,23 @@ def test_a_push_at_the_lens_knocks_the_phone():
         return (g * x).sum() / g.sum(), (g * y).sum() / g.sum()
 
     hit = knocked[3]
-    assert hit[480, 270, 1] < 200 * (1 - 0.5 * air.BUFFET_DIP)  # the gust covers the lens
     (x0, y0), (x1, y1) = middle(frames[3]), middle(hit)
     assert x1 - x0 > 0.5 * air.BUFFET_SHAKE * w / 1080 and abs(y1 - y0) < 0.2  # knocked along the push
+    assert sum(not np.array_equal(knocked[t], frames[t]) for t in range(2, 8)) >= 4  # spread over frames, not one
+
+
+def test_the_knock_never_flickers_the_exposure():
+    # a dip on one frame read as an exposure flicker: the knock swells and shakes the picture, it never dims it
+    grey = np.full((6, 96, 54, 3), 120, np.uint8)
+    knocked = grey.copy()
+    air.buffet(knocked, 0, (27, 48), 1.0, (0.0, -1.0))
+    assert np.abs(knocked.astype(int) - 120).max() <= 1
+
+
+def test_a_push_at_the_lens_knocks_the_phone_soon_after_the_voice():
+    # waiting for the front to pass the frame's corners, the knock came 0.4 s after the voice
+    at_lens = air._Blast((540, 1500), (0.0, -1.0), 0.1, (0.0, -0.1, 0.99), 300.0, 1080, 1920, 0, 1.0, 0, 0)
+    assert at_lens.knock() <= air.BUFFET_SOON + 1
 
 
 def test_what_is_behind_the_palm_is_behind_the_hand():
@@ -219,6 +233,71 @@ def test_what_is_behind_the_palm_is_behind_the_hand():
     b = air._Blast((100, 200), (0.0, -1.0), 0.6, (0.0, -0.6, 0.8), 24.0, W, H, 0, 1.0, 0, 0)
     pts = np.array([[100, 170, 1.0], [100, 230, 1.0], [100, 200, 1 - 30 / b.f], [100, 200, 1 + 30 / b.f]])
     assert b.behind(pts).tolist() == [False, True, False, True]
+
+
+def test_dusty_air_in_front_of_the_palm_shows_over_the_hand_once_it_has_left_it():
+    # thinned over the whole matte, the ring rose from behind the fingers instead of off the palm
+    b = air._Blast((100, 200), (0.0, -1.0), 0.6, (0.0, -0.6, 0.8), 24.0, W, H, 0, 1.0, 0, 0)
+    pts = np.array([[100, 170, 1.0], [100, 230, 1.0]])  # one in front of the palm's plane, one behind it
+    hand = np.ones((H, W), np.float32)
+    early, late = b.seen(pts, pts[:, :2], hand, 0.0), b.seen(pts, pts[:, :2], hand, 1.0)
+    assert early.tolist() == [0.0, 0.0] and late.tolist() == [1.0, 0.0]
+
+
+def test_a_push_at_the_lens_sends_a_ring_at_it_that_swells_past_the_frame():
+    # pushed at the lens, the ring hung over the hand as grey puffs between the fingers
+    w, h, size = 1080, 1920, 300.0
+    b = air._Blast((540, 1500), (0.0, -1.0), 0.1, (0.0, -0.1, 0.99), size, w, h, 0, 1.0, 0, 0)
+
+    def ring(kf):  # (middle, median radius) of the ring as the camera sees it
+        xy = air._project(b.ring(kf)[~b.c_wake], b.pp)
+        c = np.median(xy, 0)
+        return c, float(np.median(np.hypot(*(xy - c).T)))
+
+    (c0, r0), (c8, r8) = ring(0), ring(8)
+    assert r0 < 1.2 * size and r8 > 2.0 * size  # rushing out past the frame's edges ...
+    assert np.hypot(*(c8 - c0)) < 0.5 * r8  # ... round the hand, not sliding off sideways
+    assert air.RING_WAKE * (1 - b.at) < 0.05 and b.c_wake.mean() < 0.05  # no stem filling its hole
+
+
+def test_each_push_rolls_its_own_ring():
+    # three pushes off one palm drew one ring three times: a replay
+    rings = [air._Blast((108, 300), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 24.0, W, H, 0, 1.0, 0, j) for j in range(3)]
+    assert len({round(b.ring0, 3) for b in rings}) == 3
+    leans = [float(np.arccos(np.clip(b.axis @ b.n3, -1, 1))) for b in rings]  # each tilted off the push its own way
+    assert min(leans) > 0.25 * air.RING_VARY[0] and len({round(v, 3) for v in leans}) == 3
+
+
+def test_the_dusty_air_is_lit_on_the_side_towards_the_light():
+    # in one flat tone the cloud read as a glow: a lump is brighter towards the room's light, darker away from it
+    P = np.full((160, 160, 3), 0.2, np.float32)
+    y, x = np.mgrid[0:40, 0:40]
+    dens = (30 * np.exp(-((x - 20) ** 2 + (y - 20) ** 2) / 50.0)).astype(np.float32)
+    air._lay_cloud(P, dens, np.array([0.6, 0.6, 0.6]), np.array([0.0, -1.0]), 2.0, None, (0, 0), 0.0)
+    top, bottom = P[80 - 4 * 4, 80].mean(), P[80 + 4 * 4, 80].mean()
+    assert top > bottom + 0.01
+
+
+def test_the_balls_streaks_share_one_spin_axis():
+    # leaning every which way, the streaks read as a ball of yarn with no axis
+    ball = air._Ball(0, 0)
+    bands = ~ball.inflow & ~ball.wisp
+    assert bands.sum() >= 0.55 * air.BALL_STREAKS
+    assert np.all(ball.w[bands, 2] > np.cos(0.2)) and np.all(ball.speed[~ball.inflow] > 0)  # round one axis, one way
+    lean = air.spin_axis(np.array([0.0, -0.2, 0.98]))
+    assert abs(np.linalg.norm(lean) - 1) < 1e-9 and lean[2] <= air.BALL_AXIS_Z + 1e-9 and lean[1] < 0
+
+
+def test_a_hit_after_a_breath_bursts_the_ball_and_it_gathers_again():
+    # held through a take, the ball never let go and its shot had no payoff
+    n = 120
+    e = np.zeros(n)
+    e[10:40] = 0.8
+    e[60:100] = 0.8
+    tl = Timeline(n=n, energy=e, hits=[10, 41, 60], sizes=[1.0] * 3, holds=[(10, 40), (60, 100)], tap_frame=10)
+    level = air.voice_level(tl)
+    (life,) = air.ball_lives(tl, level)
+    assert air.ball_pulses(tl, level, life) == [60]  # not the first hit, nor one the voice never dipped before
 
 
 def test_the_blast_front_runs_out_from_the_palm_bending_the_wall():
