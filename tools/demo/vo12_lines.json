@@ -1,0 +1,14 @@
+{
+  "once12": "Generate the effect once. Perform it again with your voice.",
+  "size12": "A quiet puff plays small. A loud boom plays big.",
+  "ltx12": "LTX two point five, with the fluid LoRA, makes this fire in Comfy UI.",
+  "sdk12": "The app sends this workflow to Comfy UI through the Comfy Python SDK.",
+  "how12": "Track the hand. Mask it, and add the firelight.",
+  "cpu12": "Procedural CPU effects.",
+  "scene12": "Each hit lights the next lantern in turn.",
+  "upload12": "Upload a clip.",
+  "tap12": "Tap the palm, and aim.",
+  "make12": "Make the shot.",
+  "new12": "My contribution is separating generation from performance: one LTX effect from Comfy UI becomes a reusable instrument. Your voice controls when it hits and how big it plays, without another AI generation.",
+  "try12": "Try the included LTX effect on your laptop, no GPU needed."
+}
