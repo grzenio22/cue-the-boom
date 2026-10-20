@@ -168,18 +168,20 @@ def test_a_louder_voice_strikes_more_streams_further():
 
 def test_a_strike_is_one_main_channel_with_dim_thin_branches():
     """A loud voice is one channel with branches, not a rope of equal wires: the streamers beside a finger's main
-    channel are at most half as thick, a bolt's forks are much dimmer and thinner and leave along its way, and drawn,
-    only the main channel clips to white."""
+    channel are at most SIDE_WIDTH as thick and SIDE_INTEN as bright on every frame (re-struck brighter than it, one
+    came close to it), a bolt's forks are much dimmer and thinner and leave along its way, and drawn, only the main
+    channel clips to white."""
     n, s = 30, 60.0
     plate, track, _ = take(n, lambda t: (120, 330), s)
     bolts, _ = L.arc_frames(L._hand(plate, track), voice(np.full(n, 1.0)), seed=6)
     tip = np.asarray(track["landmarks"][0][8][:2])
     main_w, seen = L._width_k(s) * L.ARC_WIDTH[1], 0
     for frame in bolts:
-        widths = [wd for p, wd, _ in frame if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s]
-        main = sum(np.isclose(wd, main_w) for wd in widths)
-        assert main <= 1 and all(np.isclose(wd, main_w) or wd <= L.SIDE_WIDTH * main_w + 1e-9 for wd in widths)
-        seen += main
+        streams = [(wd, it) for p, wd, it in frame if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s]
+        main = [it for wd, it in streams if np.isclose(wd, main_w)]
+        assert len(main) <= 1 and all(np.isclose(wd, main_w) or wd <= L.SIDE_WIDTH * main_w + 1e-9 for wd, _ in streams)
+        assert all(it <= L.SIDE_INTEN * main[0] + 1e-9 for wd, it in streams if not np.isclose(wd, main_w))
+        seen += len(main)
     assert seen > 0.8 * n
     tree = L.bolt_tree((0.0, 0.0), (0.0, -1.0), 400.0, np.random.default_rng(3), 4.0, fork=0.3)
     assert len(tree) > 3
@@ -214,6 +216,84 @@ def test_streamers_leave_well_off_the_main_channel_on_either_side_and_three_only
         assert len(off) < 2 or off[0] * off[1] < 0
     bolts, _ = L.arc_frames(hand, voice(np.full(n, 0.6)), seed=6)
     assert max(len(mains(b, tip, s)) for b in bolts) == 2
+
+
+def crossings(chans: list[np.ndarray], free: list[float]) -> int:
+    """How many times two of ``chans`` (polylines) cross in the picture, not counting where either is within its
+    ``free`` px of where it leaves (a fork leaves on its channel, a streamer from its channel's fingertip)."""
+    count = 0
+    for i in range(len(chans)):
+        for j in range(i + 1, len(chans)):
+            a, b = chans[i][:, :2], chans[j][:, :2]
+            if (a.min(0) > b.max(0)).any() or (b.min(0) > a.max(0)).any():
+                continue
+            p, r = a[:-1, None], (a[1:] - a[:-1])[:, None]
+            q, u = b[None, :-1], (b[1:] - b[:-1])[None]
+            den = r[..., 0] * u[..., 1] - r[..., 1] * u[..., 0]
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ta = ((q - p)[..., 0] * u[..., 1] - (q - p)[..., 1] * u[..., 0]) / den
+                tb = ((q - p)[..., 0] * r[..., 1] - (q - p)[..., 1] * r[..., 0]) / den
+            hit = (den != 0) & (ta >= 0) & (ta <= 1) & (tb >= 0) & (tb <= 1)
+            at = (p + np.where(hit, ta, 0.0)[..., None] * r)[hit]
+            far = (np.linalg.norm(at - a[0], axis=1) > free[i]) & (np.linalg.norm(at - b[0], axis=1) > free[j])
+            seen = (at[:, 0] >= 0) & (at[:, 0] < W) & (at[:, 1] >= 0) & (at[:, 1] < H)
+            count += int((far & seen).sum())
+    return count
+
+
+def test_no_fork_or_streamer_crosses_or_rejoins_another_channel():
+    """However loud, with one finger or two, held still or swept: no fork, streamer or second finger's channel
+    crosses another channel or rejoins its own away from where it leaves (a closed loop is the most obviously fake
+    shape lightning can take), the crackle at the fingertips aside."""
+    n, s = 24, 60.0
+    for middle_out, speed, level in ((False, 0.0, 1.0), (False, 4.0, 0.9), (True, 0.0, 0.95), (True, 4.0, 1.0)):
+        plate, track, _ = take(n, lambda t: (135 + speed * t, 330), s, middle_out=middle_out)
+        hand = L._hand(plate, track)
+        for seed in range(3):
+            bolts, _ = L.arc_frames(hand, voice(np.full(n, level), hits=[0]), seed=seed)
+            for t, frame in enumerate(bolts):
+                tips = [np.asarray(track["landmarks"][t][f][:2]) for f in (8, 12)]
+                chans = [p for p, _, _ in frame  # (the crackle: short arcs out of, up to and between the tips)
+                         if not (min(np.linalg.norm(p[[0, -1], None] - tips, axis=-1).min(1)) < 1e-6
+                                 and np.linalg.norm(p - p[0], axis=1).max() < 0.35 * s
+                                 or min(np.linalg.norm(p[-1] - tp) for tp in tips) < 1e-6)]
+                lengths = [np.linalg.norm(np.diff(p, axis=0), axis=1).sum() for p in chans]
+                free = [max(0.16 * s, (L.ROOM_SKIP + 0.02) * ln) for ln in lengths]
+                assert crossings(chans, free) == 0, (middle_out, speed, seed, t)
+
+
+def test_a_long_finger_keeps_its_own_way_and_a_short_one_points_into_the_scene():
+    """A finger pointing away from the camera but long and clear in the picture keeps its direction there (bent
+    towards the picture's middle by its vanishing point, the arcs left a finger pointing up and left straight up); one
+    pointing away and short in the picture points at its vanishing point."""
+    n, s = 6, 60.0
+    plate, track, _ = take(n, lambda t: (60, 400), s)  # (low on the left: the picture's middle is up and right)
+    up_left = np.array([-np.sin(np.radians(30)), -np.cos(np.radians(30))])
+    track["dir"] = [up_left.tolist()] * n  # (the track's own direction, where the finger is too short to read, agrees)
+    hand = L._hand(plate, track)
+    for reach, own in ((0.45, True), (0.16, False)):  # (hand sizes, its middle joint to its tip in the picture)
+        hand.lm3[:, 8, :2] = hand.lm3[:, 6, :2] + up_left * reach * s
+        hand.lm3[:, 8, 2] = hand.lm3[:, 6, 2] + 2.0 * s  # (its tip far further from the camera than its middle joint)
+        aim = L._aims(hand, voice(np.ones(n)), 8, hand.size)[n // 2]
+        off = np.degrees(np.arccos(np.clip(aim @ up_left, -1, 1)))
+        assert off < 3.0 if own else off > 15.0
+
+
+def test_the_main_channel_leaves_along_the_finger():
+    """A main channel's first ARC_LEAD runs along its finger's aim, and it heads no further than ARC_OFF off it, so
+    the bolt comes out of the finger however far its end strays."""
+    n, s = 30, 60.0
+    plate, track, _ = take(n, lambda t: (120, 330), s)
+    tip = np.asarray(track["landmarks"][0][8][:2])
+    main_w = L._width_k(s) * L.ARC_WIDTH[1]
+    for seed in range(4):
+        bolts, _ = L.arc_frames(L._hand(plate, track), voice(np.full(n, 1.0), hits=[0, 12]), seed=seed)
+        for frame in bolts:
+            for p, wd, _ in frame:
+                if np.allclose(p[0], tip) and np.isclose(wd, main_w):
+                    lead = tip + np.array([0.0, -1.0]) * L.ARC_LEAD * np.linalg.norm(p[-1] - tip)  # (straight up)
+                    assert np.linalg.norm(p - lead, axis=1).min() < 1e-6
+                    assert abs(up_of(p[-1:], tip)[0]) < L.ARC_OFF + 1e-6
 
 
 def test_the_crawling_arc_waits_for_a_steady_finger():
@@ -253,7 +333,7 @@ def test_a_fast_finger_keeps_its_bolt_joined_to_the_tip_and_a_small_bolt_glows_h
 def test_the_arcs_light_the_room_blue_white_and_the_hand_violet(monkeypatch):
     """On a grey wall the arcs' light is a cool blue-white, with more green than red in it (in the hand's violet, a
     wall went mauve); on the hand it is that violet (a greener blue on skin at the top of red went cyan)."""
-    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1, 1.0, 1.0))
+    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1, 1.0, 1.0, 1))
     n = 8
     plate, track, mask = take(n, lambda t: (120, 330), wall=(150, 150, 150), texture=0.0)
     out = L.render(plate, track, mask, voice(np.full(n, 0.9), hits=[0]), "arc", seed=2)
@@ -267,6 +347,53 @@ def test_the_arcs_light_the_room_blue_white_and_the_hand_violet(monkeypatch):
     assert dh[2] > dh[0] > dh[1]
 
 
+def test_the_room_light_lands_as_the_same_blue_on_a_tinted_wall_and_lifts_a_dark_room_half_a_stop_at_most(
+        monkeypatch):
+    """On a wall already lavender in the plate the arcs' light is no more violet than on a grey one (its blue-white
+    graded a lavender room violet), and on a dark plate the room far from the channels comes up by at most about half
+    a stop (it came up three quarters of one)."""
+    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1, 1.0, 1.0, 1))
+    n = 8
+    far = np.zeros((H, W), bool)
+    far[400:, 210:] = True  # (the wall below and right of the hand, away from the channels' own glow)
+
+    def light(wall, palm=(225, 150, 130)):
+        plate, track, mask = take(n, lambda t: (120, 330), wall=wall, palm=palm, texture=0.0)
+        out = L.render(plate, track, mask, voice(np.full(n, 1.0), hits=[0]), "arc", seed=2)
+        here = far & (mask[0] == 0)
+        stops = np.log2((lin(out[4:]) @ LUMA)[:, here].mean() / (lin(plate[4:]) @ LUMA)[:, here].mean())
+        return (lin(out[4:]) - lin(plate[4:]))[:, here].mean((0, 1)), stops
+
+    (grey, _), (lavender, _) = light((150, 150, 150)), light((150, 128, 148))
+    assert lavender[2] / lavender[1] < 1.05 * grey[2] / grey[1] and lavender[0] / lavender[1] < 1.05 * grey[0] / grey[1]
+    _, stops = light((40, 34, 40), palm=(70, 50, 45))
+    assert 0.1 < stops < 0.55
+
+
+def test_two_fingers_at_the_voices_peak_strike_a_channel_each_not_a_thicket():
+    """Two fingers over a dark wall at the voice's peak: a main channel each, the first finger's with one streamer
+    at most and the second's alone, kept PAIR_LIFE frames and re-struck every frame rather than struck anew or left
+    dark, so the room flashes less than twice a second for any seed (new channels on and off every frame flashed it
+    3 times a second, the photosensitivity limit)."""
+    n, s = 36, 60.0
+    plate, track, mask = take(n, lambda t: (135, 330), s, middle_out=True, wall=(142, 122, 139), palm=(200, 140, 125))
+    e = np.clip(0.93 + 0.07 * np.sin(np.arange(n) / 3.0), 0, 1)
+    tl = voice(e, hits=[0, 20])
+    hand = L._hand(plate, track)
+    tips = [np.asarray(track["landmarks"][0][f][:2]) for f in (8, 12)]
+    thick = 0.9 * L._width_k(s) * (L.ARC_WIDTH[0] + (L.ARC_WIDTH[1] - L.ARC_WIDTH[0]) * e.min())  # (main channels')
+    for seed in range(5):
+        bolts, _ = L.arc_frames(hand, tl, seed=seed)
+        for b in bolts:
+            assert len(mains(b, tips[0], s)) <= L.PAIR_STREAMS and len(mains(b, tips[1], s)) <= 1
+        main = [[(p[-1], it) for p, wd, it in b if np.allclose(p[0], tips[0]) and wd > thick] for b in bolts]
+        assert all(len(m) == 1 and m[0][1] > 0.5 for m in main)  # (on every frame, never left dark)
+        ends = {tuple(np.round(m[0][0], 6)) for m in main}
+        assert len(ends) <= n // L.PAIR_LIFE + 2  # (each path kept PAIR_LIFE frames, a hit striking anew)
+        out = L.render(plate, track, mask, tl, "arc", seed=seed)
+        assert flashes(out, plate) < 2.0
+
+
 def up_of(ends: np.ndarray, tip: np.ndarray) -> np.ndarray:
     """Degrees clockwise from straight up, from ``tip`` to each of ``ends``."""
     return np.degrees(np.arctan2(ends[:, 0] - tip[0], tip[1] - ends[:, 1]))
@@ -276,7 +403,7 @@ def test_the_arcs_leave_along_the_finger_and_from_two_fingers_held_together(monk
     """Two fingers out together (the index left of the middle): each strikes its main channel along the fingers, the
     two turned apart so they separate; the second strikes no streamers of its own. They light the room as one finger
     does, not twice as much."""
-    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1, 1.0, 1.0))  # (the light alone)
+    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1, 1.0, 1.0, 1))  # (the light alone)
     n, s = 12, 60.0
     plate, track, mask = take(n, lambda t: (135, 330), s, middle_out=True)
     hand = L._hand(plate, track)
@@ -369,7 +496,7 @@ def test_the_light_dies_with_the_channels():
 def test_the_light_only_adds_to_the_plate(monkeypatch):
     """With the camera's exposure held, no pixel is darker than the plate's: the roll-off to white that softens the
     channels never dims the plate's own highlights."""
-    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1, 1.0, 1.0))
+    monkeypatch.setitem(L.EXPOSURE, "arc", (0.0, 1, 1.0, 1.0, 1))
     n = 8
     plate, track, mask = take(n, lambda t: (120, 330), wall=(250, 248, 245))
     plate[:, :60] = 255  # a window blown out to white
@@ -396,21 +523,34 @@ def test_the_ball_shows_from_a_soft_start_without_sputtering_and_hovers_off_the_
 
 
 def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
+    """It grows from a point while the voice holds, at most half its size on its first frame, and shrinks when the
+    voice stops, its body as dense as ever while it is a ball at all (it shrinks rather than fading out); a ball
+    barely charged has no body, only its filaments' crackle, reaching past where its skin will be."""
     n, s = 40, 80.0
     plate, track, _ = take(n, lambda t: (135, 300), s, emitter="palm")
     e = np.r_[np.zeros(4), np.full(24, 0.9), np.zeros(12)]
-    _, _, balls = L.ball_frames(L._hand(plate, track), voice(e), seed=0)
+    bolts, _, balls = L.ball_frames(L._hand(plate, track), voice(e), seed=0)
     assert all(b is None for b in balls[:4])
     r = [b[2] / s for b in balls[4:28]]
     lo, hi = L.BALL_R
-    assert r[0] < lo + 0.05 and r[-1] > lo + 0.6 * (hi - lo) and np.all(np.diff(r) > 0)
+    assert r[0] < 0.55 * r[-1] and r[-1] > lo + 0.6 * (hi - lo) and np.all(np.diff(r) > 0)
     assert balls[31] is None or balls[31][2] < 0.7 * balls[27][2]
+    assert L._dense(balls[30][3], balls[30][4]) == 1.0  # (shrinking, still dense)
+    assert L._dense(0.05, 0.01) == 0.0
+    glow, out = np.zeros((600, 600, 3), np.float32), np.zeros((600, 600, 3), np.float32)
+    veil = np.zeros((600, 600), np.float32)
+    L._sphere(glow, out, veil, (0, 600, 0, 600), (300.0, 300.0, 40.0, 0.05, 0.01, 1.0), 2.5, 0, 0)  # (barely charged)
+    assert not glow.any() and not out.any() and not veil.any()
+    c, lm = np.asarray(balls[4][:2]), np.asarray(track["landmarks"][4])[:, :2]
+    own = [p for p, _, _ in bolts[4] if np.linalg.norm(lm - p[-1, :2], axis=1).min() > 1e-6]  # (none to the hand)
+    assert max(np.linalg.norm(p[:, :2] - c, axis=1).max() for p in own) > 1.2 * balls[4][2]
 
 
 def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines():
     """A palm already at the top of red in the picture: the ball is the brightest thing over it and reads blue, not a
-    white disc; the palm's lines show faintly through its dense body and in full just past its outline, which is lit,
-    not veiled; the camera exposes down for it, and the wall round it is lit blue against the room further off."""
+    white disc: its body well over the luminance of the palm round it, and never darker towards its outline than the
+    skin just outside it (a dark limb made it a glass marble); the palm just past its outline is lit and keeps its
+    lines; the camera exposes down for it, and the wall round it is lit blue against the room further off."""
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
@@ -418,35 +558,58 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines():
     flat, _, _ = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), texture=0.0)
     out_flat = L.render(flat, track, mask, tl, "ball", seed=0)  # the same lightning over a palm with no lines
     t = n - 1
-    c = np.asarray(track["xy"][t])
+    x, y, R = L.ball_frames(L._hand(plate, track), tl, 0)[2][t][:3]
     yy, xx = np.indices((H, W))
-    d = np.hypot(xx - c[0], yy - c[1]) / s
+    d = np.hypot(xx - x, yy - y) / R
     on = mask[t] > 0
-    under, round_it = (d < 0.35) & on, (d > 0.7) & (d < 1.0) & on
+    under = (d < 0.85) & on
     o, p = out[t].astype(np.float32), plate[t].astype(np.float32)
     lum = lin(out[t]) @ LUMA
-    assert lum[(d < 0.25) & on].mean() > 1.25 * lum[round_it].mean()  # a light: the brightest thing there (its
-    # saturated blue has little luminance of its own)
+    assert lum[(d < 0.6) & on].mean() > 1.5 * lum[(d > 1.75) & (d < 2.5) & on].mean()  # a light: the brightest
+    # thing there (its saturated blue has little luminance of its own)
+
+    def ring(r: float) -> float:
+        return float(lum[(np.abs(d - r) < 0.03) & on].mean())
+
+    assert ring(0.97) > ring(0.8) - 0.02 and ring(0.97) > ring(1.05)  # (no dark limb)
     white = (o > 245).all(-1)
     assert white[under].mean() < 0.1  # its white-hot middle and channels, not a white disc
     assert (o[under, 2] - o[under, 0]).mean() > (p[under, 2] - p[under, 0]).mean() + 40  # blue
     lines = (o - out_flat[t]).mean(-1), (p - flat[t]).mean(-1)  # the palm's lines, as they come through
-    assert np.corrcoef(lines[0][under], lines[1][under])[0, 1] > 0.8
-    assert 0.1 < np.std(lines[0][under]) / np.std(lines[1][under]) < 1.2
-    R = L.ball_frames(L._hand(plate, track), tl, 0)[2][t][2] / s
-    round_it = (d > 1.15 * R) & (d < 1.6 * R) & on  # the palm just past its outline: lit, not veiled or milky
+    round_it = (d > 1.15) & (d < 1.6) & on  # the palm just past its outline: lit, not veiled or milky
     assert lum[round_it].mean() > (lin(plate[t]) @ LUMA)[round_it].mean()
     assert np.std(lines[0][round_it]) / np.std(lines[1][round_it]) > 0.7
+    d *= R / s
     near, far = (d > 0.6) & (d < 1.0) & ~on, (d > 1.8) & ~on
     near, far = (o - p)[near], (o - p)[far]
     assert far.mean() < -5  # the camera exposed down for it...
     assert (near[:, 2] - near[:, 0]).mean() > (far[:, 2] - far[:, 0]).mean() + 4  # ...and it lights the wall blue
 
 
+def test_a_gap_between_the_fingers_does_not_show_through_the_ball():
+    """The wall in a gap between two fingers behind the ball's top is scattered in its glowing body: a soft shade at
+    most, not a sharp dark window through it (seen sharp, a glass marble)."""
+    n, s = 12, 80.0
+    tl = voice(np.full(n, 0.95), hits=[0])
+    plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), texture=0.0)
+    t = n - 1
+    x, y, R = L.ball_frames(L._hand(plate, track), tl, 0)[2][t][:3]
+    gap, gmask = plate.copy(), mask.copy()
+    x0, x1 = int(x - 0.12 * R), int(x + 0.12 * R)
+    gap[:, : int(y - 0.2 * R), x0:x1] = (150, 142, 128)  # (the wall, between two fingers)
+    gmask[:, : int(y - 0.2 * R), x0:x1] = 0
+    a, b = (lin(L.render(pl, track, mk, tl, "ball", seed=0)[t]) @ LUMA for pl, mk in ((plate, mask), (gap, gmask)))
+    row = int(y - 0.6 * R)
+    seen = (b - a)[row, int(x - 0.5 * R): int(x + 0.5 * R)]  # what the gap does to the ball, across it
+    step = abs(float((lin(gap[t]) @ LUMA - lin(plate[t]) @ LUMA)[row, int(x)]))
+    assert np.abs(seen).max() < 0.2 * step and np.abs(np.diff(seen)).max() < 0.1 * step  # (seen sharp: 0.26, 0.22)
+
+
 def test_the_ball_settles_the_exposure_once_for_a_phrase(monkeypatch):
     """Three sounds with a second's gap between each: the camera exposes down once, by at most EXPOSURE's stops, and
     holds there through the gaps instead of breathing with each sound (by 0.6 stops three times in 4 s, it pumped
-    the whole room)."""
+    the whole room). After one sound and silence it holds while the ball fades, and comes back once it has gone
+    (held a second and a half, the room stayed dark with no ball in it)."""
     depth, hand_gain, _, near_gain = L.LIGHT["ball"]
     monkeypatch.setitem(L.LIGHT, "ball", (depth, hand_gain, 0.0, near_gain))  # (the camera alone, not the ball's light)
     n, s = 80, 80.0
@@ -459,6 +622,12 @@ def test_the_ball_settles_the_exposure_once_for_a_phrase(monkeypatch):
     stops = np.log2((lin(out) @ LUMA)[:, far].mean(1) / (lin(plate) @ LUMA)[:, far].mean(1))
     assert -L.EXPOSURE["ball"][0] - 0.03 < stops.min() < -0.2
     assert np.ptp(stops[20:78]) < 0.05  # (through both gaps)
+    e[34:] = 0.0  # one sound, then silence: the camera holds while the ball fades, then comes back once it has gone
+    out = L.render(plate, track, mask, voice(e, hits=[4]), "ball", seed=0)
+    stops = np.log2((lin(out) @ LUMA)[:, far].mean(1) / (lin(plate) @ LUMA)[:, far].mean(1))
+    balls = L.ball_frames(L._hand(plate, track), voice(e, hits=[4]), 0)[2]
+    gone = next(t for t in range(20, n) if balls[t] is None)
+    assert stops[gone - 1] < -0.25 and stops[-1] > -0.03 and np.all(np.diff(stops[gone:]) > -0.005)
 
 
 def test_the_balls_glare_is_the_same_light_over_skin_and_wall():
