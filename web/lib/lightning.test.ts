@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  type Arcs, arcChannels, arcStep, type Ball, BALL_HAND_RGB, BALL_LIGHT, BALL_ROOM_RGB, ballAt, ballRadius,
+  type Arcs, arcChannels, arcStep, type Ball, BALL_HAND_RGB, BALL_LIGHT, BALL_LOOK, BALL_ROOM_RGB, ballAt, ballRadius,
   ballStep, BODY_STOPS, BRANCH_W, BUZZ_HF, buzzOf, channel, crosses, dense, DIP, drawBall, drawBallLight,
-  drawChannels, drawLand, drawLight, fingerCoverage, GROUND, GROUND_BOW, GROUND_FREE, GROUND_GONE, GROUND_ON, IMPACT_MIN, jumpPath,
+  drawChannels, drawLand, drawLight, filamentSupport, fingerCoverage, GROUND, GROUND_BOW, GROUND_FREE, GROUND_GONE, GROUND_ON, IMPACT_MIN, jumpPath,
   LAND_NEAR, leader, LEADER, type Light, LIGHT_TAIL, lightStep, newArcs, onHand, type P2, pickTarget, type Plate,
-  palmSource, plasmaAt, plasmaTurns, PRONG, ride, rng, SHELL, SHELL_SKIN, SPLASH, streamStep, stretches, surfaces,
+  palmSource, plasmaAt, plasmaTurns, PRONG, receiverFocus, ride, rng, SHELL, SHELL_SKIN, sourceContact, SPLASH, streamStep, stretches, surfaces,
   swing, TAPER, TARGET_APART, TARGET_AT, TARGET_BORDER, TARGET_CONE,
 } from "./lightning";
 
@@ -227,6 +227,12 @@ describe("arcStep", () => {
     expect(corona).toBeDefined();
     expect(Number(corona.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.7);
     expect(ctx.clips).toBeGreaterThan(0);
+    const contact = sourceContact(source!);
+    expect(onHand(contact, lm, 220)).toBe(true);
+    const anchor = arcChannels(arcs, 1).find(([c]) => c.pts.length > 1 &&
+      Math.hypot(c.pts.at(-1)![0] - contact[0], c.pts.at(-1)![1] - contact[1]) < 1);
+    expect(anchor).toBeDefined();
+    expect(anchor![0].width).toBeLessThan(0.25 * arcs.main.ch!.width);
   });
 
   it("prefers a nearby receiving surface for a hovering palm discharge", () => {
@@ -256,14 +262,21 @@ describe("arcStep", () => {
       const arcs = arcStep(newArcs(), source.at, source.aim, 220, 0.8, true, 1, 1, plateOf(900), source);
       const ctx = Object.assign(fakeCtx(), { canvas: { width: 1080, height: 1920 }, drawImage() {} });
       drawChannels(ctx as unknown as CanvasRenderingContext2D, arcChannels(arcs, 0.8), 1, 1, Infinity, false);
-      const pool = layers.flatMap((layer) => layer.gradients.map((g) => ({ ...g, ops: layer.ops })))
-        .find((g) => Math.abs(g.x1 - 541.76) < 0.001 && Math.abs(g.y1 - 1418.4) < 0.001);
+      const pool = layers.flatMap((layer) => layer.gradients.map((g) => ({ ...g, ops: layer.ops, transforms: layer.transforms })))
+        .find((g) => g.x1 === 0 && g.y1 === 0 && Math.abs(g.r1 - 107.8) < 0.001);
       expect(pool).toBeDefined();
-      expect(pool!.r1).toBeGreaterThan(130);
-      expect(pool!.r1).toBeLessThan(145);
+      expect(pool!.r1).toBeGreaterThan(100);
+      expect(pool!.r1).toBeLessThan(115);
       expect(pool!.ops).toContain("source-in");
-      expect(Number(pool!.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeCloseTo(0.56, 6);
+      expect(pool!.ops).toContain("destination-out");
+      expect(Number(pool!.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeGreaterThan(0.6);
+      expect(Number(pool!.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.7);
       expect(Number(pool!.stops.at(-1)![1].match(/([\d.]+)\)$/)![1])).toBe(0);
+      expect(pool!.transforms).toContainEqual([1.3, 0.85]);
+      const edgeLight = layers.some((layer) => layer.gradients.some((gradient) =>
+        gradient.stops.some(([, color]) => color.startsWith("rgba(165, 215, 255"))));
+      expect(edgeLight).toBe(true);
+      expect(ctx.ops).not.toContain("multiply"); // Cast shadows withhold the new light and preserve the plate.
     } finally { vi.unstubAllGlobals(); }
   });
 
@@ -339,13 +352,34 @@ describe("arcStep", () => {
 });
 
 describe("drawing", () => {
-  it("keeps alternating quiet necks visible through a compressed camera response", () => {
-    let knots = 0, necks = 0;
+  it("concentrates current into a few irregular bright sections separated by quiet necks", () => {
+    let adjacentBright = 0;
     for (let i = 0; i < 20; i++) {
       const parts = stretches(channel([400, 1000], [400 + 17 * i, 200], rng(i), 4), 1);
-      parts.forEach(([, , a], k) => { if (k % 2) necks += Math.sqrt(a); else knots += Math.sqrt(a); });
+      const peak = Math.max(...parts.map(([, , a]) => a));
+      expect(parts.filter(([, , a]) => a < 0.15 * peak).length).toBeGreaterThanOrEqual(3);
+      expect(parts.filter(([, , a]) => a > 0.7 * peak).length).toBeLessThan(0.6 * parts.length);
+      adjacentBright += parts.filter(([, , a], k) => k > 0 && a > 0.4 * peak && parts[k - 1][2] > 0.4 * peak).length;
     }
-    expect(necks).toBeLessThan(0.65 * knots);
+    expect(adjacentBright).toBeGreaterThan(3); // Hot spans have unequal lengths, without a regular dashed cadence.
+  });
+
+  it("places current by distance along the path regardless of its vertex spacing", () => {
+    const c = { width: 4, inten: 1, forks: [], at: 0 };
+    const uniform = stretches({ ...c, pts: Array.from({ length: 65 }, (_, i): P2 => [10, i * 10]) }, 1);
+    const uneven = stretches({ ...c, pts: Array.from({ length: 65 }, (_, i): P2 => [10, 640 * (i / 64) ** 2]) }, 1);
+    expect(uneven.map(([pts]) => pts[0][1])).toEqual(uniform.map(([pts]) => pts[0][1]));
+    expect(uneven.map(([, w, a]) => [w, a])).toEqual(uniform.map(([, w, a]) => [w, a]));
+    const translated = stretches({ ...c, pts: Array.from({ length: 65 }, (_, i): P2 => [110, 100 + i * 10]) }, 1);
+    expect(translated.map(([, w, a]) => [w, a])).toEqual(uniform.map(([, w, a]) => [w, a]));
+  });
+
+  it("keeps shell filaments connected through their quiet stretches without giving them branch tips", () => {
+    const c = { width: 2, inten: 0.35, forks: [], at: 0, filament: true,
+      pts: Array.from({ length: 65 }, (_, i): P2 => [10, i * 10]) };
+    const parts = stretches(c, 1), alpha = parts.map(([, , a]) => a);
+    expect(Math.min(...alpha)).toBeGreaterThan(0.4 * Math.max(...alpha));
+    expect(parts.at(-1)![2]).toBeGreaterThan(0.4 * parts[0][2]);
   });
 
   it("lets bright stretches narrow into quiet necks and a tapered end", () => {
@@ -389,6 +423,10 @@ describe("drawing", () => {
     expect(branch[0][1]).toBeGreaterThan(0.9 * 1.6); // (held near its own width where it leaves...)
     expect(branch[branch.length - 1][1]).toBeLessThan(0.5 * 1.6); // (...and under half of it at its end)
     expect(Math.min(...branch.map(([, w]) => w))).toBeGreaterThanOrEqual(BRANCH_W[2]);
+    expect(branch.at(-1)![1]).toBeLessThan(0.15 * branch[0][1]);
+    const ctx = fakeCtx();
+    drawChannels(ctx as unknown as CanvasRenderingContext2D, [{ pts, width: 1.6, inten: 0.35, forks: [], at: 0 }], 1, 0, Infinity, false);
+    expect(ctx.drawn.at(-1)!.width).toBeLessThan(0.2);
   });
 
   it("stays cheap: a frame of the loudest arcs is a few hundred strokes", () => {
@@ -400,9 +438,25 @@ describe("drawing", () => {
     }
     expect(ctx.strokes / 30).toBeLessThan(400);
   });
+
+  it("resolves a thin receiver splash instead of a round white impact bead", () => {
+    const ctx = fakeCtx();
+    const c = { ...channel([200, 600], [200, 300], rng(4), 4), strikes: [1, 0] as P2 };
+    drawChannels(ctx as unknown as CanvasRenderingContext2D, [c], 1, 0, Infinity, false);
+    const hot = ctx.gradients.find((g) => g.r1 === 54 && g.stops[0][1].startsWith("rgba(225, 243, 255"));
+    expect(hot).toBeDefined();
+    expect(Number(hot!.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.45);
+    expect(ctx.transforms).toContainEqual([1, 0.8 / 18]);
+  });
 });
 
 describe("the light", () => {
+  it("concentrates bright-room bounce around resolved receivers and preserves dark-room bounce", () => {
+    expect(receiverFocus({ ...plateOf(900), lum: new Float32Array(135 * 240).fill(150) }, true)).toBe(1);
+    expect(receiverFocus({ ...plateOf(900), lum: new Float32Array(135 * 240).fill(25) }, true)).toBe(0);
+    expect(receiverFocus(plateOf(900), false)).toBe(0);
+  });
+
   it("holds while the strokes strike, flickering, and goes with the last of them", () => {
     let l: Light | null = null;
     const held: number[] = [];
@@ -424,6 +478,24 @@ describe("the ball", () => {
     let b: Ball | null = null;
     return voice.map((v, frame) => (b = ballStep(b, v, false, frame + 1)));
   };
+
+  it("concentrates volumetric support around the front arcs and leaves distant empty space open", () => {
+    const line = { pts: [[180, 350], [185, 400], [230, 430]] as P2[], width: 2, inten: 1, forks: [], at: 0 };
+    const support = filamentSupport([[line, 1]], [200, 400], 100);
+    const at = (x: number, y: number) => support[Math.floor(56 + 56 * (y - 400) / 115) * 112 + Math.floor(56 + 56 * (x - 200) / 115)];
+    expect(Math.max(...support)).toBeCloseTo(1, 6);
+    expect(at(185, 400)).toBeGreaterThan(0.7);
+    expect(at(115, 480)).toBeLessThan(0.03);
+    expect(filamentSupport([], [200, 400], 100).every((v) => v === 0)).toBe(true);
+    const dense: P2[] = [];
+    for (let i = 1; i < line.pts.length; i++) for (let j = 0; j < 16; j++) dense.push([
+      line.pts[i - 1][0] + j * (line.pts[i][0] - line.pts[i - 1][0]) / 16,
+      line.pts[i - 1][1] + j * (line.pts[i][1] - line.pts[i - 1][1]) / 16,
+    ]);
+    dense.push(line.pts.at(-1)!);
+    const resampled = filamentSupport([[{ ...line, pts: dense }, 1]], [200, 400], 100);
+    expect(Math.max(...resampled.map((v, i) => Math.abs(v - support[i])))).toBeLessThan(0.08);
+  });
 
   it("covers the finger width with a soft proximal fade while leaving the receiving palm open", () => {
     const lm = handUp(200, 600, 100);
@@ -453,7 +525,10 @@ describe("the ball", () => {
     }
     vi.stubGlobal("OffscreenCanvas", PixelCanvas);
     try {
-      const b = { ...run()[20]!, grown: 1, pulse: 0, shell: [], jumps: [] };
+      const b = { ...run()[20]!, grown: 1, pulse: 0, turn: 0, shell: [{
+        pts: Array.from({ length: 33 }, (_, i): [number, number, number] => [-0.48, 0.05 + 0.02 * i, 0.45]),
+        inten: 1, left: 1, flash: 1,
+      }], jumps: [] };
       const lm = handUp(200, 520, 100), palm: P2 = [200, 610];
       const render = (hand: P2[] | null) => {
         let pixels = new Uint8ClampedArray();
@@ -465,14 +540,15 @@ describe("the ball", () => {
       };
       const open = render(null), covered = render(lm);
       const alphaAt = (pixels: Uint8ClampedArray, p: P2) => {
-        const x = Math.floor(56 + 0.56 * (p[0] - 200)), y = Math.floor(56 + 0.56 * (p[1] - 460));
+        const x = Math.floor(56 + 0.56 * (p[0] - 200) / 1.15), y = Math.floor(56 + 0.56 * (p[1] - 460) / 1.15);
         return pixels[4 * (y * 112 + x) + 3];
       };
       expect(alphaAt(open, lm[6])).toBeGreaterThan(3);
-      expect(alphaAt(covered, lm[6])).toBeLessThan(0.3 * alphaAt(open, lm[6]));
+      expect(alphaAt(covered, lm[6])).toBeLessThan(0.08 * alphaAt(open, lm[6]));
       expect(alphaAt(covered, [200, 410])).toBe(alphaAt(open, [200, 410]));
       const alpha = Array.from(open).filter((_, i) => i % 4 === 3);
-      expect(Math.max(...alpha)).toBeLessThan(20); // The bulk stays faint enough for the near filaments to lead.
+      expect(Math.max(...alpha)).toBeGreaterThan(60); // Compact hot regions and integrated emission fill the interior.
+      expect(Math.max(...alpha)).toBeLessThan(145); // Near filaments retain the hottest light.
       expect(new Set(alpha.filter((a) => a > 0)).size).toBeGreaterThan(10);
     } finally { vi.unstubAllGlobals(); }
   });
@@ -499,6 +575,17 @@ describe("the ball", () => {
     drawBall(ctx as unknown as CanvasRenderingContext2D, run()[20]!, [200, 400], 100, 0.66);
     expect(ctx.strokes).toBeGreaterThan(10);
     expect(ctx.arcs).toEqual([]);
+  });
+
+  it("keeps broad haze faint and close so it cannot enclose the ball as a circular blue cap", () => {
+    const ctx = fakeCtx(), b = { ...run()[20]!, shell: [], jumps: [] };
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, [200, 400], 100, 1);
+    const haze = ctx.gradients.find((g) => g.stops[0][1].startsWith("rgba(20, 90, 255"));
+    expect(haze).toBeDefined();
+    expect(haze!.r1).toBeLessThan(2.2 * ballRadius(b, 100));
+    expect(Number(haze!.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.015);
+    expect(BALL_LOOK.glows.at(-1)![1]).toBeLessThan(0.08 * BALL_LOOK.glows[0][1]);
+    expect(BALL_LOOK.glows[1][1]).toBeGreaterThan(0.2); // The nearby rim retains its sharp blue light.
   });
 
   it("uses the tracked fingers to hide rear filaments while leaving front filaments visible", () => {
@@ -537,6 +624,34 @@ describe("the ball", () => {
     expect(peak(far)).toBeLessThan(0.3 * peak(near));
     expect(cores(far).every((s) => Number(s.filter.match(/[\d.]+/)![0]) >= 2)).toBe(true);
     expect(cores(near).every((s) => Number(s.filter.match(/[\d.]+/)![0]) < 1)).toBe(true);
+  });
+
+  it("selects the two visible interior leaders instead of privileging the first two paths", () => {
+    const ctx = fakeCtx();
+    const shell = [-0.7, 0.7, 0].map((x, k) => ({
+      pts: Array.from({ length: 33 }, (_, i): [number, number, number] =>
+        [x, -0.08 + 0.005 * i, k === 2 ? 0.65 : 0.1]), inten: 1, left: 1, flash: 1,
+    }));
+    const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, turn: 0, jumps: [], shell };
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, [200, 600], 200, 1);
+    const peak = (x: number) => Math.max(...ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") &&
+      s.points.some(([px]) => Math.abs(px - x) < 1)).map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])));
+    expect(peak(200)).toBeGreaterThan(0.8);
+    expect(peak(270)).toBeLessThan(0.3 * peak(200));
+  });
+
+  it("hides rear arcs through the thick middle while leaving their silhouette-side stretches visible", () => {
+    const render = (x: number) => {
+      const ctx = fakeCtx();
+      const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, turn: 0, jumps: [], shell: [{
+        pts: Array.from({ length: 33 }, (_, i): [number, number, number] =>
+          [x, -0.08 + 0.005 * i - 0.3 * Math.tan(0.35), -0.3]), inten: 1, left: 1, flash: 1,
+      }] };
+      drawBall(ctx as unknown as CanvasRenderingContext2D, b, [200, 600], 200, 1);
+      return Math.max(...ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255"))
+        .map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])));
+    };
+    expect(render(0)).toBeLessThan(0.3 * render(0.83));
   });
 
   it("lets near interior filaments lead instead of outlining a brighter spherical shell", () => {
@@ -797,7 +912,8 @@ function fakeCtx() {
     save() {}, restore() {}, beginPath() { points = []; }, closePath() {}, rect() {},
     moveTo(x: number, y: number) { points.push([x, y]); }, lineTo(x: number, y: number) { points.push([x, y]); },
     arc(...args: number[]) { this.arcs.push(args); }, clip() { this.clips++; }, translate() {}, rotate() {},
-    scale() {},
+    transforms: [] as number[][],
+    scale(...args: number[]) { this.transforms.push(args); },
     stroke() { this.strokes++; this.drawn.push({ color: this.strokeStyle, width: this.lineWidth, filter: this.filter, points: [...points] }); },
     fill() { this.fills++; }, fillRect() { this.fills++; },
     createRadialGradient: (_x0: number, _y0: number, _r0: number, x1: number, y1: number, r1: number) => {
