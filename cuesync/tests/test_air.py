@@ -1,22 +1,27 @@
 """Air, made rather than rendered (cuesync.air): a ball of air over the palm sized to the hand, never wider than about
 one and a half spans of it, and held by the voice, its streaks fragments of arcs no longer than 60 degrees on orbits
-leaning their own ways round one spin axis and a swirling puff of air, seen by the dust it whirls round (specks lighter
-and darker than the wall, which read at phone size, never white paint or a veil) and by what it bends (a straight
-edge behind it wobbles by px, never folded and never stepped), its sheen as dark as it is light and never more than
-a few grey levels either way, its far side behind the hand, which leaves the hand seen through it whole and
-undarkened, the fingers rippling with its spin rather than swollen by a steady lens, bends what is behind it without
-a tear, an elbow or a colour fringe on the hand, spins twice as fast after each of the voice's hits, pops and gathers
-tight again on a comeback hit without flashing the whole picture, and bursts into a push of air when the voice lets
-go; a push of air whose narrow front leads from the palm on the push's frame and runs out across the room at about
-1500 px a second, slowing, without sinking what follows it under the wall, whose thin ring of dusty air and burst of
-dust follow it at about half its pace (at the lens, the ring ringing the hand and swelling as it comes; out of a
-ball, keeping its band), bends what is seen through it, shows its lumps and never a fog, a cream veil, a grey smudge,
-a stain on a white switch plate or a hole under the wall, is lit a little brighter than what it covers, scatters what
-is seen through it, and over the palm shows in soft faint puffs, not a film or a worm (a ball's burst softened);
-whose dust drifts down and settles over 20-30 frames, stays in the room on a handheld shot and is one pool the next
-push throws again, placed on the open hand, and which knocks the phone 10-15 px as a damped spring (and swells the
-picture when it comes at the lens); the hand's edge takes the air's change on its share of what is behind it; the
-same bytes for the same seed, the plate untouched where the air never reaches, and a frame within its time."""
+leaning their own ways round one spin axis and a swirling puff of air, seen by the dust it whirls round (specks of
+many sizes, few smeared long, its near half bigger and softer than its far half, and its trains' haze, streamers
+darker than the wall in its hue, which read at phone size, never white paint or a veil) and by what it bends (a
+straight edge behind it wobbles by px, never folded and never stepped), its sheen as dark as it is light and never
+more than a few grey levels either way, its rim a faint bright and dark pair, its far side behind the hand, which
+leaves the hand seen through it whole and undarkened, the fingers rippling with its spin about where they are rather
+than swollen or dragged by a steady bend, bends what is behind it without a tear, an elbow or a colour fringe on the
+hand, spins twice as fast after each of the voice's hits, pops and gathers tight again on a comeback hit without
+flashing the whole picture, and bursts into a push of air when the voice lets go; a push of air whose front leads
+from the palm on the push's frame and runs out across the room at about 1500 px a second, slowing, holding its 6-10 px
+bend until it has crossed the room, the air squeezed darker just behind it and thinned lighter behind that, without
+sinking what follows it under the wall, whose thin ring of dusty air and burst of dust (off the hand's outline, some of
+it drifting on) follow it at about half its pace (at the lens, the ring ringing the hand and swelling as it comes; out
+of a ball, keeping its band), bends what is seen through it, shows its lumps and never a fog, a cream veil, a grey
+smudge, a stain on a white switch plate or a hole under the wall, is lit a little brighter than what it covers,
+scatters what is seen through it, and over the palm shows in soft faint puffs, not a film or a worm (a ball's burst
+softened); which sweeps soft motes of dust past the lens and kicks the dust off the room's ledges a frame or two
+after its front passes; whose dust drifts down and settles over 20-30 frames, stays in the room on a handheld shot
+and is one pool the next push throws again, placed on the open hand, and which knocks the phone 10-15 px as a damped
+spring, smearing the picture out from the push (and swells the picture when it comes at the lens); the hand's edge
+takes the air's change on its share of what is behind it; the same bytes for the same seed, the plate untouched
+where the air never reaches, and a frame within its time."""
 
 import math
 import time
@@ -205,19 +210,99 @@ def test_the_balls_sheen_is_as_dark_as_it_is_light_and_faint():
 
 def test_the_balls_dust_is_what_shows_of_it_at_phone_size():
     # 45 specks at a third of an opacity of 0.35, lit a little, changed the wall by 9-10 grey levels at 360x640: the
-    # ball nearly vanished
+    # ball nearly vanished; then 440 rods alike read as a swarm of gnats. Now its trains' haze carries it
     n = 40
     w, h = 540, 960
     plate = np.full((n, h, w, 3), (120, 118, 96), np.uint8)  # a plain wall: nothing for the bend to bend
     tr = track_of(n, w, h, lambda t: (270, 700), scale=150.0)
     out = air.render(plate, tr, None, held(n, 4, n), "ball", seed=2)
-    small = [cv2.resize(cv2.cvtColor(f, cv2.COLOR_RGB2GRAY), (w * 2 // 3, h * 2 // 3), interpolation=cv2.INTER_AREA)
-             .astype(np.float32) for f in (plate[30], out[30])]  # (as a 1080 frame at 360x640)
-    d = small[1] - small[0]
-    assert np.percentile(np.abs(d), 99.9) >= 18  # specks that read at phone size ...
-    assert (d > 8).sum() > 0.3 * (np.abs(d) > 8).sum() and (d < -8).sum() > 0.3 * (np.abs(d) > 8).sum()  # ... lint
-    # lighter than the wall and grit darker ...
-    assert np.abs(d).max() <= air.SHELL_LEVELS + air.SHEEN[2] + 1  # ... never white paint
+    small = [cv2.resize(f, (w * 2 // 3, h * 2 // 3), interpolation=cv2.INTER_AREA).astype(np.float32)
+             for f in (plate[30], out[30])]  # (as a 1080 frame at 360x640)
+    d = small[1] @ np.array([0.299, 0.587, 0.114]) - small[0] @ np.array([0.299, 0.587, 0.114])
+    shows = np.abs(d) > 8
+    _, _, r = spread(change(plate, out, 30))
+    assert shows.sum() > 0.05 * math.pi * (r * 2 / 3) ** 2  # streamers over the ball that read at phone size ...
+    assert (d < -8).sum() > 0.2 * shows.sum() and (d > 8).sum() > 0.2 * shows.sum()  # ... lighter and darker than
+    # the wall ...
+    ratio = small[1][shows] / small[0][shows]
+    assert np.abs(ratio[:, 0] - ratio[:, 2]).max() < 0.12  # ... in the wall's own hue ...
+    assert np.abs(d).max() <= air.SHELL_LEVELS + air.SHEEN[2] + 1  # ... never white paint, never a black stroke
+
+
+def specks_drawn(ball, omega, frames=8, R=260.0):
+    """What the ball hands _specks on its last frame drawn over a plain wall at ``omega`` (1080 px): (smear px, core px
+    at 1080, softness px at 1080, weight, depth px towards the lens) of each speck."""
+    got = {}
+    keep = air._specks
+
+    def spy(a0, after, zz, weight, r0, dark, lit, drk, scale, k, soft=None):
+        got.update(L=np.hypot(*(after - a0).T), r0=r0.copy(), soft=np.zeros_like(r0) if soft is None else soft,
+                   w=weight.copy())
+        return keep(a0, after, zz, weight, r0, dark, lit, drk, scale, k, soft)
+
+    air._specks = spy
+    S = int(3 * R)
+    try:
+        for t in range(frames):
+            ball.draw(np.full((S, S, 3), 0.25, np.float32), (0, 0), np.array([S / 2, S / 2]), R,
+                      air.spin_axis(np.array([0.05, -0.75, 0.66])), 1.0, 0.0, 0.0, 0.0, 1.0, omega, 0.6, t, None, None,
+                      0.0, 1.0)
+    finally:
+        air._specks = keep
+    return got
+
+
+def test_the_balls_dust_is_specks_of_many_sizes_few_smeared_long():
+    # all alike, 4 px across and smeared 25-30 px, every speck was the same hard-ended rod: grass clippings, iron
+    # filings round a magnet
+    ball = air._Ball(1, 0)
+    fine = ball.d_r0 <= air.SHELL_R[0][1]
+    flake = ball.d_r0 >= air.SHELL_R[2][0]
+    assert 0.55 < fine.mean() < 0.8 and 0.02 < flake.mean() < 0.1  # most of it fine, a few soft flakes ...
+    assert ball.d_bright[fine].max() < ball.d_bright[~fine & ~flake].min()  # ... the medium ones the strongest
+    for omega in (0.45, 0.9, 1.3):  # (the spin of a quiet voice, a hit's, and the loudest hit's)
+        L = specks_drawn(ball, omega)["L"]
+        assert np.median(L) <= 12 and (L > air.LONG[0] + 0.5).sum() <= air.LONG[1]  # few smeared long ...
+        assert np.percentile(L, 90) > 2 * np.percentile(L, 10)  # ... each its own length
+
+
+def test_the_balls_near_dust_is_bigger_and_softer_and_its_far_dust_small_and_sharp():
+    # every speck alike, the swirl had no depth
+    got = specks_drawn(air._Ball(2, 0), 0.45)
+    near, far = got["soft"] > 1.0, got["soft"] == 0
+    assert near.sum() > 50 and far.sum() > 50
+    assert np.median(got["r0"][near]) > 1.3 * np.median(got["r0"][far])
+
+
+def test_the_balls_haze_is_streamers_in_the_walls_hue_and_its_rim_a_bright_and_dark_pair():
+    # as smooth bands the haze was a dark smudge round the ball; all of it darker, piled up, charcoal scribbles; a lone
+    # faint bright band at its rim went unseen
+    ball = air._Ball(5, 0)
+    ball.d_bright[:] = 0  # (its specks left out: the haze alone)
+    ball.r_bright[:] = 0
+    wall_ = np.array([0.22, 0.2, 0.12], np.float32)
+    S, R = 780, 260.0
+    P0 = np.broadcast_to(wall_, (S, S, 3)).copy()
+    P = P0.copy()
+    for t in range(6):
+        P = P0.copy()
+        bent = ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, air.spin_axis(np.array([0.05, -0.75, 0.66])), 1.0,
+                         0.0, 0.0, 0.0, 1.0, 0.45, 0.6, t, None, None, 0.0, 1.0)
+    haze = grey_lift(P, bent).astype(np.float32)
+    assert (haze < -3).sum() > 4000 and (haze > 3).sum() > 2000  # darker dust, and dust lit by the room ...
+    assert haze.min() >= -air.HAZE[0] * air.HAZE_MOST - 1  # ... never more than its lines piled up
+    assert haze.max() <= air.HAZE_LIT[1] * air.HAZE[0] * air.HAZE_MOST + 1
+    ratio = (P / bent)[np.abs(haze) > 3]
+    assert np.abs(ratio[:, 0] - ratio[:, 2]).max() < 0.02  # in the wall's hue
+    gx, gy = cv2.Sobel(haze, cv2.CV_32F, 1, 0), cv2.Sobel(haze, cv2.CV_32F, 0, 1)
+    J = [cv2.GaussianBlur(a, (0, 0), 6) for a in (gx * gx, gy * gy, gx * gy)]
+    strength = J[0] + J[1]
+    along = np.sqrt((J[0] - J[1]) ** 2 + 4 * J[2] ** 2) / np.maximum(strength, 1e-9)
+    assert along[strength > np.percentile(strength, 80)].mean() > 0.65  # streamers, not blobs (smooth noise: 0.4)
+    rim = grey_lift(bent, P0)
+    r = np.hypot(*(np.mgrid[0:S, 0:S][::-1] - S / 2)) / R
+    assert rim[(r > 0.97) & (r < 1.12)].max() > 1.5 and rim[(r > 0.82) & (r < 0.97)].min() < -1.0  # a bright band
+    # on its rim, a darker one inside it
 
 
 def test_a_hit_whips_the_ball_round_twice_as_fast():
@@ -228,7 +313,8 @@ def test_a_hit_whips_the_ball_round_twice_as_fast():
 
 
 def test_the_fingers_seen_through_the_ball_ripple_and_never_swell():
-    # bent by a steady lens, the fingers inside the ball looked fatter than in the plate
+    # bent by a steady lens, the fingers inside the ball looked fatter than in the plate; dragged by the twist's steady
+    # part, they sat a steady 1.5-2 px one way and barely rippled
     S, R = 600, 200.0
     hand = np.zeros((S, S), np.float32)
     hand[200:600, 220:380] = 1  # a hand reaching up into the ball
@@ -247,8 +333,9 @@ def test_the_fingers_seen_through_the_ball_ripple_and_never_swell():
         air._remap_rgb = keep
     D = np.array(got)[:, :, inside]  # (frames, 2, px)
     assert np.hypot(D[:, 0], D[:, 1]).max() <= air.HAND_BEND + 0.5  # a few px at the most ...
-    assert np.hypot(*D.mean(0)).mean() < 1.5  # ... with no steady part (a lens would swell them) ...
-    assert np.hypot(*(D[1:] - D[:-1]).transpose(1, 0, 2)).mean() > 0.3  # ... rippling as it spins
+    assert np.hypot(*D.mean(0)).mean() < 1.0  # ... with no steady part (a lens would swell them) ...
+    assert np.hypot(*D.mean((0, 2))) < 0.6  # ... nor a steady drag one way ...
+    assert np.hypot(*(D[1:] - D[:-1]).transpose(1, 0, 2)).mean() > 0.8  # ... rippling as it spins
 
 
 def test_a_bend_is_never_steeper_than_a_quarter_px_per_px():
@@ -666,19 +753,36 @@ def test_dusty_air_over_a_white_switch_plate_is_a_veil_not_a_stain():
     assert step < 0.8 * np.abs(np.diff(P0[390:410, 268, 1])).max()  # ... softened, as dust in front of it does
 
 
-def test_the_front_never_sinks_the_ring_following_it_under_the_wall():
+def test_the_front_squeezes_the_air_behind_it_and_never_sinks_the_ring_following_it_under_the_wall():
     # its trailing dark band, as dark as the one ahead of it, sank the inner edge of the ring following it 5 grey levels
-    # under the wall
+    # under the wall; with only a bright line on it, at phone size the front read as a ripple, not as a push
     b = air._Blast((540, 1500), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 300.0, 1080, 1920, 0, 1.0, 0, 0)
     for kf in (3, 6, 9, 12):
-        P0 = np.full((1920, 1080, 3), 0.2, np.float32)
+        P0 = np.full((1920, 1080, 3), (0.2, 0.18, 0.11), np.float32)
         P = P0.copy()
         b.bend(P, kf, b.o, b.u, 1.0)
         radius, strength, _ = b.front(kf)
         d = np.hypot(*(np.mgrid[0:1920, 0:1080][::-1] - b.o.reshape(2, 1, 1)))
         lift = grey_lift(P, P0)
-        assert lift[d < 0.85 * radius].min() > -2  # behind it
+        squeeze = (d > radius - air.COMPRESS[2] - 15) & (d < radius - air.COMPRESS[2] + 15) & (d > 0.6 * radius)
+        assert -7 < np.percentile(lift[squeeze], 10) < -2.5  # a band of squeezed air just behind its crest ...
+        thin = (d > radius - air.COMPRESS[2] - air.COMPRESS[3] - 10) & (
+            d < radius - air.COMPRESS[2] - air.COMPRESS[3] + 10) & (d > 0.6 * radius)
+        assert np.percentile(lift[thin], 90) > 1.5  # ... then thinned air, lighter ...
+        assert lift[d < 0.94 * radius - 150].min() > -2  # ... and behind that nothing sinks
         assert lift[(d > radius) & (d < 1.3 * radius)].min() < -2  # (ahead of it, its dark band)
+        ratio = (P / P0)[np.abs(lift) > 1.5]
+        assert np.abs(ratio[:, 0] - ratio[:, 2]).max() < 1e-4  # in the wall's hue
+
+
+def test_the_front_holds_its_bend_until_it_has_crossed_the_room():
+    # fading from the palm on, it had 3-5 px left as it crossed a switch plate, whose edges stayed straight
+    b = air._Blast((540, 1500), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 300.0, 1080, 1920, 0, 1.0, 0, 0)
+    peak = air.BUBBLE_PX * b.gain
+    held_ = [b.front(kf)[1] for kf in range(2, int(air.BUBBLE_HOLD * air.BLAST_FRAMES) + 1)]
+    assert min(held_) > 0.98 * peak and 6 <= peak <= 10  # a 6-10 px bend all the way out ...
+    assert b.front(air.BLAST_FRAMES)[1] < 0.05 * peak  # ... fading out by the end of its run
+    assert b.front(int(air.BUBBLE_HOLD * air.BLAST_FRAMES))[0] > 900  # (by then 900 px and more off the palm)
 
 
 def edge_rows(P, cols, lo, hi, level):
@@ -816,12 +920,15 @@ def test_the_blast_front_runs_out_from_the_palm_bending_the_wall():
     o = (108, 300)
     tr = track_of(n, W, H, lambda t: o, scale=24.0)
     tl = Timeline(n=n, energy=np.zeros(n), hits=[8], sizes=[1.0], tap_frame=8)
-    keep = air.KNOCK_PX, air.BUFFET
-    air.KNOCK_PX, air.BUFFET = 0.0, 0.0  # (the phone held still: what moves is the front)
+    keep = air.KNOCK_PX, air.BUFFET, air.ZOOM_BLUR
+    air.KNOCK_PX, air.BUFFET, air.ZOOM_BLUR = 0.0, 0.0, (0.0, air.ZOOM_BLUR[1])  # (the phone held still: what moves
+    # is the front)
     try:
         out = air.render(plate, tr, None, tl, "blast", seed=1)
+        flat = np.broadcast_to(plate.mean((1, 2), keepdims=True).astype(np.uint8), plate.shape).copy()
+        out_flat = air.render(flat, tr, None, tl, "blast", seed=1)
     finally:
-        air.KNOCK_PX, air.BUFFET = keep
+        air.KNOCK_PX, air.BUFFET, air.ZOOM_BLUR = keep
     assert np.array_equal(out[:8], plate[:8])
 
     def front(t):  # how far from the palm the frame has changed (the front leads the dust it throws)
@@ -833,7 +940,8 @@ def test_the_blast_front_runs_out_from_the_palm_bending_the_wall():
     assert runs[0] > 24 and runs[1] > 2.5 * 24  # off the palm on the push's first frame, out past the hand by its
     # third ...
     assert runs[0] < runs[1] < runs[2] < runs[3]  # ... and on
-    assert change(plate, out, 8 + 5).max() > 40  # the wall is bent, not tinted
+    assert change(plate, out, 8 + 5).max() > change(flat, out_flat, 8 + 5).max() + 10  # the wall is bent, not only
+    # tinted: its texture moves
 
 
 def test_the_front_is_a_narrow_band_running_out_at_about_1500_px_a_second_and_slowing():
@@ -869,6 +977,100 @@ def test_the_blasts_dust_settles_over_twenty_to_thirty_frames():
     assert specks[4] < specks[1]  # ... thinning out ...
     end = 6 + air.BLAST_FRAMES + sum(air.DUST_LIFE)
     assert np.array_equal(out[end + 1:], plate[end + 1:])  # ... and gone
+
+
+def test_a_push_sweeps_dust_past_the_lens():
+    # every speck flew across the wall: nothing but the knock said the air had reached the camera
+    w, h = 1080, 1920
+    b = air._Blast((540, 1450), (-0.3, -0.95), 0.4, (0.0, -0.4, 0.92), 300.0, w, h, 0, 1.0, 0, 0)
+    assert air.MOTES[0] <= len(b.m_d) <= air.MOTES[1]
+    assert np.all((b.m_t0 >= air.MOTE_RUN[0]) & (b.m_t0 <= air.MOTE_RUN[1]))  # in on the push's first frames ...
+    assert np.all((b.m_d >= 25) & (b.m_d <= 70))  # ... soft discs 25-70 px across ...
+    assert np.all((b.m_run >= air.MOTE_RUN[2]) & (b.m_run <= air.MOTE_RUN[3]))
+    for xy, v, run in zip(b.m_xy, b.m_v, b.m_run, strict=True):
+        end = xy + v * run
+        assert not (0 <= end[0] <= w and 0 <= end[1] <= h)  # ... out past the frame's edge within 3-6 frames ...
+    assert len(b.motes(0)) == 0 and len(b.motes(11)) == 0 and len(b.motes(4)) > 0  # ... and gone by the tenth
+    b.m_t0[:] = 1
+    s1, s4 = b.motes(1)[:, 4], b.motes(4)[:, 4]
+    assert np.all(s4 > 1.2 * s1)  # growing as they come
+    assert np.all(b.motes(2)[:, 5] >= air.MOTE_LEVELS[0] * min(1.0, 0.5 + 0.5 * b.gain))
+    P0 = np.full((h, w, 3), (0.2, 0.18, 0.11), np.float32)
+    P = P0.copy()
+    air._lay_motes(P, b.motes(3)[:1], air._behind(P))  # (one of them)
+    lift = grey_lift(P, P0)
+    assert air.MOTE_LEVELS[0] * 0.6 <= lift.max() <= air.MOTE_LEVELS[1] + 1 and lift.min() > -0.1  # lighter, by
+    # 8-15 grey levels ...
+    ratio = (P / P0)[lift > 1]
+    assert np.abs(ratio[:, 0] - ratio[:, 2]).max() < 1e-4  # ... in the wall's hue
+
+
+def test_the_front_kicks_dust_off_the_rooms_ledges():
+    # with only dust in the air, the room never reacted to the front
+    w, h = 1080, 1920
+    frame = np.full((h, w, 3), 120, np.uint8)
+    frame[1100:] = 60  # a level edge across the room (a skirting board's top)
+    b = air._Blast((540, 1500), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 300.0, w, h, 0, 1.0, 0, 0)
+    room = air._Room(b, 0, frame, None)
+    ledge = room.kind > 0
+    assert ledge.sum() >= air.LEDGE[0] // 2 and room.kick.size == air.ROOM_N + ledge.sum()
+    y = air._project(room.p[ledge], room.pp)[:, 1]
+    assert np.abs(y - 1100).max() < 16  # on the edge, nowhere else ...
+    reached = {}
+    for kf in range(air.BLAST_FRAMES + 1):
+        before = room.kick.copy()
+        room.throw(b, kf, kf, np.eye(3))
+        for i in np.flatnonzero((before < 0) & (room.kick >= 0) & ledge):
+            reached[i] = (kf, room.kick[i])
+    lags = np.array([k_ - t for t, k_ in reached.values()])
+    assert len(lags) > 10 and lags.min() >= air.LEDGE[2][0] and lags.max() <= air.LEDGE[2][1]  # ... kicked up a frame
+    # or a few after the front reaches it
+    lit, drk = air._speck_bufs(h, w, 4)
+    puffs = np.zeros((h // 4, w // 4), np.float32)
+    first = min(k_ for _, k_ in reached.values())
+    room.dust(first - 1, np.eye(3), np.eye(3), lit, drk, 4, None, b, np.eye(3), puffs)
+    assert not puffs.any()  # (unseen until then)
+    room.dust(first + 1, np.eye(3), np.eye(3), lit, drk, 4, None, b, np.eye(3), puffs)
+    assert puffs.any()
+    P0 = air.lin(frame).astype(np.float32)
+    P = P0.copy()
+    air._lay_puffs(P, puffs, 4, np.array([0.6, 0.55, 0.5]), 1.0)
+    lift = grey_lift(P, P0)
+    assert 3 < lift.max() < 20 and lift.min() > -1  # a soft puff of dust lit by the room
+
+
+def test_the_knock_smears_the_picture_out_from_the_push():
+    # the knock alone moved the picture and nothing said the air had hit the camera
+    w, h = 540, 960
+    frames = np.zeros((6, h, w, 3), np.uint8)
+    frames[:, :, ::8] = 200  # thin stripes all over
+    blurred = frames.copy()
+    air.buffet(blurred, 1, (w / 2, h / 2), 0.0, 0.0, (0.0, -1.0), air.ZOOM_BLUR[0] * w / 1080)
+    assert np.array_equal(blurred[0], frames[0])
+    edge, mid = np.s_[:80, :80], np.s_[h // 2 - 40: h // 2 + 40, w // 2 - 20: w // 2 + 20]  # (a corner, the middle)
+    contrast = [float(f[edge].std()) / float(frames[1][edge].std()) for f in blurred[1:3]]
+    assert contrast[0] < 0.85 and contrast[0] < contrast[1] < 1  # smeared at the frame's edge on the knock, less
+    # on the next frame ...
+    assert blurred[1][mid].std() > 0.9 * frames[1][mid].std()  # ... hardly at its middle
+    assert abs(float(blurred[1].mean()) - float(frames[1].mean())) < 1  # (never dimmed)
+    assert np.array_equal(blurred[1 + len(air.ZOOM_BLUR[1]):], frames[1 + len(air.ZOOM_BLUR[1]):])
+
+
+def test_the_burst_comes_off_the_hands_outline_and_some_of_it_drifts_on():
+    # all out of the palm, alike, it fanned out of two or three gaps between the fingers as needles: a hedgehog; and by
+    # frame 65 the room was clean
+    ang = np.linspace(0, 2 * np.pi, 400, endpoint=False)
+    outline = np.column_stack([540 + 250 * np.cos(ang), 1500 + 250 * np.sin(ang)])
+    b = air._Blast((540, 1500), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 300.0, 1080, 1920, 0, 1.0, 0, 0, outline=outline)
+    dust = ~b.cloud
+    on = np.abs(np.hypot(b.p[dust, 0] - 540, b.p[dust, 1] - 1500) - 250) < 1
+    assert air.DEBRIS[1] - 0.12 < on.mean() < air.DEBRIS[1] + 0.12  # a share of it off the hand's outline ...
+    ahead = b.p[dust][on, 1] < 1500
+    assert ahead.mean() > 0.6  # ... most from its side the push goes out of
+    drift = b.hang[dust] > air.DUST_LIFE[0]
+    assert air.DRIFT[0] - 0.08 < drift.mean() < air.DRIFT[0] + 0.08  # some of it hangs on
+    sp = np.hypot(b.v[dust, 0], b.v[dust, 1])
+    assert np.median(sp[drift]) < 0.6 * np.median(sp[~drift & ~b.flake[dust]])  # drifting slowly
 
 
 def test_what_the_blast_throws_stays_in_the_room_on_a_handheld_shot():
