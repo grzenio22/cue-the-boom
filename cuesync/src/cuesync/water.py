@@ -144,7 +144,7 @@ GLINT = (0.8, 0.07)  # the key light mirrored in the surface: its window (of the
 GLINT_CORE = (1.3, 0.55, 0.08, 0.8, 0.025)  # ... clipped to white in its core: how bright (of white, whatever the
 # key's strength: dimmer than the brightest things in the frame, a puff of cloud inside the ball), how big (of the
 # window), the share of the finest waves it is mirrored in, how much dimmer it is where the surface curves both ways,
-# and the waves it is not mirrored in (the surface smoothed over this many hand sizes; on the orb, none of its waves)...
+# and the width of normal smoothing in hand sizes; a held reservoir keeps finer moving reflection fragments...
 GLINT_HOLD = 0.05  # ... on the orb this share of its core mirrored in its broad shape alone, the rest in its waves and
 # ripples, so the highlight shivers and breaks up into glints along their crests as the water moves (all of it in the
 # broad shape, one window sat fixed on the ball for seconds: a glass marble's; at 0.65, it still was)...
@@ -362,7 +362,7 @@ SPARKS = (10, (2, 3), (0.9, 1.5), 2.4, (0.35, 0.88), 0.75, 0.2)  # points of the
 # each flash takes, how big (px, sigma), how bright (of the key light), how far out on it (of its radius), how far
 # round either side of the light's way (rad: about a quadrant), and the least crest one flashes on (24 all over its
 # face, two to five frames each, were glitter in a snow globe)
-SWEEP = (1.25, (0.8, 0.5), 1.2, 1.4, 1.3, 0.35)  # one long curved highlight carried round the held orb with its water,
+SWEEP = (1.25, (0.8, 0.5), 1.2, 2.8, 1.8, 0.35)  # one long curved highlight carried round the held orb with its water,
 # along the loop its air goes round: seconds a turn, the loop's half width and height (of its radius), how long the
 # streak is (rad round it), how wide (px, sigma), how bright (of the key light), and how much of that it keeps round
 # the far side, seen through the water (with only its air going round, the water was not seen to circulate; 1.1 px
@@ -439,7 +439,7 @@ SPLASH_CONE = 1.0  # they fly on along its motion, spread over a cone this wide 
 SPLASH_CARRY = 0.3  # ... keeping this much of its speed
 SPRAY_LIFE = 7  # frames the fine spray lasts
 SPLAT = (1.0, 0.12, 0.03)  # palm contact: radius, thickness and air content of a thin sheet spreading on the skin
-COLLAPSE = (3, 9, 26, 72)  # frames from release to first contact, last slumping volume, drained sheet and dry skin;
+COLLAPSE = (3, 18, 32, 84)  # frames from release to first contact, last pouring volume, drained sheet and dry skin;
 # the sheet and the falling body overlap, so a spill has continuous visible volume instead of a one-frame burst
 BURST_SWELL = (1.12, 0.3, ((3, 0.05), (5, 0.025)))  # the burst's first frame: its body swollen to this share of its
 # radius, frothing this much, wobbling in these lobes (of its radius) (spread into a ring of pieces with its torn skin
@@ -999,6 +999,7 @@ class Scene:
     """One frame's water."""
 
     blobs: list = field(default_factory=list)
+    ribbon: list = field(default_factory=list)  # falling water, shaded behind its reservoir to share a clean neck
     bubbles: list = field(default_factory=list)  # (x, y, r, seen): air in the water, and how clearly it is seen (0..1)
     rings: list = field(default_factory=list)  # ripples running over the orb: (its centre x, y and radius, the unit
     # direction from its centre to where it was struck, age frames, height, wavelength and speed px over its surface)
@@ -1401,10 +1402,11 @@ def _refract(ix, iy, iz, nx, ny, nz, eta):
 
 
 def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, pyr: list, matte: np.ndarray | None,
-          code: float, seed: int) -> Layer | None:
+          code: float, seed: int, falling: bool = False) -> Layer | None:
     """The water of ``fld`` as seen on frame ``k``: traced through to the plate (``pyr``, the frame's pyramid) and the
     hand (``matte`` uint8, or None), reflecting the room, glinting, froth and grain; hidden where the hand is in front
-    of it; blurred along its motion over the exposure. Pixels only where it covers some of the picture."""
+    of it; blurred along its motion over the exposure. ``falling`` follows the ribbon's descending centerline in both
+    surface normals. Pixels only where it covers some of the picture."""
     if fld.box is None:
         return None
     H, W = pyr[0][0].shape
@@ -1424,14 +1426,20 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     at_edge = WAVE_EDGE + (1.0 - WAVE_EDGE) * thick0
     calm0 = 1.0 - FLAT_CALM * np.clip(1.0 - fld.th[ys, xs], 0.0, 1.0)
     big0 = _ss(0.1 * s, 0.25 * s, sig[ys, xs] / np.float32(SIG_K)).astype(np.float32)  # a body of water (the orb)...
-    skin0 = 1.0 - big0 * (1.0 - ORB_SKIN[0]) * (1.0 - _ss(0.0, ORB_SKIN[1], thick0)).astype(np.float32)  # ... its
+    held_liquid = sc.held is not None and sc.coat is None and sc.streak is None
+    # A held surface fragments the reflections while its low modes retain the broad flowing outline.
+    skin_floor = ORB_SKIN[0] + (0.10 if held_liquid else 0.0)
+    skin0 = 1.0 - big0 * (1.0 - skin_floor) * (1.0 - _ss(0.0, ORB_SKIN[1], thick0)).astype(np.float32)  # ... its
     # waves dying down at its outline, which wobbles in its lobes alone
-    bump = sc.wave * at_edge * skin0 * calm0 * noise.flow(0, X, Y, vx[ys, xs], vy[ys, xs], k, WAVE_SIZE * s)
+    wave_height = sc.wave * (1.8 if held_liquid else 1.0)
+    wave_size = (0.14 if held_liquid else WAVE_SIZE) * s
+    bump = wave_height * at_edge * skin0 * calm0 * noise.flow(0, X, Y, vx[ys, xs], vy[ys, xs], k, wave_size)
     sw0 = fld.sw[ys, xs]
     on_s = np.flatnonzero(sw0 > 0.02)
     if on_s.size:  # a stream's surface is broken by ripples running out along it
         sa0, sx0 = fld.sa[ys, xs][on_s], fld.sx[ys, xs][on_s]
-        bump[on_s] += (sw0[on_s] * at_edge[on_s] * _ss(ROOT_CALM[0] * s, ROOT_CALM[1] * s, sa0)
+        root_calm = 1.0 if falling else _ss(ROOT_CALM[0] * s, ROOT_CALM[1] * s, sa0)
+        bump[on_s] += (sw0[on_s] * at_edge[on_s] * root_calm
                        * (RIPPLE[0] * noise.along(6, sa0, sx0, k, RIPPLE[1] * s, RIPPLE[2], WHIP_FLOW * s / FPS)
                           + RIPPLE[3][0] * _ss(0.3, 0.8, np.abs(sx0))
                           * noise.along(20, sa0, sx0, k, RIPPLE[3][1] * s, RIPPLE[3][2], WHIP_FLOW * s / FPS)))
@@ -1479,14 +1487,21 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         th = th * (1.0 - (1.0 - REST[2]) * rest)
     h2 = (sig[crop] * np.float32(math.sqrt(2.0 * LN_TAU)) * th
           * np.clip(lf[crop] / np.float32(LN_TAU), 0.0, None) ** (1.0 - 0.5 * th)).astype(np.float32)
-    hb = cv2.GaussianBlur(h2, (0, 0), 0.8)
+    # The front and back of a falling ribbon share its descending centerline, rather than a screen-parallel slab.
+    descent = fld.zc[crop] - sc.ribbon[0].z if falling else 0.0
+    hb = cv2.GaussianBlur(h2 + descent, (0, 0), 0.8)
     gy, gx = np.gradient(hb)
     gx, gy = np.clip(gx, -6, 6), np.clip(gy, -6, 6)
     hxx = cv2.GaussianBlur(np.gradient(gx, axis=1), (0, 0), 1.5)
     hyy = cv2.GaussianBlur(np.gradient(gy, axis=0), (0, 0), 1.5)
     hxy = cv2.GaussianBlur(np.gradient(gx, axis=0), (0, 0), 1.5)
-    nd = np.sqrt(gx * gx + gy * gy + 1.0)
-    dnx, dny, dnz = -gx / nd, -gy / nd, 1.0 / nd
+    if np.any(descent):
+        back_y, back_x = np.gradient(cv2.GaussianBlur(h2 - descent, (0, 0), 0.8))
+        back_x, back_y = np.clip(back_x, -6, 6), np.clip(back_y, -6, 6)
+    else:
+        back_x, back_y = gx, gy
+    nd = np.sqrt(back_x * back_x + back_y * back_y + 1.0)
+    dnx, dny, dnz = -back_x / nd, -back_y / nd, 1.0 / nd
     a_ = act[crop]
     iy, ix = np.nonzero(a_)
     X, Y = (ix + bx0).astype(np.float32), (iy + by0).astype(np.float32)
@@ -1508,13 +1523,14 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     fast = (np.hypot(mxc[iy, ix], myc[iy, ix]) / (SHUTTER * max(s, 1.0))).astype(np.float32)  # hand sizes a frame
     flat = np.clip(1.0 - th[iy, ix], 0.0, 1.0)  # water lying flat on something...
     pool = _ss(0.5, 0.8, flat)  # ... a puddle on the skin
-    thick = np.clip(h / np.maximum(0.2 * R, 1.0), 0.0, 1.0) * (1.0 - FLAT_CALM * flat) * (1.0 - ORB_SKIN[2] * big)
+    fine_calm = ORB_SKIN[2] - (0.30 if held_liquid else 0.0)
+    thick = np.clip(h / np.maximum(0.2 * R, 1.0), 0.0, 1.0) * (1.0 - FLAT_CALM * flat) * (1.0 - fine_calm * big)
     sx = SPARKLE * thick * noise.flow(3, X, Y, fvx, fvy, k, SPARKLE_SIZE * s)
     sy = SPARKLE * thick * noise.flow(4, X, Y, fvx, fvy, k, SPARKLE_SIZE * s)
     gxa, gya = gx[iy, ix] + sx, gy[iy, ix] + sy  # the surface the light glints off, its finest waves and all...
     na = np.sqrt(gxa * gxa + gya * gya + 1.0)
     nx, ny, nz = -gxa / na, -gya / na, 1.0 / na
-    bends = SPARKLE_BENDS * big  # ... and the one seen through (through a stream, a room away, its fine waves were
+    bends = (SPARKLE_BENDS + 0.65) * big  # ... and the one seen through (through a stream, a room away, its fine waves were
     gxr, gyr = gx[iy, ix] + bends * sx, gy[iy, ix] + bends * sy  # ribs across it)
     nr = np.sqrt(gxr * gxr + gyr * gyr + 1.0)
 
@@ -1576,10 +1592,12 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     hxx_, hxy_, hyy_ = hxx[iy, ix] * calm, hxy[iy, ix] * calm, hyy[iy, ix] * calm
     qx, qy = ex + tanx * dn, ey + tany * dn
     sig_n = np.maximum(_footprint(dn, hxx_, hxy_, hyy_), _spread(qx, qy, iy, ix, a_.shape)) + BASE_BLUR * R
+    sig_n *= 1.0 - 0.30 * big
     near = np.stack([_lod(pyr, c, qx, qy, sig_n) for c in range(3)], -1)
     disp = dfar * np.float32((ETA[0] - 1) / (eta - 1)), dfar, dfar * np.float32((ETA[2] - 1) / (eta - 1))
     sig_f = np.maximum(_footprint(dfar, hxx_, hxy_, hyy_), _spread(ex + tanx * dfar, ey + tany * dfar, iy, ix,
                                                                   a_.shape))
+    sig_f *= 1.0 - 0.30 * big
     far = np.stack([_lod(pyr, c, ex + tanx * disp[c], ey + tany * disp[c], sig_f) for c in range(3)], -1)
     if matte is not None:  # which of the two a ray lands on, softened over as much of the hand as the ray sees (a thin
         # stream flicked between them pixel by pixel; read at one softness, the finger's outline seen squeezed through
@@ -1594,6 +1612,11 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         col = m * near + (1.0 - m) * far
     else:
         col = far
+    # Near-normal rays keep a clear view; moving thin facets interrupt the otherwise continuous glass-like lip.
+    direct = np.stack([_remap(pyr[0][c], X, Y) for c in range(3)], -1)
+    rim_facets = _ss(-0.30, 0.40, crest + 0.35 * inner)
+    clear = big * (1.0 - pool) * (0.35 * nz ** 4 + 0.65 * _ss(0.45, 0.95, 1.0 - nz) * (1.0 - rim_facets))
+    col += clear[:, None] * (direct - col)
     # the rim's darkening and the dimming where rays are turned back belong to a body of water: a small drop is all
     # rim, and with them it was a grey metal sliver; it keeps a thin edge and a darker core round its glint; a rivulet
     # has no rim
@@ -1613,7 +1636,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     face = (nx * Lk[0] + ny * Lk[1]) / lxy / np.maximum(np.hypot(nx, ny), 1e-3)  # its slope towards the light, -1..1
     away = (RIM_FAR + (1.0 - RIM_FAR) * _ss(-0.3, 0.7, -face)).astype(np.float32)
     col *= (1.0 - edge * RIM_DARK * band * away * np.clip(0.75 + 0.5 * inner, 0.25, 1.25))[:, None]
-    col *= (1.0 - edge * (1.0 - TIR_DIM) * (1.0 - out) * band)[:, None]
+    col *= (1.0 - edge * (1.0 - TIR_DIM) * (1.0 - 0.65 * big) * (1.0 - out) * band)[:, None]
     col *= (1.0 - tiny * TINY_EDGE * _ss(0.55, 0.95, rr))[:, None]
     # the room reflected (a small piece of water is a weak mirror: at full strength a splash's thin pieces were
     # chrome), read by the way the surface faces: up at the top of the rim, down at its foot (read by the mirrored
@@ -1630,7 +1653,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         # bit, smeared across the stream by its speed, was a bar: a ladder's rungs, a zebra ribbon)
         gm = np.clip(1.0 + GLINT_BREAK[0] * noise.along(7, sa, sxs, k, GLINT_BREAK[1] * s, GLINT_BREAK[3], flow_a),
                      0.0, 2.0)
-        gm = 1.0 + (gm - 1.0) * (1.0 - GLINT_BREAK[2] * whip[st]) * _ss(ROOT_CALM[0] * s, ROOT_CALM[1] * s, sa)
+        root_calm = 1.0 if falling else _ss(ROOT_CALM[0] * s, ROOT_CALM[1] * s, sa)
+        gm = 1.0 + (gm - 1.0) * (1.0 - GLINT_BREAK[2] * whip[st]) * root_calm
         F[st] *= 1.0 + 0.5 * sw[st] * (gm - 1.0)
         n_seg = noise.along(13, sa, sxs, k, GLINT_SEG[0] * s, 3.0, flow_a)
         seg = _ss(GLINT_SEG[1], GLINT_SEG[2], n_seg)
@@ -1665,6 +1689,11 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         # rivulet's edge there only thins into the skin: lined on its shadow side, it was a glass rod)
         g_ = np.maximum(np.hypot(gx[iy, ix], gy[iy, ix]), 1e-4)
         face_s = (-(gx[iy, ix] * Lk[0] + gy[iy, ix] * Lk[1]) / (lxy * g_)).astype(np.float32)
+        if falling:
+            tangent = _unit(np.array([sc.ribbon[-1].x - sc.ribbon[0].x,
+                                      sc.ribbon[-1].y - sc.ribbon[0].y]))
+            # The room's side light follows the stream's round cross section, independent of its descent in depth.
+            face_s[st] = (-tangent[1] * Lk[0] + tangent[0] * Lk[1]) / lxy * np.sign(sxs)
         away_ = EDGE_SHADE[2] + (1.0 - EDGE_SHADE[2]) * _ss(-0.2, 0.4, -face_s[st])
         col[st] *= (1.0 - EDGE_SHADE[0] * sw[st] * _ss(*EDGE_SHADE[1], np.abs(sxs)) * away_ * (1.0 - rest_p[st])
                     * (1.0 - rivulet[st]))[:, None]
@@ -1673,29 +1702,32 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     # faint moving net inside it
     gxw, gyw = gx[iy, ix] + WINDOW[3] * sx, gy[iy, ix] + WINDOW[3] * sy  # the window is mirrored in the surface's
     # wobble and waves, and only a little of its finest waves
-    gys, gxs = np.gradient(cv2.GaussianBlur(h2, (0, 0), max(1.0, GLINT_CORE[4] * s)))  # its clipped core keeps the
-    gxc = np.clip(gxs, -6, 6)[iy, ix] + GLINT_CORE[2] * (1.0 - big) * sx  # window's shape, bent by the surface's broad
-    gyc = np.clip(gys, -6, 6)[iy, ix] + GLINT_CORE[2] * (1.0 - big) * sy  # shape (by its waves too, it was a cloud or a
-    if float(big.max()) > 0.01:  # heart); on the orb by its broad shape alone, its waves aside, the same from frame to
-        # frame (moved by its waves, on some frames it was a lumpy cloud), the sheen round it mostly so too
+    # Fine slopes break the white reflection into moving facets; the transmitted room keeps its broad waves.
+    core_sigma = GLINT_CORE[4] * s * (0.30 if sc.held is not None else 1.0)
+    gys, gxs = np.gradient(cv2.GaussianBlur(h2 + descent, (0, 0), max(1.0, core_sigma)))
+    slope_share = GLINT_CORE[2] * (1.0 - big) + 0.65 * big
+    gxc = np.clip(gxs, -6, 6)[iy, ix] + slope_share * sx
+    gyc = np.clip(gys, -6, 6)[iy, ix] + slope_share * sy
+    if float(big.max()) > 0.01:
         hbr = (sig[crop] * np.float32(math.sqrt(2.0 * LN_TAU)) * th
                * np.clip(broad[crop] / np.float32(LN_TAU), 0.0, None) ** (1.0 - 0.5 * th)).astype(np.float32)
-        gyb, gxb = np.gradient(cv2.GaussianBlur(hbr, (0, 0), max(1.0, GLINT_CORE[4] * s)))
+        gyb, gxb = np.gradient(cv2.GaussianBlur(hbr + descent, (0, 0), max(1.0, GLINT_CORE[4] * s)))
         gxb, gyb = np.clip(gxb, -6, 6)[iy, ix], np.clip(gyb, -6, 6)[iy, ix]
         gxc += GLINT_HOLD * big * (gxb - gxc)
         gyc += GLINT_HOLD * big * (gyb - gyc)
         gxw += WINDOW[5] * big * (gxb - gxw)
         gyw += WINDOW[5] * big * (gyb - gyw)
     nw = np.sqrt(gxw * gxw + gyw * gyw + 1.0)
-    spec = GLINT[0] * _window(-gxw / nw, -gyw / nw, 1.0 / nw, Lk, 1.0)
+    spec = GLINT[0] * (1.0 - 0.25 * big) * _window(-gxw / nw, -gyw / nw, 1.0 / nw, Lk, 1.0)
     if sc.coat is not None:
         # The shallow junction between the spreading sheet and a run must not mirror one long window stripe.
         spec *= 1.0 - 0.94 * pool
     nc = np.sqrt(gxc * gxc + gyc * gyc + 1.0)
-    saddle = _ss(-0.02, -0.3, (hxx * hyy - hxy * hxy)[iy, ix] * R * R)  # ... and where the surface curves both ways it
-    spec += (GLINT_CORE[0] / max(float(room.white[k]), 0.3) * (1.0 - GLINT_CORE[3] * saddle)  # mirrors it twice over:
-             * _window(-gxc / nc, -gyc / nc, 1.0 / nc, Lk, GLINT_CORE[1], big))  # softened there (a bow tie); on the
-    # orb crossed by its frame's bars
+    # A saddle spreads the light into two weaker reflections; the orb retains the window's frame bars.
+    saddle = _ss(-0.02, -0.3, (hxx * hyy - hxy * hxy)[iy, ix] * R * R)
+    spec += (GLINT_CORE[0] * (1.0 + 0.30 * big) / max(float(room.white[k]), 0.3)
+             * (1.0 - GLINT_CORE[3] * saddle)
+             * _window(-gxc / nc, -gyc / nc, 1.0 / nc, Lk, GLINT_CORE[1], big))
     spec += (BACK[0] * big * deep) * _window(gxw / nw, gyw / nw, 1.0 / nw, Lk, BACK[1])
     hv = Lk + np.array([0.0, 0.0, 1.0], np.float32)
     hv /= np.linalg.norm(hv)
@@ -1718,6 +1750,10 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
                   * (1.0 + rivulet[st] * (seg - 1.0))
                   + GLINT_LINES[1] * whip[st] * (1.0 - rivulet[st]) * _ss(-0.1, 0.5, -face_s[st]))
                  * np.exp(-((np.abs(sxs) - GLINT_LINES[3]) / wl) ** 2))
+        if falling:
+            # A room reflection catches the falling sheet's lit side in moving lengths, with clear skin between.
+            lines = (GLINT_LINES[0] * _ss(0.02, 0.22, face_s[st])
+                     * np.exp(-((np.abs(sxs) - GLINT_LINES[3]) / wl) ** 2))
         spec[st] += sw[st] * lines * np.clip(gm, 0.3, 2.0)
     gsy, gsx = np.gradient(cv2.GaussianBlur(np.clip(sd[crop], -20.0, None).astype(np.float32), (0, 0), 2.0))
     gsx, gsy = gsx[iy, ix], gsy[iy, ix]  # its outline's way out (laid off its waves' slopes, the crescent was frilled)
@@ -1733,6 +1769,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     if sc.coat is not None:
         cres *= 1.0 - 0.85 * _ss(0.10, 0.45, flat)
     net = INNER_GLOW * np.exp(-(inner / 0.22) ** 2) * deep * (1.0 - F)
+    rim_open = 0.75 * big * (1.0 - pool) * _ss(0.35, 0.90, rr) * (1.0 - rim_facets)
+    col += rim_open[:, None] * (direct - col)
     col += (spec + cres + net).astype(np.float32)[:, None] * lit[None, :]
     # froth: sparse entrained air lit by the room, carried in streaks along a stream. The airborne body remains clear
     fn = 0.55 + 0.45 * noise.flow(5, X, Y, fvx, fvy, k, FOAM_SIZE * s)
@@ -2353,6 +2391,7 @@ def _sweep_line(sweep: tuple, L: np.ndarray) -> tuple:
     facing = ((x - cx) * lxy[0] + (y - cy) * lxy[1]) / np.maximum(np.hypot(x - cx, y - cy), 1e-6)
     st = (bright * strength * np.sin(np.linspace(0.0, math.pi, ph.size)) ** 1.5
           * (far + (1.0 - far) * _ss(-0.3, 0.3, np.sin(ph))) * (0.4 + 0.6 * _ss(-0.5, 0.8, facing)))
+    st *= 0.15 + 0.85 * _ss(-0.2, 0.5, np.cos(7.0 * ph - 0.7 * at))
     return np.c_[x, y], st, sg
 
 
@@ -3265,7 +3304,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
     # Unequal launch times and arcs keep the spray away from a circular crown or an even dotted ring.
     spray = [(int(rng.integers(contact, contact + 5)), float(rng.uniform(12.0, 18.0)),
               rng.uniform((-0.22, -0.18), (0.22, 0.08)), rng.uniform(-0.035, 0.035),
-              float(rng.uniform(0.024, 0.041)), float(rng.uniform(0.38, 0.78))) for _ in range(12)]
+              float(rng.uniform(0.014, 0.029)), float(rng.uniform(0.38, 0.78))) for _ in range(8)]
     runoff = [(9 + j * 2, edge, float(rng.uniform(0.022, 0.030))) for j, edge in enumerate(edges[:3])]
     runoff += [(10 + j * 5, edge, float(rng.uniform(0.035, 0.048))) for j, edge in enumerate(edges[-2:])]
     births = {}
@@ -3309,21 +3348,38 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
         disc = np.asarray(_shape(un, max(abs(float(nrm[2])), 0.45), 1.0)).reshape(2, 2)
         fall = float(_ss(0, slump, age))
         if age < slump:
-            rr = R * ratio * (1.0 - 0.34 * fall)
-            thickness = 1.0 - 0.88 * fall
-            target = np.r_[p, zp] + nrm * (rr * thickness + 0.015 * s)
+            # The upper reservoir empties through a neck before its last water reaches the receiving skin.
+            rr = R * ratio * (1.0 - fall) ** 0.85
+            thickness = 1.0 - 0.65 * fall
+            target = np.r_[p, zp] + nrm * (0.24 * s)
             carried = np.r_[p + (c0[:2] - p0) * ratio, zp + (c0[2]
                                 - float(hand.depth(release, p0[0:1], p0[1:2], fingers=False)[0])) * ratio]
-            touching = float(_ss(0, contact, age))
+            touching = 0.10 * float(_ss(0, 7, age)) + 0.90 * float(_ss(0.6 * slump, slump, age))
             at = carried * (1.0 - touching) + target * touching
-            deform = np.asarray(_shape(un, 1.0 - 0.55 * fall, 1.0 + 0.70 * fall)).reshape(2, 2) @ shape
-            sc.blobs.append(Blob(*at, rr, tuple(deform.ravel()), vy=0.03 * s,
-                                 modes=tuple((l, a * (1.0 - 0.5 * fall), ph + 0.1 * age) for l, a, ph in modes),
-                                 flat=thickness, foam=0.025 * fall, move=(0.0, 0.012 * s),
-                                 folds=tuple((ang, width, reach * (1.0 - fall)) for ang, width, reach in inherited)
-                                 + ((2.35, 0.35, 0.35 * math.sin(math.pi * fall)),)))
+            deform = np.asarray(_shape(un, 1.0 + 0.80 * fall, 1.0 - 0.70 * fall)).reshape(2, 2) @ shape
+            sc.blobs.append(Blob(*at, rr, tuple(deform.ravel()), vy=0.025 * s,
+                                 modes=tuple((l, a * (1.0 - 0.3 * fall), ph + 0.1 * age) for l, a, ph in modes),
+                                 flat=thickness, foam=0.012 * fall, move=(0.0, 0.012 * s),
+                                 folds=tuple((ang, width, reach * (1.0 - fall)) for ang, width, reach in inherited)))
+            if age >= 1:
+                u = np.linspace(0.0, 1.0, 40)
+                foot = np.r_[p, zp + 0.012 * s]
+                root = at + (foot - at) * 0.18
+                arrive = float(_ss(0, contact, age))
+                end = root + (foot - root) * arrive
+                pts = root[None] + (end - root)[None] * u[:, None]
+                pts[:, 0] += 0.025 * s * np.sin(math.pi * u) * math.sin(age * 0.4)
+                radius = s * (0.095 - 0.045 * u + 0.060 * u ** 6)
+                radius *= (1.0 - 0.55 * float(_ss(8, slump, age))) * min(1.0, rr / (0.12 * s))
+                radius *= 1.0 + 0.10 * np.sin(2.7 * math.pi * u - 0.7 * age)
+                arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts[:, :2], axis=0), axis=1))]
+                speed = _unit(foot - root) * 0.065 * s
+                vel = np.tile(speed, (len(u), 1))
+                sc.ribbon = _stream(pts, vel, radius, np.full(len(u), 0.008), vel[:, :2], arc,
+                                    0.85 - 0.73 * u ** 5)
+                sc.blobs += sc.ribbon
             sc.held = (*at, rr, 1.0 - float(_ss(0, slump, age)))
-            sc.wave = WAVE[0] * (1.0 - 0.6 * fall)
+            sc.wave = WAVE[0] * (1.0 - 0.3 * fall)
             for j in range(2):
                 ang = 1.4 + j * 2.0
                 sc.trains.append((at[0], at[1], rr, math.cos(ang), math.sin(ang), 0.1,
@@ -3334,7 +3390,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
             rr = R * ratio * (0.38 + 1.0 * spread)
             sc.blobs.append(Blob(p[0], p[1], zp + 0.015 * s, rr, tuple(disc.ravel()),
                                  modes=((3, 0.08, 0.3 + 0.12 * age), (5, 0.035, 1.3 - 0.08 * age)),
-                                 flat=(0.15 - 0.065 * spread) * remaining,
+                                 flat=(0.045 - 0.025 * spread) * remaining,
                                  w=TAU + (1.0 - TAU) * remaining, foam=0.018 * remaining))
             for j, edge in enumerate(edges):
                 front = float(_ss(contact + j * 0.35, 11 + j * 0.5, age))
@@ -3345,17 +3401,17 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 z = hand.depth(k, xy[:, 0], xy[:, 1]) + 0.012 * s
                 pts = np.c_[xy, z]
                 arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
-                width = (0.10 - 0.065 * u) * s * remaining * front
+                width = (0.085 - 0.055 * u) * s * remaining * front
                 if width.max() >= 0.5 and arc[-1] > 1.0:
                     sc.blobs += [b._replace(stream=()) for b in
                                  _stream(pts, np.zeros_like(pts), width, np.zeros(8), np.zeros((8, 2)), arc,
-                                         np.full(8, 0.075))]
+                                         np.full(8, 0.035))]
         wet = spread * (1.0 - float(_ss(25, dry, age)))
         if wet > 0.001:
             across = math.atan2(un[1], un[0]) + 0.5 * math.pi
             sc.wet.append((p[0], p[1], 1.48 * R * ratio, 1.48 * R * ratio * max(abs(float(nrm[2])), 0.5),
                            across, 0.24 * wet, 2.7, 0.0, 0.4))
-            sc.coat = (p[0], p[1], 1.48 * R * ratio, wet, remaining)
+            sc.coat = (p[0], p[1], 1.48 * R * ratio * (0.4 + 0.6 * spread), wet, remaining)
             for j, edge in enumerate(edges):
                 points = p + np.linspace(0.2, 1.0, 8)[:, None] * edge * s
                 sc.band.append((points, np.linspace(0.055, 0.025, 8) * s, 0.16 * wet))
@@ -3398,12 +3454,18 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
             radius = rb * sb * min(1.0, (17 - tau) / 4.0)
             shp, move = _moving(radius, velocity, 1.0 + min(1.5, tau * 0.12), SHUTTER)
             sc.blobs.append(Blob(xy[0], xy[1], z, radius, shp, *velocity, free=True, move=move, glint=0.5))
-            if tau < 4:
-                # A short thinning connection holds the drop at the lip before gravity pulls it clear.
+            if tau < 8:
+                # Water still feeds the falling bead from the lip before the thinning connection pinches apart.
                 root = p + s * edge
-                at = 0.5 * (root + xy)
-                sc.blobs.append(Blob(at[0], at[1], z, max(0.6, rb * s * (1.0 - tau / 4.0)),
-                                     _shape(np.array([0.0, 1.0]), 1.0 + 0.5 * tau, 0.6), free=True, glint=0.25))
+                u = np.linspace(0.0, 1.0, 18)
+                root_z = float(hand.depth(k, root[0:1], root[1:2])[0]) + 0.012 * s
+                pts = np.c_[root + (xy - root)[None] * u[:, None], root_z + (z - root_z) * u]
+                pts[:, 0] += 0.008 * s * np.sin(u * math.pi) * math.sin(age * 0.4)
+                arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts[:, :2], axis=0), axis=1))]
+                widths = np.maximum(0.6, rb * s * (0.6 + 0.4 * u) * (1.0 - tau / 9.0))
+                vel = np.tile(np.r_[velocity, 0.0], (len(u), 1))
+                sc.blobs += _stream(pts, vel, widths, np.zeros(len(u)), vel[:, :2], arc,
+                                    np.full(len(u), 0.65))
 
 
 def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], seed: int,
@@ -4378,9 +4440,35 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
         boxes += _cast(P, sc.cast, matte, room, k)
     if sc.film:
         boxes += _film(P, sc.film, matte, room, k, noise)
-    fld = Field(sc.blobs, H, W) if sc.blobs else None
-    layer = None if fld is None or fld.box is None else shade(fld, sc, k, hand, room, noise, _pyramid(P), matte,
-                                                              code, seed)
+    # A separate optical layer lets the falling stream join inside the reservoir without a second lens collar.
+    ribbon = set(sc.ribbon)
+    visible = [b for b in sc.blobs if b not in ribbon and not (b.free and sc.coat is not None and sc.held is not None
+               and b.z < sc.held[2] + 0.5 * sc.held[3]
+               and math.hypot(b.x - sc.held[0], b.y - sc.held[1]) < sc.held[3] + b.r)]
+    fld = Field(visible, H, W) if visible else None
+    pyr = _pyramid(P) if fld is not None or sc.ribbon else None
+    layer = None if fld is None or fld.box is None else shade(fld, sc, k, hand, room, noise, pyr, matte, code, seed)
+    if sc.ribbon:
+        stream_field = Field(sc.ribbon, H, W)
+        stream_scene = Scene(ribbon=sc.ribbon, wave=sc.wave, coat=sc.coat)
+        stream_layer = shade(stream_field, stream_scene, k, hand, room, noise, pyr, matte, code, seed, falling=True)
+        if stream_layer is not None:
+            boxes.append(stream_layer.box)
+            ya, yb, xa, xb = stream_layer.box
+            P[ya:yb, xa:xb] = P[ya:yb, xa:xb] * (1.0 - stream_layer.alpha[..., None]) + stream_layer.colour
+            if layer is not None and sc.held is not None:
+                y0, y1, x0, x1 = layer.box
+                ylo, yhi, xlo, xhi = max(y0, ya), min(y1, yb), max(x0, xa), min(x1, xb)
+                if yhi > ylo and xhi > xlo:
+                    yy, xx = np.mgrid[ylo:yhi, xlo:xhi]
+                    cx, cy, _, rr, _ = sc.held
+                    down = _unit(np.array([sc.ribbon[-1].x - cx, sc.ribbon[-1].y - cy]))
+                    along = ((xx - cx) * down[0] + (yy - cy) * down[1]) / max(rr, 1.0)
+                    join = stream_layer.alpha[ylo - ya:yhi - ya, xlo - xa:xhi - xa] * _ss(0.35, 0.80, along)
+                    sl = np.s_[ylo - y0:yhi - y0, xlo - x0:xhi - x0]
+                    # Open the reservoir's bottom rim into the stream instead of leaving a closed glass lip over it.
+                    layer.alpha[sl] *= 1.0 - join
+                    layer.colour[sl] *= (1.0 - join)[..., None]
     if layer is not None:
         boxes.append(layer.box)
         if matte is not None:
@@ -4425,22 +4513,30 @@ def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room:
         return []
     yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
     radius = np.sqrt(((xx - x) / r) ** 2 + ((yy - y) / (0.8 * r)) ** 2)
-    ripple = noise.flow(13, xx, yy, np.zeros_like(xx), np.full_like(yy, 0.018 * s), k, 0.16 * s)
-    height = (0.004 + 0.008 * flowing) * s * ripple
-    gy, gx = np.gradient(cv2.GaussianBlur(height.astype(np.float32), (0, 0), 1.2))
+    # A cupped palm has a range of normals: using its one tracking plane made the whole coat miss the light.
+    dx, dy = (xx - x) / r, (yy - y) / r
+    drift = np.full_like(yy, 0.008 * s * flowing)
+    ripple = noise.flow(13, xx, yy, np.zeros_like(xx), drift, k, 0.13 * s)
+    fine = noise.flow(17, xx, yy, np.zeros_like(xx), drift, k, 0.045 * s)
+    height = s * ((0.001 + 0.012 * flowing) * ripple + 0.0003 * fine)
+    gy, gx = np.gradient(cv2.GaussianBlur(height.astype(np.float32), (0, 0), max(0.7, 0.002 * s)))
     patch = P[y0:y1, x0:x1]
     lum = patch @ fx._LUMA
-    smooth = cv2.GaussianBlur(np.log(np.maximum(lum, 0.01)), (0, 0), 1.4)
+    smooth = cv2.GaussianBlur(np.log(np.maximum(lum, 0.01)), (0, 0), max(0.7, 0.004 * s))
     sy, sx = np.gradient(smooth)
     normal = hand.nrm[k]
-    nx, ny = normal[0] - gx - 0.5 * sx, normal[1] - gy - 0.5 * sy
+    nx = normal[0] + 0.45 * dx - gx - 1.1 * sx
+    ny = normal[1] + 0.50 * dy - gy - 1.1 * sy
     nz = np.full_like(nx, max(float(normal[2]), 0.45))
     norm = np.sqrt(nx * nx + ny * ny + nz * nz)
     L = room.key(k, (x, y))
     half = _unit(L + np.array([0.0, 0.0, 1.0]))
     ndh = np.clip((nx * half[0] + ny * half[1] + nz * half[2]) / norm, 0.0, 1.0)
     envelope = wet * _ss(1.06, 0.52, radius + 0.065 * ripple) * matte[y0:y1, x0:x1].astype(np.float32) / 255.0
-    specular = (0.14 * ndh ** 72 + 0.35 * ndh ** 220) * envelope
+    # The soft room reflection and broken bright facets retain the skin between them as the film drains.
+    facets = _ss(-0.8, 0.5, fine + 0.45 * ripple)
+    specular = (0.045 * ndh ** 16 + 0.65 * ndh ** 80 * (0.7 + 0.3 * facets)
+                + 0.20 * ndh ** 220 * facets) * envelope
     patch += specular[..., None] * room.lit(k)
     return [(y0, y1, x0, x1)]
 
