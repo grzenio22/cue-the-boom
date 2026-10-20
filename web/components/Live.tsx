@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { AUDIO_CONSTRAINTS } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
 import {
-  arcChannels, arcStep, type Arcs, BALL_RGB, type Ball, ballStep, BUZZ_HF, buzzOf, dense, dipStep, drawBall, drawChannels,
-  drawDip, drawLight, drawSpark, HAND_RGB, type Light, lightStep, newArcs, type P2, ROOM_RGB,
+  arcChannels, arcStep, type Arcs, BALL_HAND_RGB, BALL_ROOM_RGB, type Ball, ballStep, BUZZ_HF, buzzOf, dense, dipStep,
+  drawBall, drawBallLight, drawChannels, drawDip, drawLight, drawSpark, HAND_RGB, type Light, lightStep, newArcs,
+  type P2, ROOM_RGB,
 } from "@/lib/lightning";
 import { type LiveElement, liveHand, onsetStep, type OnsetState, playLook, RELEASE_MS, thrownAt } from "@/lib/live";
 
@@ -240,8 +241,12 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
           ball = now;
           if (now) {
             power = (0.4 + 0.6 * now.level) * (now.born ? dense(now.level, now.charge) : 0.1); // (a crackle: dim)
-            zapAt = { at: zapHand.palm, room: BALL_RGB, hand: BALL_RGB, gain: 0.45 }; // (under it: a pool, not a wash)
-            drawZap = () => drawBall(ctx, now, zapHand.palm, zapHand.scale, px);
+            zapAt = { at: zapHand.palm, room: BALL_ROOM_RGB, hand: BALL_HAND_RGB, gain: 0.45 }; // (broadly: a pool,
+            // not a wash; close round it, its own light under it)
+            drawZap = () => {
+              drawBallLight(ctx, now, zapHand.palm, zapHand.scale, pts, W, H);
+              drawBall(ctx, now, zapHand.palm, zapHand.scale, px);
+            };
           }
         } else {
           arcs = null;

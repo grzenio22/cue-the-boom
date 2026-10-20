@@ -2,16 +2,17 @@
  * camera's canvas every frame next to the hand tracker, so everything here is a few hundred points and a few
  * gradients a frame. As the shot's own (cuesync.lightning), as far as Canvas 2D goes:
  * - a finger strikes one dominant main channel, its first stretch along the finger, its root welded to the fingertip;
- *   beside it at most two dim, thin streamers at most half as long, and dim forks towards its far end, every branch
- *   fading along its length and none crossing the main channel or another branch, nor a streamer running beside it
- *   (each is struck again until it keeps clear, or dropped);
+ *   beside it at most two dim, thin streamers at most half as long, keeping well round from it, and dim forks towards
+ *   its far end, every branch fading and thinning along its length and none crossing the main channel or another
+ *   branch, nor a streamer running beside it (each is struck again until it keeps clear, or dropped);
  * - a channel is struck, re-struck down the same path for 1-3 frames with its root riding the finger and its far end
  *   where it struck, then struck anew near its last aim;
  * - the light it throws, a cool blue on the room and lavender on the hand, holds while the strokes strike and dies
  *   within a few frames of the last (it never strobes with them);
- * - over an open palm, a ball that is a light: white-hot in its middle, cyan round that, blue to its limb, with its
- *   blue glow round it and filaments from its middle out to its skin, growing from a crackle over about 5 frames, the
- *   camera exposing down for it. */
+ * - over an open palm, a ball that is a light, its body the shot's own by radius (white-hot in its middle, cyan round
+ *   that, a saturated blue to a cyan ring at its limb, its outline feathered), the lens's narrow band of blue just over
+ *   its limb, its light on the skin close round it violet and on the wall a cool blue, and filaments from its middle
+ *   out to its skin at angles in 3D, growing from a crackle over about 5 frames, the camera exposing down for it. */
 
 export type P2 = [number, number];
 
@@ -34,15 +35,21 @@ const HAND_PX = 220, WIDTH_K = [0.6, 1.8]; // (widths scale with the hand, withi
 const ARC_LEAD = 0.2; // of its reach: a main channel's first stretch runs along the finger's aim
 const ARC_JITTER = 0.07, ARC_OFF = 0.21; // radians: a new main channel's own turn off its aim, and the most it may be
 const SIDE_ON = [0.3, 0.85]; // the voice's level over which a first, and a second, streamer strikes
-const SIDE_INTEN = 0.35, SIDE_WIDTH = 0.4, SIDE_REACH = [0.3, 0.5], SIDE_GAP = [0.31, 0.45]; // a streamer against
-// its main channel: dimmer, thinner, at most half as long, leaving 18-26 degrees off its heading
+const SIDE_INTEN = 0.35, SIDE_WIDTH = 0.4, SIDE_REACH = [0.3, 0.5], SIDE_GAP = [0.45, 0.63]; // a streamer against
+// its main channel: dimmer, thinner, at most half as long, leaving 26-36 degrees off the main channel's way out
+export const SIDE_APART = [0.35, 0.2]; // radians, share: and seen from the fingertip, its course past this share of its
+// length keeps at least 20 degrees round from the main channel as far out (leaving 18 degrees off its heading, two ran
+// beside it as long 1 px hairlines)
 const FORK_INTEN = [0.15, 0.35], FORK_WIDTH = 0.45, FORK_TURN = [0.17, 0.6]; // a fork against what it leaves
 const REDRAW = 4; // a branch is struck again this many times to keep clear of the others, then dropped
 const ALONG = [0.12, 0.25]; // hand sizes, share: a streamer may lie within the first of its main channel for at most
 // the second share of its length past where they leave (leaving 20 degrees off, one ran beside it like a second wire)
 const LIFE = [1, 2, 3], LIFE_P = [0.25, 0.45, 0.3]; // frames a path is kept, and how often each
 const RESTROKE = [0.45, 0.5]; // a re-stroke flashes with this chance plus this times the level, else it is dark
-export const TAPER = [0.7, 1.5]; // a branch fades along its length to 1 - 0.7 of itself, as the 1.5th power of how far
+export const TAPER = [0.9, 1.2]; // a branch fades along its length to 1 - 0.9 of itself, as the 1.2th power of how far
+// (to a third, a 1 px streamer still read as a hairline to its end)
+export const BRANCH_W = [1.5, 0.35, 0.5]; // and thins from this many times its width to this, never under 0.5 px: a
+// wedge, not a wire (cuesync.lightning's BRANCH_W)
 const CHUNKS = 6; // stretches a channel is drawn in, thinning and (a branch) fading along it
 
 export interface Channel { pts: P2[]; width: number; inten: number; forks: Channel[]; at: number } // at: the parent's
@@ -106,6 +113,54 @@ export function beside(a: P2[], b: P2[], d: number): number {
     for (let j = 0; j + 1 < b.length; j++) if (toSegment(a[i], b[j], b[j + 1]) < d) { near += l; break; }
   }
   return total > 0 ? near / total : 0;
+}
+
+/** Radians: which way ``main`` (a channel's points) lies from ``root`` where it first gets ``far`` out (its end, if it
+ * never does). */
+export function wayOut(main: P2[], root: P2, far: number): number {
+  const p = main.find(([x, y]) => Math.hypot(x - root[0], y - root[1]) >= far) ?? main[main.length - 1];
+  return Math.atan2(p[1] - root[1], p[0] - root[0]);
+}
+
+/** A channel's course as the eye follows it: ``n`` points at equal lengths along it, smoothed twice over three, so
+ * its finest kinks drop out. */
+function course(pts: P2[], n: number): P2[] {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) {
+    cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  }
+  const out: P2[] = [];
+  for (let k = 0, j = 0; k <= n; k++) {
+    const at = (cum[cum.length - 1] * k) / n;
+    while (j < cum.length - 2 && cum[j + 1] < at) j++;
+    const u = cum[j + 1] > cum[j] ? Math.min(1, Math.max(0, (at - cum[j]) / (cum[j + 1] - cum[j]))) : 0;
+    out.push([pts[j][0] + u * (pts[j + 1][0] - pts[j][0]), pts[j][1] + u * (pts[j + 1][1] - pts[j][1])]);
+  }
+  for (let pass = 0; pass < 2; pass++) {
+    const prev = out.map((p): P2 => [p[0], p[1]]);
+    for (let i = 1; i < n; i++) {
+      out[i] = [(prev[i - 1][0] + prev[i][0] + prev[i + 1][0]) / 3, (prev[i - 1][1] + prev[i][1] + prev[i + 1][1]) / 3];
+    }
+  }
+  return out;
+}
+
+/** Whether a streamer's points ``pts`` from ``root`` keep SIDE_APART round from ``main`` as seen from ``root``: every
+ * point of its course past SIDE_APART's share of its length against the main channel's course as far out. */
+export function apart(main: P2[], root: P2, pts: P2[]): boolean {
+  const m = course(main, 48);
+  const out: number[] = [];
+  let most = 0;
+  for (const [x, y] of m) out.push((most = Math.max(most, Math.hypot(x - root[0], y - root[1]))));
+  const s = course(pts, 16);
+  for (let i = Math.ceil(16 * SIDE_APART[1]); i < s.length; i++) {
+    const r = Math.hypot(s[i][0] - root[0], s[i][1] - root[1]);
+    let j = out.findIndex((v) => v >= r);
+    if (j < 0) j = m.length - 1;
+    const off = Math.atan2(s[i][1] - root[1], s[i][0] - root[0]) - Math.atan2(m[j][1] - root[1], m[j][0] - root[0]);
+    if (Math.abs(((off + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) < SIDE_APART[0]) return false;
+  }
+  return true;
 }
 
 /** How a channel is struck beyond its course: ``at``, the parent's point it forks from; ``inten``, its brightness
@@ -196,9 +251,10 @@ function widthK(scale: number, px: number): number {
 
 /** One frame of the arcs from ``tip`` (the fingertip, px) along ``aim`` (radians) for a hand ``scale`` px across at a
  * voice ``level`` (0-1); ``px``: a pixel at 1080 lines. The main channel is welded to the tip; its streamers (one over
- * SIDE_ON's first level, two over its second) leave its root SIDE_GAP off its heading on either side, at most
- * SIDE_REACH of its reach, struck anew with it or when their own time is up, and struck again (REDRAW times, then
- * dropped) until they cross neither it nor each other and run beside it no further than ALONG lets them. */
+ * SIDE_ON's first level, two over its second) leave its root SIDE_GAP off the main channel's way out on either side,
+ * at most SIDE_REACH of its reach, struck anew with it or when their own time is up, and struck again (REDRAW times,
+ * then dropped) until they cross neither it nor each other, run beside it no further than ALONG lets them and keep
+ * SIDE_APART round from it. */
 export function arcStep(arcs: Arcs, tip: P2, aim: number, scale: number, level: number, strike: boolean,
   frame: number, px = 1): Arcs {
   const kw = widthK(scale, px) * px;
@@ -208,7 +264,6 @@ export function arcStep(arcs: Arcs, tip: P2, aim: number, scale: number, level: 
   const anew = main.flash === 1;
   const ch = main.ch!;
   const end = ch.pts[ch.pts.length - 1];
-  const heading = Math.atan2(end[1] - tip[1], end[0] - tip[0]);
   const mainReach = Math.hypot(end[0] - tip[0], end[1] - tip[1]);
   const count = level > SIDE_ON[1] ? 2 : level > SIDE_ON[0] ? 1 : 0;
   const sides: Stream[] = [];
@@ -226,12 +281,12 @@ export function arcStep(arcs: Arcs, tip: P2, aim: number, scale: number, level: 
     const rand = rng(seed * 7919 + frame);
     const side = j % 2 ? -1 : 1;
     for (let tries = 0; tries <= REDRAW; tries++) {
-      const a = heading + side * (SIDE_GAP[0] + (SIDE_GAP[1] - SIDE_GAP[0]) * rand());
       const l = mainReach * (SIDE_REACH[0] + (SIDE_REACH[1] - SIDE_REACH[0]) * rand());
+      const a = wayOut(ch.pts, tip, 0.6 * l) + side * (SIDE_GAP[0] + (SIDE_GAP[1] - SIDE_GAP[0]) * rand());
       const s = channel(tip, [tip[0] + Math.cos(a) * l, tip[1] + Math.sin(a) * l], rand, width * SIDE_WIDTH, 0.26, 5,
         0.1 + 0.1 * level, { inten: SIDE_INTEN, keepOff: [ch.pts, ...sides.map((o) => o.ch!.pts)] });
       if (!crosses(s.pts, ch.pts, kw, 3) && !sides.some((o) => crosses(s.pts, o.ch!.pts, kw, 3)) &&
-        beside(s.pts, ch.pts, ALONG[0] * scale) <= ALONG[1]) {
+        beside(s.pts, ch.pts, ALONG[0] * scale) <= ALONG[1] && apart(ch.pts, tip, s.pts)) {
         sides.push({ ch: s, left: Math.min(2, life(rand)) - 1, aim: a, seed, flash: main.flash ?? 1 });
         break;
       }
@@ -250,16 +305,18 @@ export function arcChannels(arcs: Arcs, level: number): [Channel, number][] {
 }
 
 /** The stretches a channel is drawn in: [points, width px, alpha], thinning along it and, a branch (dimmer than the
- * bolt's main channel), fading along it as TAPER says. */
+ * bolt's main channel), fading (TAPER) and thinning more (BRANCH_W) along it. */
 export function stretches(c: Channel, gain: number): [P2[], number, number][] {
-  const fade = c.inten < 0.6 ? TAPER[0] * Math.min(1, (0.6 - c.inten) / 0.2) : 0;
+  const branch = c.inten < 0.6 ? Math.min(1, (0.6 - c.inten) / 0.2) : 0;
   const out: [P2[], number, number][] = [];
   const n = c.pts.length - 1;
   for (let k = 0; k < CHUNKS; k++) {
     const a = Math.floor((k * n) / CHUNKS), b = Math.floor(((k + 1) * n) / CHUNKS);
     if (b <= a) continue;
     const u = (k + 0.5) / CHUNKS;
-    out.push([c.pts.slice(a, b + 1), c.width * (1 - 0.6 * k / CHUNKS), c.inten * gain * (1 - fade * u ** TAPER[1])]);
+    const thin = (1 - 0.6 * k / CHUNKS) * (1 - branch) + (BRANCH_W[0] + (BRANCH_W[1] - BRANCH_W[0]) * u) * branch;
+    out.push([c.pts.slice(a, b + 1), Math.max(branch ? BRANCH_W[2] : 0, c.width * thin),
+      c.inten * gain * (1 - TAPER[0] * branch * u ** TAPER[1])]);
   }
   return out;
 }
@@ -425,7 +482,9 @@ const FINGERS = [[2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17
 
 export const ROOM_RGB = "120, 150, 255"; // the arcs' light on the room: a cool blue (in the hand's violet, a tinted
 export const HAND_RGB = "185, 160, 255"; // wall went mauve); on the hand lavender, blue-violet on skin
-export const BALL_RGB = "110, 190, 255"; // the ball's: its own cyan-blue, on the room and the hand
+export const BALL_ROOM_RGB = "77, 107, 255"; // the ball's: on the room the arcs' cooler blue; on the hand a deep blue,
+export const BALL_HAND_RGB = "5, 25, 255"; // which skin at the top of red takes as violet (cuesync.lightning's
+// LIGHT_RGB; in its own cyan-blue, the palm round it went white-pink)
 
 /** The light on the room and the hand, screened over the picture: round ``at`` (the bolts or the ball) on the room,
  * weaker out to the frame's edge; on the hand (its 21 landmarks ``lm``, px: the palm and each finger as thick as a
@@ -442,21 +501,8 @@ export function drawLight(ctx: CanvasRenderingContext2D, at: P2, scale: number, 
   g.addColorStop(1, `rgba(${room}, ${0.06 * strength})`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
-  const mask = lm ? softLayer(ctx, "hand") : null;
-  if (mask && lm) {
-    mask.fillStyle = mask.strokeStyle = "#fff";
-    mask.lineJoin = "round";
-    mask.lineCap = "round";
-    mask.lineWidth = 0.2 * scale;
-    mask.filter = `blur(${(0.05 * scale) / SOFT_Q}px)`; // (its outline as soft as a lit hand's)
-    mask.beginPath();
-    PALM.forEach((i, k) => (k ? mask.lineTo(...lm[i]) : mask.moveTo(...lm[i])));
-    mask.closePath();
-    mask.fill();
-    mask.stroke();
-    for (const f of FINGERS) stroke(mask, f.map((i) => lm[i]));
-    mask.filter = "none";
-    mask.globalCompositeOperation = "source-in";
+  const mask = lm ? handLayer(ctx, "hand", lm, scale) : null;
+  if (mask) {
     const k = mask.createRadialGradient(at[0], at[1], 0, at[0], at[1], 2.5 * scale);
     k.addColorStop(0, `rgba(${onHand}, ${0.75 * handGain * strength})`);
     k.addColorStop(1, `rgba(${onHand}, ${0.15 * handGain * strength})`);
@@ -465,6 +511,28 @@ export function drawLight(ctx: CanvasRenderingContext2D, at: P2, scale: number, 
     ctx.drawImage(mask.canvas, 0, 0, w, h);
   }
   ctx.restore();
+}
+
+/** A soft layer (softLayer, named ``name``) holding the hand as white (its 21 landmarks ``lm``, px: the palm and each
+ * finger as thick as a finger, its outline as soft as a lit hand's), set so what is filled over it next lands on the
+ * hand only; null where there is none to make. */
+function handLayer(ctx: CanvasRenderingContext2D, name: string, lm: P2[], scale: number): Ctx2D | null {
+  const mask = softLayer(ctx, name);
+  if (!mask) return null;
+  mask.fillStyle = mask.strokeStyle = "#fff";
+  mask.lineJoin = "round";
+  mask.lineCap = "round";
+  mask.lineWidth = 0.2 * scale;
+  mask.filter = `blur(${(0.05 * scale) / SOFT_Q}px)`;
+  mask.beginPath();
+  PALM.forEach((i, k) => (k ? mask.lineTo(...lm[i]) : mask.moveTo(...lm[i])));
+  mask.closePath();
+  mask.fill();
+  mask.stroke();
+  for (const f of FINGERS) stroke(mask, f.map((i) => lm[i]));
+  mask.filter = "none";
+  mask.globalCompositeOperation = "source-in";
+  return mask;
 }
 
 // ---- the ball over the palm
@@ -476,10 +544,24 @@ const BALL_FORMED = 0.08; // its charge at which its body is dense: under half o
 const FIL_REACH = 0.7; // radii: a young ball's filaments crackle this much further out than its body
 const BALL_PULSE = 0.12; // a hit swells it by this share, gone over 3 frames
 const BALL_TURN = 0.02; // radians a frame: it turns slowly (the shot's 0.05 at 24 frames a second, on a 60 Hz screen)
+export const BALL_FILAMENTS = [5, 9]; // filaments from its middle to its skin, small to full grown, each leaving its
+// middle at a random angle in 3D, its depth scaled by BALL_DEPTH, so they reach its skin at different lengths as seen
+// (all reaching the same radius, a dozen made evenly spaced sun-ray spikes)
+const BALL_DEPTH = 0.45, BALL_FLAT = 0.5; // one that reaches less than this many radii across the picture is struck
+// again (pointing at the camera, it is a short scribble in the middle)
+const NEAR_LIGHT = [1.0, 0.3]; // its light on what is close round it, at its limb, falling off past it over this many
+// radii (cuesync.lightning's NEAR_LIGHT): violet on skin, a cool blue on the wall
+const GLARE_RIM: [number, string] = [0.12, "38, 77, 255"]; // the lens's narrow band of its blue just over its limb
 
-/** The ball's state between frames. */
+/** The ball's state between frames; each filament's ``aim`` is how far towards the camera its far end is (-1 to 1:
+ * those at the back are dimmer). */
 export interface Ball { charge: number; grown: number; born: boolean; pulse: number; flare: number; level: number;
   fils: Stream[]; turn: number }
+
+/** A normal deviate from ``rand`` (Box-Muller). */
+function gauss(rand: () => number): number {
+  return Math.sqrt(-2 * Math.log(Math.max(rand(), 1e-12))) * Math.cos(2 * Math.PI * rand());
+}
 
 /** How much of a body a ball has (0-1): none until its charge (and the voice) pass half BALL_FORMED. */
 export function dense(level: number, charge: number): number {
@@ -488,15 +570,15 @@ export function dense(level: number, charge: number): number {
 
 /** One frame of the ball for a voice ``level`` (0-1), or null when it is gone: its charge follows the voice, its body
  * forms at its least size and grows at most BALL_RISE a frame towards the square root of its charge, a hit swells it
- * and flares its middle; its filaments (from its middle to past its skin while it is young) are struck and re-struck
- * as channels are, turning slowly with it. */
+ * and flares its middle; its filaments (BALL_FILAMENTS, from its middle to past its skin while it is young) are struck
+ * and re-struck as channels are, turning slowly with it. */
 export function ballStep(b: Ball | null, level: number, hit: boolean, frame: number): Ball | null {
   const prev = b?.charge ?? 0;
   const charge = prev + (level - prev) * (1 - Math.exp(-1 / (level > prev ? BALL_GROW : BALL_SHRINK)));
   if (Math.max(level, charge) < BALL_ON[b ? 1 : 0]) return null;
   const born = (b?.born ?? false) || dense(level, charge) > 0;
   const grown = b?.born ? Math.min(Math.sqrt(charge), b.grown + BALL_RISE) : 0;
-  const count = Math.round(5 + 9 * charge);
+  const count = Math.round(BALL_FILAMENTS[0] + (BALL_FILAMENTS[1] - BALL_FILAMENTS[0]) * charge);
   const reach = 1 + FIL_REACH * (1 - grown);
   const fils: Stream[] = [];
   for (let i = 0; i < count; i++) {
@@ -507,11 +589,16 @@ export function ballStep(b: Ball | null, level: number, hit: boolean, frame: num
       fils.push({ ...old, left: old.left - 1, flash: on ? 0.55 + 0.35 * rand() : 0.1 * rand() });
       continue;
     }
-    const a = 2 * Math.PI * rand();
+    let d = [0, 0, 1];
+    for (let tries = 0; tries < 6 && Math.hypot(d[0], d[1]) < BALL_FLAT; tries++) {
+      const v = [gauss(rand), gauss(rand), BALL_DEPTH * gauss(rand)];
+      const l = Math.hypot(v[0], v[1], v[2]) || 1;
+      d = v.map((x) => x / l);
+    }
     const far = reach * (0.92 + 0.13 * rand());
     const from: P2 = [0.05 * (rand() - 0.5), 0.05 * (rand() - 0.5)];
-    fils.push({ ch: channel(from, [Math.cos(a) * far, Math.sin(a) * far], rand,
-      1, 0.22, 5, 0.25, { clear: 0.02 }), left: life(rand) - 1, aim: a, seed: i + 1, flash: 1 });
+    fils.push({ ch: channel(from, [d[0] * far, d[1] * far], rand, 1, 0.22, 5, 0.25, { clear: 0.02 }),
+      left: life(rand) - 1, aim: d[2], seed: i + 1, flash: 1 });
   }
   return { charge, grown, born, pulse: hit ? BALL_PULSE : (b?.pulse ?? 0) * 0.6, flare: hit ? 1 : 0, level, fils,
     turn: (b?.turn ?? 0) + BALL_TURN };
@@ -523,28 +610,24 @@ export function ballRadius(b: Ball, scale: number): number {
   return scale * (BALL_R[0] + (BALL_R[1] - BALL_R[0]) * g * g * (3 - 2 * g)) * (1 + b.pulse);
 }
 
-/** The body's colour from its middle to its outline, as gradient stops [offset, r, g, b, alpha]: white-hot in its
- * middle, cyan round that, blue to its limb, dense enough to hide the palm behind it (a light, not a veil). */
+/** The body's colour from its middle to its outline, as gradient stops [offset, r, g, b, alpha]: the shot's ball as
+ * shown (cuesync.lightning, the median of each ring at full charge: test_lightning's BALL_PROFILE), white-hot in its
+ * middle, cyan round that, a saturated blue towards its limb with a cyan ring at it, dense enough to hide the palm
+ * behind it, and its outline feathered over its last 3 % (a few px) rather than cut. */
 export const BODY_STOPS: [number, number, number, number, number][] = [
-  [0, 255, 255, 255, 1], [0.2, 236, 252, 255, 1], [0.42, 190, 242, 255, 0.98], [0.72, 110, 182, 255, 0.96],
-  [0.95, 140, 200, 255, 0.94], [1, 140, 200, 255, 0],
+  [0, 246, 252, 255, 1], [0.15, 224, 242, 255, 1], [0.3, 191, 225, 255, 1], [0.45, 177, 208, 255, 1],
+  [0.6, 172, 202, 255, 1], [0.75, 156, 194, 255, 1], [0.9, 172, 214, 255, 1], [0.95, 182, 224, 255, 0.98],
+  [0.97, 176, 218, 255, 0.85], [1, 160, 205, 255, 0],
 ];
 
-/** Draws the ball at ``c`` for a hand ``scale`` px across: its blue glow, its body (once formed, BODY_STOPS), a
- * brighter limb, its filaments white over it (dim inside, brightest at its skin) and its white-hot middle. ``px``: a
- * pixel at 1080 lines. */
+/** Draws the ball at ``c`` for a hand ``scale`` px across: its body (once formed, BODY_STOPS), the lens's narrow band
+ * of blue just over its limb (GLARE_RIM), its filaments white over it (dim inside, brightest at its skin, those at
+ * the back dimmer) and its white-hot middle. ``px``: a pixel at 1080 lines. */
 export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: number, px: number) {
   const R = ballRadius(b, scale);
   const body = b.born ? dense(b.level, b.charge) : 0;
   ctx.save();
   if (body > 0) {
-    const halo = ctx.createRadialGradient(c[0], c[1], 0.95 * R, c[0], c[1], 2.4 * R); // (its glow, and the lens's)
-    halo.addColorStop(0, `rgba(130, 185, 255, ${0.42 * body})`);
-    halo.addColorStop(0.3, `rgba(90, 140, 255, ${0.16 * body})`);
-    halo.addColorStop(1, "rgba(80, 120, 255, 0)");
-    ctx.globalCompositeOperation = "screen";
-    ctx.fillStyle = halo;
-    ctx.fillRect(c[0] - 2.4 * R, c[1] - 2.4 * R, 4.8 * R, 4.8 * R);
     const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], R);
     for (const [at, r, gg, bb, a] of BODY_STOPS) g.addColorStop(at, `rgba(${r}, ${gg}, ${bb}, ${a * body})`);
     ctx.globalCompositeOperation = "source-over";
@@ -552,12 +635,14 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: n
     ctx.beginPath();
     ctx.arc(c[0], c[1], R, 0, 2 * Math.PI);
     ctx.fill();
+    const rim = ctx.createRadialGradient(c[0], c[1], 0.9 * R, c[0], c[1], 1.4 * R); // (Gaussian-ish: 0.05 R inside,
+    const [k, rgb] = GLARE_RIM; // 0.12 R outside)
+    for (const [at, a] of [[0, 0], [0.12, 0.3], [0.2, 1], [0.44, 0.6], [0.68, 0.14], [1, 0]]) {
+      rim.addColorStop(at, `rgba(${rgb}, ${k * a * body})`);
+    }
     ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = `rgba(70, 120, 255, ${0.35 * body})`;
-    ctx.lineWidth = 0.08 * R;
-    ctx.beginPath();
-    ctx.arc(c[0], c[1], 0.95 * R, 0, 2 * Math.PI);
-    ctx.stroke();
+    ctx.fillStyle = rim;
+    ctx.fillRect(c[0] - 1.4 * R, c[1] - 1.4 * R, 2.8 * R, 2.8 * R);
   }
   const turn = b.turn, cs = Math.cos(turn), sn = Math.sin(turn);
   const place = (p: P2): P2 => [c[0] + R * (p[0] * cs - p[1] * sn), c[1] + R * (p[0] * sn + p[1] * cs)];
@@ -566,15 +651,49 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: n
   for (const f of b.fils) {
     if (!f.ch || (f.flash ?? 1) <= 0.02) continue;
     const pts = f.ch.pts.map(place);
-    const k = Math.floor(0.45 * pts.length); // (dim inside, where the middle burns; brightest at its skin)
-    const gain = (f.flash ?? 1) * (0.4 + 0.6 * b.level);
-    lines.push([{ pts: pts.slice(0, k + 1), width: 0.7 * width, inten: 1, forks: [], at: 0 }, 0.4 * gain]);
+    const j = Math.floor(0.2 * pts.length), k = Math.floor(0.45 * pts.length); // (lost in the white-hot middle, dim
+    // round it, brightest at its skin: drawn from its middle at one brightness, they met there as a star's rays)
+    const gain = (f.flash ?? 1) * (0.4 + 0.6 * b.level) * (0.55 + 0.45 * Math.max(-1, Math.min(1, f.aim)));
+    lines.push([{ pts: pts.slice(j, k + 1), width: 0.7 * width, inten: 1, forks: [], at: 0 }, 0.3 * gain]);
     const forks = f.ch.forks.map((o) => ({ ...o, pts: o.pts.map(place), width: 0.6 * width }));
     lines.push([{ pts: pts.slice(k), width, inten: 1, forks, at: 0 }, gain]);
   }
   drawChannels(ctx, lines, px, 0.6, 0.3 * R);
   ctx.restore();
-  drawSpark(ctx, c, 0.28 * R + 4 * px, (body ? 1.1 : 0.5) * (1 + b.flare) * (0.5 + 0.5 * b.level));
+  drawSpark(ctx, c, 0.16 * R + 3 * px, (body ? 0.9 : 0.5) * (1 + b.flare) * (0.5 + 0.5 * b.level)); // (its body is
+  // white-hot round it already: wider, it was a white star the filaments ran into like rays)
+}
+
+/** The ball's light on what is close round it (NEAR_LIGHT), screened under it: a cool blue on the room and a deep blue
+ * on the hand (its 21 landmarks ``lm``, px, or null), which skin at the top of red takes as violet, keeping its lines,
+ * strongest at its limb and gone two radii out; as strong as its body is dense. */
+export function drawBallLight(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: number, lm: P2[] | null,
+  w: number, h: number) {
+  const body = b.born ? dense(b.level, b.charge) : 0;
+  if (body <= 0) return;
+  const R = ballRadius(b, scale);
+  const [k, sigma] = NEAR_LIGHT;
+  const falloff = (fill: CanvasGradient, rgb: string, gain: number) => {
+    for (let i = 0; i <= 6; i++) { // (a Gaussian past its limb, in seven stops out to 3 sigma)
+      const d = (3 * sigma * i) / 6;
+      fill.addColorStop(i / 6, `rgba(${rgb}, ${gain * k * body * Math.exp((-0.5 * d * d) / (sigma * sigma))})`);
+    }
+  };
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const room = ctx.createRadialGradient(c[0], c[1], R, c[0], c[1], (1 + 3 * sigma) * R);
+  falloff(room, BALL_ROOM_RGB, 0.5);
+  ctx.fillStyle = room;
+  ctx.fillRect(c[0] - 2 * R, c[1] - 2 * R, 4 * R, 4 * R);
+  const mask = lm ? handLayer(ctx, "ball-hand", lm, scale) : null;
+  if (mask) {
+    const hand = mask.createRadialGradient(c[0], c[1], R, c[0], c[1], (1 + 3 * sigma) * R);
+    falloff(hand, BALL_HAND_RGB, 0.85);
+    mask.fillStyle = hand;
+    mask.fillRect(c[0] - 2 * R, c[1] - 2 * R, 4 * R, 4 * R);
+    ctx.drawImage(mask.canvas, 0, 0, w, h);
+  }
+  ctx.restore();
 }
 
 /** What a frame of the microphone sounds like for lightning: the share of its energy at 4-11 kHz (of 150 Hz-11 kHz,
