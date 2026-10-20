@@ -9,7 +9,10 @@ plate is made here on the CPU:
 - the shock front: a ring racing out that bends the room behind it (red and blue a little apart) with lit dust on it
 - sparks flung off the ball (blackbody-cooling comets with drag and gravity, some flying past the arm) and embers
   floating up in the smoke
-- the blast's light on the room and on the arm, wrapping round the arm's outline on the side facing it
+- the fireball's light on the room and on the arm, from its own image (its fire spread round it, tinted to its
+  colour, dying as it turns to soot), wrapping round the arm's outline on the side facing it
+- the ball rolling upward as it burns, its smoke climbing on out of the frame and thinning from its crown
+- its outline broken: the fire's rim into fine, partly see-through flame tongues, the smoke's outer third into wisps
 - the hot air shimmering round the ball
 
 The rendered fireball and its smoke are composited by cuesync.composite (fire as light, smoke as dense soot relit by
@@ -43,8 +46,13 @@ EDGE = 0.10  # it goes off at least this share of the frame inside its edges
 EDGE_FADE = 0.08  # share of the render's short side over which its own frame edges fade out
 BLAST_SHARE = 0.01  # the render's blast is its first frame lit over this share of its most lit frame's area
 GROW_FRAMES, BURST_SPEED = 8, 2.0  # the render's first frames of growth play this much faster (a blast is quick)
-SWELL, RISE = (0.15, 10.0), 0.5  # after its burst the ball swells by this share and lifts this many hands, both
-# over about SWELL[1] frames (the render's ball hung where it went off; its smoke then rises on its own)
+SWELL = (0.15, 10.0)  # after its burst the ball swells by this share over about SWELL[1] frames
+ROLL = (0.15, 6.0, 0.3, 12.0)  # and rolls upward: its middle rises this many of its radii, eased in over about this
+# many frames, and it and its smoke climb on at this many radii a second, getting going over about this many frames,
+# out of the top of the frame (the render's ball hung where it went off, a flat disc fading in place; a fireball is
+# buoyant)
+TOP_STRETCH = 0.2  # its top half grows this much taller than its bottom over SWELL[1] (a rising ball's crown rolls
+# up and out, its underside hardly moves)
 CLEAR = (40, 45)  # frames after the blast its smoke starts to clear, and how long it takes, thinnest first (a
 # room-filling soot that never cleared held a flat dark sheet over the room to the end of the shot)
 
@@ -53,7 +61,21 @@ FLASH = {0: 0.45, 1: 0.25, 2: 0.1, 3: 0.03, 4: -0.05}  # exposure, stops: the fl
 # it (at +0.7 the whole picture washed out)
 FLASH_REACH, FLASH_FAR = 2.5, 0.35  # the flash falls off over this many fireball radii, to this share far from it
 GROW_BLUR = {0: 0.3, 1: 0.22, 2: 0.12, 3: 0.07, 4: 0.04}  # the fireball's growth over the shutter, per frame
-RIM_GAIN = 3.0  # the blast wrapping round the arm's outline, against its light on the hand
+LIGHT_GAIN = 5.2  # the fireball lights the room from its own image: its fire's luminance spread round it
+# (blast_light, LIGHT_FALLOFF), times this, on each surface's colour (fx.albedo): the wall within a radius of a ball at
+# full burn lifts about +45-50 levels, red well over green over blue, and the light dies with the fire (the room light
+# of a point source a hand behind the ball lifted the wall +9 levels: the blast lit nothing)
+LIGHT_FALLOFF = (0.8, 2.0)  # the spread is 1 / (1 + r / (this many radii of the ball)) ** this: a wall one radius
+# past its edge takes a quarter of what lights its middle, and twice as far a third of that (spread 1/r, the far wall
+# was lit nearly as much as the wall by the ball: a flat lift over the whole picture, not a pool of light round it)
+LIGHT_V = (0.55, 0.75)  # its colour is a camera's fire colour (RAMP) for the fire's brightness, held between deep
+# orange and orange (the render's own lemon-yellow lifted a khaki wall green; yellower, the wall went yellow-white)
+LIGHT_GLOW = 0.03  # the same light scattered in the air and the lens, over everything
+LIGHT_KNEE = 0.9  # linear: the lit room rolls off from here to white (a channel lit past it clipped to a flat plateau)
+LIGHT_WARM = 0.8  # on a bright wall red soon reaches white and stops rising: the light's green then rises at most this
+# much of its red, its blue of its green (green rising on alone turned the light on a khaki wall yellow-green)
+ARM_LIGHT = (0.15, 2.5)  # on the arm: a little on its face (the blast is behind it) and this much on its outline facing
+# the blast (rim_light)
 RIM_EDGE = 0.10  # hand sizes: how far in from the arm's outline the rim reaches
 KNOCK_PX, ZOOM = 14.0, 0.022  # the camera's knock (px at 1080) and its push from the pressure wave (share)
 FW_SOFT = 6.0  # px at 1080: where the fire is, softened (a hard fire/soot boundary drew flat orange paint)
@@ -67,6 +89,19 @@ BILLOW = (0.55, 1.5, 0.4)  # the render's own light and shade on its billows, pu
 # clipped hard, its folds read as a camouflage print)
 BILLOW_IN = 0.02  # share of the short side: kept this far inside the cloud's outline (its thin rim is the room's)
 SOOT_CLOSE = 0.03  # share of the short side: gaps narrower than this inside the cloud are closed before it is filled
+# Its outline (Outline), in radii of the cloud: drawn as rendered, the fireball's rim was one continuous saturated
+# orange line (it looked cut out) and its smoke's a broad, soft, round dark edge (it advertised the composite)
+TONGUES = (12, 44, 0.08, 0.12)  # the fire's rim: waves of this many to this many cycles round it push it out (and a
+# little in) up to this far, over a band this deep: fine flame tongues
+TONGUE_GAPS = 0.65  # the fire's outer band loses this much of itself between the tongues, and they towards their
+# tips (they and it see-through)
+EDGE_DESAT = 0.3  # and what it adds to the room this much of its saturation
+OUTER = (0.25, 0.4, 0.5)  # the smoke's outer third (deeper in from its edge than the first, nothing past the second)
+# keeps this share of its density on average...
+WISPS = (0.035, 0.05, 0.9)  # ...in wisps this big across and up (shares of the short side), varying this much round
+# that share; they are fixed in the cloud and rise with it (stretched up further they read as streaks)
+TOP_THIN = (14, 50, 0.6)  # from this many frames after the blast to this many, the smoke thins from its crown, by this
+# share at the top (it rises and thins from the top, not fading in place)
 PARAMS = dataclasses.replace(  # composite.composite_frame's for a fireball rolling into black smoke (its light is ours)
     C.CompositeParams(), light_gain=0.0, fire_gain=0.75, shading_lo=0.5, shading_hi=1.35, interior_blur_frac=0.04,
     interior_lo=0.45, interior_hi=0.9, sat_lo=0.4, sat_hi=0.65)
@@ -371,6 +406,176 @@ def rim_light(m: np.ndarray, src, s: float) -> np.ndarray:
                       interpolation=cv2.INTER_LINEAR)
 
 
+# ------------------------------------------------------------------ the fireball's light
+def falloff(shape: tuple[int, int], r0: float, ball: float, power: float = 1.0) -> tuple[np.ndarray, float]:
+    """The light's spread on a (h, w) grid: the rFFT of (1 + r / ``r0``) ** -``power`` over the grid doubled (so
+    nothing wraps round the frame), and its sum over a disc of radius ``ball``: a ball that size of luminance 1
+    lights its own middle 1."""
+    h, w = shape
+    dy = np.minimum(np.arange(2 * h), 2 * h - np.arange(2 * h)).astype(np.float64)[:, None]
+    dx = np.minimum(np.arange(2 * w), 2 * w - np.arange(2 * w)).astype(np.float64)[None]
+    r = np.hypot(dx, dy)
+    k = (1.0 + r / max(r0, 0.5)) ** -power
+    return np.fft.rfft2(k), float(k[r <= max(ball, 1.0)].sum())
+
+
+def blast_light(y: np.ndarray, spread: np.ndarray, norm: float) -> np.ndarray:
+    """(h, w): the light the glowing image ``y`` (linear luminance, on falloff's grid) throws round it."""
+    h, w = y.shape
+    lit = np.fft.irfft2(np.fft.rfft2(y.astype(np.float64), (2 * h, 2 * w)) * spread, (2 * h, 2 * w))[:h, :w]
+    return np.maximum(lit / norm, 0.0).astype(np.float32)
+
+
+def light_colour(fire_lin: np.ndarray) -> np.ndarray:
+    """The colour (linear, luminance 1) of the light of ``fire_lin`` (the render's fire, linear): a camera's fire
+    colour (RAMP) for its luminance-weighted brightness as the composite shows it, held to LIGHT_V. A hot ball lights
+    the room yellow-orange, a cooling one deep orange."""
+    y = fire_lin @ C._LUMA
+    total = float(y.sum())
+    v = LIGHT_V[1] if total <= 1e-9 else float(np.clip((float((y * y).sum()) / total * PARAMS.fire_gain) ** (1 / 2.2),
+                                                       *LIGHT_V))
+    c = np.array([np.interp(v, RAMP_V, RAMP[:, i]) for i in range(3)]) ** 2.2
+    return (c / float(c @ C._LUMA)).astype(np.float32)
+
+
+def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray) -> np.ndarray:
+    """``lit`` (the room ``P`` with the fireball's light on it, linear) with what the light adds to the room, off the
+    arm's matte ``m``, kept warm as the picture shows it: green rising at most LIGHT_WARM of red, blue of green."""
+    g0 = np.clip(P, 0.0, None) ** np.float32(1 / 2.2)
+    d = np.clip(lit, 0.0, None) ** np.float32(1 / 2.2) - g0
+    green = np.minimum(d[..., 1], LIGHT_WARM * np.maximum(d[..., 0], 0.0))
+    blue = np.minimum(d[..., 2], LIGHT_WARM * np.maximum(green, 0.0))
+    off = 1.0 - m
+    d[..., 1] += off * (green - d[..., 1])
+    d[..., 2] += off * (blue - d[..., 2])
+    return (g0 + d) ** np.float32(2.2)
+
+
+# ------------------------------------------------------------------ its outline
+def _field(rng: np.random.Generator, h: int, w: int, across: float, up: float) -> np.ndarray:
+    """(h, w) float32 uniform in [0, 1]: white noise blurred ``across`` and ``up`` px (by FFT, so it tiles)."""
+    f = np.fft.rfft2(rng.standard_normal((h, w)))
+    ky, kx = np.fft.fftfreq(h)[:, None], np.fft.rfftfreq(w)[None]
+    g = np.fft.irfft2(f * np.exp(-2 * np.pi ** 2 * ((kx * across) ** 2 + (ky * up) ** 2)), (h, w))
+    rank = np.empty(g.size, np.float32)
+    rank[np.argsort(g, axis=None)] = np.linspace(0.0, 1.0, g.size, dtype=np.float32)
+    return rank.reshape(h, w)
+
+
+class Outline:
+    """The blast's outline broken up, frame by frame over the element's box: the fire's rim pushed out by fine waves
+    round it into flame tongues, the band between them thinned so they and it are partly see-through, and what it adds
+    to the room less saturated; the smoke's outer third thinned into wisps fixed in the cloud (rising with it), which
+    breaks its round silhouette, the cloud thinning from its crown as it climbs. Seeded per shot."""
+
+    def __init__(self, h: int, w: int, side: int, seed: int):
+        rng = np.random.default_rng([seed, 53])
+
+        def waves(lo: int, hi: int, n: int, speed: tuple[float, float]) -> tuple[np.ndarray, ...]:
+            # (cycles round, phase, curl outward, radians a frame)
+            return (rng.integers(lo, hi + 1, n).astype(np.float32), rng.uniform(0, 2 * np.pi, n).astype(np.float32),
+                    rng.uniform(-3.0, 3.0, n).astype(np.float32),
+                    (rng.choice([-1.0, 1.0], n) * rng.uniform(*speed, n)).astype(np.float32))
+
+        self.tongues = waves(TONGUES[0], TONGUES[1], 10, (0.25, 0.8))
+        self.bursts = waves(3, 8, 4, (0.05, 0.15))
+        self.gaps = waves(TONGUES[0], 2 * TONGUES[1], 10, (0.3, 0.9))
+        hq, wq = max(2, h // 4), max(2, w // 4)
+        self.wisps = [_field(rng, hq, wq, WISPS[0] * side / 4, WISPS[1] * side / 4) for _ in range(2)]
+        for i, fine in enumerate(_field(rng, hq, wq, WISPS[0] * side / 12, WISPS[1] * side / 12) for _ in range(2)):
+            self.wisps[i] = 0.65 * self.wisps[i] + 0.35 * fine  # (and their ragged edges)
+
+    @staticmethod
+    def _wave(p: tuple[np.ndarray, ...], theta: np.ndarray, rho: np.ndarray, since: float) -> np.ndarray:
+        """In (-1, 1): the waves ``p`` round the cloud (``theta``), curling out with ``rho`` (its radii), at ``since``."""
+        m, ph, curl, speed = p
+        acc = np.zeros(theta.shape, np.float32)
+        for i in range(len(m)):
+            acc += np.sin(m[i] * theta + ph[i] + curl[i] * rho + speed[i] * since)
+        return np.tanh(acc * np.float32(math.sqrt(2.0 / len(m))))
+
+    @staticmethod
+    def _inside(part: np.ndarray, floor: int, size: tuple[int, int]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """(element in [0, 1], its cloud's silhouette, signed px in from its edge), at ``size`` (w, h). The render's
+        thin threads of haze round the cloud are not the cloud (kept as such they drew thin dark lines on the wall)."""
+        e = C._black_floor_f(cv2.resize(part, size, interpolation=cv2.INTER_AREA), floor)
+        inside = (C._smoothstep(0.03, 0.10, e.max(-1)) > 0.5).astype(np.uint8)
+        inside = cv2.morphologyEx(inside, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+        sd = cv2.distanceTransform(inside, cv2.DIST_L2, 3) - cv2.distanceTransform(1 - inside, cv2.DIST_L2, 3)
+        return e, inside, sd
+
+    def warp(self, E8: np.ndarray, floor: int, box, since: float, rise: float, also: list[np.ndarray]):
+        """In place over ``box``: ``E8`` (uint8, plate size) with its outline broken, and each map in ``also`` (float,
+        box size) moved with it. Returns what finish needs (quarter-size maps), or None for no cloud yet."""
+        y0, y1, x0, x1 = box
+        part = E8[y0:y1, x0:x1]
+        hb, wb = part.shape[:2]
+        hq, wq = max(2, hb // 4), max(2, wb // 4)
+        e, inside, sd = self._inside(part, floor, (wq, hq))
+        if inside.sum() < 12:
+            return None
+        rc = math.sqrt(float(inside.sum()) / math.pi)  # its radius, quarter px
+        ys, xs = np.nonzero(inside)
+        cy, cx = float(ys.mean()), float(xs.mean())
+        yy, xx = np.mgrid[:hq, :wq].astype(np.float32)
+        theta, rho = np.arctan2(yy - cy, xx - cx), np.hypot(yy - cy, xx - cx) / rc
+        fire = np.clip(C.fire_weight_map(e, PARAMS, max(1, E8.shape[1] * wq // wb), True), 0.0, 1.0)
+        near = np.clip(2.0 * cv2.GaussianBlur(fire, (0, 0), max(1.0, 0.1 * rc)), 0.0, 1.0)  # (its dim rim too)
+        g = cv2.GaussianBlur(inside.astype(np.float32), (0, 0), max(1.0, 0.15 * rc))
+        gy, gx = np.gradient(g)
+        n = np.hypot(gx, gy) + 1e-6
+        # flame tongues: narrow and pushed out (the notches between them shallow), in bursts round the ball (not an
+        # even comb), longer where its rim faces up (flames rise)
+        wave = self._wave(self.tongues, theta, rho, since)
+        tongue = np.where(wave > 0, np.abs(wave) ** 1.6, 0.35 * wave) * (0.3 + 0.7 * C._smoothstep(
+            -0.4, 0.6, self._wave(self.bursts, theta, rho, since))) * (0.6 + 0.6 * np.clip(gy / n, 0.0, 1.0))
+        push = rc * near * TONGUES[2] * tongue * np.exp(-(sd / (TONGUES[3] * rc)) ** 2)
+        fx_, fy_ = wb / wq, hb / hq
+        X, Y = np.meshgrid(np.arange(wb, dtype=np.float32), np.arange(hb, dtype=np.float32))
+        mx = X + cv2.resize((gx / n * push * fx_).astype(np.float32), (wb, hb))  # (inward: a push out samples inside)
+        my = Y + cv2.resize((gy / n * push * fy_).astype(np.float32), (wb, hb))
+        moved = cv2.remap(part, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE).astype(np.float32)
+        rim = 1.0 - C._smoothstep(0.0, TONGUES[3] * rc, sd)  # the fire's outer band, and past it
+        gap = C._smoothstep(-0.2, 0.6, self._wave(self.gaps, theta, rho, since))
+        tips = 1.0 - TONGUE_GAPS * C._smoothstep(0.0, 1.5 * TONGUES[2] * rc, -sd)  # (the tongues fade to their tips)
+        keep = 1.0 - near * (1.0 - (1.0 - TONGUE_GAPS * rim * (1.0 - gap)) * tips)
+        keep = cv2.resize(keep.astype(np.float32), (wb, hb))
+        E8[y0:y1, x0:x1] = np.clip(floor + (moved - floor) * keep[..., None] + 0.5, 0, 255).astype(np.uint8)
+        for a in also:
+            a[:] = cv2.remap(a, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        _, _, sd2 = self._inside(E8[y0:y1, x0:x1], floor, (wq, hq))
+        wisp = np.zeros((hq, wq), np.float32)
+        for field, share, faster in zip(self.wisps, (0.6, 0.4), (1.0, 1.5)):  # (the second peels off upward)
+            M = np.float32([[wb / wq / 4, 0, x0 / 4], [0, hb / hq / 4, (y0 + faster * rise) / 4]])
+            wisp += share * cv2.warpAffine(field, M, (wq, hq), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                                           borderMode=cv2.BORDER_WRAP)
+        kept = OUTER[2] * (1.0 + WISPS[2] * (2.0 * C._smoothstep(0.2, 0.8, wisp) - 1.0))
+        outer = 1.0 - C._smoothstep(OUTER[0] * rc, OUTER[1] * rc, sd2)
+        dens = 1.0 - outer * (1.0 - kept * C._smoothstep(-0.15 * rc, 0.0, sd2))  # (its faint haze past it goes)
+        dens *= 1.0 - TOP_THIN[2] * C._smoothstep(TOP_THIN[0], TOP_THIN[1], since) * np.clip((cy - yy) / rc, 0, 1)
+        return near, EDGE_DESAT * near * rim, 1.0 - (1.0 - near) * (1.0 - dens), (1.0 - near) * outer
+
+    @staticmethod
+    def finish(Q: np.ndarray, P: np.ndarray, box, maps) -> None:
+        """In place over ``box``: the composite ``Q`` (linear) with warp's maps put on it against the room ``P``: soot
+        never lighter than the room behind it, softened in its outer third (the render draws a thin bright rim round
+        its smoke: composited it drew a contour line round the cloud), its density where it is thinned, and on the
+        fire's rim what the fire adds less saturated (the room behind it keeps its colour)."""
+        near, desat, dens, outer = maps
+        y0, y1, x0, x1 = box
+        size = (x1 - x0, y1 - y0)
+        up = lambda a: cv2.resize(a.astype(np.float32), size, interpolation=cv2.INTER_LINEAR)[..., None]  # noqa: E731
+        q, p = Q[y0:y1, x0:x1], P[y0:y1, x0:x1]
+        d = q - p - (1.0 - up(near)) * np.maximum(q - p, 0.0)
+        small = cv2.resize(d, near.shape[::-1], interpolation=cv2.INTER_AREA)
+        soft = up(outer)
+        d = d * (1.0 - soft) + soft * cv2.resize(cv2.GaussianBlur(small, (0, 0), 2.0), size,
+                                                 interpolation=cv2.INTER_LINEAR)
+        d *= up(dens)
+        d += up(desat) * ((d @ C._LUMA)[..., None] - d)
+        Q[y0:y1, x0:x1] = np.maximum(p + d, 0.0)
+
+
 def library_element() -> np.ndarray:
     """The explosion rendered ahead (the made-ahead library's explosion/element.mp4)."""
     from .bending import library_dir
@@ -429,21 +634,37 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         g = GROW_FRAMES / BURST_SPEED
         return e_ign + (int(round(since * BURST_SPEED)) if since <= g else int(round(GROW_FRAMES + (since - g))))
 
+    def lift(t: int) -> tuple[float, float]:
+        """(frames since its burst, px its middle has risen by then): it rolls up as it burns, its smoke climbs on."""
+        since = max(0.0, (t - k0) - GROW_FRAMES / BURST_SPEED)  # (after its burst, as the render plays in real time)
+        climb = since - ROLL[3] * (1.0 - math.exp(-since / ROLL[3]))
+        return since, R * (ROLL[0] * (1.0 - math.exp(-since / ROLL[1])) + ROLL[2] * climb / fx.FPS)
+
+    xs_all = np.arange(w, dtype=np.float32)
+
     def element_on(t: int) -> np.ndarray | None:
         e = frame_of(t - k0)
         if t < k0 or e >= len(el):
             return None
-        since = max(0.0, (t - k0) - GROW_FRAMES / BURST_SPEED)  # (after its burst, as the render plays in real time)
-        k = k_el * (1.0 + SWELL[0] * (1.0 - math.exp(-since / SWELL[1])))  # the hot cloud swells as it burns out...
-        o = (origin[0], origin[1] - RISE * s * (1.0 - math.exp(-since / SWELL[1])))  # ...and lifts
+        since, up = lift(t)
+        grow = 1.0 - math.exp(-since / SWELL[1])
+        k = k_el * (1.0 + SWELL[0] * grow)  # the hot cloud swells as it burns out, and rises
+        o = (origin[0], origin[1] - up)
         S = np.array([[k, 0, o[0] - k * el_centre[0]], [0, k, o[1] - k * el_centre[1]], [0, 0, 1]])
-        A = (_between(cam, k0, t) @ S)[:2]
-        return cv2.warpAffine(el[e], A.astype(np.float32), (w, h), flags=cv2.INTER_LINEAR, borderValue=0)
+        Ai = cv2.invertAffineTransform((_between(cam, k0, t) @ S)[:2])
+        mid = float(room_point(cam, k0, t, o)[1])
+        v = np.arange(h, dtype=np.float32) - mid  # its rows over its middle are stretched up, the rest kept
+        rows = mid + v / (1.0 + TOP_STRETCH * grow / (1.0 + np.exp(np.clip(v / (0.25 * R), -50, 50))))
+        mx = (Ai[0, 0] * xs_all[None] + Ai[0, 1] * rows[:, None] + Ai[0, 2]).astype(np.float32)
+        my = (Ai[1, 0] * xs_all[None] + Ai[1, 1] * rows[:, None] + Ai[1, 2]).astype(np.float32)
+        return cv2.remap(el[e], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
     out = plate.copy()
     last = min(n, k0 + max(SHOCK_FRAMES, int(np.max(parts.t0 + parts.life)) + 1,
                            int(math.ceil(GROW_FRAMES / BURST_SPEED + len(el) - e_ign - GROW_FRAMES)) + 1))
     q = 8
+    spread, spread_norm = falloff((h // q, w // q), LIGHT_FALLOFF[0] * R / q, R / q, LIGHT_FALLOFF[1])
+    outline = Outline(h, w, side, seed)
     for t in range(k0, last):
         since = t - k0
         P = lin(plate[t]).astype(np.float32)
@@ -451,7 +672,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         m = np.minimum(m, cv2.GaussianBlur(m, (0, 0), 1.5))
         o_t = room_point(cam, k0, t, origin)
         E8 = element_on(t)
-        box = billow = None
+        box = billow = rim_maps = None
         if E8 is not None:
             E8 = radial_blur(E8, o_t, GROW_BLUR.get(since, 0.0))
             E8 = cv2.GaussianBlur(E8, (0, 0), DEFOCUS_PX * side / 1080)
@@ -467,27 +688,31 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                     billow = billow * cv2.GaussianBlur(inner, (0, 0), r_in / 2)
                 else:
                     billow = None
-        # the blast's light on the room and the arm: from the render's fire, and the white-hot core on its first frames
-        fire_small = None
+                rim_maps = outline.warp(E8, floor, box, since, lift(t)[1], [] if billow is None else [billow])
+        # the blast's light on the room and the arm, from its own image: the render's fire, and the white-hot core on
+        # its first frames, spread round it and tinted to its colour
+        fire_small, colour = None, fx.kelvin_rgb(4500.0)
         if E8 is not None:
             e = C._black_floor_f(cv2.resize(E8, (w // q, h // q), interpolation=cv2.INTER_AREA), floor)
             fire_small = C._lin(e) * C.fire_weight_map(e, PARAMS, w // q, True)[..., None]
+            colour = light_colour(fire_small)
         core_i = CORE.get(since, 0.0) * size
         if core_i > 0:
             rc = (0.35 + 0.3 * since) * s
             yy, xx = np.mgrid[:h // q, :w // q].astype(np.float32) * q
             core_s = (3.0 * core_i * np.exp(-((xx - o_t[0]) ** 2 + (yy - o_t[1]) ** 2) / (2 * rc * rc)))[..., None] \
                 * fx.kelvin_rgb(4500.0)
+            f_y = 0.0 if fire_small is None else float(fire_small.sum())
+            c_y = float(core_s.sum())
+            colour = (colour * f_y + fx.kelvin_rgb(4500.0) * c_y) / (f_y + c_y)
             fire_small = core_s if fire_small is None else fire_small + core_s
         if fire_small is not None and fire_small.max() > 0:
-            hand_f, room_f, _ = fx.light_fields(fire_small[None].astype(np.float32), np.array([s]), (h, w))
-            _, radius, colour = fx.element_light(fire_small[None].astype(np.float32), "fire", size=(h, w))
-            room = cv2.resize(room_f[0], (w, h)) * np.float32(fx.ROOM_GAIN * 1.3)
-            handl = cv2.resize(hand_f[0], (w, h)) * np.float32(fx.HAND_GAIN)
-            rim = rim_light(m, o_t, s)
-            light = np.minimum(room * (1 - m) + handl * m * (0.22 + RIM_GAIN * rim) + room * m * 0.5, 3.0)
-            P = P + fx.albedo(P, white, tint) * light[..., None] * colour[0]
-            P = P + cv2.resize(cv2.GaussianBlur(fire_small, (0, 0), max(1.0, float(radius[0]) / q)), (w, h)) * 0.05
+            L = cv2.resize(blast_light(fire_small @ C._LUMA, spread, spread_norm), (w, h)) * np.float32(LIGHT_GAIN)
+            on = (1.0 - m) + m * (ARM_LIGHT[0] + ARM_LIGHT[1] * rim_light(m, o_t, s))
+            shone = P + (fx.albedo(P, white, tint) * (L * on)[..., None] + np.float32(LIGHT_GLOW) * L[..., None])                 * colour
+            hot = shone > LIGHT_KNEE  # (the composite takes the plate in 8 bits: past white it would clip flat)
+            shone[hot] = LIGHT_KNEE + (1.0 - LIGHT_KNEE) * np.tanh((shone[hot] - LIGHT_KNEE) / (1.0 - LIGHT_KNEE))
+            P = warm_light(P, shone, m)
         # the fireball and its smoke, behind the arm
         if E8 is not None:
             comp = C.composite_frame(gam(P), E8, PARAMS, holdout_row=None, emission=tuple(o_t), fire_energy_ref=None,
@@ -503,6 +728,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                 lit = Q[y0:y1, x0:x1] * (1.0 + (1.0 - _ease((since - CLEAR[0]) / CLEAR[1])) * billow)[..., None]
                 Q[y0:y1, x0:x1] = np.minimum(lit, np.maximum(Q[y0:y1, x0:x1], P[y0:y1, x0:x1]))  # (soot is never
                 # lit brighter than the room behind it)
+            if rim_maps is not None:
+                Outline.finish(Q, P, box, rim_maps)
             P = Q * (1 - m[..., None]) + P * m[..., None]
             if since >= 1:  # the hot air round and above the fireball shimmers
                 hot = np.clip(fx._lum(lin(cv2.resize(E8, (w // 4, h // 4), interpolation=cv2.INTER_AREA))) * 4.0, 0, 1)
