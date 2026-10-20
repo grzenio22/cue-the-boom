@@ -23,6 +23,20 @@ export function hitAnchor(r: Receipt | null | undefined): number {
   return r.mode === "scene" ? (r.alignment?.hit_frame ?? r.guide.anchor_frame) : r.guide.anchor_frame;
 }
 
+/** Where a shot's loop starts (s): a beat before its first hit, so a strip of them shows the effects, not bare hands. */
+export function effectStart(r: Receipt | null | undefined): number {
+  const hit = r?.bending?.hits?.[0]?.frame;
+  return hit === undefined ? 0 : Math.max(0, hit / 24 - 0.6);
+}
+
+/** What made a hand shot's element, said on its gallery tile. */
+export function handMade(r: Receipt | null | undefined): string {
+  const e = typeof r?.effect === "object" ? r.effect : undefined;
+  if (e?.made === "explosion") return "on a real hand: an LTX-2.5 fireball, its blast made from the hand";
+  if (e?.made) return `on a real hand: ${e.made} made from the hand and the voice (no render, no GPU)`;
+  return "carried on a real hand (an LTX-2.5 element, rendered once)";
+}
+
 /** A shot from your hand (cuesync.bending): the element rendered over black once, carried on the tracked hand. */
 export interface BendingReceipt {
   mask: string | null;
@@ -41,6 +55,7 @@ export interface Receipt {
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
   warnings?: string[];
   inputs?: { cue?: CueKind; drawn?: boolean; describe?: string | null; sources?: [number, number][] | null };
+  effect?: { id?: string; made?: string } | string; // made: the module an element made here came from (no render)
   // hit_error_frames: an element shot's hit, measured on the shot; residual_frames: what a scene shot's re-time
   // could not take out (older scene receipts call it hit_error_frames)
   measured: { onset_error_frames?: number | null; hit_error_frames?: number | null; residual_frames?: number | null; stop_latency_frames: number | null; stops_with_voice: boolean; model_early_frames?: number | null };

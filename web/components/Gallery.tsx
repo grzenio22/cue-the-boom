@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { JobStatus } from "@/lib/shot";
+import { handMade, type JobStatus } from "@/lib/shot";
 
 type Shot = JobStatus & { title: string };
 
@@ -29,11 +29,11 @@ export default function Gallery() {
       <div className="grid">
         {shots.map((s) => (
           <button key={s.id} className="tile" onClick={() => setOpen({ shot: s, file: "final.mp4" })}>
-            <video src={s.files["final.mp4"]} muted playsInline preload="metadata" />
+            <video src={s.files["final.mp4"]} poster={s.files["poster.jpg"]} muted playsInline preload="metadata" />
             <span>{s.title}</span>
             <span className="muted note">{s.mode === "scene"
               ? `rendered into the scene (LTX-2.5)${s.receipt?.inputs?.drawn ? ", drawn" : ""}${s.receipt?.inputs?.cue === "clip" ? ", locked to the clip's sound" : s.receipt?.inputs?.cue === "hold" ? ", press and hold" : ""}${pixels(s)}`
-              : s.mode === "bending" ? "carried on a real hand (an LTX-2.5 element, rendered once)"
+              : s.mode === "bending" ? handMade(s.receipt)
               : s.mode === "render" ? "element rendered from the noise" : "instant (pre-rendered element)"}</span>
           </button>
         ))}

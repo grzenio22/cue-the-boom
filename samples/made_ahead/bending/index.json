@@ -94,17 +94,5 @@
   "tap_frame": 48,
   "real": true,
   "rank": -101.5
- },
- "bending|hand_palm.mp4|hoooo.wav|air_ball@made|0.51,0.65|1": {
-  "dir": "hand_palm__hoooo__air_ball",
-  "title": "hoooooo · a ball of air in the palm",
-  "plate": "hand_palm.mp4",
-  "voice": "hoooo.wav",
-  "effect": "air_ball",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -102.5
  }
 }
