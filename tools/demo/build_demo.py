@@ -12,7 +12,10 @@ Beats (all times in seconds; text may use \\n):
    ...], "headline": "...", "subline": "...", "caption": "..."}   clips side by side that play in turn, each with its
       own sound under it (the others wait, dimmed): one shot performed several ways; the beat lasts as long as they do
   {"type": "compare", "panels": [...], "dur": 3.5, "audio": 1} all panels play in step; the selected panel's
-      voice plays. A panel's "audio_src" replaces its composite Foley. "loop": 3.5 repeats a complete take.
+      voice plays, or "audio": "mix" averages the voices. "highlight": 1 dims the other pictures. A panel's
+      "audio_src" replaces its composite Foley; "audio_from" and "audio_gain" work in turns too.
+      "loop": 3.5 repeats a complete take. Both layouts fit the whole portrait in the same panel bounds;
+      "element_src" adds a thumbnail of the reused element at "element_at" (default 2.9 s).
   {"type": "image", "src": "path.png", "dur": 3, "caption": "...", "zoom": 1.08}   a still with a slow push-in
   a clip may add "speed": 8 (silent while sped up) and "note": "sped up x8" (a tag at the top right),
   "crop": [x0, y0, x1, y1] (fractions, to zoom in), and "audio_src" + "audio_from" + "audio_at" (another file's
@@ -37,7 +40,9 @@ which is ducked while it speaks; narration longer than its beat runs on into the
 "vo_text" captions the spoken line for its WAV's exact duration, across cuts when needed. A clip's "audio_replace"
 replaces rather than mixes its audio_src; "source_gain" controls its original sound. "portrait_backdrop" keeps the
 whole portrait picture over a dim blurred copy, so a hand or rising effect is not cropped off. A triptych takes
-"speed" for a silent slow-motion picture. All narration captions stay inside a measured two-line safe area.
+"speed" for a silent slow-motion picture. "vo_captions": [[begin, end, text], ...] splits a long spoken line into
+timed phrases, relative to the narration's start; "vo_text" remains the complete transcript. A clip's "cue_text"
+appears at "cue_at" for "cue_dur" (default 1.5 s). All narration captions stay inside a measured two-line safe area.
 """
 
 from __future__ import annotations
@@ -276,6 +281,43 @@ class Clip:
         return out
 
 
+def panel_sound(c: Clip, q: dict) -> np.ndarray:
+    """A complete performance window, with its actual voice replacing the composite sound when supplied."""
+    audio = c.sound()
+    if q.get("audio_src"):
+        audio[:] = 0
+        voice = read_audio(q["audio_src"], SR)[int(float(q.get("audio_from", q.get("start", 0))) * SR):]
+        audio[:min(audio.size, voice.size)] = voice[:audio.size]
+    return audio * float(q.get("audio_gain", 1.0))
+
+
+def proof_element(b: dict) -> Image.Image | None:
+    if not b.get("element_src"):
+        return None
+    at = float(b.get("element_at", 2.9))
+    frames, times = read_window(b["element_src"], at, at + 1 / FPS)
+    k = min(max(int(np.searchsorted(times, at + 1e-3, side="right")) - 1, 0), len(frames) - 1)
+    return fit(frames[k], 150, 84)
+
+
+def proof_header(img: Image.Image, b: dict, element: Image.Image | None) -> None:
+    """One stable proof label and subline, with optional reference to the stored raw element."""
+    d, size = ImageDraw.Draw(img), 56
+    headline = b.get("headline", "")
+    while d.textlength(headline, font=font(size, True)) > W - 120 and size > 28:
+        size -= 1
+    d.text((60, 35), headline, font=font(size, True), fill=FG)
+    subline = b.get("subline", "")
+    subsize, max_w = 40, W - (340 if element else 120)
+    while d.textlength(subline, font=font(subsize, True)) > max_w and subsize > 24:
+        subsize -= 1
+    d.text((60, 118), subline, font=font(subsize, True), fill=ACCENT)
+    if element:
+        x, y = W - 210 + (150 - element.width) // 2, 98 + (84 - element.height) // 2
+        img.paste(element, (x, y))
+        d.rectangle([x - 2, y - 2, x + element.width + 2, y + element.height + 2], outline=ACCENT, width=2)
+
+
 def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
     kind, dur = b["type"], float(b.get("dur", 3))
     n = int(round(dur * FPS))
@@ -387,6 +429,13 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
                 tw = d.textlength(b["note"], font=f)
                 d.rounded_rectangle([W - tw - 70, 24, W - 30, 74], radius=12, fill=ACCENT)
                 d.text((W - 50, 49), b["note"], font=f, fill=BG, anchor="rm")
+            if b.get("cue_text") and float(b.get("cue_at", 0)) <= i / FPS < float(b.get("cue_at", 0)) + float(b.get("cue_dur", 1.5)):
+                size, cue = 44, b["cue_text"]
+                while d.textlength(cue, font=font(size, True)) > W - 180 and size > 24:
+                    size -= 1
+                tw = d.textlength(cue, font=font(size, True))
+                d.rounded_rectangle([(W - tw) / 2 - 28, 130, (W + tw) / 2 + 28, 210], radius=16, fill=BG)
+                d.text((W / 2, 170), cue, font=font(size, True), fill=ACCENT, anchor="mm")
             stamp(img, b.get("stamp"), top=bool(b.get("stamp_top")))
             frames.append(np.asarray(img))
     elif kind == "versus":  # LTX-2.5's render as it came, beside the finished shot, on the same timeline
@@ -454,68 +503,68 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
         clips = [Clip(q["src"], float(q.get("start", 0)), period, crop=q.get("crop")) for q in panels]
         sounds = []
         for c, q in zip(clips, panels):
-            a = c.sound()
-            if q.get("audio_src"):
-                a[:] = 0
-                voice = read_audio(q["audio_src"], SR)[int(float(q.get("audio_from", q.get("start", 0))) * SR):]
-                a[:min(a.size, voice.size)] = voice[:a.size] * float(q.get("audio_gain", 1.0))
+            a = panel_sound(c, q)
             if a.size < audio.size:
-                a = np.tile(a, int(np.ceil(audio.size / a.size)))[:audio.size]
-            sounds.append(a)
-        audio = sounds[int(b.get("audio", 0))] * float(b.get("audio_gain", 1.0))
+                a = np.tile(a, int(np.ceil(audio.size / max(1, a.size)))) if b.get("loop") else np.pad(a, (0, audio.size - a.size))
+            sounds.append(a[:audio.size])
+        selected = b.get("audio", 0)
+        audio = (sum(sounds) / len(sounds) if selected == "mix" else sounds[int(selected)]) * float(b.get("audio_gain", 1.0))
         hop = SR // FPS
         energies = [np.array([np.sqrt(np.mean(a[i*hop:(i+1)*hop] ** 2)) for i in range(n)]) for a in sounds]
         peak = max(float(e.max()) for e in energies)
         envs = [(e / max(peak, 1e-8)) ** 0.6 for e in energies]
         top, box_h, cw = 190, 620, (W - 120) // len(clips)
+        element = proof_element(b)
         for i in range(n):
             img = Image.new("RGB", (W, H), BG)
             d = ImageDraw.Draw(img)
             for k, (c, q) in enumerate(zip(clips, panels)):
                 j = i % c.n if b.get("loop") else i
                 im = fit(c.frame(j), cw - 30, box_h)
+                active = b.get("highlight") is None or k == int(b["highlight"])
+                if not active:
+                    im = Image.blend(Image.new("RGB", im.size, BG), im, 0.4)
                 x = 60 + k * cw + (cw - im.width) // 2
                 img.paste(im, (x, top))
-                d.text((x + im.width / 2, top + 32), q.get("label", ""), font=font(46, True), fill=ACCENT,
+                if b.get("highlight") is not None and active:
+                    d.rounded_rectangle([x - 6, top - 6, x + im.width + 6, top + im.height + 6], radius=14, outline=ACCENT, width=6)
+                d.text((x + im.width / 2, top + 32), q.get("label", ""), font=font(46, True), fill=ACCENT if active else MUTED,
                        anchor="mm", stroke_width=4, stroke_fill=BG)
                 wave(d, x, top + box_h + 18, im.width, 64, envs[k], i)
-                pop(d, x + im.width // 2, top + int(box_h * 0.75), j / FPS, q.get("pops"))
-            d.text((60, 35), b.get("headline", ""), font=font(64, True), fill=FG)
-            d.text((60, 118), b.get("subline", ""), font=font(40, True), fill=ACCENT)
+                if active:
+                    pop(d, x + im.width // 2, top + int(box_h * 0.75), j / FPS, q.get("pops"))
+            proof_header(img, b, element)
             stamp(img, b.get("stamp"))
             frames.append(np.asarray(img))
     elif kind == "turns":  # one shot performed several ways: each plays in turn, its own sound under it
         panels = b["panels"]
         clips = [Clip(q["src"], float(q.get("start", 0)), float(q["dur"]), crop=q.get("crop")) for q in panels]
-        sounds = [c.sound() for c in clips]
-        audio = np.concatenate(sounds)
+        sounds = [panel_sound(c, q) for c, q in zip(clips, panels)]
+        audio = np.concatenate(sounds) * float(b.get("audio_gain", 1.0))
         envs = [envelope(a, c.n) for a, c in zip(sounds, clips)]
         starts = np.cumsum([0] + [c.n for c in clips])
-        top, wave_h = (170 if b.get("headline") else 60), 80
-        box_h = H - top - wave_h - (160 if b.get("caption") else 80)
+        top, box_h, wave_h = 190, 620, 64
         cw = (W - 120) // len(clips)
+        element = proof_element(b)
         for i in range(int(starts[-1])):
             img = Image.new("RGB", (W, H), BG)
             d = ImageDraw.Draw(img)
             now = int(np.searchsorted(starts, i, side="right")) - 1
             for k, (c, q) in enumerate(zip(clips, panels)):
                 j = min(max(i - int(starts[k]), 0), c.n - 1)  # waiting on its first frame, done on its last
-                im = cover(c.frame(j), cw - 36, box_h)
+                im = fit(c.frame(j), cw - 30, box_h)
                 if k != now:
                     im = Image.blend(Image.new("RGB", im.size, BG), im, 0.4)
-                x0 = 60 + k * cw + 18
+                x0 = 60 + k * cw + (cw - im.width) // 2
                 img.paste(im, (x0, top))
                 if k == now:
                     d.rounded_rectangle([x0 - 6, top - 6, x0 + im.width + 6, top + im.height + 6], radius=14, outline=ACCENT, width=6)
-                d.text((x0 + im.width // 2, top + 56), q.get("label", ""), font=font(56, True), fill=ACCENT if k == now else MUTED,
-                       anchor="mm", stroke_width=6, stroke_fill=(0, 0, 0))
-                wave(d, x0, top + box_h + 24, im.width, wave_h, envs[k], j if k <= now else -1)
+                d.text((x0 + im.width / 2, top + 32), q.get("label", ""), font=font(46, True), fill=ACCENT if k == now else MUTED,
+                       anchor="mm", stroke_width=4, stroke_fill=BG)
+                wave(d, x0, top + box_h + 18, im.width, wave_h, envs[k], j if k <= now else -1)
                 if k == now:
-                    pop(d, x0 + im.width // 2, top + int(box_h * 0.3), j / FPS, q.get("pops"))
-            if b.get("headline"):
-                d.text((60, 40), b["headline"], font=font(72, True), fill=FG)
-                if b.get("subline"):
-                    d.text((W - 60, 80), b["subline"], font=font(44, True), fill=ACCENT, anchor="rm")
+                    pop(d, x0 + im.width // 2, top + int(box_h * 0.75), j / FPS, q.get("pops"))
+            proof_header(img, b, element)
             if b.get("caption"):
                 text_block(d, (W // 2, H - 80), b["caption"], 42, FG, anchor="mm", max_w=W - 200)
             stamp(img, b.get("stamp"))
@@ -530,6 +579,20 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
 
 
 DUCK = 0.3  # the beat's own sound under narration
+
+
+def narration_captions(beats: list[dict]) -> list[tuple[float, float, str]]:
+    """Schedule complete lines or explicit spoken phrases, even when their sound continues across a cut."""
+    captions, elapsed = [], 0.0
+    for b in beats:
+        if b.get("vo") and b.get("vo_text"):
+            begin = elapsed + float(b.get("vo_at", 0.15))
+            if b.get("vo_captions"):
+                captions.extend((begin + float(start), begin + float(end), text) for start, end, text in b["vo_captions"])
+            else:
+                captions.append((begin, begin + read_audio(b["vo"], SR).size / SR, b["vo_text"]))
+        elapsed += round(float(b["dur"]) * FPS) / FPS
+    return captions
 
 
 def narrate(audio: np.ndarray, parts: list[tuple[int, np.ndarray]]) -> tuple[np.ndarray, np.ndarray]:
@@ -558,12 +621,7 @@ def build(storyboard: Path, out: Path) -> float:
 
     beats = json.loads(Path(storyboard).read_text(encoding="utf-8"))
     beats = beats["beats"] if isinstance(beats, dict) else beats
-    captions, elapsed = [], 0.0
-    for b in beats:
-        if b.get("vo") and b.get("vo_text"):
-            begin = elapsed + float(b.get("vo_at", 0.15))
-            captions.append((begin, begin + read_audio(b["vo"], SR).size / SR, b["vo_text"]))
-        elapsed += round(float(b["dur"]) * FPS) / FPS
+    captions = narration_captions(beats)
     n_frames, all_audio, carry = 0, [], np.zeros(0, np.float32)
     with av.open(str(out), "w") as container:
         vs = container.add_stream("libx264", rate=Fraction(FPS))
