@@ -275,7 +275,7 @@ def test_a_bolt_strikes_an_edge_in_the_plate_with_a_contact_flash_and_a_splash()
             on_line += abs(e[1] - line) < 6.0
             if not ends or tuple(np.round(e, 6)) != ends[-1]:  # (each new strike's end, in turn)
                 ends.append(tuple(np.round(e, 6)))
-            hit = [(x, y, ax, ay) for x, y, ax, ay, _ in struck[t] if np.hypot(x - e[0], y - e[1]) < 1e-6]
+            hit = [(x, y, ax, ay) for x, y, ax, ay, *_ in struck[t] if np.hypot(x - e[0], y - e[1]) < 1e-6]
             if it >= L.IMPACT[2]:
                 assert hit and abs(hit[0][3]) < 0.3  # (the flash, the surface running across the picture)
                 flashed += 1
@@ -318,6 +318,126 @@ def test_with_nothing_to_strike_a_bolt_runs_off_the_frame_or_ends_in_a_brush():
                     assert min(x, W - 1 - x, y, H - 1 - y) > 0.08 * W  # (not on the margin)
         assert off and (air or aim is not None)  # (quiet, up the frame: in the air; loud, or left: off it)
         assert brushed >= 0.7 * air  # (it ends in a brush)
+
+
+def striped(n: int, s: float, step: int = 24):
+    """A take whose wall above the hand is striped across (dark and light bands ``step`` px high down to row 260): an
+    edge to strike at every distance up the picture."""
+    plate, track, mask = take(n, lambda t: (120, 330), s, wall=(150, 142, 128), texture=4.0)
+    for y in range(0, 260, 2 * step):
+        plate[:, y: y + step][mask[:, y: y + step] == 0] = (60, 50, 45)
+    return plate, track, mask
+
+
+def test_a_louder_voice_strikes_further_and_each_strike_lands_somewhere_new():
+    """With something to strike at every distance up the picture, a loud voice strikes further than a quiet one (about
+    TARGET_AT's diagonals: striking as far as it could, a burst's every stroke was the same length whatever the voice
+    did), and a burst's strikes go back and forth between places TARGET_APART apart, a re-strike as far as
+    TARGET_CONE's third off the aim (every strike of a 1.5 s burst ended in one 140 x 60 px patch)."""
+    n, s = 48, 60.0
+    plate, track, mask = striped(n, s)
+    hand = L._hand(plate, track)
+    tip = np.asarray(track["landmarks"][0][8][:2])
+    k, diag = W / 1080.0, float(np.hypot(W, H))
+    reach = {}
+    for level in (0.3, 1.0):
+        bolts, _, struck = L.arc_frames(hand, voice(np.full(n, level)), seed=4, matte=mask, plate=plate)
+        ends = [(t, (x, y)) for t in range(n) for x, y, *_ in struck[t][:1]]
+        dist = [float(np.hypot(*(np.array(e) - tip))) for _, e in ends]
+        reach[level] = np.median(dist)
+        want = diag * (L.TARGET_AT[0] + (L.TARGET_AT[1] - L.TARGET_AT[0]) * L.levels(voice([level]))[0])
+        assert 0.6 * want < reach[level] < 1.4 * want
+        new = [e for (t, e), (t0, e0) in zip(ends[1:], ends) if np.hypot(e[0] - e0[0], e[1] - e0[1]) > 1e-6]
+        assert len(new) > n // 4 and len({(round(x), round(y)) for x, y in new}) > len(new) // 3
+        steps = [np.hypot(a[0] - b[0], a[1] - b[1]) for a, b in zip(new[1:], new)]
+        assert min(steps) >= L.TARGET_APART * k - 1  # (somewhere new each time)
+        off = [abs(np.degrees(np.arctan2(e[0] - tip[0], tip[1] - e[1]))) for e in new]  # (the aim is up)
+        assert max(off) <= L.TARGET_CONE[2] + 1
+    assert reach[1.0] > 1.2 * reach[0.3]
+
+
+def test_one_strike_in_four_lands_in_two_prongs():
+    """About PRONG's share of the main channels that strike a surface end in two prongs, landing on two points PRONG's
+    px apart, each with its contact flash."""
+    n, s = 60, 60.0
+    plate, track, mask = striped(n, s)
+    hand = L._hand(plate, track)
+    k = W / 1080.0
+    two = one = 0
+    for seed in range(3):
+        _, _, struck = L.arc_frames(hand, voice(np.full(n, 1.0)), seed=seed, matte=mask, plate=plate)
+        for at in struck:
+            fresh = [(x, y) for x, y, ax, ay, g, first in at if first]
+            if len(fresh) == 2:
+                two += 1
+                gap = np.hypot(fresh[0][0] - fresh[1][0], fresh[0][1] - fresh[1][1])
+                assert L.PRONG[1][0] * k - 1 <= gap <= L.PRONG[1][1] * k + 1
+            elif len(fresh) == 1:
+                one += 1
+    assert 0.08 < two / (one + two) < 0.45
+
+
+def test_two_fingers_striking_nothing_run_well_apart():
+    """Two fingers held out together with nothing to strike: where either runs off into the air, their main channels
+    end at least PAIR_APART apart as seen from their tips (pointing along a floor, both ran off the frame side by side:
+    two stretched cables), or the second does not strike."""
+    n, s = 30, 60.0
+    plate, track, mask = take(n, lambda t: (135, 330), s, middle_out=True, texture=0.0)
+    hand = L._hand(plate, track)
+    tips = [np.asarray(track["landmarks"][0][f][:2]) for f in (8, 12)]
+    both = 0
+    for seed in range(3):
+        bolts, _, struck = L.arc_frames(hand, voice(np.full(n, 0.9), aim=300.0), seed=seed, matte=mask, plate=plate)
+        assert not any(struck)
+        for b in bolts:
+            ends = [mains(b, tp, s) for tp in tips]
+            if ends[0] and ends[1]:
+                both += 1
+                u = [(e[0] - tp) / np.linalg.norm(e[0] - tp) for e, tp in zip(ends, tips)]
+                assert np.degrees(np.arccos(np.clip(u[0] @ u[1], -1, 1))) >= L.PAIR_APART - 0.5
+    assert both > n // 2
+
+
+def test_over_a_bright_wall_a_bolt_stands_off_it():
+    """Over a wall brighter than BRIGHT_WALL (a beige wall at 155, where a channel was a faint scribble that all but
+    vanished at phone size) the main channel leaves the finger BRIGHT_WIDTH wider, each new stroke burns at full
+    strength for BRIGHT_HOLD frames, and round it the wall is darker and bluer (a band, and a saturated blue glow);
+    over a mid-grey wall none of that."""
+    n, s, kk = 16, 240.0, 4
+    tl = voice(np.full(n, 0.8), hits=[0])
+    found = {}
+    for wall in ((205, 195, 175), (110, 105, 100)):
+        plate, track, mask = take(n, lambda t: (120 * kk, 330 * kk), s, wall=wall, texture=0.0, size=(W * kk, H * kk))
+        hand = L._hand(plate, track)
+        bright = L._bright(plate, mask)
+        tip = np.asarray(track["landmarks"][0][8][:2])
+        bolts, _, _ = L.arc_frames(hand, tl, seed=1, matte=mask, plate=plate)
+        widths = [wd for b in bolts for p, wd, _ in b if np.allclose(p[0], tip) and np.linalg.norm(p[-1] - tip) > s]
+        found[wall] = bright, max(widths)
+        if bright < 1.0:
+            continue
+        strokes = []
+        for b in bolts:
+            main = [(tuple(np.round(p[-1], 3)), it) for p, wd, it in b if np.allclose(p[0], tip) and
+                    np.isclose(wd, max(widths))]
+            strokes.append(main[0] if main else None)
+        runs, last = [], None
+        for st in strokes:
+            if st is not None and last is not None and st[0] == last[0]:
+                runs[-1].append(st[1])
+            elif st is not None:
+                runs.append([st[1]])
+            last = st
+        assert all(np.allclose(r[:L.BRIGHT_HOLD], r[0]) for r in runs if len(r) >= L.BRIGHT_HOLD)
+        out = L.render(plate, track, mask, tl, "arc", seed=1)
+        core = (out[4].min(-1) >= 235) & (mask[4] == 0)
+        dist = cv2.distanceTransform((~core).astype(np.uint8), cv2.DIST_L2, 3)
+        band = (dist > 6) & (dist < 14) & (mask[4] == 0)
+        o, pl = out[4][band].astype(np.float32), plate[4][band].astype(np.float32)
+        assert (o @ LUMA).mean() < 0.97 * (pl @ LUMA).mean() or \
+            (o[:, 2] - o[:, 0]).mean() > (pl[:, 2] - pl[:, 0]).mean() + 25
+    (b1, w1), (b0, w0) = found[(205, 195, 175)], found[(110, 105, 100)]
+    assert b1 == 1.0 and b0 == 0.0 and np.isclose(w1, (1.0 + L.BRIGHT_WIDTH) * w0)
 
 
 def test_a_tap_on_the_palm_strikes_from_a_fingertip():
@@ -516,9 +636,11 @@ def test_the_arcs_light_the_room_blue_white_and_the_hand_a_cool_white(monkeypatc
 
 
 def test_a_fingertip_lit_by_the_arcs_blows_to_a_cool_white_not_hot_pink():
-    """On a dark, backlit hand and a light one, the skin the arcs lift the most (by its fingertip) goes a cool white
-    (saturation at most 0.15, blue over red), and nowhere on the hand does red rise more than green and SKIN_RED (a
-    cool light on skin already red lifted it most in red and blue: the fingertips went hot pink, the hand magenta)."""
+    """On a dark, backlit hand and a light one, the skin the arcs lift to white (by its fingertip) goes a cool white
+    (saturation at most 0.15, blue over red), the rest of the lit skin keeps SKIN_KEEP of its saturation (under the
+    arcs' violet blue a pointing finger went a grey mauve), and nowhere on the hand does red rise more than green and
+    SKIN_RED (a cool light on skin already red lifted it most in red and blue: the fingertips went hot pink, the hand
+    magenta)."""
     s = 60.0
     for palm, wall, most in (((75, 45, 49), (160, 150, 165), 100.0), ((225, 150, 130), (150, 142, 128), 70.0)):
         plate, track, mask = take(12, lambda t: (120, 330), s, palm=palm, wall=wall, texture=0.0)
@@ -527,9 +649,14 @@ def test_a_fingertip_lit_by_the_arcs_blows_to_a_cool_white_not_hot_pink():
         skin = cv2.erode(mask[0], np.ones((7, 7), np.uint8))[None] > 0
         lift = o - p
         lit = skin & (lift @ LUMA > most)
-        assert lit.sum() > 100
-        c = o[lit].mean(0)
+        white = lit & (o.max(-1) >= L.SKIN_KEEP_UNDER)
+        assert lit.sum() > 100 and white.sum() > 20
+        c = o[white].mean(0)
         assert colorsys.rgb_to_hsv(*(c / 255.0))[1] <= 0.15 and c[2] >= c[0]
+        rest = lit & (o.max(-1) < L.SKIN_KEEP_UNDER - 30)
+        if rest.any():
+            sat = (o.max(-1) - o.min(-1)) / o.max(-1)
+            assert sat[rest].mean() >= 0.9 * L.SKIN_KEEP * float((p.max(-1) - p.min(-1)).mean() / p.max(-1).mean())
         moved = skin & (lift @ LUMA > 20)
         assert (lift[moved][:, 0] - lift[moved][:, 1]).max() <= L.SKIN_RED + 1.5
 
@@ -554,8 +681,9 @@ def test_the_room_light_lands_as_the_same_blue_on_a_tinted_wall(monkeypatch):
 def test_in_a_dark_room_the_bolts_light_the_hand_and_the_room_from_their_own_image():
     """In a dark bathroom the brightest thing in the frame lit nothing (the palm 94 -> 97, the tub's rim 37 -> 35).
     Over a dark plate the bolts' own image, blurred wide (KEY), lights the hand from about 55 to well over 100 (code
-    values), a cool white, its blue rising at least 50; the room round them comes up, more near them than far off; and
-    the light flickers with the strikes, under the flash limit."""
+    values), a cool white keeping the skin's colour, its blue rising at least 50, as much as its red within a few
+    levels; the room round them comes up, more near them than far off; and the light flickers with the strikes, under
+    the flash limit."""
     n = 24
     plate, track, mask = take(n, lambda t: (120, 330), wall=(30, 28, 30), palm=(70, 50, 45), texture=0.0)
     out = L.render(plate, track, mask, voice(np.full(n, 0.9), hits=[0, 12]), "arc", seed=2)
@@ -564,7 +692,7 @@ def test_in_a_dark_room_the_bolts_light_the_hand_and_the_room_from_their_own_ima
     g_plate = cv2.cvtColor(plate[0], cv2.COLOR_RGB2GRAY).astype(np.float32)
     assert g_plate[hand].mean() < 60 and g_out[:, hand].mean() > 100
     rise = (out[4:].astype(np.float32) - plate[4:].astype(np.float32))[:, hand].mean((0, 1))
-    assert rise[2] >= 50 and rise[2] > rise[0] > 0
+    assert rise[2] >= 50 and rise[2] > rise[0] - 5 > 0
     yy, xx = np.indices((H, W))
     near, far = (mask[0] == 0) & (yy < 200), (mask[0] == 0) & (yy > 430) & (xx > 200)
     lift = (g_out - g_plate[None]).mean(0)
@@ -687,9 +815,9 @@ def test_the_bolts_go_behind_the_hand_not_across_it(monkeypatch):
             on &= np.linalg.norm(p - p[0], axis=1) > L.ON_HAND[0] * s
             seg = np.linalg.norm(np.diff(p, axis=0), axis=1)
             assert seg[on[1:] & on[:-1]].sum() <= (L.ON_HAND[1] + 0.02) * seg.sum()
-    depth, _, room, near = L.LIGHT["arc"]
-    monkeypatch.setitem(L.LIGHT, "arc", (depth, 0.0, room, near))  # (the channels alone over the hand)
-    monkeypatch.setitem(L.KEY, "arc", (0.0, *L.KEY["arc"][1:]))
+    depth, _, room, near = L.LIGHT
+    monkeypatch.setattr(L, "LIGHT", (depth, 0.0, room, near))  # (the channels alone over the hand)
+    monkeypatch.setattr(L, "KEY", (0.0, *L.KEY[1:]))
     out = L.render(plate, track, mask, tl, "arc", seed=1)
     yy, xx = np.indices((H, W))
     for t in range(n):
@@ -862,12 +990,11 @@ def test_the_arcs_do_not_depend_on_the_balls_look(monkeypatch):
     for name, value in (("PLASMA_RGB", rgb), ("BODY_RGB", rgb), ("HALO_RGB", rgb), ("BALL_GLOW_RGB", rgb),
                         ("BALL_HOT", (9.0, 0.6)), ("BODY", (5.0, 0.5)), ("HALO", (2.0, 2.0)), ("BALL_TAU", (9.0, 1.0)),
                         ("HALO_VOICE", (2.0, 3.0)), ("BRIGHT_TONE", (0.3, 0.5)), ("SCATTER", 1.0), ("WRAP_GAIN", 20.0),
-                        ("SPILL", (3.0, 5.0)), ("SHELL", (30, 40)), ("GROUND", (1, 2)), ("LIFT_PX", (0.0, 1.0))):
+                        ("SPILL", (3.0, 5.0)), ("SHELL", (30, 40)), ("GROUND", (1, 2)), ("LIFT_PX", (0.0, 1.0)),
+                        ("BALL_LIGHT", (20.0, 20.0, 5.0, 0.1, 9.0)), ("BALL_COOL", 0.9), ("LAND", (5.0, 9.0, 9.0, 9.0)),
+                        ("SHELL_GONE", (0.9, 0.8)), ("TIPS", (8,))):
         monkeypatch.setattr(L, name, value)
-    monkeypatch.setitem(L.LIGHT, "ball", (0.1, 20.0, 20.0, 5.0))
     monkeypatch.setitem(L.LIGHT_RGB, "ball", (rgb, rgb))
-    monkeypatch.setitem(L.KEY, "ball", (50.0, 50.0, 1.0))
-    monkeypatch.setitem(L.KEY_RGB, "ball", (rgb, rgb))
     assert np.array_equal(L.render(plate, track, mask, tl, "arc", seed=4), before)
 
 
@@ -995,54 +1122,95 @@ def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
     assert max(np.linalg.norm(p[:, :2] - c, axis=1).max() for p in own) > 1.2 * balls[4].R
 
 
+def jumps(bolts: list, sparks: list) -> list:
+    """The arcs a ball throws to the fingers on a frame: the channels ending where a spark lands (LAND's, with a
+    glow)."""
+    lands = [np.array(sp[:2]) for sp in sparks if len(sp) == 5]
+    return [p for p, _, _ in bolts if any(np.allclose(p[-1, :2], q) for q in lands)]
+
+
 def test_the_ball_is_ringed_by_a_shell_of_arcs_and_jumps_to_the_fingers():
     """Its arcs crawl over its skin brightest where they run along its outline, which draws it (filaments from its
-    middle out were a radial starburst: a flare), and GROUND's arcs jump from its skin to the fingertips and the
-    fingers' bases, spread over them (two at most, now and then, read as stray sparks)."""
+    middle out were a radial starburst: a flare), and GROUND's arcs jump from its skin to the fingertips, two or three
+    a side, spread over them, each landing within LAND_NEAR of a fingertip's landmark (to the joints and bases too, they
+    ran down the skin to a dot mid-finger; at 6-10, each with its dot, the ball was a spider on white legs)."""
     n, s = 24, 80.0
-    plate, track, _ = take(n, lambda t: (135, 300), s, emitter="palm")
+    plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm")
     hand = L._hand(plate, track)
     tl = voice(np.full(n, 0.95), hits=[0])
-    bolts, _, balls = L.ball_frames(hand, tl, seed=0)
-    rim, face, jumps = [], [], []
+    bolts, sparks, balls = L.ball_frames(hand, tl, seed=0, matte=mask)
+    k = W / 1080.0
+    rim, face, count = [], [], []
     for t in range(8, n):
-        b, lm = balls[t], hand.lm[t]
-        to = [p for p, _, _ in bolts[t] if np.linalg.norm(lm - p[-1], axis=1).min() < 1e-6]
-        ends = {int(np.argmin(np.linalg.norm(lm - p[-1], axis=1))) for p in to}
-        assert len(to) >= L.GROUND[0] - 2 and len(ends) >= min(len(to), 4)  # (to the fingers, spread over them)
-        assert ends <= set(L.TARGETS)
-        jumps.append(len(to))
+        b, tips = balls[t], hand.lm[t, list(L.TIPS)]
+        to = jumps(bolts[t], sparks[t])
+        near = [np.linalg.norm(tips - p[-1], axis=1) for p in to]
+        assert all(d.min() <= L.LAND_NEAR * k + 1e-6 for d in near)  # (on a fingertip)
+        assert len({int(np.argmin(d)) for d in near}) >= min(len(to), 2)  # (spread over them)
+        count.append(len(to))
         for p, _, it in bolts[t]:
             if any(p is q for q in to):
                 continue
             r = np.linalg.norm(p - (b.x, b.y), axis=1).mean() / b.R
             (rim if r > 0.9 else face).append(it)
-    assert np.mean(jumps) >= L.GROUND[0]
+    assert L.GROUND[0] - 1 <= np.mean(count) and max(count) <= L.GROUND[1]
     assert len(rim) > 3 * (n - 8) and np.mean(rim) > np.mean(face)
 
 
 def test_the_balls_shell_stays_on_its_skin_and_its_arcs_bow_through_the_air_to_the_fingers():
     """Grown, its shell arcs lie within SHELL_SKIN of its skin as seen (thrown 30 % past it, they lay on the palm like
-    glowing veins), and each arc jumping to a finger bows up the picture through the air (its middle GROUND_BOW off
-    the straight line from the ball, towards the camera) and comes down onto the landmark it goes to (drawn straight,
-    they were thin whiskers lying on the skin)."""
+    glowing veins), and each arc jumping to a finger leaves its skin, bows through the air (its middle GROUND_BOW off
+    the straight line from the ball) off the hand's matte and comes down onto the fingertip past its end, on the skin
+    only for its last LAND_IN (bowed up the picture whatever lay there, many lay on the skin like drawn veins)."""
     n, s = 24, 80.0
-    plate, track, _ = take(n, lambda t: (135, 300), s, emitter="palm")
+    plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm")
     hand = L._hand(plate, track)
-    bolts, _, balls = L.ball_frames(hand, voice(np.full(n, 0.95), hits=[0]), seed=0)
+    bolts, sparks, balls = L.ball_frames(hand, voice(np.full(n, 0.95), hits=[0]), seed=0, matte=mask)
     k = W / 1080.0
     lifts = []
     for t in range(12, n):
-        b, lm = balls[t], hand.lm[t]
+        b = balls[t]
+        to = jumps(bolts[t], sparks[t])
         for p, _, _ in bolts[t]:
-            if np.linalg.norm(lm - p[-1], axis=1).min() < 1e-6:  # (an arc to a finger)
+            if any(p is q for q in to):
                 a, e = p[0], p[-1]
                 assert abs(np.hypot(*(a - (b.x, b.y))) - b.R) < 1e-6  # (from its skin)
                 lifts.append(float(np.hypot(*((a + e) / 2.0 - p[len(p) // 2]))))  # (its middle off the chord's)
+                seg = np.linalg.norm(np.diff(p, axis=0), axis=1)
+                cum = np.r_[0.0, np.cumsum(seg)]
+                q = np.round(p).astype(int)
+                on = mask[t][np.clip(q[:, 1], 0, H - 1), np.clip(q[:, 0], 0, W - 1)] >= 128
+                free = (np.hypot(p[:, 0] - b.x, p[:, 1] - b.y) > L.GROUND_FREE * b.R) & \
+                    (cum < cum[-1] - (L.LAND_IN + 3.0) * k)
+                held = free[1:] & free[:-1]
+                assert seg[held & on[1:] & on[:-1]].sum() <= L.GROUND_ON * seg[held].sum() + 1e-6  # (in the air)
+                assert on[-1]  # (and lands on the finger)
             else:
                 r = np.hypot(p[:, 0] - b.x, p[:, 1] - b.y) / b.R
                 assert r.max() <= 1.0 + L.SHELL_SKIN + 0.01  # (and its young crackle's reach, all but gone)
-    assert len(lifts) > 5 * (n - 12) and np.median(lifts) > 0.8 * L.GROUND_BOW[0] * k
+    assert len(lifts) > 3 * (n - 12) and np.median(lifts) > 0.8 * L.GROUND_BOW[0][0] * k
+
+
+def test_the_balls_arcs_and_shell_go_with_it():
+    """As the voice stops the ball shrinks; its arcs to the fingers thin out as it does, none once it is under
+    GROUND_GONE of the largest it grew to, and its shell's crackle goes with its body (arcs crawled over the fingers
+    for 4 frames after it had gone, with no source)."""
+    n, s = 40, 80.0
+    plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm")
+    e = np.r_[np.zeros(4), np.full(20, 0.9), np.zeros(16)]
+    bolts, sparks, balls = L.ball_frames(L._hand(plate, track), voice(e, hits=[4]), seed=0, matte=mask)
+    top = max(b.R for b in balls if b is not None)
+    for t in range(24, n):
+        b = balls[t]
+        if b is None:
+            assert not bolts[t]
+            continue
+        if b.R < L.GROUND_GONE * top:
+            assert not jumps(bolts[t], sparks[t])
+        if L._dense(b.level, b.charge) == 0.0:
+            assert not any(it > 0 for _, _, it in bolts[t])  # (its body gone: its crackle too)
+    sizes = [(balls[t].R, len(jumps(bolts[t], sparks[t]))) for t in range(18, n) if balls[t] is not None]
+    assert sizes[-1][1] < sizes[0][1]  # (thinning out as it shrinks)
 
 
 def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines(monkeypatch):
@@ -1090,11 +1258,11 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines(monkeypatch
     # middle, showing through its outer part)
     round_it = (d > 1.15) & (d < 1.6) & on  # the palm just past its edge: lit, not veiled or milky
     assert lum[round_it].mean() > (lin(plate[t]) @ LUMA)[round_it].mean()
-    assert kept(round_it) > 0.7
+    assert kept(round_it) > 0.3  # (lit 30-50 levels, skin already at the top of red rolls off)
     d *= R / s
     near, far = (d > 0.6) & (d < 1.0) & ~on, (d > 1.8) & ~on
     near, far = (o - p)[near], (o - p)[far]
-    assert far.mean() < -5  # the camera exposed down for it...
+    assert far.mean() < -2  # the camera exposed down for it...
     assert near.mean() > far.mean() + 3  # ...and it lights the wall round it,
     assert (near[:, 2] - near[:, 0]).mean() > (far[:, 2] - far[:, 0]).mean() + 2  # a cool white
 
@@ -1146,9 +1314,9 @@ def test_the_balls_body_is_white_hot_only_in_its_middle_and_a_clear_cyan_blue_ro
     assert hue_gap(hue(o[body].mean(0)), hue(gam(np.ascontiguousarray(glow[None, None] / glow.max()))[0, 0])) < 25.0
 
 
-BALL_PROFILE = ((0.0, 250, 252, 255), (0.15, 230, 241, 255), (0.3, 161, 204, 255), (0.45, 140, 195, 254),
-                (0.6, 152, 197, 254), (0.75, 172, 202, 253), (0.9, 196, 212, 254))  # (radii, r, g, b): the ball's body
-# as shown, white-hot in its middle, a clear cyan-blue round that and the palm, lit blue, showing through its edge. Try
+BALL_PROFILE = ((0.0, 250, 252, 255), (0.15, 231, 241, 255), (0.3, 166, 206, 255), (0.45, 148, 199, 254),
+                (0.6, 166, 203, 254), (0.75, 192, 210, 252), (0.9, 234, 232, 253))  # (radii, r, g, b): the ball's body
+# as shown, white-hot in its middle, a clear cyan-blue round that and the palm, lit, showing through its edge. Try
 # it live's body (web/lib/lightning.ts' BODY_STOPS) is held to this very profile by web/lib/lightning.test.ts, which
 # reads it from here
 
@@ -1181,10 +1349,13 @@ def test_the_hue_keeping_roll_off_keeps_a_little_over_exposed_blue_blue_and_take
     assert Q[2].min() / Q[2].max() > 0.85  # (white)
 
 
-def test_a_gap_between_the_fingers_does_not_show_through_the_ball():
+def test_a_gap_between_the_fingers_does_not_show_through_the_ball(monkeypatch):
     """The wall in a gap between two fingers behind the ball's top is scattered in its glowing body: a soft shade at
     most, not a sharp dark window through it (seen sharp, a glass marble). Its dense middle hides most of it; at 0.6 of
-    its radius, where it begins to be light added over what is behind it, about a quarter of the step shows, soft."""
+    its radius, where it begins to be light added over what is behind it, about a quarter of the step shows, soft. (Its
+    arcs aside: those to the fingers take the gap's way through the air.)"""
+    for name in ("SHELL", "GROUND"):
+        monkeypatch.setattr(L, name, (0, 0))
     n, s = 12, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), texture=0.0)
@@ -1198,18 +1369,19 @@ def test_a_gap_between_the_fingers_does_not_show_through_the_ball():
     row = int(y - 0.6 * R)
     seen = (b - a)[row, int(x - 0.5 * R): int(x + 0.5 * R)]  # what the gap does to the ball, across it
     step = abs(float((lin(gap[t]) @ LUMA - lin(plate[t]) @ LUMA)[row, int(x)]))
-    assert np.abs(seen).max() < 0.35 * step and np.abs(np.diff(seen)).max() < 0.16 * step  # (seen sharp: 0.26, 0.22;
-    # its plasma's filaments, denser and thinner, hide it a little more and less, 0.14)
+    assert np.abs(seen).max() < 0.35 * step and np.abs(np.diff(seen)).max() < 0.2 * step  # (seen sharp: 0.26, 0.22;
+    # its plasma's filaments, denser and thinner, hide it a little more and less, 0.14; the camera exposed down an
+    # eighth of a stop, not a third, a little more, 0.18)
 
 
 def test_the_ball_settles_the_exposure_once_for_a_phrase(monkeypatch):
-    """Three sounds with a second's gap between each: the camera exposes down once, by at most EXPOSURE's stops, and
-    holds there through the gaps instead of breathing with each sound (by 0.6 stops three times in 4 s, it pumped
-    the whole room). After one sound and silence it holds while the ball fades, and comes back once it has gone
-    (held a second and a half, the room stayed dark with no ball in it)."""
-    depth, hand_gain, _, near_gain = L.LIGHT["ball"]
-    monkeypatch.setitem(L.LIGHT, "ball", (depth, hand_gain, 0.0, near_gain))  # (the camera alone, not the ball's light)
-    monkeypatch.setitem(L.KEY, "ball", (L.KEY["ball"][0], 0.0, L.KEY["ball"][2]))
+    """Three sounds with a second's gap between each: the camera exposes down once, by at most EXPOSURE's stops (an
+    eighth: at a third the whole room went 8-19 levels darker for a light a twentieth of the frame across), and holds
+    there through the gaps instead of breathing with each sound (by 0.6 stops three times in 4 s, it pumped the whole
+    room). After one sound and silence it holds while the ball fades, and comes back once it has gone (held a second
+    and a half, the room stayed dark with no ball in it)."""
+    monkeypatch.setattr(L, "BALL_LIGHT", (L.BALL_LIGHT[0], 0.0, *L.BALL_LIGHT[2:]))  # (the camera alone, not the
+    # ball's light on the room)
     n, s = 80, 80.0
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm")
     e = np.zeros(n)
@@ -1218,36 +1390,35 @@ def test_the_ball_settles_the_exposure_once_for_a_phrase(monkeypatch):
     far = np.zeros((H, W), bool)
     far[:70] = True  # (the wall at the top, far from the ball)
     stops = np.log2((lin(out) @ LUMA)[:, far].mean(1) / (lin(plate) @ LUMA)[:, far].mean(1))
-    assert -L.EXPOSURE["ball"][0] - 0.03 < stops.min() < -0.2
+    assert -L.EXPOSURE["ball"][0] - 0.03 < stops.min() < -0.08
     assert np.ptp(stops[20:78]) < 0.05  # (through both gaps)
     e[34:] = 0.0  # one sound, then silence: the camera holds while the ball fades, then comes back once it has gone
     out = L.render(plate, track, mask, voice(e, hits=[4]), "ball", seed=0)
     stops = np.log2((lin(out) @ LUMA)[:, far].mean(1) / (lin(plate) @ LUMA)[:, far].mean(1))
     balls = L.ball_frames(L._hand(plate, track), voice(e, hits=[4]), 0)[2]
     gone = next(t for t in range(20, n) if balls[t] is None)
-    assert stops[gone - 1] < -0.25 and stops[-1] > -0.03 and np.all(np.diff(stops[gone:]) > -0.005)
+    assert stops[gone - 1] < -0.08 and stops[-1] > -0.03 and np.all(np.diff(stops[gone:]) > -0.005)
 
 
 def test_the_camera_holds_through_a_gap_between_phrases_and_comes_back_after_a_long_one():
     """The render looks ahead: the ball out for longer than it takes the camera to let go, but back within the frames
     it holds, the exposure holds through the gap (no rise over 0.05 stops: let go, it rose by 0.2 and fell again); out
-    for longer than that, it comes back in between."""
+    for longer than that, it comes back in between, most of the way."""
     bright = np.zeros(150)
     bright[0:20], bright[44:64], bright[120:140] = 0.9, 0.9, 0.9  # (gaps of 24 and 56 frames)
     dip = L.exposure_dip(bright, *L.EXPOSURE["ball"])
     assert np.ptp(dip[16:64]) < 0.05
-    assert dip[110] < dip[64] - 0.2
+    assert dip[110] < dip[64] - 0.08
 
 
-def test_the_balls_light_lights_the_skin_round_it_blue_and_keeps_its_colour():
-    """A palm at the top of red round the ball takes its light as blue and keeps its colour, neither washed chalky nor
-    dyed: just past its edge (1.05-1.6 of its radius) the light lifts blue at least 40 levels over red and the skin is
-    lit (at least 1.15 times the plate exposed down) keeping its texture (0.85); on the palm round it (1.3-2.0) blue
-    rises at least 25 over red, red comes off its ceiling with the camera's dip, and the skin keeps at least 0.6 of the
-    plate's saturation (in the plasma's own near-white it kept half of it, 104 -> 57, its red pinned at 242-246:
-    chalky), its hue turned cooler but still skin (within 40 degrees of the plate's, never violet: at 284-341 it was a
-    dye). The light falls off with distance (the skin 2.6-3.4 radii out at most 1.1 times as bright), and an olive wall
-    round its edge takes it as a blue light (hue 200-260), lifted."""
+def test_the_balls_light_lights_the_skin_round_it_and_nothing_further_off():
+    """The ball is a light, not a tint: a palm at the top of red just past its edge (1.05-1.6 of its radius) is lit
+    25-55 levels, a cool white with blue over red by 20-60 (a tint, not a dye: lifting it +2-6 while its blue rose
+    +68-81 over its red read as an unlit hand under a grade), and further round it (1.3-2.0) lit still, keeping at least
+    half its saturation, its hue skin's (never violet). Its light falls off with distance and is
+    gone by BALL_LIGHT's reach: the skin 3.2 radii and more out and the room far off are the plate exposed down by at
+    most EXPOSURE's eighth of a stop, their colour as it was (the far hallway shifted blue, a colour grade), while an
+    olive wall round its edge takes it as a blue light, lifted."""
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), wall=(110, 104, 90))
@@ -1257,30 +1428,25 @@ def test_the_balls_light_lights_the_skin_round_it_blue_and_keeps_its_colour():
     yy, xx = np.indices((H, W))
     d = np.hypot(xx - x, yy - y) / R
     o, p = out[t].astype(np.float32), plate[t].astype(np.float32)
-    Y, P = lin(out[t]) @ LUMA, lin(plate[t]) @ LUMA
-    far = (yy < 70) & (mask[t] == 0)
-    exposed = Y[far].mean() / P[far].mean()  # (the camera's dip, read off the wall far from the ball)
     on = mask[t] > 0
-    edge, palm, tips = (d > 1.05) & (d < 1.6) & on, (d > 1.3) & (d < 2.0) & on, (d > 2.6) & (d < 3.4) & on
-    g_o, g_p = (cv2.cvtColor(f, cv2.COLOR_RGB2GRAY).astype(np.float32) for f in (out[t], plate[t]))
+    edge, palm, gone = (d > 1.05) & (d < 1.6) & on, (d > 1.3) & (d < 2.0) & on, (d > 3.2) & on
+    luma = np.array([0.299, 0.587, 0.114], np.float32)
 
-    def fine(g):
-        return g - cv2.GaussianBlur(g, (0, 0), 2.0)
+    def lift(sel):
+        return (o - p)[sel].mean(0)
 
-    def blue(sel):
-        lift = (o - p)[sel].mean(0)
-        return lift[2] - lift[0]
-
-    assert blue(edge) >= 40.0 and blue(palm) >= 25.0
-    assert Y[edge].mean() / (P[edge].mean() * exposed) >= 1.15
-    assert fine(g_o)[edge].std() >= 0.85 * fine(g_p)[edge].std()
-    assert o[palm][:, 0].mean() < p[palm][:, 0].mean() - 10.0  # (off its ceiling)
+    assert 25.0 <= lift(edge) @ luma <= 55.0 and 20.0 <= lift(edge)[2] - lift(edge)[0] <= 60.0
+    assert lift(palm) @ luma >= 15.0
     h_skin, s_skin, _ = colorsys.rgb_to_hsv(*(o[palm].mean(0) / 255.0))
     h_plate, s_plate, _ = colorsys.rgb_to_hsv(*(p[palm].mean(0) / 255.0))
-    assert s_skin >= 0.6 * s_plate
+    assert s_skin >= 0.5 * s_plate
     turn = (360.0 * (h_skin - h_plate) + 180.0) % 360.0 - 180.0
-    assert -40.0 <= turn <= 0.0 and not 284.0 <= 360.0 * h_skin <= 341.0
-    assert Y[tips].mean() / (P[tips].mean() * exposed) <= 1.1
+    assert -40.0 <= turn <= 5.0 and not 284.0 <= 360.0 * h_skin <= 341.0
+    far = (yy < 70) & ~on
+    for sel in (gone, far):
+        stops = np.log2((lin(out[t]) @ LUMA)[sel].mean() / (lin(plate[t]) @ LUMA)[sel].mean())
+        assert -L.EXPOSURE["ball"][0] - 0.02 <= stops <= 0.0
+        assert hue_gap(hue(o[sel].mean(0)), hue(p[sel].mean(0))) < 2.0  # (no colour cast)
     wall = (d > 1.05) & (d < 1.6) & ~on
     assert 200.0 <= hue(o[wall].mean(0)) <= 260.0 and (o - p)[wall].mean() > 5.0
 
