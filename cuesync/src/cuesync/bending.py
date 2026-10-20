@@ -2024,14 +2024,16 @@ def track_for(track: dict, emitter: str) -> dict:
 
 
 SAMPLE_TAIL_S = 0.4  # a sample noise's last sound lands at least this long before its clip's end...
-SAMPLE_HELD_S = 1.2  # ...and a noise held this long lets go there too
+SAMPLE_HELD_S = 1.2  # ...and a noise held this long lets go there too...
+SAMPLE_LEAD_S = 0.3  # ...but none starts more than this before the hand's marked frame (a buzz moved earlier to let go
+# in the clip struck lightning from a hand still coming into the frame, 23 frames before it pointed)
 
 
 def sample_noise_offset(voice: Path, plate_s: float, frame: int) -> float:
     """Where a sample noise starts on a hand's clip (s): its first sound on ``frame``, the frame the hand was marked
     on (the strike the take was filmed for), moved earlier as far as it takes for its last sound to land in the clip,
-    and a held noise (a sound over SAMPLE_HELD_S) to let go there too; a hit's tail may run off the end. (Started with
-    the clip, a BOOM went off long before the punch it was for.)"""
+    and a held noise (a sound over SAMPLE_HELD_S) to let go there too, though by no more than SAMPLE_LEAD_S; a hit's
+    tail may run off the end. (Started with the clip, a BOOM went off long before the punch it was for.)"""
     from .audio import analyze
     from .media import read_audio
     from .pipeline import FPS, SR
@@ -2040,7 +2042,8 @@ def sample_noise_offset(voice: Path, plate_s: float, frame: int) -> float:
     spans = cue.intervals()
     held = max([b_ - a_ for a_, b_ in spans] or [0]) / FPS >= SAMPLE_HELD_S
     end = max(cue.onsets_s[-1], max(b_ for _, b_ in spans) / FPS if held else 0.0)
-    return float(max(0.0, min(frame / FPS - cue.onsets_s[0], plate_s - SAMPLE_TAIL_S - end)))
+    on = frame / FPS - cue.onsets_s[0]
+    return float(max(0.0, on - SAMPLE_LEAD_S, min(on, plate_s - SAMPLE_TAIL_S - end)))
 
 
 def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):

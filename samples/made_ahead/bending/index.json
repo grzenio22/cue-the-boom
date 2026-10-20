@@ -130,29 +130,5 @@
   "tap_frame": 30,
   "real": true,
   "rank": -100.8
- },
- "bending|hand_open.mp4|zzzzz-tsst.wav|lightning_ball@made|0.53,0.71|1": {
-  "dir": "hand_open__zzzzz__lightning_ball",
-  "title": "zzzzz · ball lightning in the palm",
-  "plate": "hand_open.mp4",
-  "voice": "zzzzz-tsst.wav",
-  "effect": "lightning_ball",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -102.9
- },
- "bending|hand_open.mp4|hoooo.wav|air_ball@made|0.53,0.71|1": {
-  "dir": "hand_open__hoooo__air_ball",
-  "title": "hoooooo · a ball of air in the palm",
-  "plate": "hand_open.mp4",
-  "voice": "hoooo.wav",
-  "effect": "air_ball",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -100.0
  }
 }

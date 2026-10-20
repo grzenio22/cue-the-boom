@@ -72,8 +72,9 @@ def test_a_voiced_buzz_is_heard_as_one():
 
 def test_a_sample_noise_lands_on_the_sample_hands_strike(tmp_path, make_wav):
     """Started with the clip, a sample BOOM went off long before the punch it was for: it is placed with its first
-    sound on the hand's marked frame, earlier only as far as it takes to end in the clip (a held noise letting go)."""
-    from cuesync.bending import SAMPLE_TAIL_S, sample_noise_offset
+    sound on the hand's marked frame, earlier only as far as it takes to end in the clip (a held noise letting go),
+    and never more than SAMPLE_LEAD_S before the hand is there."""
+    from cuesync.bending import SAMPLE_LEAD_S, SAMPLE_TAIL_S, sample_noise_offset
 
     sr = 48000
     rng = np.random.default_rng(0)
@@ -83,8 +84,10 @@ def test_a_sample_noise_lands_on_the_sample_hands_strike(tmp_path, make_wav):
     held[int(2.0 * sr):] = 0  # held from the start for 2 s
     on_hit = sample_noise_offset(make_wav(tmp_path, hit, sr), 3.5, 48)
     assert abs(on_hit + 0.2 - 48 / 24) < 0.06  # its burst on frame 48
-    on_held = sample_noise_offset(make_wav(tmp_path, held, sr), 3.5, 48)
-    assert on_held + 2.0 <= 3.5 - SAMPLE_TAIL_S + 0.06 and on_held < 48 / 24  # let go inside the clip
+    on_held = sample_noise_offset(make_wav(tmp_path, held, sr), 4.3, 48)
+    assert on_held + 2.0 <= 4.3 - SAMPLE_TAIL_S + 0.06 and on_held < 48 / 24  # let go inside the clip
+    short = sample_noise_offset(make_wav(tmp_path, held, sr), 3.5, 48)  # (in a clip too short for that, it starts
+    assert abs(short - (48 / 24 - SAMPLE_LEAD_S)) < 0.06  # no earlier than just before the hand is there)
 
 
 def test_a_sample_hands_track_is_moved_onto_the_elements_point():
