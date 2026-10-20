@@ -765,7 +765,8 @@ class _Ball:
             # finger), eased in over a few px round it (cut there, the fingers showed a ghost of themselves beside them)
             z = np.sqrt(np.clip(1 - r * r, 0, 1))
             shell = (z - np.sqrt(np.clip(0.36 - r * r, 0, 1))) / 0.8  # the chord through the shell round a 0.6 core
-            draft = np.where(r > 1, np.exp(-((r - 1) / 0.25) ** 2), 0.0)  # the swirl drags the air round it a little
+            draft = np.exp(-((r - 1) / 0.25) ** 2)  # the swirl drags the air round it a little (continuous across the
+            # rim: switched on outside it only, the twist jumped there and tore a straight edge behind the ball)
             sw = (np.clip(shell, 0, 1) + 0.45 * draft) * vis
             lobes = 0.6 + 0.4 * np.cos(3 * (phi - turn * self.spin) + 1.2 * np.sin(2 * phi - 0.7 * turn * self.spin))
             theta = turn * BALL_TWIST * sw * lobes
