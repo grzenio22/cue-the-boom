@@ -282,6 +282,17 @@
     "effect": "blow_out",
     "title": "a snap in the clip · Candle jar"
    }
+  },
+  "hand_fist.mp4": {
+   "title": "Your hand: palm to fist",
+   "point": [
+    0.5,
+    0.521
+   ],
+   "hand": {
+    "frame": 35
+   },
+   "note": "the author's own hand closing to a fist on a BOOM, filmed on a phone; its fireball was made ahead of time, and a BOOOOM sets off an explosion: no GPU"
   }
  }
 }

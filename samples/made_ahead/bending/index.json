@@ -94,5 +94,17 @@
   "tap_frame": 48,
   "real": true,
   "rank": -103.2
+ },
+ "bending|hand_fist.mp4||fire_burst@f9c3de6f|0.50,0.52|1": {
+  "dir": "hand_fist__boom__fire_burst",
+  "title": "BOOM · a fireball as the hand closes",
+  "plate": "hand_fist.mp4",
+  "voice": "",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 35,
+  "real": true,
+  "rank": -99
  }
 }
