@@ -16,10 +16,10 @@ plate is made here on the CPU:
 - the ball rolling upward as it burns, its smoke climbing on out of the frame, thinning from its crown and drawing in
   from its underside
 - the fire drawn as a light: exposed as a phone exposes for the room (white-yellow at its hottest, red-orange folds),
-  the burning ball one shape with one edge and short-lived flame tongues of its own fire rising off its top, its
+  the burning ball one shape with one edge, its own rendered billows defining its top, its
   highlights blooming round it; dying, still one body of fire over its own brown-black soot, its embers glowing in the
   soot round them
-- the smoke's outer third eaten away into crisp wisps that rise and curl with it
+- the smoke's outer lobes eaten away into crisp wisps that rise and curl with it
 - the smoke's billows sharpened and lit from above, its soot filled in over frames as the fire dies (not in one), the
   render's own billows on it as it takes over from the fire, scattering the room's light as well as hiding what is
   behind it, in that light's colour
@@ -95,7 +95,7 @@ LIGHT_WARM = 0.45  # on a bright wall red soon reaches white and stops rising: t
 ARM_LIGHT = (0.05, 1.8, 3.0)  # on the arm: a little on its face (the blast is behind it: the fist that hides the ball
 # shows the camera its unlit front), this much in a rim on its outline facing the fire (rim_light), and this much more
 # while the fire burns (BURN)
-RIM_BAND = (4.0, 12.0)  # px at 1080: the rim starts this far inside the arm's outline (its soft edge is the room's)
+RIM_BAND = (1.0, 12.0)  # px at 1080: the rim starts this far inside the arm's outline (the contact edge catches firelight)
 # and dies away over this many more (a tenth of it left 30 px in)
 RIM_FACE = (0.3, 0.8)  # the outline lit is the one facing the fire: its outward normal on the way to the fire over this
 SKIN_GR = 0.75  # on skin the light keeps the skin's hue: green rises to at most this of red...
@@ -107,7 +107,7 @@ SKIN_LIFT = (10.0, 40.0, 30.0)  # display levels: the most the fire lifts the ar
 SKIN_RIM = (0.88, 0.45)  # ...where on its rim green may rise to this share of red and blue to this share of green's
 # rise (skin's red is near white already: held to SKIN_GR its rim could rise a dozen levels, and a rim lit by a
 # white-hot ball goes warm white)
-HOT_RIM = (0.45, (0.4, 0.8), (255, 232, 195))  # while the ball burns, the arm's rim (where rim_light is over the first
+HOT_RIM = (0.65, (0.25, 0.65), (255, 225, 180))  # while the ball burns, the arm's rim (where rim_light is over the first
 # to the second of these, a band about 4-14 px in) goes up to this much of the way to this warm white (display RGB):
 # skin's red is already clipped, so light added there rose in green alone and read peach, not a hot edge
 KNOCK_PX, ZOOM = 14.0, 0.022  # the camera's knock (px at 1080) and its push from the pressure wave (share)
@@ -140,6 +140,10 @@ BODY = (0.2, 0.5, 10.0, 0.4, 7.0)  # as it dies it is still one body of fire wit
 # this many px at 1080 more as it goes into its smoke, its smoky folds up to this many of its radii across part of it,
 # its strands thinner than about twice this many px at 1080 not (its dim fire drawn over the composite's relit smoke,
 # the dying ball read as melted wax: raspberry folds in contour bands, a crisp orange stroke round it)
+HANDOFF = 0.125  # after their peak the weights change by at most this per render frame. Fire anticipates its last
+# flame; the dense body continues into the first smoke frames on the smoke's moving silhouette, cooling gradually.
+MATERIAL_RELEASE = 0.08  # the moving fire key releases over about thirteen frames: a saturation threshold must not
+# replace dark fire folds with light grey soot at once. Source RGB stays current and sharp throughout the handoff.
 BODY_SOOT = (0.05, (255, 107, 36), 0.6)  # inside it, its soot: this share of the lit room's luminance in this colour
 # (display RGB, brown-black: its darkest folds near (80, 35, 12) on a lit wall), its smoke's own brightness taken down
 # the fire's colours to this share (red-brown folds that keep the render's texture)
@@ -166,27 +170,16 @@ EMBER_GLOW = (((8.0, 0.4), (24.0, 0.6)), 1.5, (1.0, 0.45, 0.1), 0.3)  # as it di
 # this, in this light's colour (linear), added (mixed towards the soot's colour, each ember's glow went yellow, orange,
 # mauve); the dying ball's own fire, and over it, this share as much (all of it, a wide orange halo stood round the
 # ball and its folds went orange)
-TONGUES = (12, 0.3, (3.0, 5.0), (0.5, 2.0), (0.07, 0.13))  # flame tongues off the burning ball's upper half: this
-# many places, each a tongue up to this many of its radii tall living this many frames (growing, then thinning as it
-# rises), then none for this many, this many of its radii wide at its root; each rises from the ball's top in its
-# column, so none floats free of it (streaks of a noise, they broke off into leaves beside the ball)
-TONGUE_GRAIN = (0.012, 0.045, 0.012, 0.25)  # their ragged edges: a noise this wide and this tall (shares of the short
-# side), rising this much a frame, their reach varying this share either way
-TONGUE_SWAY = (0.06, 0.45, 0.07)  # they sway, at their tips this many of its radii, in waves this many radii long
-# travelling this many cycles a frame
-TONGUE_FIRE = (0.6, 6.0, 0.3)  # each filled with the ball's own fire: from this far down per px of it under its tip,
-# at least this many px at 1080 in from the ball's edge, cooling by this share to its tip (filled with one colour,
-# they read as flat yellow petals)
 SOOT_BANDS = (6.0, 24.0, 9.0, (28, 36))  # as the fire turns to soot its billows come from the render's own: a
 # band-pass of its smoke's log luma between blurs of this many and this many px at 1080, its spread this many display
 # levels (std), from the fire's burning out to this many frames after the blast, fading by the next (the soot was one
 # grey, a felt, until the later smoke's own billows took over)
 # The smoke's outline (Outline), in radii of the cloud: drawn as rendered, its edge was a broad, soft, round dark line
 # (it advertised the composite)
-OUTER = (0.3, 0.85, 0.7)  # the smoke's outer third (from its edge to this deep, in its radii) is eaten away, up to
+OUTER = (0.42, 0.92, 0.7)  # the smoke's outer lobes (from its edge to this deep, in its radii) are eaten away, up to
 # this share of it at its edge, the share rising to it as its depth to this power (feathered instead, the cloud read out
 # of focus, a stain on the wall)...
-WISPS = (0.035, 0.05, 0.03, 0.5)  # ...between its billows (the render's own light) and wisps of a noise this big across
+WISPS = (0.035, 0.05, 0.03, 0.3)  # ...between its billows (the render's own light) and wisps of a noise this big across
 # and up (shares of the short side) fixed in the cloud and rising with it, cut this sharply (a share of their range:
 # edges 2-4 px across at 1080), the billows this share of what decides
 LOBE = (0.02, 0.4, 20, 40)  # share of the short side: what is left thickens from its cut edge over this far, as a
@@ -198,7 +191,7 @@ TOP_THIN = (14, 50, 0.6)  # from this many frames after the blast to this many, 
 # share at the top (it rises and thins from the top, not fading in place)...
 BOTTOM_THIN = (6, 24, 0.75)  # ...and from its underside about twice as fast, eaten in from its edge (its lobes hung
 # below it like ink drips)
-OUTER_SOFT = 2.5  # px at 1080: what the smoke does to the room is softened this much in its outer third (the render
+OUTER_SOFT = 2.5  # px at 1080: what the smoke does to the room is softened this much in its outer lobes (the render
 # draws a thin bright rim round its smoke: composited it drew a contour line round the cloud)
 SCATTER = (1.5, 0.12, 6.0, 0.15, 3e-3)  # the soot scatters the room's light as well as hiding what is behind it:
 # where the composite leaves a share f of the room, of what it lets through from behind (fitted over windows the second
@@ -224,7 +217,7 @@ SHOCK_PX = 20.0  # px at 1080 of refraction at its strongest
 SHOCK_WIDTH = 0.035  # share of the short side: the front's thickness at the start (it thickens as it travels)
 SHOCK_DUST = 0.2  # opacity of the lit dust riding the front (it reads on a flat wall, where there is nothing to bend)
 SHOCK_CA = 0.35  # red and blue bent this much more and less than green
-SPARKS, EMBERS = 220, 45
+SPARKS, EMBERS = 55, 45  # sparse hot debris; a dense simultaneous spray drew radial speed lines at ignition
 
 
 # ------------------------------------------------------------------ where it goes off, and the render's own blast
@@ -294,8 +287,16 @@ def fire_burns(element: np.ndarray, floor: int) -> tuple[np.ndarray, np.ndarray]
         wf = C.fire_weight_map(e, PARAMS, f.shape[1], True)
         light[k] = float((C._lin(e) @ C._LUMA * wf).sum())
         area[k] = float((wf > 0.5).sum())
-    return (C._smoothstep(BURN[0], BURN[1], light / max(float(light.max()), 1e-9)),
-            C._smoothstep(BODY[0], BODY[1], area / max(float(area.max()), 1e-9)))
+    weights = [C._smoothstep(BURN[0], BURN[1], light / max(float(light.max()), 1e-9)),
+               C._smoothstep(BODY[0], BODY[1], area / max(float(area.max()), 1e-9))]
+    for index, weight in enumerate(weights):
+        peak = int(np.argmax(weight))
+        if index == 0:
+            for k in range(len(weight) - 2, peak - 1, -1):
+                weight[k] = min(weight[k], weight[k + 1] + HANDOFF)
+        for k in range(peak + 1, len(weight)):
+            weight[k] = np.clip(weight[k], weight[k - 1] - HANDOFF, weight[k - 1] + HANDOFF)
+    return tuple(weights)
 
 
 def soot_shading_ref(element: np.ndarray, floor: int, start: int) -> float:
@@ -424,6 +425,12 @@ class Particles:
             P = (cam_M @ np.c_[P, np.ones(len(P))].T).T
             P = P[:, :2] / P[:, 2:3]
             length = float(np.hypot(*(P[-1] - P[0])))
+            # Phone exposure resolves a few short debris trails, not a fan of 100-270 px speed lines. Preserve
+            # each particle's head and trajectory while limiting the light integrated along its fast tail.
+            limit = 0.025 * min(h, w)
+            if length > limit:
+                P = P[-1] + (P - P[-1]) * (limit / length)
+                length = limit
             fade = min(1.0, (self.life[i] - age) / 5.0) * min(1.0, (age + 1) / 1.5)
             T = 1100 + (self.T0[i] - 1100) * math.exp(-age / self.tauT[i])
             I = self.I0[i] * ((T - 900) / (self.T0[i] - 900)) ** 3 * fade
@@ -590,6 +597,35 @@ def rim_light(m: np.ndarray, src) -> np.ndarray:
     return cv2.resize(rim.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
 
 
+def hand_coverage(plate8: np.ndarray, masks: np.ndarray | None, t: int) -> np.ndarray:
+    """Solid current-frame skin inside the moving hand's local support. Adjacent mattes only locate the search;
+    current plate colour decides coverage, so closing fingers cannot reveal fire and an old finger cannot fill a
+    gap. The native blur's colour and texture are preserved; no RGB from an earlier hand pose is carried forward."""
+    h, w = plate8.shape[:2]
+    if masks is None:
+        return np.zeros((h, w), np.float32)
+    t = min(t, len(masks) - 1)
+    m = masks[t].astype(np.float32) / 255.0
+    support = np.max(masks[max(0, t - 1):min(len(masks), t + 2)], axis=0)
+    support = cv2.dilate((support > 40).astype(np.uint8), np.ones((5, 5), np.uint8))
+    radius = max(2, int(0.008 * min(h, w)))
+    support &= cv2.dilate((m > 0.15).astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                                                                 (2 * radius + 1,) * 2))
+    rgb = plate8.astype(np.float32)
+    red = (rgb[..., 0] - rgb[..., 1]) / np.maximum(rgb.sum(-1), 1.0)
+    reliable = red[(m > 0.95) & (rgb.max(-1) > 50)]
+    if reliable.size > 32:
+        low = max(0.025, float(np.percentile(reliable, 10)) - 0.035)
+        skin = C._smoothstep(low, low + 0.03, red) * support
+        depth = cv2.distanceTransform((m > 0.5).astype(np.uint8), cv2.DIST_L2, 3)
+        core = C._smoothstep(2.0, max(3.0, 0.008 * min(h, w)), depth)
+        # At the contour the segmenter's leftover wall pixels would restore an unlit, hairy border. Use the
+        # current colour there; keep shaded and low-saturation skin safely opaque deeper inside the hand.
+        m = np.maximum(m * np.maximum(core, skin), skin)
+        m = cv2.GaussianBlur(m, (0, 0), 1.0)
+    return np.clip(m, 0.0, 1.0).astype(np.float32)
+
+
 # ------------------------------------------------------------------ the fireball's light
 def falloff(shape: tuple[int, int], r0: float, ball: float, power: float = 1.0) -> tuple[np.ndarray, float]:
     """The light's spread on a (h, w) grid: the rFFT of (1 + r / ``r0``) ** -``power`` over the grid doubled (so
@@ -652,13 +688,15 @@ def _by_root(table: np.ndarray, x: np.ndarray) -> np.ndarray:
     return table.take(i.astype(np.int32))
 
 
-def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray, rim: np.ndarray, burn: float = 0.0) -> np.ndarray:
+def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray, rim: np.ndarray, burn: float = 0.0,
+               response: float = 1.0) -> np.ndarray:
     """``lit`` (the room ``P`` with the fireball's light on it, linear) with what the light adds kept warm as the
     picture shows it (display values, after the shot's highlight shoulder, bending.SHOULDER). On the room: green rising
     at most LIGHT_WARM of red, blue not at all. On the arm (its matte ``m``): the skin's hue kept (green up to SKIN_GR
     of red, blue rising SKIN_BG of green) and its lift held to SKIN_LIFT, its face's to the first, its ``rim``'s to the
     second and, ``burn`` (BURN) of the way to a burning ball, the third more, its rim then going warm white
-    (SKIN_RIM, and the band nearest its outline towards HOT_RIM's white)."""
+    (SKIN_RIM, and the band nearest its outline towards HOT_RIM's white). ``response`` is the fire's shared pulse,
+    applied after limiting the highlight so saturation cannot turn flickering firelight into a flat plateau."""
     _, shown, back, _ = _tables()
     g0 = _by_root(shown, P)
     d = _by_root(shown, lit)
@@ -685,6 +723,7 @@ def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray, rim: np.ndarray, b
         box = arm[0]
         hot = np.float32(HOT_RIM[0] * burn) * C._smoothstep(*HOT_RIM[1], rim[box]) * m[box]
         d[box] += hot[..., None] * np.maximum(np.array(HOT_RIM[2], np.float32) / 255.0 - d[box], 0.0)
+    d = g0 + np.float32(response) * (d - g0)
     np.clip(d, 0.0, 1.0, out=d)
     d *= np.float32(_STEPS)
     d += np.float32(0.5)
@@ -707,7 +746,7 @@ def _field(rng: np.random.Generator, h: int, w: int, across: float, up: float) -
 
 
 class Outline:
-    """The smoke's outline broken up, frame by frame over the element's box: its outer third eaten away by crisp wisps
+    """The smoke's outline broken up, frame by frame over the element's box: its outer lobes eaten away by crisp wisps
     fixed in the cloud (rising and curling with it), which breaks its round silhouette, the cloud thinning from its
     crown as it climbs and drawing in from its underside. Seeded per shot."""
 
@@ -733,7 +772,7 @@ class Outline:
         sd = cv2.distanceTransform(inside, cv2.DIST_L2, 3) - cv2.distanceTransform(1 - inside, cv2.DIST_L2, 3)
         return e, inside, sd
 
-    def maps(self, E8: np.ndarray, floor: int, box, since: float, rise: float):
+    def maps(self, E8: np.ndarray, floor: int, box, since: float, rise: float, fire_weight: np.ndarray | None = None):
         """What finish and density need over ``box`` of ``E8`` (uint8, plate size; quarter-size maps), or None for no
         cloud yet."""
         y0, y1, x0, x1 = box
@@ -747,7 +786,8 @@ class Outline:
         cy = float(np.nonzero(inside)[0].mean())  # its middle's row
         yy, xx = np.mgrid[:hq, :wq].astype(np.float32)
         fire = np.clip(C.fire_weight_map(e, PARAMS, max(1, E8.shape[1] * wq // wb), True), 0.0, 1.0)
-        near = np.clip(2.0 * cv2.GaussianBlur(fire, (0, 0), max(1.0, 0.1 * rc)), 0.0, 1.0)  # (its dim rim too)
+        held = fire if fire_weight is None else cv2.resize(fire_weight, (wq, hq), interpolation=cv2.INTER_AREA)
+        near = np.clip(2.0 * cv2.GaussianBlur(held, (0, 0), max(1.0, 0.1 * rc)), 0.0, 1.0)  # (its dim rim too)
         # the wisps: fixed in the cloud as it rises (the second peeling off upward faster), curling as it lives
         swirl = np.float32(WISP_CURL[0] * self.side / 4 * C._smoothstep(0.0, WISP_CURL[2], since))
         wisp = np.zeros((hq, wq), np.float32)
@@ -762,11 +802,14 @@ class Outline:
         lum = e.max(-1)  # (its billows: the render's light on them, over that of its brightest tenth)
         lum = np.clip(lum / max(float(np.percentile(lum[inside > 0], 90)), 1e-3), 0.0, 1.0)
         wisp = WISPS[3] * lum + (1.0 - WISPS[3]) * wisp
-        outer = np.clip(1.0 - sd / (OUTER[0] * rc), 0.0, 1.0)  # (1 at its edge, 0 at the outer third's inner side)
+        outer = np.clip(1.0 - sd / (OUTER[0] * rc), 0.0, 1.0)  # (1 at its edge, 0 at the outer lobes' inner side)
         under = np.clip((yy - cy) / rc, 0, 1) * (1.0 - C._smoothstep(0.0, 0.6 * rc, sd))  # (its underside, from out)
         eat = OUTER[1] * outer ** OUTER[2] + (1.0 - C._smoothstep(-0.15 * rc, 0.0, sd)) \
             + BOTTOM_THIN[2] * C._smoothstep(BOTTOM_THIN[0], BOTTOM_THIN[1], since) * under  # (its haze past it goes)
         thin = 1.0 - TOP_THIN[2] * C._smoothstep(TOP_THIN[0], TOP_THIN[1], since) * np.clip((cy - yy) / rc, 0, 1)
+        thin *= 1.0 - 0.6 * C._smoothstep(25.0, 65.0, since) * C._smoothstep(0.42, 0.7, wisp)
+        # Only current fire bypasses wisp erosion. Holding that exemption with the material key preserves a flat
+        # smoke skirt after its flame has gone; the fire layer itself supplies the gradual cooling handoff.
         own_fire = np.clip(2.0 * cv2.GaussianBlur(fire, (0, 0), max(1.0, 0.04 * rc)), 0.0, 1.0)  # (the fire: its
         # soot round it is eaten too, or it hung by the ball as a blurred dark crescent, a drop shadow)
         lobe = LOBE[0] * (LOBE[1] + (1.0 - LOBE[1]) * C._smoothstep(LOBE[2], LOBE[3], since))
@@ -774,7 +817,7 @@ class Outline:
 
     @staticmethod
     def density(maps, size: tuple[int, int], side: int) -> np.ndarray:
-        """(h, w) at ``size`` (w, h): how much of the composite's soot each pixel keeps: its outer third cut sharply at
+        """(h, w) at ``size`` (w, h): how much of the composite's soot each pixel keeps: its outer lobes cut sharply at
         full size, thickening in from each cut edge (LOBE), the fire whole."""
         _, wisp, eat, thin, _, own, lobe = maps
         up = lambda a, how=cv2.INTER_LINEAR: cv2.resize(a.astype(np.float32), size, interpolation=how)  # noqa: E731
@@ -786,7 +829,7 @@ class Outline:
 
     def finish(self, Q: np.ndarray, P: np.ndarray, box, maps) -> None:
         """In place over ``box``: the composite ``Q`` (linear) with maps' outline put on it against the room ``P``:
-        soot never lighter than the room behind it, a little softened in its outer third (the render draws a thin
+        soot never lighter than the room behind it, a little softened in its outer lobes (the render draws a thin
         bright rim round its smoke: composited it drew a contour line round the cloud), its density where it is eaten
         and thinned."""
         near, _, _, _, outer, _, _ = maps
@@ -829,13 +872,15 @@ def scatter(Q: np.ndarray, P: np.ndarray, box, side: int) -> None:
     a = mean(np.clip((mean(l2 * q2) - mp * mq) / (mean(l2 * l2) - mp * mp + np.float32(SCATTER[4])), 0.0, 1.0))
     t = f ** np.float32(SCATTER[0])
     blurred, lit = wide_blur(p2, SCATTER[2] * side / 2160), wide_blur(p2, SCATTER[3] * side / 2)
-    light = t[..., None] * (p2 + (1.0 - t)[..., None] * (blurred - p2)) + (1.0 - t)[..., None] * lit
+    local = wide_blur(p2, 0.055 * side / 2)  # colour from the nearby wall, not a different surface across the room
+    light = t[..., None] * (p2 + (1.0 - t)[..., None] * (blurred - p2)) + (1.0 - t)[..., None] * local
     grey = (light @ C._LUMA)[..., None]
     hue = full(1.0 + np.float32(SOOT_HUE) * (light / np.maximum(grey, 1e-5) - 1.0))
-    a, t, f = full(a), full(t), full(f)
+    a, t = full(a), full(t)
     soft = pl + (1.0 - t) * (full(blurred @ C._LUMA) - pl)
     ql2 = np.maximum(ql + a * (t * soft + (1.0 - t) * full(lit @ C._LUMA) - pl), 0.25 * ql)
-    soot = np.maximum(soot, C._smoothstep(0.98, 0.85, f))
+    # The fitted density is spatially averaged, so it must not extend the scatter footprint beyond the soot that
+    # actually obscures this pixel. Extending it recoloured clear wall into a pale blue-grey veil.
     q += soot[..., None] * (ql2[..., None] * hue - q)
 
 
@@ -857,18 +902,32 @@ class Fire:
     smoke and relights it as soot), frame by frame over the element's box: its brightness exposed as a phone exposed
     for the room shows it (EXPOSE, on RAMP), its highlights spread by the lens (BLOOM). While it burns (BURN) the ball
     is one shape: its colour and its alpha end on one contour (BALL), its limb never darker than the wall round it
-    (LIMB, WALL_CAP), nothing round it but the wall it lights and flame tongues of its own fire rising off its upper
-    half (TONGUES). As it dies it stays one body of dimming fire over its own brown-black soot (BODY), its embers drawn
+    (LIMB, WALL_CAP), nothing round it but the wall it lights; the source billows keep their texture and contour. As
+    it dies it stays one body of dimming fire over its own brown-black soot (BODY), its embers drawn
     over the soot round them (never ringed darker) and glowing into it (EMBER_GLOW), and its soot takes the render's own
-    billows (SOOT_BANDS). Seeded per shot."""
+    billows (SOOT_BANDS)."""
 
-    def __init__(self, h: int, w: int, side: int, seed: int):
-        rng = np.random.default_rng([seed, 59])
-        self.side, self.px, self.seed = side, side / 1080.0, seed
-        n = TONGUES[0]
-        self.lives = (rng.uniform(*TONGUES[2], n), rng.uniform(*TONGUES[3], n), rng.uniform(0.0, 7.0, n))
-        self.sway = float(rng.uniform(0.0, 2 * np.pi))
-        self.flame = _field(rng, max(2, h // 4), max(2, w // 4), TONGUE_GRAIN[0] * side / 4, TONGUE_GRAIN[1] * side / 4)
+    def __init__(self, side: int):
+        self.side, self.px = side, side / 1080.0
+        self.previous_material = None
+
+    def material(self, wf: np.ndarray, box, centre, burn: float, cloud: np.ndarray | None = None) -> np.ndarray:
+        """Fire-to-soot classification follows the cloud and releases over MATERIAL_RELEASE's interval. The source's sharp colour
+        and billow texture stay current; only the material weight persists, so its last dark folds cannot become
+        grey holes in one frame when saturation crosses the fire key's threshold. The placed cloud's soft support
+        bounds that history, so a shrinking or deforming edge cannot leave a detached stain."""
+        weight = np.clip(cv2.GaussianBlur(wf, (0, 0), 1.5 * self.px), 0.0, 1.0)
+        if self.previous_material is not None and burn < 0.95:
+            old, old_box, old_centre = self.previous_material
+            dx = old_box[2] - box[2] + centre[0] - old_centre[0]
+            dy = old_box[0] - box[0] + centre[1] - old_centre[1]
+            carried = cv2.warpAffine(old, np.float32([[1, 0, dx], [0, 1, dy]]),
+                                     (weight.shape[1], weight.shape[0]), flags=cv2.INTER_LINEAR)
+            if cloud is not None:
+                carried *= cv2.GaussianBlur(cloud, (0, 0), 1.5 * self.px)
+            weight = np.maximum(weight, carried - MATERIAL_RELEASE)
+        self.previous_material = weight, box, centre
+        return weight
 
     def ball(self, wf: np.ndarray, burn: float = 1.0, cloud: np.ndarray | None = None):
         """The ball in the fire weight ``wf`` (box size), ``burn`` (BURN) of the way to burning: (its alpha, px in from
@@ -901,73 +960,6 @@ class Fire:
         mid = (float(xs.mean()) * wb / w2, float(ys.mean()) * hb / h2)
         soft = (BALL[2] + BODY[2] * (1.0 - burn)) * self.px
         return (np.clip(inner / soft + 0.5, 0.0, 1.0), inner, mid, math.sqrt(float(own.sum()) / math.pi) * wb / w2)
-
-    def tongue_profile(self, xs: np.ndarray, mid, rf: float, reach: float, since: float) -> np.ndarray:
-        """How tall (box px, up to ``reach``) the flame tongues stand over each column ``xs`` (box px) of the ball with
-        middle ``mid`` and radius ``rf``: TONGUES[0] places along its top, each a tongue that lives a few frames,
-        growing and then thinning as it rises, then gone a while before the next comes up somewhere else along it."""
-        tall = np.zeros(xs.shape, np.float32)
-        life, gap, off = self.lives
-        for i in range(len(life)):
-            cycle = (since + off[i]) / (life[i] + gap[i])
-            k = math.floor(cycle)
-            a = (cycle - k) * (life[i] + gap[i]) / life[i]  # (its age over its life)
-            if a >= 1.0:
-                continue
-            r = np.random.default_rng([self.seed, 61, i, k])
-            c = r.uniform(-0.85, 0.85)
-            height = reach * r.uniform(0.45, 1.0) * (1.0 - 0.45 * c * c) * C._smoothstep(0.0, 0.5, a)
-            width = rf * r.uniform(*TONGUES[4]) * (1.0 - 0.55 * a) * C._smoothstep(1.0, 0.8, a)  # (it thins, and goes)
-            across = np.clip(1.0 - np.abs(xs - (mid[0] + c * rf)) / max(width, 1e-3), 0.0, 1.0)
-            tall = np.maximum(tall, np.float32(height) * across.astype(np.float32) ** np.float32(0.8))
-        return tall
-
-    def tongue_layer(self, A: np.ndarray, u: np.ndarray, mid, rf: float, at, since: float, burn: float = 1.0):
-        """The flame tongues off the burning ball (``A``: its alpha over the box, ``u``: the fire's brightness there,
-        ``mid``, ``rf``: its middle and radius in box px, ``at``: the box's corner on the frame (x, y), ``burn``: how
-        far it burns, the tongues shorter as it dies): (their alpha, their colour (linear), the rows and columns of
-        the box they are drawn over), or None. Each rises from the ball's top in its column and only narrows on its
-        way up (none floats free of it), sways, its edges ragged (TONGUE_GRAIN), filled with the ball's own fire from
-        just inside its edge, stretched up and cooling to its tip (TONGUE_FIRE)."""
-        hb, wb = A.shape
-        px = self.px
-        reach = TONGUES[1] * rf * math.sqrt(burn)
-        ball = A > 0.5
-        rows = np.nonzero(ball.any(1))[0]
-        if rows.size == 0 or reach < 2.0 * px:
-            return None
-        r0, r1 = max(0, int(rows[0] - reach * (1.0 + TONGUE_GRAIN[3]) - 4)), min(hb, int(mid[1]) + 1)
-        c0, c1 = max(0, int(mid[0] - 1.1 * rf)), min(wb, int(mid[0] + 1.1 * rf) + 1)
-        if r1 - r0 < 4 or c1 - c0 < 4:
-            return None
-        xs = np.arange(c0, c1, dtype=np.float32)
-        tall = self.tongue_profile(xs, mid, rf, reach, since)
-        if float(tall.max()) < 2.0 * px:
-            return None
-        part = ball[r0:r1, c0:c1]
-        top = np.where(part.any(0), part.argmax(0), 4 * (r1 - r0)).astype(np.float32)  # (each column's top of the ball)
-        yy = np.arange(r0, r1, dtype=np.float32)[:, None]
-        h = top[None] + r0 - yy  # px over the ball's top in its column (none over the sides of its lower half)
-        sway = (TONGUE_SWAY[0] * rf * np.clip(h / reach, 0.0, 1.0) ** 1.5 * np.sin(
-            2 * np.pi * ((yy + at[1]) / (TONGUE_SWAY[1] * rf) + TONGUE_SWAY[2] * since + xs[None] / (1.3 * rf))
-            + self.sway)).astype(np.float32)
-        src = xs[None] - sway
-        reach_at = np.interp(src.ravel(), xs, tall).reshape(src.shape).astype(np.float32)
-        gy = np.broadcast_to((yy + at[1] + TONGUE_GRAIN[2] * self.side * since) / 4, src.shape)
-        grain = cv2.remap(self.flame, ((src + at[0]) / 4).astype(np.float32), gy.astype(np.float32), cv2.INTER_LINEAR,
-                          borderMode=cv2.BORDER_WRAP)
-        reach_at *= 1.0 + TONGUE_GRAIN[3] * (2.0 * grain - 1.0)
-        a = np.where(h <= 0, 1.0, np.clip((reach_at - h) / (2.5 * px), 0.0, 1.0)).astype(np.float32)
-        a = np.minimum.accumulate(a[::-1], axis=0)[::-1]  # (from the ball up, a tongue only narrows)
-        f = np.clip(h / np.maximum(reach_at, 1e-3), 0.0, 1.0)
-        a *= (1.0 - 0.35 * f * f) * (1.0 - A[r0:r1, c0:c1]) * C._smoothstep(0.0, 2.0 * px, reach_at) \
-            * (h > -2.0 * px)  # (not under an overhang of the ball's, below its top in that column)
-        if float(a.max()) < 0.02:
-            return None
-        down = top[None] + r0 + TONGUE_FIRE[1] * px + TONGUE_FIRE[0] * np.maximum(reach_at - h, 0.0)
-        fire = cv2.remap(u.astype(np.float32), (src - 0.5 * sway).astype(np.float32), down.astype(np.float32),
-                         cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
-        return a, ramp_lin(fire * (1.0 - TONGUE_FIRE[2] * f)), (slice(r0, r1), slice(c0, c1))
 
     @staticmethod
     def exposed(ef8: np.ndarray, floor: int) -> tuple[np.ndarray, np.ndarray]:
@@ -1028,7 +1020,7 @@ class Fire:
         return kept
 
     def layer(self, Q: np.ndarray, R: np.ndarray, ef8: np.ndarray, wf: np.ndarray, box, floor: int, burn: float,
-              body: float, since: float, ball) -> None:
+              body: float, since: float, ball, pulse: float = 1.0) -> None:
         """In place over ``box``: the composite ``Q`` (linear) with the render's fire drawn on it as a light (``ef8``:
         the render's box as placed, before its soot was made dense; ``wf``: its fire weight), over ``R``, the lit room
         (linear), ``burn`` (BURN) of the way to the burning ``ball`` (Fire.ball, or None) and ``body`` (BODY) of the way
@@ -1036,35 +1028,56 @@ class Fire:
         y0, y1, x0, x1 = box
         q, room = Q[y0:y1, x0:x1], R[y0:y1, x0:x1]
         v, u = self.exposed(ef8, floor)
-        W = np.clip(cv2.GaussianBlur(wf, (0, 0), 1.5 * self.px), 0.0, 1.0)
+        u += np.float32(pulse ** (1 / 2.2) - 1.0) * u * (1.0 - u)
+        # A retained fire key must not turn cooled neutral smoke into a flat brown emissive shape. Chroma keeps
+        # dark orange folds; source brightness keeps the white-hot core even where it is almost neutral.
+        rgb = np.maximum(ef8.astype(np.float32) - floor, 0.0)
+        warmth = (rgb[..., 0] - rgb[..., 1]) / np.maximum(rgb.sum(-1), 1.0)
+        hot_material = np.maximum(C._smoothstep(0.04, 0.16, warmth), C._smoothstep(0.55, 0.9, v))
+        W = wf
         bands = (1.0 - burn) * (1.0 - C._smoothstep(*SOOT_BANDS[3], since))
         if bands > 0.01:  # the soot takes the render's own billows (where it darkens the room, not the fire)
             q = q * self.billows(v, q, room, W, bands)[..., None]
         dying = 1.0 - burn
-        inside, tongues, fire, own = np.zeros_like(W), None, W, np.zeros_like(W)
+        if dying > 0:
+            # Near live fire, fine soot scatters its orange light. Preserve its billow luminance while warming
+            # the neutral skirt; otherwise the last fire floats in a flat grey fringe with pale cream pockets.
+            lq, lr = q @ C._LUMA, room @ C._LUMA
+            heat = np.clip(4.0 * wide_blur(W * (ramp_lin(u) @ C._LUMA), 0.035 * self.side), 0.0, 1.0)
+            soot = np.clip((lr - lq) / np.maximum(lr, 1e-4), 0.0, 1.0) * (1.0 - W)
+            hue = np.array([1.0, 0.32, 0.08], np.float32)
+            q += (np.float32(0.65 * dying) * heat * soot)[..., None] * (lq[..., None] * (hue / (hue @ C._LUMA)) - q)
+        inside, fire, own = np.zeros_like(W), W, np.zeros_like(W)
         if ball is not None:
-            A, inner, mid, rf = ball
+            A, inner, _, _ = ball
             if burn > 0:
                 u = self.limb(u, inner, burn, A)
                 q = q + (burn * (1.0 - C._smoothstep(0.9, 1.0, A)))[..., None] * (room - q)  # (round it while it
                 # burns, out to its edge, the wall it lights: the composite's dull ball left in its feather drew a dark
                 # hairline)
-                tongues = self.tongue_layer(A, u, mid, rf, (x0, y0), since, burn)
+            # The last flame does not outline the entire smoke volume. Thin its limb by the source's own hot
+            # folds, dissolving dim stretches into soot continuously as the fire cools.
+            edge = C._smoothstep(0.0, 24.0 * self.px, inner)
+            A = A * (burn + dying * (edge + (1.0 - edge) * C._smoothstep(0.35, 0.75, u)))
+            A *= burn + dying * hot_material
+            if dying > 0:
+                # Dark fire folds belong over actual soot. The held ball must not fill the outline's cleared
+                # wisps back in as opaque brown lobes; genuinely bright fire can still shine through them below.
+                density = np.clip((lr - lq) / np.maximum(lr, 1e-4), 0.0, 1.0)
+                A *= burn + dying * C._smoothstep(0.05, 0.4, density)
             own = body * A
             inside = (burn + dying * body) * A
-            fire = np.maximum(inside, np.float32(dying) * W)  # (while it burns, nothing of it outside the ball)
+            fire = np.maximum(inside, np.float32(dying) * W * C._smoothstep(0.35, 0.7, u))  # only hot pockets outside its body
+        fire = fire * (burn + dying * hot_material)
         # as it dies, its smoke and the dim edges of its fire taken down the fire's colours (red-brown folds), over
         # its soot: the ball's own brown-black, or the soot round it (its embers glow in it, never ringed darker)
         F = ramp_lin(u if dying <= 0 else u * (1.0 - np.float32(dying * (1.0 - BODY_SOOT[2])) * (1.0 - W)))
         out = q + fire[..., None] * (F - q)
         at = _around(fire > 0.01, int(0.1 * self.side)) if dying > 0 else None  # (only round the fire)
         if at is not None:
-            out[at] += (np.float32(dying) * fire[at])[..., None] * self.soot(q[at], room[at], W[at], own[at])
+            under = self.soot(q[at], room[at], W[at], own[at])
+            out[at] += (np.float32(dying) * fire[at])[..., None] * under
         emit = fire[..., None] * F
-        if tongues is not None:
-            a, col, at = tongues
-            out[at] += a[..., None] * (col - out[at])
-            emit[at] += a[..., None] * col
         Q[y0:y1, x0:x1] = out + self.glow(emit, burn, inside)
 
     def soot(self, q: np.ndarray, room: np.ndarray, W: np.ndarray, body: np.ndarray) -> np.ndarray:
@@ -1206,6 +1219,9 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         return since, R * (ROLL[0] * (1.0 - math.exp(-since / ROLL[1])) + ROLL[2] * climb / fx.FPS)
 
     xs_all = np.arange(w, dtype=np.float32)
+    columns = cv2.GaussianBlur(rng.standard_normal((1, el.shape[2])).astype(np.float32), (0, 0),
+                              0.045 * el.shape[2])[0]
+    columns = np.clip(columns / max(float(columns.std()), 1e-6), -2.0, 2.0)
     shapes = SootShapes(el, floor, e_ign, k_el, side)
     burns, bodies = fire_burns(el, floor)
 
@@ -1225,6 +1241,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         rows = mid + v / (1.0 + TOP_STRETCH * grow / (1.0 + np.exp(np.clip(v / (0.25 * R), -50, 50))))
         mx = (Ai[0, 0] * xs_all[None] + Ai[0, 1] * rows[:, None] + Ai[0, 2]).astype(np.float32)
         my = (Ai[1, 0] * xs_all[None] + Ai[1, 1] * rows[:, None] + Ai[1, 2]).astype(np.float32)
+        # Unequal buoyancy carries whole columns of the source and its matte together. It breaks the rendered
+        # cloud's horizontal lower shelf into rising lobes without sliding texture across a stationary outline.
+        loft = C._smoothstep(12.0, 40.0, t - k0) * (1.0 - float(burns[e]))
+        if loft > 0:
+            drift = np.interp(mx.ravel() + 0.15 * since, np.arange(len(columns)), columns).reshape(mx.shape)
+            my += (0.15 * el_r8 * loft * drift).astype(np.float32)
         sil = cv2.remap(shapes.at(e), (mx - 1.5) / 4, (my - 1.5) / 4, cv2.INTER_LINEAR,
                         borderMode=cv2.BORDER_CONSTANT, borderValue=0)  # (from a quarter of the render's size)
         return cv2.remap(el[e], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0), sil
@@ -1234,16 +1256,17 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                            int(math.ceil(GROW_FRAMES / BURST_SPEED + len(el) - e_ign - GROW_FRAMES)) + 1))
     q = 8
     spread, spread_norm = falloff((h // q, w // q), LIGHT_FALLOFF[0] * R / q, R / q, LIGHT_FALLOFF[1])
-    outline, fire = Outline(h, w, side, seed), Fire(h, w, side, seed)
+    outline, fire = Outline(h, w, side, seed), Fire(side)
     wobble = np.random.default_rng([seed, 89]).standard_normal((1, n + 8))
     wobble = cv2.GaussianBlur(wobble, (0, 0), FLICKER[1])[0, 4:-4]
     flicker = 1.0 + FLICKER[0] * np.clip(wobble / max(float(wobble.std()), 1e-6), -1.5, 1.5)
     held = held_colour = src = None  # (the light on the frame before, its colour, and where its fire's middle was)
     for t in range(k0, last):
         since = t - k0
+        pulse = 1.0 + (flicker[t] - 1.0) * min(1.0, since / 3.0)
         P = lin(plate[t])
-        m = np.zeros((h, w), np.float32) if mask is None else mask[min(t, len(mask) - 1)].astype(np.float32) / 255.0
-        m = np.minimum(m, cv2.GaussianBlur(m, (0, 0), 1.5))
+        m = hand_coverage(plate[t], mask, t)
+        guard = cv2.GaussianBlur(cv2.dilate(m, np.ones((9, 9), np.uint8)), (0, 0), 2.0)
         o_t = room_point(cam, k0, t, origin)
         placed = element_on(t)
         E8 = box = billow = rim_maps = ball = None
@@ -1260,6 +1283,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                 y0, y1, x0, x1 = box
                 ef8 = E8[y0:y1, x0:x1].copy()  # (its fire, before its soot is made dense)
                 wf = np.clip(C.fire_weight_map(C._black_floor_f(ef8, floor), PARAMS, w, True), 0.0, 1.0)
+                cloud = cv2.moments(sil[y0:y1, x0:x1])
+                centre = ((x0 + cloud["m10"] / cloud["m00"], y0 + cloud["m01"] / cloud["m00"])
+                          if cloud["m00"] > 1e-4 else ((x0 + x1) / 2, (y0 + y1) / 2))
+                # One continuous key drives both soot preparation and fire drawing. Holding only the final
+                # fire layer still let saturation reopen pale holes in its underlying soot in a single frame.
+                wf = fire.material(wf, box, centre, burn, sil[y0:y1, x0:x1])
                 smoke = 1.0 - wf
                 E8 = soot_detail(E8, floor, box, smoke)
                 billow = soot_billows(E8, floor, box, billow_ref, smoke)
@@ -1267,9 +1296,11 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                 r_in = max(3, int(BILLOW_IN * side) | 1)
                 inner = cv2.erode(sil[y0:y1, x0:x1], cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_in, r_in)))
                 billow = billow * cv2.GaussianBlur(inner, (0, 0), r_in / 2)
-                rim_maps = outline.maps(E8, floor, box, since, lift(t)[1])
+                rim_maps = outline.maps(E8, floor, box, since, lift(t)[1], fire_weight=wf)
                 ball = fire.ball(wf, burn, ef8.max(-1) > floor + 16) if burn > 0 or body > 0 else None  # (its
                 # cloud: the render lit over its black)
+        if box is None:
+            fire.previous_material = None
         # the blast's light on the room and the arm, from its own image: the render's fire, and the white-hot core's
         # light on its first frames, spread round it and tinted to its colour
         fire_small, colour, amb_t = None, fx.kelvin_rgb(4500.0), amb
@@ -1298,17 +1329,20 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             lit = LIGHT_HOLD * held if lit is None else np.maximum(lit, LIGHT_HOLD * held)
         if lit is not None and lit.max() > 1e-4:
             held, colour = lit, held_colour
-            L = cv2.resize(lit, (w, h)) * np.float32(LIGHT_GAIN * (1.0 + (flicker[t] - 1.0) * min(1.0, since / 3.0)))
+            L = cv2.resize(lit, (w, h)) * np.float32(LIGHT_GAIN)
             rim = rim_light(m, src) if mask is not None else np.zeros((h, w), np.float32)  # (from the fire's middle)
             on = (1.0 - m) + m * (ARM_LIGHT[0] + (ARM_LIGHT[1] + ARM_LIGHT[2] * burn) * rim)
             shone = P + (fx.albedo(P, white, tint) * (L * on)[..., None] + np.float32(LIGHT_GLOW) * L[..., None]) \
                 * colour
             hot = shone > LIGHT_KNEE  # (the composite takes the plate in 8 bits: past white it would clip flat)
             shone[hot] = LIGHT_KNEE + (1.0 - LIGHT_KNEE) * np.tanh((shone[hot] - LIGHT_KNEE) / (1.0 - LIGHT_KNEE))
-            P0, P = P, warm_light(P, shone, m, rim, burn)
+            P0, P = P, warm_light(P, shone, m, rim, burn, response=pulse)
             if ball is not None and burn > 0:  # (the wall by the burning ball lit no brighter than the ball's limb)
                 fire.wall_cap(ball, ef8, floor, P0, P, m, box, burn)
             amb_t = amb + np.float32(SOOT_LIT) * L[..., None] * colour
+        # Keep the illuminated current plate for one foreground restoration after the rear heat and pressure
+        # distortion. Restoring first let those remaps pull fire and soot over the fingers again.
+        hand = P
         # the fireball and its smoke, behind the arm
         if E8 is not None:
             comp = C.composite_frame(_by_root(_GAM8, P), E8, PARAMS, holdout_row=None, emission=tuple(o_t),
@@ -1327,15 +1361,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             if box is not None:  # its soot scattering the room's light; its fire as a light (the composite drew it as
                 # lit smoke)
                 scatter(Q, P, box, side)
-                fire.layer(Q, P, ef8, wf, box, floor, burn, body, since, ball)
-            arm = cv2.boundingRect((m > 0).astype(np.uint8))  # (the arm in front of it all)
-            if arm[2] and arm[3]:
-                a = (slice(arm[1], arm[1] + arm[3]), slice(arm[0], arm[0] + arm[2]))
-                Q[a] += m[a][..., None] * (P[a] - Q[a])
+                fire.layer(Q, P, ef8, wf, box, floor, burn, body, since, ball, pulse=pulse)
             P = Q
             if since >= 1:  # the hot air round and above the fireball shimmers
                 hot = np.clip(fx._lum(lin(cv2.resize(E8, (w // 4, h // 4), interpolation=cv2.INTER_AREA))) * 4.0, 0, 1)
-                P = fx.heat_haze(P[None], cv2.resize(hot, (w, h))[None], seed=seed, frame0=t)[0]
+                hazed = fx.heat_haze(P[None], cv2.resize(hot, (w, h))[None], seed=seed, frame0=t)[0]
+                P += (1.0 - guard)[..., None] * (hazed - P)
         core_i = CORE.get(since, 0.0) * size
         if core_i > 0:  # the white-hot core and its glow behind the arm; the lens's veil over everything
             rc = (0.35 + 0.3 * since) * s
@@ -1346,7 +1377,13 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             P = P + core * (1 - m[..., None]) + glow * (1 - 0.6 * m[..., None]) + np.float32(0.015 * core_i) \
                 * fx.kelvin_rgb(3000.0)
         if since < SHOCK_FRAMES:
-            P = shock_ring(P, o_t, aim, since, reach * (0.5 + 0.5 * size), side, seed, fx.kelvin_rgb(2600.0) * 0.6, dust)
+            shocked = shock_ring(P, o_t, aim, since, reach * (0.5 + 0.5 * size), side, seed,
+                                 fx.kelvin_rgb(2600.0) * 0.6, dust)
+            P += (1.0 - guard)[..., None] * (shocked - P)
+        arm = cv2.boundingRect((m > 0).astype(np.uint8))
+        if arm[2] and arm[3]:
+            a = (slice(arm[1], arm[1] + arm[3]), slice(arm[0], arm[0] + arm[2]))
+            P[a] += m[a][..., None] * (np.maximum(hand[a], lin(plate[t][a])) - P[a])
         M = _between(cam, k0, t)
         for front in (False, True):  # behind the arm and inside the fireball's body, or flying towards the camera
             drawn = parts.draw(since, (h, w), M, front)
