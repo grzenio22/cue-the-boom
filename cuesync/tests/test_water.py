@@ -155,21 +155,49 @@ def test_the_orb_rides_a_moving_hand_with_the_lag_of_a_mass_of_water():
     assert 0.5 < np.mean(lag) < 0.3 * S  # it trails the hand a little, and stays over it
 
 
-def test_a_thrown_orb_flies_along_the_aim_and_bursts_into_drops():
+def test_a_thrown_orb_flies_into_the_room_and_bursts_flat_on_its_wall(monkeypatch):
+    monkeypatch.setattr(water, "ROOM_DEPTH", 0.6)  # the wall three hands behind the palm, inside this small frame
     n = 70
-    tl = voice(n, hum=(4, 40), hits=((40, 1.0),), aim=90.0)  # thrown to the right
+    tl = voice(n, hum=(4, 40), hits=((40, 1.0),), aim=0.0)  # thrown up, and away into the room
     hand, sc = scenes("orb", tl, track_of(n))
-    R = water.ORB_R * S
-    k = next(k for k in range(40, n) if any(5 in [l for l, _, _ in b.modes] for b in sc[k].blobs))
-    assert 40 + 2 < k <= 40 + water.BURST_AFTER  # it bursts in the air, a few frames after it is let go
+    k = next(k for k in range(40, n) if any(b.flat < 1.0 for b in sc[k].blobs))  # it hits the wall
+    assert 40 + 2 < k < 40 + 12
     ball = [max(sc[j].blobs, key=lambda b: b.r) for j in range(40, k)]
-    assert ball[-1].x - ball[0].x > 1.0 * S  # away along the aim
-    swollen = max(sc[k].blobs, key=lambda b: b.r)
-    assert swollen.r > ball[-1].r and swollen.foam > 0  # swollen and frothing, for one frame...
-    burst, after = sc[k + 1].blobs, sc[k + 3].blobs
-    assert len(burst) > 60 and max(b.r for b in after) < 0.5 * R  # ... then in pieces, its body gone
-    assert all(b.free for b in burst)  # each on its own, the fast ones smeared longer than they are
-    assert max(b.streak[2] / (2.0 * b.r) for b in burst if b.streak) > 1.0
+    assert ball[-1].y < ball[0].y - 0.5 * S and ball[-1].r < 0.8 * ball[0].r  # up along the aim, and away
+    assert all(b.move for b in ball[1:])  # blurred by its flight
+    splat = max(sc[k].blobs, key=lambda b: b.r)
+    assert splat.r > ball[-1].r and splat.flat < 0.5  # flattened against the wall...
+    burst = [b for b in sc[k + 1].blobs if b.free and np.hypot(b.x - splat.x, b.y - splat.y) < 3 * splat.r]
+    r = np.array([b.r for b in burst])
+    assert len(burst) > 20 and r.max() > 2.5 * np.percentile(r, 10)  # ... flying apart in pieces of many sizes...
+    assert np.mean([abs(b.z - splat.z) < 0.2 * S for b in burst]) > 0.9  # ... out along the wall
+    assert any(not w[6] for w in sc[k + 3].wet)  # it leaves a wet patch on the wall, and drips run down it
+    drips = [b for b in sc[k + 8].blobs if b.free and b.flat < 1.0]
+    assert drips and all(b.vy > 0 for b in drips)
+
+
+def test_an_orb_thrown_out_of_the_picture_does_not_burst_in_the_air():
+    n = 60
+    tl = voice(n, hum=(4, 40), hits=((40, 1.0),), aim=90.0)  # to the right, out of this narrow frame
+    hand, sc = scenes("orb", tl, track_of(n))
+    xs = [max(b.x for b in sc[k].blobs) for k in range(40, 44)]
+    assert xs[-1] - xs[0] > 1.0 * S  # away along the aim...
+    assert not any(b.flat < 1.0 or 5 in [l for l, _, _ in b.modes] for k in range(40, n) for b in sc[k].blobs)
+    assert max(len(sc[k].blobs) for k in range(42, n)) < 10  # ... and gone, with no splash in mid-air
+
+
+def test_a_splash_flies_on_along_the_motion_in_drops_of_many_sizes_and_falls():
+    drops = water.Drops(None, (2000, 2000), S)
+    rng = np.random.default_rng(1)
+    v = np.array([12.0, 0.0, 0.0])
+    water.splash(drops, 0, np.array([1000.0, 1000.0, 0.0]), 10 * S, v, 1.0, 10 * S, rng)
+    d = drops.v[:, :2] - water.SPLASH_CARRY * v[:2]
+    assert (d @ v[:2] / np.linalg.norm(v)).mean() > 0.3 * np.linalg.norm(d, axis=1).mean()  # on along it, no star
+    r = drops.info[:, 0]
+    assert r.max() > 15 * r.min() and np.median(r) < 0.1 * r.max()  # many small, a few big
+    vy0 = drops.v[:, 1].copy()
+    drops.step()
+    assert np.all(drops.v[:, 1] > vy0 * water.DRAG)  # gravity from the first frame
 
 
 def test_the_orbs_shade_comes_on_as_it_gathers_and_goes_as_it_is_thrown():
@@ -246,10 +274,23 @@ def test_the_whip_thins_to_beads_at_its_tail_and_sheds_drops_when_it_lashes():
     body = [b for b in sc[16].blobs if not b.free]
     tube = [b for b in body if b.w < 1.0]  # the stream's blobs, each weighted by its share of it
     assert len(tube) > 20 and max(b.r for b in tube[-8:]) < 0.5 * max(b.r for b in tube[:8])  # it tapers
-    beads = [b for b in body if b.w == 1.0 and b.r < 0.5 * water.WHIP_BULB * S]
-    assert beads  # its tail necks into beads
+    beads = [b for b in body if b.w == 1.0 and b.stream]
+    assert beads and max(b.r for b in beads) < water.WHIP_R[0] * S  # its tail necks into beads
     assert any(b.free for k in range(21, 30) for b in sc[k].blobs)  # the lash flings drops off it
-    assert max(b.streak[2] / (2.0 * b.r) for k in range(21, 26) for b in sc[k].blobs if b.streak) > 0.7  # smeared
+    assert max(np.hypot(*b.move) / (2.0 * b.r) for k in range(21, 26) for b in sc[k].blobs if b.move) > 0.7  # blurred
+
+
+def test_the_whip_rises_out_of_a_frothing_pool_that_wets_the_palm():
+    n = 40
+    track = track_of(n)
+    _, sc = scenes("whip", voice(n, hum=(2, 39), hits=()), track)
+    pool = [b for b in sc[30].blobs if b.flat < 1.0]
+    p = np.array(track["xy"][30])
+    assert len(pool) == 1 and pool[0].r > 1.5 * water.WHIP_R[0] * S and pool[0].foam > 0.3  # wide, flat, churning...
+    assert np.hypot(pool[0].x - p[0], pool[0].y - p[1]) < 0.2 * S  # ... on the palm (no ball over it: a test tube)
+    assert any(w[6] for w in sc[30].wet)  # the palm round it wet
+    arc = [b.stream[0] for b in sc[30].blobs if b.stream and b.w < 1.0]
+    assert len(arc) > 20 and np.all(np.diff(arc) > 0)  # the stream knows where along itself each part is
 
 
 # ---- what a frame's water is made of --------------------------------------------------------------------------------
@@ -267,20 +308,31 @@ def test_blobs_weighted_along_a_stream_sum_to_a_tube_of_their_radius():
     assert half_width(1.0) > 1.5 * r  # unweighted, a hose half as thick again
 
 
-def test_free_pieces_do_not_fuse_with_each_other_and_a_fast_one_is_a_smear():
+def test_free_pieces_do_not_fuse_with_each_other():
     r = 10.0
     pair = [(64.0 - 1.15 * r, 96.0), (64.0 + 1.15 * r, 96.0)]  # their outlines 0.3 r apart
     for free, bridged in ((False, True), (True, False)):
         fld = water.Field([water.Blob(x, y, 0.0, r, free=free) for x, y in pair], H, W)
         assert (fld.f[96 - fld.box[0], 64 - fld.box[2]] > water.TAU) == bridged
+
+
+def test_a_fast_drop_is_blurred_along_its_motion_into_a_see_through_streak():
     r = 4.0
-    shape, streak = water._smeared(r, np.array([40.0, 0.0]))
-    assert shape[0] > 2.0 * shape[3] and streak[:2] == (1.0, 0.0)  # smeared along its motion...
-    fld = water.Field([water.Blob(64.0, 96.0, 0.0, r, shape, streak=streak)], H, W)
-    row = fld.se[96 - fld.box[0], :]
-    xs = np.arange(fld.box[2], fld.box[3])
-    middle, end = row[np.abs(xs - 64) < 1].mean(), row[np.abs(xs - 64 - 0.5 * streak[2]) < 1].mean()
-    assert middle < 0.5 and end < 0.7 * middle  # ... seen through, fading at its ends
+    shape, move = water._moving(r, np.array([40.0, 0.0]))
+    assert np.allclose(shape, (1.0, 0.0, 0.0, 1.0)) and move == (min(water.SMEAR_MAX * 2 * r, 40 * water.SHUTTER), 0.0)
+    plate = wall(1)
+
+    def layer(mv):
+        fld = water.Field([water.Blob(64.0, 96.0, 0.0, r, free=True, move=mv)], H, W)
+        return water.shade(fld, water.Scene(wave=0.0), 0, _hand_at(-2.0 * S), water.Room(plate), water.Noise(0),
+                           water._pyramid(lin(plate[0])), None, 0.0, 0)
+
+    still, fast = layer(()), layer(move)
+    assert abs(fast.alpha.sum() - still.alpha.sum()) < 0.03 * still.alpha.sum()  # as much water, spread out...
+    assert fast.alpha.max() < 0.6 * still.alpha.max()  # ... seen through...
+    cols = np.arange(fast.box[2], fast.box[3])[fast.alpha.max(0) > 0.02]
+    rows = np.arange(fast.box[0], fast.box[1])[fast.alpha.max(1) > 0.02]
+    assert np.ptp(cols) > 2 * r + 0.8 * move[0] and np.ptp(rows) < 2 * r + 4  # ... along its motion only
 
 
 def test_the_room_is_mirrored_by_direction_alone():
@@ -343,3 +395,32 @@ def test_the_orb_lights_the_palm_under_it():
     assert (on & off_orb).sum() > 50  # its focus and shade on the palm, outside the orb itself
     wall_far = (matte[k] == 0) & (np.hypot(xx - x, yy - y) > 2.0 * r)
     assert np.array_equal(out[k][wall_far], plate[k][wall_far])  # and none on the wall off it
+
+
+def test_a_small_drop_is_clear_with_a_bright_glint_not_a_grey_bead():
+    plate = wall(1)
+    big = 400.0  # a hand this size, so a small drop is a few px across
+    hand = water.Hand(np.array([[64.0, 100.0]]), np.array([[0.0, 0.0, 1.0]]), np.array([[0.0, -1.0, 0.0]]),
+                      np.array([big]), np.array([[0.0, 0.0, -2.0 * big]]), None)
+    r = 0.015 * big
+    sc = water.Scene([water.Blob(64.0, 100.0, 0.0, r, free=True)], wave=0.0)
+    out = water.frame(0, plate[0], None, sc, hand, water.Room(plate), water.Noise(0), 0.0, 0).astype(float)
+    yy, xx = np.mgrid[0:H, 0:W]
+    on = np.hypot(xx - 64, yy - 100) < r
+    p = plate[0].astype(float)
+    assert abs(out[on].mean() - p[on].mean()) < 0.2 * p[on].mean()  # what is behind it seen through it, not grey
+    assert out[on].max() > p[on].max() + 25  # and a glint
+
+
+def test_the_light_the_orb_focuses_wobbles_with_it_in_a_shifting_net():
+    q, R, dh = 2, 40.0, 20.0
+    L = np.array([0.0, -0.5, 0.86]) / np.linalg.norm([0.0, -0.5, 0.86])
+    plain = water._spot(80, 80, q, 0, 0, 80.0, 80.0, R, dh, L)
+    core = plain > 0.5 * plain.max()
+    noise = water.Noise(0)
+    nets = [water._spot(80, 80, q, 0, 0, 80.0, 80.0, R, dh, L, (), noise, k) for k in (0, 1)]
+    assert abs(nets[0][core].mean() - plain[core].mean()) < 0.15 * plain[core].mean()  # as much light...
+    assert np.std(nets[0][core] / plain[core]) > 0.05  # ... in a net of brighter lines...
+    assert np.abs(nets[1] - nets[0])[core].mean() > 0.005 * plain.max()  # ... that shifts from frame to frame
+    lobed = water._spot(80, 80, q, 0, 0, 80.0, 80.0, R, dh, L, ((3, 0.05, 0.0),))
+    assert np.abs(lobed - plain)[core].max() > 0.05 * plain.max()  # and wobbling with the orb
