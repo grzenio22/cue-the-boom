@@ -1,12 +1,10 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  apart, type Arcs, arcChannels, arcStep, type Ball, BALL_HAND_RGB, BALL_LIGHT, BALL_ROOM_RGB, ballAt, ballRadius,
-  ballStep, beside, BODY_STOPS, BRANCH_W, BUZZ_HF, buzzOf, channel, crosses, dense, DIP, drawBall, drawBallLight,
+  type Arcs, arcChannels, arcStep, type Ball, BALL_HAND_RGB, BALL_LIGHT, BALL_ROOM_RGB, ballAt, ballRadius,
+  ballStep, BODY_STOPS, BRANCH_W, BUZZ_HF, buzzOf, channel, crosses, dense, DIP, drawBall, drawBallLight,
   drawChannels, drawLand, drawLight, GROUND, GROUND_BOW, GROUND_FREE, GROUND_GONE, GROUND_ON, IMPACT_MIN, jumpPath,
   LAND_NEAR, leader, LEADER, type Light, LIGHT_TAIL, lightStep, newArcs, onHand, type P2, pickTarget, type Plate,
-  plasmaAt, plasmaTurns, PRONG, ride, rng, SHELL, SHELL_SKIN, SIDE_APART, SPLASH, streamStep, stretches, surfaces,
+  plasmaAt, plasmaTurns, PRONG, ride, rng, SHELL, SHELL_SKIN, SPLASH, streamStep, stretches, surfaces,
   swing, TAPER, TARGET_APART, TARGET_AT, TARGET_BORDER, TARGET_CONE,
 } from "./lightning";
 
@@ -197,58 +195,59 @@ describe("where a bolt strikes", () => {
   });
 });
 
-const chans = (a: Arcs) => [a.main, ...a.sides].map((s) => s.ch!);
-
 describe("arcStep", () => {
-  it("strikes one dominant main channel welded to the fingertip, its streamers dim, thin, short, clear of it and not beside it", () => {
+  it("never invents a second emitter from the side of a single tracked fingertip", () => {
     let arcs = newArcs();
-    let sides = 0;
-    for (let frame = 1; frame <= 60; frame++) {
-      const tip: P2 = [300 + 2 * frame, 600];
-      arcs = arcStep(arcs, tip, -Math.PI / 2, 150, 1, frame % 20 === 0, frame);
-      const [main, ...rest] = chans(arcs);
-      expect(main.pts[0]).toEqual(tip); // (welded)
-      expect(rest.length).toBeLessThanOrEqual(2);
-      const mainReach = Math.hypot(main.pts[main.pts.length - 1][0] - tip[0], main.pts[main.pts.length - 1][1] - tip[1]);
-      rest.forEach((c, i) => {
-        sides++;
-        expect(c.pts[0]).toEqual(tip);
-        expect(c.inten).toBeLessThanOrEqual(0.35);
-        expect(c.width).toBeLessThanOrEqual(0.4 * main.width + 1e-9);
-        const reach = Math.hypot(c.pts[c.pts.length - 1][0] - tip[0], c.pts[c.pts.length - 1][1] - tip[1]);
-        expect(reach).toBeLessThan(0.6 * mainReach); // (half its reach when struck; the hand moves on a little)
-        expect(crosses(c.pts, main.pts, 0, 3)).toBe(false);
-        expect(beside(c.pts, main.pts, 0.12 * 150)).toBeLessThan(0.35); // (not a second wire beside it)
-        const end = c.pts[c.pts.length - 1], far = Math.hypot(end[0] - tip[0], end[1] - tip[1]);
-        const there = main.pts.find(([x, y]) => Math.hypot(x - tip[0], y - tip[1]) >= far) ?? main.pts[main.pts.length - 1];
-        const off = Math.atan2(end[1] - tip[1], end[0] - tip[0]) - Math.atan2(there[1] - tip[1], there[0] - tip[0]);
-        expect(Math.abs(((off + 3 * Math.PI) % (2 * Math.PI)) - Math.PI)).toBeGreaterThan(SIDE_APART[0] - 0.05); // (well
-        // round from the main channel where that is as far out: leaving 18 degrees off, two ran beside it as hairlines)
-        rest.slice(i + 1).forEach((o) => expect(crosses(c.pts, o.pts, 0, 3)).toBe(false));
-      });
+    for (let frame = 1; frame <= 12; frame++) {
+      arcs = arcStep(arcs, [540, 1500], -Math.PI / 2, 220, 1, frame === 1, frame, 1, plateOf(900));
+      expect(arcs.main.ch!.strikes).toBeDefined();
+      expect(arcs.sides).toEqual([]);
     }
-    expect(sides).toBeGreaterThan(40); // (two at the loudest, mostly)
   });
 
-  it("tells a streamer that keeps well round from its main channel from one that runs beside it", () => {
-    const main: P2[] = Array.from({ length: 40 }, (_, i) => [0, -i * 10]); // (straight up, 390 px)
-    const at = (deg: number, bend = 0): P2[] => Array.from({ length: 20 }, (_, i) => {
-      const a = (deg - bend * (i / 19)) * Math.PI / 180, r = i * 8;
-      return [r * Math.sin(a), -r * Math.cos(a)];
-    });
-    expect(apart(main, [0, 0], at(30))).toBe(true);
-    expect(apart(main, [0, 0], at(12))).toBe(false); // (12 degrees off all along: a twin beside it)
-    expect(apart(main, [0, 0], at(-30, -25))).toBe(false); // (leaving 30 degrees off, then bending back towards it)
+  it("strikes a broad low-texture wall patch when no contrast edge faces the finger", () => {
+    const plate: Plate = { w: 135, h: 240, k: 8, lum: new Float32Array(135 * 240).fill(150) };
+    const arcs = arcStep(newArcs(), [540, 1500], -Math.PI / 2, 220, 1, true, 1, 1, plate);
+    expect(arcChannels(arcs, 1).length).toBeGreaterThan(0);
+    expect(arcs.main.ch!.diffuse).toBe(true);
+    const end = arcs.main.ch!.pts.at(-1)!;
+    expect(end[1]).toBeLessThan(1200);
+    expect(Math.min(end[0], 1079 - end[0], end[1], 1919 - end[1])).toBeGreaterThan(120);
+    expect(arcs.main.splash).toEqual([]);
   });
 
-  it("strikes no streamer for a quiet voice and one for a middling one", () => {
-    let quiet = newArcs(), mid = newArcs();
-    for (let frame = 1; frame <= 20; frame++) {
-      quiet = arcStep(quiet, [0, 0], 0, 150, 0.2, false, frame);
-      mid = arcStep(mid, [0, 0], 0, 150, 0.6, false, frame);
-      expect(quiet.sides.length).toBe(0);
-      expect(mid.sides.length).toBeLessThanOrEqual(1);
-    }
+  it("prefers a real side surface up to 120 degrees off the finger before a featureless wall patch", () => {
+    const plate: Plate = { w: 135, h: 240, k: 8, lum: new Float32Array(135 * 240).fill(150) };
+    for (let y = 194; y < 220; y++) for (let x = 10; x < 22; x++) plate.lum[y * plate.w + x] = 60;
+    const arcs = arcStep(newArcs(), [540, 1500], -Math.PI / 2, 220, 0.6, true, 1, 1, plate);
+    const main = arcs.main.ch!, end = main.pts.at(-1)!;
+    expect(main.strikes).toBeDefined();
+    expect(main.diffuse).not.toBe(true);
+    expect(end[0]).toBeLessThan(190);
+    expect(end[1]).toBeGreaterThan(1500);
+    const off = Math.abs(Math.atan2(end[0] - 540, 1500 - end[1])) * 180 / Math.PI;
+    expect(off).toBeGreaterThan(70);
+    expect(off).toBeLessThanOrEqual(120);
+    const span = Math.hypot(end[0] - 540, end[1] - 1500);
+    expect(main.pts).toContainEqual([540, 1500 - 0.07 * span]);
+  });
+
+  it("drops a held channel when the camera picture becomes unreadable", () => {
+    let arcs = arcStep(newArcs(), [540, 1500], -Math.PI / 2, 220, 1, true, 1, 1, plateOf(900));
+    arcs.main.left = 2;
+    arcs = arcStep(arcs, [540, 1500], -Math.PI / 2, 220, 1, false, 2, 1, null);
+    expect(arcChannels(arcs, 1)).toEqual([]);
+  });
+
+  it("keeps the main channel attached to the current fingertip while its surface contact stays put", () => {
+    const plate = plateOf(900);
+    let arcs = arcStep(newArcs(), [540, 1500], -Math.PI / 2, 220, 1, true, 1, 1, plate);
+    const end = arcs.main.ch!.pts.at(-1);
+    arcs.main.left = 2;
+    arcs = arcStep(arcs, [550, 1490], -Math.PI / 2, 220, 1, false, 2, 1, plate);
+    expect(arcs.main.ch!.pts[0]).toEqual([550, 1490]);
+    expect(arcs.main.ch!.pts.at(-1)).toEqual(end);
+    expect(arcs.main.ch!.rootSoft).toBeGreaterThan(1);
   });
 
   it("is the same for the same frames", () => {
@@ -262,14 +261,21 @@ describe("arcStep", () => {
 });
 
 describe("drawing", () => {
-  it("fades a branch along its length and keeps the main channel's brightness, thinning both, a branch to a wedge", () => {
+  it("breaks the main filament into uneven thickness and brightness without flattening dim branches", () => {
+    const c = channel([540, 1500], [540, 900], rng(3), 4);
+    const main = stretches(c, 1);
+    expect(Math.max(...main.map(([, , a]) => a)) - Math.min(...main.map(([, , a]) => a))).toBeGreaterThan(0.2);
+    expect(main.some(([, w], i) => i > 0 && w > main[i - 1][1])).toBe(true);
+  });
+
+  it("fades and tapers a branch into a dim fine wedge below its main filament", () => {
     const pts: P2[] = Array.from({ length: 65 }, (_, i) => [0, -i * 5]);
     const main = stretches({ pts, width: 4, inten: 1, forks: [], at: 0 }, 1);
     const branch = stretches({ pts, width: 1.6, inten: 0.35, forks: [], at: 0 }, 1);
-    expect(main.every(([, , a]) => a === 1)).toBe(true);
+    expect(Math.max(...branch.map(([, , a]) => a))).toBeLessThan(Math.min(...main.map(([, , a]) => a)));
     expect(branch[branch.length - 1][2]).toBeLessThan(0.25 * branch[0][2]); // (a streamer fades nearly out)
     expect(branch[branch.length - 1][2] / branch[0][2]).toBeGreaterThan(1 - TAPER[0] - 0.01);
-    for (const s of [main, branch]) for (let k = 1; k < s.length; k++) expect(s[k][1]).toBeLessThan(s[k - 1][1]);
+    for (let k = 1; k < branch.length; k++) expect(branch[k][1]).toBeLessThan(branch[k - 1][1]);
     expect(branch[0][1]).toBeGreaterThan(1.3 * 1.6); // (thicker where it leaves than its width...)
     expect(branch[branch.length - 1][1]).toBeLessThan(0.5 * 1.6); // (...and under half of it at its end)
     expect(Math.min(...branch.map(([, w]) => w))).toBeGreaterThanOrEqual(BRANCH_W[2]);
@@ -279,7 +285,7 @@ describe("drawing", () => {
     const ctx = fakeCtx();
     let arcs = newArcs();
     for (let frame = 1; frame <= 30; frame++) {
-      arcs = arcStep(arcs, [300, 600], -1.4, 150, 1, false, frame);
+      arcs = arcStep(arcs, [540, 1500], -1.4, 150, 1, false, frame, 1, plateOf(900));
       drawChannels(ctx as unknown as CanvasRenderingContext2D, arcChannels(arcs, 1), 0.66);
     }
     expect(ctx.strokes / 30).toBeLessThan(400);
@@ -302,16 +308,6 @@ describe("the light", () => {
   });
 });
 
-/** The shot's ball by radius, as shown: [radii, r, g, b], read from test_lightning.py's BALL_PROFILE (the median
- * colour of each thin ring of cuesync.lightning's ball over a synthetic palm at full charge at 1080x1920, which holds
- * the shot to it): the live preview's body is held within 8 levels of it, so the two cannot drift apart. */
-const BALL_PROFILE: [number, number, number, number][] = (() => {
-  const src = readFileSync(join(import.meta.dirname, "../../cuesync/tests/test_lightning.py"), "utf8");
-  const block = src.slice(src.indexOf("BALL_PROFILE = ("), src.indexOf("# (radii, r, g, b)", src.indexOf("BALL_PROFILE = (")));
-  return [...block.matchAll(/\(([\d.]+), (\d+), (\d+), (\d+)\)/g)]
-    .map((m) => [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])] as [number, number, number, number]);
-})();
-
 describe("the ball", () => {
   const voice = [0, 0.05, 0.1, ...Array(24).fill(0.9), ...Array(30).fill(0)];
   const run = () => {
@@ -332,30 +328,52 @@ describe("the ball", () => {
     expect(balls[balls.length - 1]).toBeNull();
   });
 
-  it("is the shot's ball by radius: the profile test_lightning.py holds the shot to", () => {
-    expect(BALL_PROFILE.length).toBe(7);
-    const at = (r: number) => { // (the body's colour at r radii, as its gradient draws it)
-      const k = BODY_STOPS.findIndex(([o]) => o >= r);
-      const [o1, ...c1] = BODY_STOPS[k], [o0, ...c0] = BODY_STOPS[Math.max(0, k - 1)];
-      const u = o1 > o0 ? (r - o0) / (o1 - o0) : 0;
-      return c0.map((v, i) => v + u * (c1[i] - v));
-    };
-    BALL_PROFILE.forEach(([r, ...rgb]) => at(r).slice(0, 3).forEach((v, i) => expect(Math.abs(v - rgb[i])).toBeLessThanOrEqual(8)));
-    const sat = ([r, g, b]: number[]) => (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
-    expect(sat(at(0))).toBeLessThan(0.1); // (white in its middle)
-    expect(sat(at(0.5))).toBeGreaterThanOrEqual(0.25); // (a clear cyan-blue round it, not blown out)
-    expect(sat(at(0.5))).toBeLessThanOrEqual(0.6);
-    const alpha = (r: number) => at(r)[3];
-    expect(Math.min(...[0, 0.15, 0.3, 0.45, 0.6].map(alpha))).toBeGreaterThan(0.95); // (dense in its middle,
-    expect(alpha(1)).toBeLessThanOrEqual(0.5); // light over the palm at its edge,
-    const [last] = BODY_STOPS[BODY_STOPS.length - 1];
-    expect(last).toBeGreaterThan(1.05); // and gone a little past its radius: no outline)
-    expect(BODY_STOPS[BODY_STOPS.length - 1][4]).toBe(0);
-    const ctx = fakeCtx(); // (and it draws its shell over the body)
-    const balls = run();
-    drawBall(ctx as unknown as CanvasRenderingContext2D, balls[20]!, [200, 400], 100, 0.66);
-    expect(ctx.fills).toBeGreaterThan(0);
+  it("has a translucent core with no opaque white dot or bright circular rim", () => {
+    expect(Math.max(...BODY_STOPS.map(([, , , , a]) => a))).toBeLessThan(0.8);
+    const middle = BODY_STOPS.filter(([r]) => r < 0.65);
+    const edge = BODY_STOPS.filter(([r]) => r >= 0.85);
+    expect(Math.max(...edge.map(([, , , , a]) => a))).toBeLessThan(0.3 * Math.max(...middle.map(([, , , , a]) => a)));
+    const ctx = fakeCtx();
+    drawBall(ctx as unknown as CanvasRenderingContext2D, run()[20]!, [200, 400], 100, 0.66);
     expect(ctx.strokes).toBeGreaterThan(10);
+    expect(ctx.arcs).toEqual([]);
+  });
+
+  it("uses the tracked fingers to hide rear filaments while leaving front filaments visible", () => {
+    const lm = handUp(200, 600, 100), palm: P2 = [200, 610];
+    const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, turn: 0, shell: [{
+      pts: Array.from({ length: 17 }, (_, i): [number, number, number] =>
+        [-0.52 + i * 0.005, (0.9 - 0.5 * Math.sin(0.35)) / Math.cos(0.35), -0.5]),
+      inten: 1, left: 1, flash: 1,
+    }] };
+    const open = fakeCtx(), hidden = fakeCtx();
+    drawBall(open as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    drawBallLight(hidden as unknown as CanvasRenderingContext2D, { ...b, jumps: [] }, palm, 200, lm, 400, 800, 1);
+    const before = hidden.strokes;
+    drawBall(hidden as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    expect(hidden.strokes - before).toBeLessThan(open.strokes);
+    const front = { ...b, shell: b.shell.map((s) => ({ ...s, pts: s.pts.map(([x, y, z]): [number, number, number] => [x, y, -z]) })) };
+    const frontCtx = fakeCtx();
+    drawBallLight(frontCtx as unknown as CanvasRenderingContext2D, { ...front, jumps: [] }, palm, 200, lm, 400, 800, 1);
+    const frontBefore = frontCtx.strokes;
+    drawBall(frontCtx as unknown as CanvasRenderingContext2D, front, palm, 200, 1);
+    expect(frontCtx.strokes - frontBefore).toBeGreaterThan(hidden.strokes - before);
+  });
+
+  it("keeps rear filaments visible over the receiving palm below the distal fingers", () => {
+    const lm = handUp(200, 600, 100), palm: P2 = [200, 760];
+    const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, turn: 0, jumps: [], shell: [{
+      pts: Array.from({ length: 17 }, (_, i): [number, number, number] =>
+        [-0.1 + i * 0.005, (0.3 - 0.5 * Math.sin(0.35)) / Math.cos(0.35), -0.5]),
+      inten: 1, left: 1, flash: 1,
+    }] };
+    const open = fakeCtx(), palmCovered = fakeCtx();
+    drawBall(open as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    drawBallLight(palmCovered as unknown as CanvasRenderingContext2D, b, palm, 200, lm, 400, 800, 1);
+    const before = palmCovered.strokes;
+    drawBall(palmCovered as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    expect(palmCovered.strokes - before).toBe(open.strokes);
+    expect(open.strokes).toBeGreaterThan(0);
   });
 
   it("hovers off the palm, up the picture", () => {
@@ -536,10 +554,10 @@ function fakeCtx() {
   const ops: string[] = []; // (the ways it was told to lay what it draws over the picture)
   return {
     strokes: 0, fills: 0, strokeStyle: "", fillStyle: "" as unknown, lineWidth: 1, filter: "",
-    lineJoin: "", lineCap: "", gradients, ops,
+    lineJoin: "", lineCap: "", gradients, ops, arcs: [] as number[][],
     get globalCompositeOperation() { return ops[ops.length - 1] ?? ""; },
     set globalCompositeOperation(v: string) { ops.push(v); },
-    save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, arc() {}, clip() {}, translate() {}, rotate() {},
+    save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, arc(...args: number[]) { this.arcs.push(args); }, clip() {}, translate() {}, rotate() {},
     scale() {},
     stroke() { this.strokes++; }, fill() { this.fills++; }, fillRect() { this.fills++; },
     createRadialGradient: (_x0: number, _y0: number, _r0: number, _x1: number, _y1: number, r1: number) => {
