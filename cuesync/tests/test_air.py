@@ -1,31 +1,11 @@
-"""Air, made rather than rendered (cuesync.air): a ball of air over the palm sized to the hand, never wider than about
-one and a half spans of it, and held by the voice, its streaks fragments of arcs no longer than 60 degrees on orbits
-leaning their own ways round one spin axis and a swirling puff of air, seen by the dust it whirls round (specks of
-many sizes, few smeared long, its near half bigger and softer than its far half and crossing in front of the fingers
-as its own colour, and its trains' haze, grey streamers lighter and darker than the wall in its hue, which read at
-phone size, never white paint or a veil) and by what it bends (a straight edge behind it wobbles by px, never folded
-and never stepped; the room's air it drags round it wobbles a plate two radii off on every frame, and the air drawn in
-as it is born kinks it towards the ball), its sheen as dark as it is light and never more than a few grey levels
-either way, its rim one faint bright band broken into arcs, its far side behind the hand, which leaves the hand seen
-through it whole and undarkened, the fingers rippling with its spin about where they are rather than swollen or
-dragged by a steady bend on any frame, bends what is behind it without a tear, an elbow or a colour fringe on the
-hand, spins twice as fast after each of the voice's hits, pops and gathers tight again on a comeback hit without
-flashing the whole picture, and bursts into a push of air when the voice lets go; a push of air whose front leads
-from the palm on the push's frame and runs out across the room at about 1500 px a second, slowing, holding its 6-10 px
-bend until it has crossed the room, the air squeezed darker just behind it and thinned lighter behind that, without
-sinking what follows it under the wall, whose thin ring of dusty air and body of dust (off the hand's outline in a
-cone along the push, a third of it medium specks, with a haze of finer dust, some of it drifting on) follow it at
-about half its pace (at the lens, the ring ringing the hand and swelling as it comes; out of a ball, keeping its
-band), bends what is seen through it, shows its lumps and never a fog, a cream veil, a grey smudge, a stain on a white
-switch plate or a hole under the wall, is lit a little brighter than what it covers, scatters what is seen through
-it, and over the palm shows in soft faint puffs, not a film or a worm (a ball's burst softened); which sweeps big soft
-motes of dust lit in the room's hue past the lens, veils the lens for one frame as its gust arrives, and kicks the
-dust off the room's ledges a frame or two after its front passes, in puffs in the hue of what they cover that rise,
-spread and are gone within about twelve frames; whose dust drifts down and settles over 20-30 frames, stays in the
-room on a handheld shot and is one pool the next push throws again, placed on the open hand, and which knocks the
-phone 10-15 px as a damped spring, smearing the picture out from the push (and swells the picture when it comes at
-the lens); the hand's edge takes the air's change on its share of what is behind it; the same bytes for the same
-seed, the plate untouched where the air never reaches, and a frame within its time."""
+"""Photographic air over a tracked palm, driven by the voice and deterministic per seed.
+
+The ball reads through moving refraction of the actual room on every frame, with sparse orbiting dust supplying
+depth and spin. Its near side crosses the fingers without dirtying the skin; its far side remains behind them.
+No painted circumference, sandy disc, bright-tile glitter, finger swelling or strong quiet plate sag may replace
+the transparent volume. Hits accelerate the spin, and release throws a push whose narrow refractive front leads
+streaking dust. The push preserves the room's hue, settles naturally, stays with handheld camera movement and
+knocks the phone as a damped spring. Frames beyond the air's reach remain byte-for-byte unchanged."""
 
 import math
 import time
@@ -117,12 +97,13 @@ def plain(n, w, h):
 
 def test_the_ball_stands_over_the_palm_and_is_sized_to_the_hand():
     n = 40
-    plate = plain(n, W, H)  # (the room's air it drags round it bends a textured wall well past it: DRAFT)
+    plate = wall(n, W, H)  # texture makes the ball's transparent body measurable without counting sparse dust
     looks = []
     for scale in (20.0, 40.0):
         tr = track_of(n, W, H, lambda t: (108, 280), scale=scale)  # a palm facing up and at the lens
         out = air.render(plate, tr, None, held(n, 4, 40), "ball", seed=1)
-        looks.append(spread(change(plate, out, 30)))
+        footprint = np.mean([change(plate, out, t) for t in range(20, 36)], axis=0)
+        looks.append(spread(footprint, thr=6))  # average over the turn so sparse moving grains cannot bias its centre
     (x1, y1, r1), (x2, y2, r2) = looks
     assert abs(x1 - 108) < 0.3 * r1 and y1 < 280 and y2 < y1  # over the palm, further off it for a bigger hand
     assert 1.5 < r2 / r1 < 2.6  # sized to the hand
@@ -140,12 +121,12 @@ def test_the_ball_stays_within_one_and_a_half_spans_of_the_hand():
         L[4], L[20] = (80, 268, 0), (132, 247, 0)
         return L.tolist()
 
-    plate = plain(n, W, H)  # (what it carries: the room's air it drags round it bends what is further out, DRAFT)
+    plate = wall(n, W, H)
     tl = held(n, 4, n)
     looks = []
     for landmarks in ([hand(t) for t in range(n)], None):
         tr = track_of(n, W, H, lambda t: (108, 280), scale=60.0, landmarks=landmarks)
-        looks.append(spread(change(plate, air.render(plate, tr, None, tl, "ball", seed=1), 50))[2])
+        looks.append(spread(change(plate, air.render(plate, tr, None, tl, "ball", seed=1), 50), thr=12)[2])
     span = air.hand_span(track_of(n, W, H, lambda t: (108, 280), landmarks=[hand(t) for t in range(n)]), n, W, H)[0]
     assert looks[0] <= 0.75 * span  # within one and a half spans across ...
     assert looks[1] > 1.3 * looks[0]  # ... where a hand as big but its span unknown grows a bigger one
@@ -178,7 +159,7 @@ def test_a_held_voice_grows_the_ball():
     assert late > 1.2 * early  # it covers a fifth more of the picture
 
 
-def test_the_balls_sheen_is_broken_into_arcs_on_orbits_of_their_own():
+def test_the_balls_density_filaments_are_short_arcs_on_orbits_of_their_own():
     # arcs of up to 170 degrees on shared bands of latitude overlapped into closed wound ellipses: a Slinky
     ball = air._Ball(0, 0)
     assert ball.span.max() <= math.radians(60)  # fragments of arcs, never a loop ...
@@ -201,48 +182,46 @@ def test_the_balls_middle_is_a_swirling_puff_not_more_stripes():
     assert np.abs(moved - core)[r < 0.5].mean() > 0.1 * core[r < 0.5].mean()  # ... turning with the spin
 
 
-def test_the_balls_sheen_is_as_dark_as_it_is_light_and_faint():
-    # lit, its streaks traced lighter wound ellipses on the wall
-    P0 = np.full((700, 700, 3), 0.25, np.float32)  # a plain wall: what shows of the bend is its light
-    a = air.spin_axis(np.array([0.0, -0.78, 0.62]))
-    for rim in (air.BALL_SHADOW, (0.0, *air.BALL_SHADOW[1:])):  # (and without its rim's one bright band)
-        ball = air._Ball(3, 0)
-        keep, air.BALL_SHADOW = air.BALL_SHADOW, rim
-        try:
-            lift = np.array([grey_lift(ball.draw(P0.copy(), (0, 0), np.array([350.0, 350.0]), 240.0, a, 1.0, 0.0, 0.0,
-                                                 0.0, 1.0, 0.3, 0.6, t, None, None, 0.0, 1.0), P0) for t in range(6)])
-        finally:
-            air.BALL_SHADOW = keep
-        assert lift.max() <= air.SHEEN[2] + 0.6 and lift.min() >= -air.SHEEN[2] - 0.6  # a few grey levels either way
-    light, dark = lift[lift > 0].sum(), -lift[lift < 0].sum()
-    assert 0.6 < dark / light < 1.6  # its streaks' sheen as much darker round them as lighter along them
+def test_refraction_does_not_paint_a_featureless_wall():
+    # Without carried dust, a uniform wall supplies no image for refraction to change.
+    S, R = 420, 140.0
+    P0 = np.full((S, S, 3), 0.25, np.float32)
+    ball = air._Ball(3, 0)
+    ball.d_bright[:] = 0
+    ball.r_bright[:] = 0
+    ball.h_w[:] = 0
+    ball.tracer[:] = 0
+    axis = air.spin_axis(np.array([0.0, -0.78, 0.62]))
+    for t in range(6):
+        P = P0.copy()
+        ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, axis, 1.0, 0.0, 0.0, 0.0, 1.0,
+                  0.3, 0.6, t, None, None, 0.0, 0.5)
+        assert np.abs(grey_lift(P, P0)).max() < 0.1
 
 
-def test_the_balls_dust_is_what_shows_of_it_at_phone_size():
-    # 45 specks at a third of an opacity of 0.35, lit a little, changed the wall by 9-10 grey levels at 360x640: the
-    # ball nearly vanished; then 440 rods alike read as a swarm of gnats. Now its trains' haze carries it
-    n = 40
-    w, h = 540, 960
-    plate = np.full((n, h, w, 3), (120, 118, 96), np.uint8)  # a plain wall: nothing for the bend to bend
-    tr = track_of(n, w, h, lambda t: (270, 700), scale=150.0)
-    out = air.render(plate, tr, None, held(n, 4, n), "ball", seed=2)
-    small = [cv2.resize(f, (w * 2 // 3, h * 2 // 3), interpolation=cv2.INTER_AREA).astype(np.float32)
-             for f in (plate[30], out[30])]  # (as a 1080 frame at 360x640)
-    d = small[1] @ np.array([0.299, 0.587, 0.114]) - small[0] @ np.array([0.299, 0.587, 0.114])
-    shows = np.abs(d) > 8
-    _, _, r = spread(change(plate, out, 30))
-    assert shows.sum() > 0.05 * math.pi * (r * 2 / 3) ** 2  # streamers over the ball that read at phone size ...
-    assert (d < -8).sum() > 0.1 * shows.sum() and (d > 8).sum() > 0.2 * shows.sum()  # ... lighter and darker than
-    # the wall ...
-    ratio = small[1][shows] / small[0][shows]
-    assert np.abs(ratio[:, 0] - ratio[:, 2]).max() < 0.12  # ... in the wall's own hue ...
-    assert np.abs(d).max() <= air.SHELL_LEVELS + air.HAZE[0] + air.SHEEN[2]  # ... never white paint, never a black
-    # stroke (a speck on its haze at the most)
+def test_actual_background_refraction_carries_the_ball_on_every_frame():
+    # The room moving through the air supplies its body; a painted dust disc must not replace that cue.
+    S, R = 420, 140.0
+    P0 = air.lin(wall(1, S, S)[0]).astype(np.float32)
+    yy, xx = np.mgrid[:S, :S]
+    inside = np.hypot(xx - S / 2, yy - S / 2) < 0.9 * R
+    ball = air._Ball(2, 0)
+    axis = air.spin_axis(np.array([0.0, -0.78, 0.62]))
+    for t in range(8):
+        P = P0.copy()
+        bent = ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, axis, 1.0, 0.0, 0.0, 0.0, 1.0,
+                         0.3, 0.6, t, None, None, 0.0, 0.5)
+        refracted = np.abs(grey_lift(bent, P0))[inside]
+        carried = np.abs(grey_lift(P, bent))[inside]
+        assert (refracted > 8).mean() > 0.1
+        assert refracted.mean() > 3 * carried.mean()
 
 
-def specks_drawn(ball, omega, frames=8, R=260.0):
-    """What the ball hands _specks on its last frame drawn over a plain wall at ``omega`` (1080 px): (smear px, core px
-    at 1080, softness px at 1080, weight, depth px towards the lens) of each speck."""
+def specks_drawn(ball, omega, frames=8, R=260.0, k=1.0):
+    """Capture the last frame's tracer length in render pixels, core and softness at 1080, and weight.
+
+    ``R`` is the radius in render pixels; ``k`` is the render's width relative to 1080.
+    """
     got = {}
     keep = air._specks
 
@@ -257,72 +236,61 @@ def specks_drawn(ball, omega, frames=8, R=260.0):
         for t in range(frames):
             ball.draw(np.full((S, S, 3), 0.25, np.float32), (0, 0), np.array([S / 2, S / 2]), R,
                       air.spin_axis(np.array([0.05, -0.75, 0.66])), 1.0, 0.0, 0.0, 0.0, 1.0, omega, 0.6, t, None, None,
-                      0.0, 1.0)
+                      0.0, k)
     finally:
         air._specks = keep
     return got
 
 
-def test_the_balls_dust_is_specks_of_many_sizes_few_smeared_long():
+def test_the_balls_tracers_have_varied_sizes_and_short_orbital_trails():
     # all alike, 4 px across and smeared 25-30 px, every speck was the same hard-ended rod: grass clippings, iron
     # filings round a magnet
     ball = air._Ball(1, 0)
     fine = ball.d_r0 <= air.SHELL_R[0][1]
     flake = ball.d_r0 >= air.SHELL_R[2][0]
-    assert 0.55 < fine.mean() < 0.8 and 0.02 < flake.mean() < 0.1  # most of it fine, a few soft flakes ...
-    assert ball.d_bright[fine].max() < ball.d_bright[~fine & ~flake].min()  # ... the medium ones the strongest
+    assert fine.any() and flake.any()
+    assert np.percentile(ball.d_r0, 90) > 2 * np.percentile(ball.d_r0, 10)  # varied sizes, no uniform particle swarm
+    assert np.quantile(ball.d_bright[~fine & ~flake], 0.75) > np.quantile(ball.d_bright[fine], 0.75)  # medium tracers
+    # carry the turn, while every train can fade naturally to zero at its ends
     for omega in (0.45, 0.9, 1.3):  # (the spin of a quiet voice, a hit's, and the loudest hit's)
         L = specks_drawn(ball, omega)["L"]
-        assert np.median(L) <= 12 and (L > air.LONG[0] + 0.5).mean() <= air.LONG[1] + 0.005  # few smeared long ...
-        assert np.percentile(L, 90) > 2 * np.percentile(L, 10)  # ... each its own length
+        assert np.percentile(L, 90) >= 10 and np.percentile(L, 99) <= 24  # turning arcs, no long needles ...
+        assert np.percentile(L, 90) - np.percentile(L, 10) >= 4  # ... visibly varied lengths rather than identical rods
+
+
+def test_orbiting_tracer_trails_keep_their_normalized_length_at_each_resolution():
+    # A render at half size must not lengthen every tracer into the same capped rod.
+    lengths = [specks_drawn(air._Ball(1, 0), 0.45, frames=3, R=120 * k, k=k)["L"] / k for k in (0.5, 1.0, 2.0)]
+    assert np.allclose(lengths[0], lengths[1], rtol=0.02, atol=0.05)
+    assert np.allclose(lengths[2], lengths[1], rtol=0.02, atol=0.05)
 
 
 def test_the_balls_near_dust_is_bigger_and_softer_and_its_far_dust_small_and_sharp():
     # every speck alike, the swirl had no depth
     got = specks_drawn(air._Ball(2, 0), 0.45)
-    near, far = got["soft"] > 1.0, got["soft"] == 0
-    assert near.sum() > 50 and far.sum() > 50
+    near, far = got["soft"] > 0.5 * got["soft"].max(), got["soft"] == 0
+    assert near.mean() > 0.1 and far.mean() > 0.1
+    assert np.median(got["soft"][near]) > 0.2
     assert np.median(got["r0"][near]) > 1.3 * np.median(got["r0"][far])
 
 
-def test_the_balls_haze_is_grey_streamers_in_the_walls_hue_and_its_rim_one_contour_broken_into_arcs():
-    # as smooth bands the haze was a dark smudge round the ball; all of it darker, piled up, charcoal scribbles; lit or
-    # dark a train at a time, chalk smears and charcoal; a lone faint bright band at its rim went unseen, and a bright
-    # and dark pair drew nested contours round it: a water drop
+def test_the_balls_haze_stays_faint_instead_of_painting_a_dust_disc():
+    # Dense streamers made a sandy patch. Fine suspended dust may add texture, but cannot carry an opaque sphere.
     ball = air._Ball(5, 0)
     ball.d_bright[:] = 0  # (its specks left out: the haze alone)
     ball.r_bright[:] = 0
+    ball.tracer[:] = 0
     wall_ = np.array([0.22, 0.2, 0.12], np.float32)
-    S, R = 780, 260.0
+    S, R = 420, 140.0
     P0 = np.broadcast_to(wall_, (S, S, 3)).copy()
     P = P0.copy()
     for t in range(6):
         P = P0.copy()
         bent = ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, air.spin_axis(np.array([0.05, -0.75, 0.66])), 1.0,
-                         0.0, 0.0, 0.0, 1.0, 0.45, 0.6, t, None, None, 0.0, 1.0)
+                         0.0, 0.0, 0.0, 1.0, 0.45, 0.6, t, None, None, 0.0, 0.5)
     haze = grey_lift(P, bent).astype(np.float32)
-    assert (haze < -3).sum() > 4000 and (haze > 3).sum() > 2000  # darker dust, and dust lit by the room ...
-    assert haze.min() >= -air.HAZE[0] * air.HAZE_MOST - 1  # ... never more than its lines piled up
-    assert haze.max() <= air.HAZE_LIT[1] * air.HAZE[0] * air.HAZE_MOST + 1
-    ratio = (P / bent)[np.abs(haze) > 3]
-    assert np.abs(ratio[:, 0] - ratio[:, 2]).max() < 0.02  # in the wall's hue
-    gx, gy = cv2.Sobel(haze, cv2.CV_32F, 1, 0), cv2.Sobel(haze, cv2.CV_32F, 0, 1)
-    J = [cv2.GaussianBlur(a, (0, 0), 6) for a in (gx * gx, gy * gy, gx * gy)]
-    strength = J[0] + J[1]
-    along = np.sqrt((J[0] - J[1]) ** 2 + 4 * J[2] ** 2) / np.maximum(strength, 1e-9)
-    assert along[strength > np.percentile(strength, 80)].mean() > 0.58  # streamers, not blobs (smooth noise: 0.4)
-    mixed = [ball.h_lit[j].mean() for j in range(len(ball.h_lit))]
-    assert 0.3 < np.mean(mixed) < 0.8 and np.mean([0 < m < 1 for m in mixed]) > 0.7  # each train lit and dark both
-    rim = grey_lift(bent, P0)
-    yy, xx = np.mgrid[0:S, 0:S]
-    r, ang = np.hypot(xx - S / 2, yy - S / 2) / R, np.arctan2(yy - S / 2, xx - S / 2)
-    band, inside = (r > 0.9) & (r < 1.06), (r > 0.74) & (r < 0.86)
-    assert 1.5 < rim[band].max() <= air.SHEEN[2] + 0.6 and rim[band].mean() > 0.5  # one faint bright band on its
-    # rim ...
-    assert rim[inside].mean() > -0.3 and np.percentile(rim[inside], 5) > -1.0  # ... with no darker one inside it ...
-    lit_round = [rim[band & (np.abs(np.angle(np.exp(1j * (ang - a)))) < np.pi / 36)].max() > 2.0
-                 for a in np.linspace(-np.pi, np.pi, 72, endpoint=False)]
-    assert 0.45 < np.mean(lit_round) < 0.85  # ... broken into arcs round about two thirds of it
+    assert np.abs(haze).max() <= 8
+    assert np.abs(haze).mean() < 0.5
 
 
 def test_a_hit_whips_the_ball_round_twice_as_fast():
@@ -347,7 +315,7 @@ def test_the_fingers_seen_through_the_ball_ripple_and_never_swell():
     keep = air._remap_rgb
     air._remap_rgb = lambda P, dx, dy, box, ca: got.append(np.stack([dx, dy])) if box == (0, S, 0, S) else None
     try:
-        for t in range(8):
+        for t in range(26):  # one full turn: a partial turn gives a rotating ripple an artificial steady component
             ball.draw(np.full((S, S, 3), 0.3, np.float32), (0, 0), np.array([300.0, 300.0]), R, a, 1.0, 0.0, 0.0, 0.0,
                       1.0, 0.25, 0.6, t, hand.copy(), None, 0.0, 1.0)
     finally:
@@ -381,11 +349,22 @@ def test_the_balls_near_half_crosses_in_front_of_the_fingers():
         dust = np.abs(grey_lift(P, bent))
         shown.append(((dust[on] > 8).mean(), (dust[off] > 8).mean()))
     over, beside = np.array(shown).mean(0)
-    assert 0.01 < over < beside  # its dust crosses in front of the palm, less of it than beside it (its far half is
-    # behind the hand)
-    toward = (P - bent)[on & (np.abs(grey_lift(P, bent)) > 8)]
-    assert (toward[:, 0] - toward[:, 2] < 0).mean() > 0.6  # in its own colour over the skin, not the skin's lighter or
-    # darker (the room's dust is less red than a palm)
+    assert 0.001 < over < 0.1 and beside > 0.001  # sparse near dust crosses visibly without becoming a film
+    toward = ((P - bent) / np.maximum(bent, 1e-6))[on & (np.abs(grey_lift(P, bent)) > 8)]
+    assert (toward[:, 2] > toward[:, 0]).mean() > 0.6  # warm room dust is less red than skin, rather than merely
+    # multiplying the palm's own colour
+
+    far_ball = air._Ball(2, 0)
+    far_ball.tracer[:] = 0  # isolate rear grains from the separate near tracer paths
+    B = far_ball.turn_axes(a)
+    _, _, depth, _, _, _ = far_ball.specks(R, B, 1.0, 0.0, 1.0, 0.0, 0, 0.6)
+    far_ball.d_bright[depth[:len(far_ball.d_bright)] >= 0] = 0
+    far_ball.r_bright[:] = 0
+    far_ball.h_w[:] = 0
+    P = P0.copy()
+    bent = far_ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, a, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.6, 0,
+                         hand.copy(), None, 0.0, 1.0, np.array([0.7, 0.66, 0.58], np.float32))
+    assert np.abs(grey_lift(P, bent))[on].max() < 0.5  # far dust stays below half a display level over the matte
 
 
 def stirred_edge(ball, R, c, gather=None, vis=1.0, hand=None):
@@ -417,7 +396,7 @@ def test_the_ball_drags_the_rooms_air_round_it_so_a_plate_two_radii_off_wobbles_
         rows.append(row - 400.5)
     rows = np.array(rows)
     shift = np.abs(rows).max(1)
-    assert shift.min() >= 3 and shift.max() <= 16  # a wobble of px on every frame, smooth ...
+    assert shift.min() >= 0.3 and shift.max() <= 6  # a small wobble on every quiet frame, smooth ...
     assert np.abs(np.diff(rows, axis=1)).max() <= air.BEND_SLOPE + 0.1
     assert np.abs(np.diff(rows, axis=0)).max() > 1.0  # ... travelling as it spins
 
@@ -885,8 +864,8 @@ def edge_rows(P, cols, lo, hi, level):
     return [np.flatnonzero(np.diff((g[lo:hi, c] > level).astype(np.int8))) + lo for c in cols]
 
 
-def test_the_balls_bend_wobbles_a_straight_edge_behind_it_and_never_folds_it():
-    # with milky streaks and a smooth lens, the switch plate behind the ball never moved: the air showed only as paint
+def test_the_balls_bend_wobbles_a_bright_edge_gently_and_never_folds_it():
+    # A bright switch plate supplies a small moving edge cue without appearing to soften or sag.
     S, R = 700, 240.0
     P0 = np.full((S, S, 3), 0.05, np.float32)
     P0[470:] = 0.6  # a straight edge across the ball, half a radius under its middle
@@ -901,7 +880,7 @@ def test_the_balls_bend_wobbles_a_straight_edge_behind_it_and_never_folds_it():
         assert all(len(r) == 1 for r in rows)  # one crossing in every column: bent, never folded over itself
         shifts.append(np.array([r[0] + 0.5 - 470 for r in rows]))
     dev = np.abs(np.array(shifts))
-    assert 6 <= np.percentile(dev.max(1), 50) and dev.max() <= 30  # it wobbles by px, not tens of them ...
+    assert 1 <= np.percentile(dev.max(1), 50) <= 3.5 and dev.max() <= 3.5  # capped on bright surfaces, still visible
     assert np.abs(np.diff(shifts, axis=0)).max() > 1.0  # ... and moves as the ball spins
 
 
@@ -1203,7 +1182,8 @@ def test_a_push_throws_a_body_of_dust_off_the_fingers_in_a_cone_at_half_the_fron
     pace = np.hypot(*v.T) / b.run
     assert 0.38 < np.median(pace) < 0.5 and pace.max() <= air.BODY[2][1]  # ... at about half the front's pace ...
     assert 0.3 <= (b.bright[body] >= air.DEBRIS_SEEN[1][0]).mean() <= 0.4  # ... a third of it medium specks ...
-    assert air.DUST_N >= 400 and np.all(b.r0[body][b.bright[body] >= air.DEBRIS_SEEN[1][0]] >= 3.0)
+    assert air.DUST_N >= 400
+    assert np.median(b.r0[body][b.bright[body] >= air.DEBRIS_SEEN[1][0]]) >= 2.4  # visible grit, fine enough to streak
     n, w, h = 30, 540, 960
     plate = plain(n, w, h)
     tr = track_of(n, w, h, lambda t: (270, 760), d=(0.0, -1.0), scale=150.0,
@@ -1271,6 +1251,231 @@ def test_the_palm_faces_the_lens_whichever_way_the_landmarks_wind():
         tr = track_of(n, W, H, lambda t: (108, 290), landmarks=[pts.tolist()] * n)
         nm = air.palm_normals(tr, n, W, H)
         assert np.all(nm[:, 2] > 0.9) and np.allclose(np.linalg.norm(nm, axis=1), 1)
+
+
+def test_the_ball_has_no_painted_circumference_on_a_flat_wall():
+    # A broad dark band turns air into a dirty ring, even when small bright specks interrupt it.
+    S, R = 420, 140.0
+    yy, xx = np.mgrid[:S, :S]
+    radius = np.hypot(xx - S / 2, yy - S / 2) / R
+    band = (radius > 0.83) & (radius < 1.08)
+    P0 = np.full((S, S, 3), 0.2, np.float32)
+    ball = air._Ball(2, 0)
+    axis = air.spin_axis(np.array([0.0, -0.78, 0.62]))
+    for t in range(8):
+        P = P0.copy()
+        ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, axis, 1.0, 0.0, 0.0, 0.0, 1.0,
+                  0.45, 0.6, t, None, None, 0.0, 0.5)
+        broad = cv2.GaussianBlur(grey_lift(P, P0), (0, 0), 1.5)
+        assert (broad[band] < -4).mean() < 0.01
+        assert float(broad[band].mean()) > -0.5  # a few bright tracers may lift the mean; no dark ring may lower it
+
+
+def test_hit_dust_crosses_the_palm_without_a_dark_smudge():
+    # Signed low-pass change catches soft soot patches that a high-pass dust count misses.
+    S, R = 420, 140.0
+    yy, xx = np.mgrid[:S, :S]
+    hand = np.zeros((S, S), np.float32)
+    hand[S // 2:, 100:320] = 1
+    skin, room = np.array([0.62, 0.33, 0.27], np.float32), np.array([0.2, 0.18, 0.11], np.float32)
+    P0 = np.where(hand[..., None] > 0, skin, room).astype(np.float32)
+    on = (cv2.erode(hand, np.ones((9, 9), np.uint8)) > 0) & (np.hypot(xx - S / 2, yy - S / 2) < 0.95 * R)
+    ball = air._Ball(2, 0)
+    axis = air.spin_axis(np.array([0.0, -0.78, 0.62]))
+    visible = []
+    for t in range(8):
+        P = P0.copy()
+        bent = ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, axis, 1.0, 0.0, 0.0, 0.0, 1.0,
+                         0.9, 0.9, t, hand.copy(), None, 0.0, 0.5, np.array([0.7, 0.66, 0.58], np.float32))
+        dust = cv2.GaussianBlur(grey_lift(P, bent), (0, 0), 1.0)
+        dark, light = on & (dust < -8), on & (dust > 8)
+        _, _, stats, _ = cv2.connectedComponentsWithStats(dark.astype(np.uint8))
+        assert dark.sum() <= light.sum()
+        assert stats[1:, cv2.CC_STAT_AREA].max(initial=0) <= 100  # 400 px at full size
+        assert np.percentile(dust[on], 0.1) >= -6
+        visible.append((dust[on] > 8).sum())
+    assert max(visible) >= 40  # its near side still passes visibly in front of the hand
+
+
+def test_the_balls_dust_cannot_glitter_white_over_bright_tiles():
+    # A tile interior has nothing to refract: white beads there are emitted-looking paint.
+    S, R = 420, 140.0
+    yy, xx = np.mgrid[:S, :S]
+    P0 = np.broadcast_to(np.array([0.2, 0.18, 0.11], np.float32), (S, S, 3)).copy()
+    P0[:, :130] = 0.8
+    radius = np.hypot(xx - S / 2, yy - S / 2) / R
+    tile = (xx < 110) & (radius < 1.05) & (radius > 0.3)
+    ball = air._Ball(2, 0)
+    axis = air.spin_axis(np.array([0.0, -0.78, 0.62]))
+    for t in range(8):
+        P = P0.copy()
+        ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, axis, 1.0, 0.0, 0.0, 0.0, 1.0,
+                  0.9, 0.9, t, None, None, 0.0, 0.5, np.array([0.7, 0.66, 0.58], np.float32))
+        lift = grey_lift(P, P0)[tile]
+        assert np.percentile(lift, 99) <= 10
+        assert (lift > 15).sum() < 25  # fewer than 100 px at full size
+
+
+def test_bright_tile_refraction_stays_capped_after_the_field_is_smoothed(monkeypatch):
+    # Smoothing a capped field can pull a neighbouring large displacement back onto a bright tile.
+    S, R = 420, 140.0
+    P0 = np.full((S, S, 3), 0.2, np.float32)
+    P0[:, :130] = 0.8
+    fields = []
+    remap = air._remap_rgb
+
+    def capture(P, dx, dy, box, ca):
+        fields.append(np.stack([dx, dy]))
+        return remap(P, dx, dy, box, ca)
+
+    monkeypatch.setattr(air, "_remap_rgb", capture)
+    ball = air._Ball(2, 0)
+    axis = air.spin_axis(np.array([0.0, -0.78, 0.62]))
+    for t in range(8):
+        ball.draw(P0.copy(), (0, 0), np.array([S / 2, S / 2]), R, axis, 1.0, 0.0, 0.0, 0.0, 1.0,
+                  0.3, 0.6, t, None, None, 0.0, 0.5)
+    assert len(fields) == 8
+    for dx, dy in fields:
+        assert np.hypot(dx[:, :121], dy[:, :121]).max() <= 1.5 + 1e-3  # 3 px at full size
+        assert max(np.abs(np.diff(f, axis=axis)).max() for f in (dx, dy) for axis in (0, 1)) <= 0.26
+
+
+def test_a_bright_tile_does_not_reduce_refraction_across_the_whole_ball(monkeypatch):
+    # A tile's local displacement limit must not suppress the volume and finger ripple far from that tile.
+    S, R = 420, 140.0
+    fields = []
+    monkeypatch.setattr(air, "_remap_rgb", lambda P, dx, dy, box, ca: fields.append(np.stack([dx, dy])))
+    axis = air.spin_axis(np.array([0.0, -0.78, 0.62]))
+    for tile in (False, True):
+        P = np.full((S, S, 3), 0.2, np.float32)
+        if tile:
+            P[:, :130] = 0.8
+        ball = air._Ball(2, 0)
+        ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R, axis, 1.0, 0.0, 0.0, 0.0, 1.0,
+                  0.3, 0.6, 0, None, None, 0.0, 0.5)
+    room, tile = fields
+    region = np.s_[:, 140:290, 280:350]
+    assert np.linalg.norm(tile[region] - room[region]) < 0.005 * np.linalg.norm(room[region])
+
+
+def test_faint_lit_lint_cannot_lower_a_nearly_clipped_skin_channel():
+    # A highlight above the lint's nominal white point must survive even an almost transparent speck.
+    skin = (np.array([254.0, 180.0, 120.0], np.float32) / 255) ** np.float32(2.2)
+    q0 = np.broadcast_to(skin, (3, 3)).copy()
+    result = q0.copy()
+    room = np.broadcast_to(np.array([0.2, 0.18, 0.11], np.float32), (4, 4, 3)).copy()
+    coverage = np.ones((4, 4), np.float32)
+    strength = np.array([1e-6, 1e-3, 0.2], np.float32)
+    air._in_front(result, q0, strength, np.array([1, 1, 1]), np.array([0, 1, 2]), 48.0,
+                  (room, coverage, np.array([0.7, 0.66, 0.58], np.float32)))
+    assert np.all(result[:, 0] >= q0[:, 0] - 1e-7)
+    assert result[-1, 1] > q0[-1, 1]  # the same speck still lifts an unclipped channel
+
+
+def test_room_dust_lift_is_capped_on_every_tile_above_180_display_levels():
+    # Limiting only near-white pixels left the darker photographed tiles glittering during pulses.
+    levels = np.array([180.1, 185, 195, 210, 230], np.float32)
+    q0 = np.repeat(((levels / 255) ** np.float32(2.2))[:, None], 3, axis=1)
+    result = q0.copy()
+    room = np.full((6, 6, 3), 0.3, np.float32)
+    air._in_front(result, q0, np.ones(5, np.float32), np.zeros(5, int), np.arange(5), 48.0,
+                  (room, np.zeros((6, 6), np.float32), np.array([0.7, 0.66, 0.58], np.float32)))
+    lift = result ** np.float32(1 / 2.2) * 255 - levels[:, None]
+    assert lift.max() <= 6.001
+
+
+def test_near_tracer_paths_read_as_thin_streaks_rather_than_soft_beads():
+    # Projected path length keeps foreshortening from bunching equal dashes into a string of pearls on skin.
+    S, R = 420, 140.0
+    hand = np.ones((S, S), np.float32)
+    skin = np.broadcast_to(np.array([0.62, 0.33, 0.27], np.float32), (S, S, 3)).copy()
+    ball = air._Ball(2, 0)
+    ball.d_bright[:] = 0
+    ball.r_bright[:] = 0
+    ball.h_w[:] = 0
+    ball.tracer[:] = 0
+    i = int(np.argmax(ball.bright))
+    ball.tracer[i], ball.lat[i] = 0.5, 0.0
+    aspects = []
+    for t in range(16):
+        P = skin.copy()
+        bent = ball.draw(P, (0, 0), np.array([S / 2, S / 2]), R,
+                         air.spin_axis(np.array([0.0, -0.78, 0.62])), 1.0, 0.0, 0.0, 0.0, 1.0,
+                         0.35, 0.6, t, hand.copy(), None, 0.0, 0.5)
+        image = grey_lift(P, bent)
+        count, labels, stats, _ = cv2.connectedComponentsWithStats((image > 8).astype(np.uint8))
+        for j in range(1, count):
+            if stats[j, cv2.CC_STAT_AREA] < 8:
+                continue
+            y, x = np.nonzero(labels == j)
+            (_, _), (a, b), _ = cv2.minAreaRect(np.column_stack([x, y]).astype(np.float32))
+            aspects.append((max(a, b) + 1) / (min(a, b) + 1))
+    assert len(aspects) >= 5
+    assert np.median(aspects) >= 2.5
+
+
+def test_thrown_grain_shape_depends_on_speed_rather_than_age():
+    # A late grain can still fly fast. Closing every trail on one age turns it into implausible glitter.
+    w, h = 540, 960
+    aspects = {}
+    for age, velocity in ((2, 0.8), (18, 16.0)):
+        blast = air._Blast((270, 760), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 150.0, w, h, 0, 1.0, 2, 0)
+        grain = np.flatnonzero(~blast.cloud & ~blast.flake & (blast.bright >= 0.7)
+                               & (blast.hang == 18))[0]
+        blast.bright[:] = 0
+        blast.bright[grain] = 1
+        blast.dark[grain] = False
+        blast.delay[grain] = 0
+        blast.p[grain] = (270, 480, 1)
+        blast.v[grain] = (velocity, 0, 0)
+        lit, drk = air._speck_bufs(h, w, 4)
+        coarse = np.zeros((-(-h // air.CLOUD_Q), -(-w // air.CLOUD_Q)), np.float32)
+        blast.dust(age, np.eye(3), np.eye(3), lit, drk, 4, coarse, coarse.copy(), coarse.copy(), None)
+        P0 = np.full((h, w, 3), 0.2, np.float32)
+        P = P0.copy()
+        air._lay_specks(P, lit, drk, 4, None, 0.0, 0.5)
+        image = grey_lift(P, P0)
+        ys, xs = np.nonzero(image > 0.15 * image.max())
+        assert len(xs) >= 3
+        (_, _), (a, b), _ = cv2.minAreaRect(np.column_stack([xs, ys]).astype(np.float32))
+        aspects[age] = (max(a, b) + 1) / (min(a, b) + 1)
+    assert aspects[2] <= 1.5
+    assert aspects[18] >= 3.0
+
+
+def test_fast_thrown_specks_draw_streaks_that_shorten_as_they_slow():
+    # Isolated real particles let the rendered silhouettes distinguish streaks from round glitter.
+    w, h = 540, 960
+    blast = air._Blast((270, 760), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 150.0, w, h, 0, 1.0, 2, 0)
+    medium = np.flatnonzero(~blast.cloud & ~blast.flake & (blast.bright >= 0.7)
+                           & (blast.hang == 18))[:8]
+    blast.bright[:] = 0
+    blast.bright[medium] = 1
+    blast.dark[medium] = False
+    blast.p[medium] = np.column_stack([np.linspace(60, 480, len(medium)), np.full(len(medium), 720),
+                                      np.ones(len(medium))])
+    blast.v[medium, 2] = 0
+    ratios = {3: [], 18: []}  # initial flight, then a complete dust lifetime of drag
+    for t in range(19):
+        lit, drk = air._speck_bufs(h, w, 4)
+        coarse = np.zeros((-(-h // air.CLOUD_Q), -(-w // air.CLOUD_Q)), np.float32)
+        blast.dust(t, np.eye(3), np.eye(3), lit, drk, 4, coarse, coarse.copy(), coarse.copy(), None)
+        if t not in ratios:
+            continue
+        P0 = np.full((h, w, 3), 0.2, np.float32)
+        P = P0.copy()
+        air._lay_specks(P, lit, drk, 4, None, 0.0, 0.5)
+        image = grey_lift(P, P0)
+        for x, y in air._project(blast.p[medium], blast.pp):
+            xi, yi = round(x), round(y)
+            crop = image[max(0, yi - 20):yi + 21, max(0, xi - 20):xi + 21]
+            sy, sx = np.nonzero(crop > 0.15 * crop.max())
+            if len(sx) >= 3:
+                (_, _), (a, b), _ = cv2.minAreaRect(np.column_stack([sx, sy]).astype(np.float32))
+                ratios[t].append((max(a, b) + 1) / (min(a, b) + 1))
+    assert len(ratios[3]) >= 6 and len(ratios[18]) >= 6
+    assert np.median(ratios[3]) >= 3.0
+    assert np.median(ratios[18]) <= 1.5
 
 
 @pytest.mark.parametrize("form", ["ball", "blast"])
