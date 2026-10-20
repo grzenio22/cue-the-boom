@@ -202,6 +202,10 @@ SCATTER = (1.5, 0.12, 6.0, 0.15, 3e-3)  # the soot scatters the room's light as 
 SOOT_HUE = 0.85  # black soot takes the colour of the light it scatters and of what shows through it: the room's (lit by
 # the fire), this much of its colour kept, the rest grey (relit from the render's dim red fire, the soot by the dying
 # ball went raspberry and mauve, and neutral grey over the warm wall read lavender)
+VOLUME_HANDOFF = (18, 32)  # frames after ignition: resolve the cooling body into separate optical depths while its
+# last pockets still emit. The burning source keeps its existing exposure and contact treatment.
+VOLUME_DEPTH = 3.4  # optical depth through overlapping soot: background detail fades before its broad illumination,
+# so a bright switch cannot remain a pale rectangular insert inside a thin lobe.
 PARAMS = dataclasses.replace(  # composite.composite_frame's for a fireball rolling into black smoke (its light is ours)
     C.CompositeParams(), light_gain=0.0, fire_gain=0.75, shading_lo=0.5, shading_hi=1.35, interior_blur_frac=0.04,
     interior_lo=0.45, interior_hi=0.9, sat_lo=0.4, sat_hi=0.65)
@@ -612,11 +616,16 @@ def hand_coverage(plate8: np.ndarray, masks: np.ndarray | None, t: int) -> np.nd
     support &= cv2.dilate((m > 0.15).astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
                                                                                  (2 * radius + 1,) * 2))
     rgb = plate8.astype(np.float32)
-    red = (rgb[..., 0] - rgb[..., 1]) / np.maximum(rgb.sum(-1), 1.0)
-    reliable = red[(m > 0.95) & (rgb.max(-1) > 50)]
+    # A warm wall can share skin's red-minus-green value. Its missing blue makes
+    # it yellow instead: rejecting that colour keeps original unlit wall out of
+    # the foreground restoration. Smooth phone chroma blocks before the key so
+    # they cannot turn the contour into isolated flecks and a jagged fringe.
+    chroma = (rgb[..., 0] + rgb[..., 2] - 2.0 * rgb[..., 1]) / np.maximum(rgb.sum(-1), 1.0)
+    chroma = cv2.GaussianBlur(chroma, (0, 0), max(0.6, min(h, w) / 1080.0))
+    reliable = chroma[(m > 0.95) & (rgb.max(-1) > 50)]
     if reliable.size > 32:
-        low = max(0.025, float(np.percentile(reliable, 10)) - 0.035)
-        skin = C._smoothstep(low, low + 0.03, red) * support
+        low = max(0.015, float(np.percentile(reliable, 10)) - 0.035)
+        skin = C._smoothstep(low, low + 0.03, chroma) * support
         depth = cv2.distanceTransform((m > 0.5).astype(np.uint8), cv2.DIST_L2, 3)
         core = C._smoothstep(2.0, max(3.0, 0.008 * min(h, w)), depth)
         # At the contour the segmenter's leftover wall pixels would restore an unlit, hairy border. Use the
@@ -843,6 +852,112 @@ class Outline:
         soft = up(outer)
         rel = rel + soft * (cv2.GaussianBlur(rel, (0, 0), OUTER_SOFT * self.side / 1080) - rel)
         Q[y0:y1, x0:x1] = np.maximum(p + base * rel * self.density(maps, size, self.side)[..., None], 0.0)
+
+
+class SmokeVolume:
+    """Two rolling depths of soot, lit by the current room. Source billows supply the relief; independent buoyant
+    density fields let nearer folds cross the far layer. Beer-Lambert transmission keeps a continuous range of
+    thin wisps instead of cutting opaque holes through one shaded card. All fields are fixed by the shot seed."""
+
+    def __init__(self, h: int, w: int, side: int, seed: int):
+        self.side, self.seed = side, seed
+        rng = np.random.default_rng([seed, 137])
+        self.fields = [_field(rng, max(2, h // 4), max(2, w // 4), side * a / 4, side * b / 4)
+                       for a, b in ((0.055, 0.075), (0.032, 0.055))]
+
+    def draw(self, room: np.ndarray, source: np.ndarray, silhouette: np.ndarray, floor: int,
+             ambient: np.ndarray, since: float, rise: float, clear: float, box,
+             erosion: np.ndarray | None = None) -> np.ndarray:
+        """The cloud over this room crop, in linear light. Detail transmitted through soot is attenuated more than
+        the room's broad light; no fitted bright background object can become part of the smoke's albedo. Lighting
+        comes only from ``ambient`` for this frame, including the decaying fire, with no retained orange tint."""
+        if clear <= 0.0:
+            return room.copy()
+        hb, wb = source.shape[:2]
+        y0, _, x0, _ = box
+        px = self.side / 1080.0
+        yy, xx = np.mgrid[:hb, :wb].astype(np.float32)
+        peak = np.maximum(source.max(-1).astype(np.float32) - floor, 0.0) / (255 - floor)
+        geometry = np.maximum(C._smoothstep(0.012, 0.085, peak), 0.92 * silhouette)
+        support = geometry.copy()
+        if erosion is not None:
+            support *= erosion
+        present = support > 0.005
+        if not present.any():
+            return room.copy()
+        cy = float((support * yy).sum() / support.sum())
+        radius = max(1.0, math.sqrt(float(support.sum()) / math.pi))
+        # Texture is measured before the old dense fill. Its bright ridges and dark clefts remain independent of
+        # opacity, so self-shadowed folds obscure the wall instead of opening pale holes through the cloud.
+        grey = cv2.GaussianBlur(peak, (0, 0), max(0.65, 1.5 * px))
+        grey = np.maximum(grey + 0.6 * (grey - smoke_blur(grey, support, max(1.0, 6.0 * px))), 0.0)
+        ref = max(float(np.percentile(grey[present], 65)), 0.025)
+        relief = np.log(np.maximum(grey, 0.008) / ref)
+        broad = smoke_blur(relief, support, max(1.0, 9.0 * px))
+        slope = np.tanh(np.gradient(broad, axis=0) * max(1.0, 12.0 * px))
+        shade = np.exp(0.65 * np.tanh(relief)) * (1.0 + 0.48 * slope)
+        shade = np.clip(shade, 0.3, 2.2).astype(np.float32)
+        wall = wide_blur(room, max(1.0, 0.08 * self.side))
+        # Broad room light, rather than plate pixels underneath each lobe, illuminates airborne soot.
+        light = wide_blur(ambient, max(1.0, 0.035 * self.side))
+        q = room.copy()
+        remaining = np.ones((hb, wb), np.float32)
+        for index, field in enumerate(self.fields):
+            speed = 0.35 + 0.65 * index
+            mx = xx + np.float32(index * 0.012 * self.side * math.sin(since / 21.0))
+            my = yy + np.float32(index * 0.18 * rise)
+            noise = cv2.remap(field, (xx + np.float32(x0 + speed * 0.12 * rise)) / 4,
+                              (yy + np.float32(y0 + (1.0 + speed) * rise)) / 4,
+                              cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+            cov = cv2.remap(support, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+            depth = cv2.distanceTransform((cov > 0.45).astype(np.uint8), cv2.DIST_L2, 3)
+            edge = 1.0 - C._smoothstep(0.0, max(2.0, 0.075 * self.side), depth)
+            # A smooth optical taper leaves both translucent strands and soft gaps. Its fine structure moves with
+            # the layer, while the photographic billows retain their own native edge softness.
+            porous = C._smoothstep(0.24 + 0.34 * edge, 0.82, noise)
+            density = cov * (0.24 * (1.0 - edge) + (0.76 + 0.24 * edge) * porous) * (1.0 - 0.6 * edge)
+            if index == 1:
+                density *= C._smoothstep(0.3, 0.68, noise)
+            # Broad lower skirts disperse ahead of compact cores. Keep the denser foreground folds while removing
+            # the suspended apron that otherwise survives under the rising cloud after the last visible flame.
+            underside = np.clip((my - cy) / radius, 0.0, 1.0)
+            density *= 1.0 - 0.2 * C._smoothstep(25.0, 38.0, since) * underside \
+                * (1.0 - 0.75 * C._smoothstep(0.55, 0.8, noise))
+            density *= np.float32(clear) ** (1.3 + 1.6 * edge + 0.7 * (1.0 - noise))
+            outline_depth = cv2.distanceTransform((cv2.remap(geometry, mx, my, cv2.INTER_LINEAR,
+                                                            borderMode=cv2.BORDER_CONSTANT) > 0.45).astype(np.uint8),
+                                                  cv2.DIST_L2, 3)
+            interior = C._smoothstep(0.0, max(3.0, 0.025 * self.side), outline_depth)
+            local_relief = cv2.remap(relief, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+            # Self-shadowed folds contain a longer path through soot. Keeping this depth in the photographed
+            # interior, independently of its colour, restores folds even after the fire's illumination has died.
+            density *= 1.0 + interior * (np.clip(np.exp(-0.45 * local_relief), 0.7, 1.5) - 1.0)
+            tau = np.float32(VOLUME_DEPTH * (0.6 if index == 0 else 1.0)) * density
+            trans = np.exp(-tau)
+            local_shade = cv2.remap(shade, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+            # The source's fade into black describes coverage, not a groove around every lobe. Relief belongs
+            # inside the volume; carrying it to the alpha boundary etched a double contour around the cloud.
+            local_shade = 1.0 + (local_shade - 1.0) * interior
+            if index == 1:
+                front = cv2.GaussianBlur(density, (0, 0), max(1.0, 0.015 * self.side))
+                local_shade *= 1.0 + 0.35 * np.tanh(np.gradient(front, axis=0) * 0.035 * self.side)
+            colour = light * (SOOT_ALBEDO * local_shade)[..., None]
+            # Multiple scattering removes high-contrast background detail early. The broad wall illumination is
+            # still transmitted, with more detail visible in genuinely thin wisps and clear gaps untouched.
+            q = q * trans[..., None] + colour * (1.0 - trans)[..., None]
+            remaining *= trans
+        q += (wall - room) * (remaining * (1.0 - remaining ** 2.5))[..., None]
+        # Match the plate's robust fine-noise level, without copying its edges into opaque smoke. Directly adding
+        # a plate high-pass back here would redraw the switch's border after transmission had hidden it.
+        display = np.maximum(room, 0.0) ** np.float32(1 / 2.2)
+        residual = display - cv2.GaussianBlur(display, (0, 0), max(0.5, 0.7 * px))
+        grain = float(np.clip(1.4826 * np.median(np.abs(residual)), 0.35 / 255, 1.5 / 255))
+        noise = np.random.default_rng([self.seed, 173, int(since)]).standard_normal((hb, wb)).astype(np.float32)
+        # Fine background detail transmits by remaining**3.5 above. Restore its lost noise variance, rather than
+        # scaling noise by opacity: the latter made translucent smoke conspicuously smoother than the phone plate.
+        q += (2.2 * grain * np.sqrt(np.maximum(1.0 - remaining ** 7, 0.0)) * noise)[..., None] \
+            * np.maximum(q, 1e-5) ** np.float32(1 - 1 / 2.2)
+        return np.maximum(q, 0.0)
 
 
 def scatter(Q: np.ndarray, P: np.ndarray, box, side: int) -> None:
@@ -1198,6 +1313,17 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
     billow_ref = soot_shading_ref(el, floor, e_ign + 3 * GROW_FRAMES)
     env_rgb = C.environment_colour(plate[0], el, floor, PARAMS)
     amb = C.ambient_map(plate[k0], PARAMS)
+    volume_amb = amb
+    if mask is not None:
+        # The nearby wall illuminates airborne soot. Blurring the foreground hand into the ambient map left a
+        # stationary pink underside after the fire went out; exclude it with a normalized blur before lighting soot.
+        small_size = (max(2, w // 8), max(2, h // 8))
+        uncovered = cv2.resize(1.0 - hand_coverage(plate[k0], mask, k0), small_size, interpolation=cv2.INTER_AREA)
+        room_small = lin(cv2.resize(plate[k0], small_size, interpolation=cv2.INTER_AREA))
+        sigma = max(1.0, PARAMS.ambient_blur_frac * w / 8)
+        weights = cv2.GaussianBlur(uncovered, (0, 0), sigma)
+        clean = cv2.GaussianBlur(room_small * uncovered[..., None], (0, 0), sigma) / np.maximum(weights, 0.01)[..., None]
+        volume_amb = cv2.resize(clean, (w, h), interpolation=cv2.INTER_LINEAR)
     plate_key = float((plate[k0, ::8, ::8].astype(np.float32) / 255.0 @ C._LUMA).mean())
     some = np.stack([lin(plate[i]) for i in np.linspace(0, n - 1, 8).astype(int)])
     white, tint = fx.plate_white(some), fx.plate_tint(some)
@@ -1257,6 +1383,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
     q = 8
     spread, spread_norm = falloff((h // q, w // q), LIGHT_FALLOFF[0] * R / q, R / q, LIGHT_FALLOFF[1])
     outline, fire = Outline(h, w, side, seed), Fire(side)
+    volume = SmokeVolume(h, w, side, seed)
     wobble = np.random.default_rng([seed, 89]).standard_normal((1, n + 8))
     wobble = cv2.GaussianBlur(wobble, (0, 0), FLICKER[1])[0, 4:-4]
     flicker = 1.0 + FLICKER[0] * np.clip(wobble / max(float(wobble.std()), 1e-6), -1.5, 1.5)
@@ -1278,8 +1405,9 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             E8 = cv2.GaussianBlur(E8, (0, 0), DEFOCUS_PX * side / 1080)
             ys_, xs_ = np.nonzero(E8[::4, ::4].max(-1) > floor + 2)
             if ys_.size:
-                box = (max(0, 4 * ys_.min() - 24), min(h, 4 * ys_.max() + 24), max(0, 4 * xs_.min() - 24),
-                       min(w, 4 * xs_.max() + 24))
+                margin = max(24, int(math.ceil(0.18 * lift(t)[1] + 4)))
+                box = (max(0, 4 * ys_.min() - margin), min(h, 4 * ys_.max() + margin), max(0, 4 * xs_.min() - margin),
+                       min(w, 4 * xs_.max() + margin))
                 y0, y1, x0, x1 = box
                 ef8 = E8[y0:y1, x0:x1].copy()  # (its fire, before its soot is made dense)
                 wf = np.clip(C.fire_weight_map(C._black_floor_f(ef8, floor), PARAMS, w, True), 0.0, 1.0)
@@ -1361,6 +1489,17 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             if box is not None:  # its soot scattering the room's light; its fire as a light (the composite drew it as
                 # lit smoke)
                 scatter(Q, P, box, side)
+                volume_mix = float(C._smoothstep(*VOLUME_HANDOFF, since)) * (1.0 - burn)
+                if volume_mix > 0.0:
+                    clear = 1.0 - _ease((since - CLEAR[0]) / CLEAR[1])
+                    erosion = None
+                    if rim_maps is not None:
+                        _, wisp, eat, thin, _, _, _ = rim_maps
+                        erosion = cv2.resize(C._smoothstep(eat - 0.22, eat + 0.22, wisp) * thin,
+                                             (x1 - x0, y1 - y0), interpolation=cv2.INTER_LINEAR)
+                    v = volume.draw(P[y0:y1, x0:x1], ef8, sil[y0:y1, x0:x1], floor,
+                                    (volume_amb + amb_t - amb)[y0:y1, x0:x1], since, lift(t)[1], clear, box, erosion)
+                    Q[y0:y1, x0:x1] += np.float32(volume_mix) * (v - Q[y0:y1, x0:x1])
                 fire.layer(Q, P, ef8, wf, box, floor, burn, body, since, ball, pulse=pulse)
             P = Q
             if since >= 1:  # the hot air round and above the fireball shimmers
