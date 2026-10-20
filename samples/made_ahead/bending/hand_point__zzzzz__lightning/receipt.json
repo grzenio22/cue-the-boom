@@ -1,0 +1,85 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "lightning_arc",
+  "made": "lightning",
+  "form": "arc",
+  "fluid": "lightning",
+  "behaviour": "arc"
+ },
+ "inputs": {
+  "point": [
+   0.833,
+   0.312
+  ],
+  "seed": 1,
+  "offset_s": 1.225,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "(made, not rendered: cuesync.lightning)",
+  "guide_scale": 1.0
+ },
+ "bending": {
+  "track": "hand_track.json",
+  "mask": "hand_mask.npz",
+  "k_hit": 29,
+  "tap_frame": 48,
+  "aim": null,
+  "k_launch": 29,
+  "snap": {
+   "cue": 29,
+   "motion": 52,
+   "frame": 29,
+   "used": "cue",
+   "mismatch": false
+  },
+  "hits": [
+   {
+    "frame": 29,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 29,
+     "motion": 52,
+     "frame": 29,
+     "used": "cue",
+     "mismatch": false
+    }
+   },
+   {
+    "frame": 71,
+    "gain": 0.954,
+    "size": 0.931,
+    "snap": {
+     "cue": 71,
+     "motion": 71,
+     "frame": 71,
+     "used": "motion",
+     "mismatch": false
+    }
+   }
+  ],
+  "holds": [
+   [
+    30,
+    65
+   ],
+   [
+    71,
+    74
+   ]
+  ],
+  "performed_again": null,
+  "camera": "handheld: what it leaves moves with the room"
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 14.3
+}

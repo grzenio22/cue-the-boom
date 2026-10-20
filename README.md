@@ -1,9 +1,10 @@
 # Cue the Boom
 
-**Film your hand. Make the noise. Throw fire.**
+**Film your hand. Make the noise. Throw fire, lightning, water and air.**
 
 Your voice drives visual effects. Hold your hand up to a phone, tap your palm or fingertips, and make the noise:
 "BOOM" throws a fireball, a held "fffff" burns a flame in your open palm, a long "fffff" from pointed fingers is a flamethrower, a "pf" is a pop of fire, a hum charges an ember.
+A buzzing "zzzzz" strikes lightning from your fingertips, and a long, rolling "BOOOOM" with a punch sets off an explosion. Water and air bend in your open palm too.
 The sound sets when each hit fires, how big it is and how long it burns.
 
 The fire is rendered once, over black, by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA (open weights, in ComfyUI). Cue the Boom tracks your hand and carries the fire on it, frame by frame:
@@ -12,6 +13,8 @@ The fire is rendered once, over black, by **LTX-2.5** with the **[ainvfx-fluid](
 - what you threw keeps flying the way you threw it.
 
 Then **perform it again**: a new rhythm on the same fire, with no new render and no GPU.
+
+Lightning, water and air are made on your computer, frame by frame, from your hand's track, its matte and your voice, with no render and no GPU ([below](#beyond-fire-lightning-water-air-and-an-explosion)).
 
 ![The author's own hand: BOOM throws a fireball off the fist, a held fffff keeps a flame in the palm through a walk from a hallway into a kitchen in one take, and a render performed again as pf pf pf PF](media/hand_hero.jpg)
 <sub>The author's own hand and voice, filmed on a phone. The third is a render performed again in a new rhythm, with no new render.</sub>
@@ -80,9 +83,20 @@ Video models start an effect a few frames early. Cue the Boom measures where the
 
 The details (the pipeline step by step, the timing evaluation, the matte, the light) are in [TECHNICAL.md](TECHNICAL.md).
 
+## Beyond fire: lightning, water, air and an explosion
+
+In the studio, pick one of the author's hands, then a sample noise made for one of these four (**zzzzz · tsst!**, **BOOOOM**, **shhhhh · sploosh**, **hoooooo**, **hoo · hoo · HOO!**). You can also make the noise yourself and **Choose it yourself** under Make the shot. On a clip of your own, a buzz picks lightning and a long BOOM with a punch picks the explosion by themselves. All four play on your own clip with no GPU, in a minute or two.
+
+- **Lightning** ("zzzzz"): channels struck from your fingertips into the room behind your hand, re-struck for a frame or two and then forking anew, or a crackling ball of plasma over your open palm. Your skin and the room flash cool-white with it.
+- **An explosion** (a long "BOOOOM" with a punch): a fireball rendered with LTX-2.5 goes off ahead of your fist and stays where it went off as your hand moves. It rolls into black smoke that clears thinnest-first. With it come the flash, a shock front bending the room, sparks and embers, and the camera's knock.
+- **Water** ("shhhhh"): a ball of water gathers over your palm and wobbles, the room bent and mirrored in it. Throw it and it bursts on the wall and runs down it. Or a stream rises from your palm and lashes like a whip.
+- **Air** ("hoooo"): a spinning ball of air over your palm, seen only by what it bends and the dust it carries. Or a push of air that bends the room and blows dust at the lens.
+
+Each is ray-traced or shaded in linear light over the plate itself, with its own Foley. How each is made: [TECHNICAL.md](TECHNICAL.md#lightning-water-air-and-an-explosion).
+
 ## The entry at a glance
 
-- **Core video model:** LTX-2.5 (Lightricks) with the ainvfx-fluid IC-LoRA (AInVFX, Adrien Toupet). Every effect is an LTX-2.5 render.
+- **Core video model:** LTX-2.5 (Lightricks) with the ainvfx-fluid IC-LoRA (AInVFX, Adrien Toupet). Every fire effect, and the explosion's fireball, is an LTX-2.5 render. Lightning, water and air are made procedurally on the CPU from your clip.
 - **Comfy Developer Platform:** the renders are ComfyUI workflows ([`workflows/`](workflows)), run through the Comfy Python SDK against a self-hosted comfy-api-proxy. The ComfyUI node pack is in [`comfyui-cuesync/`](comfyui-cuesync).
 - **Open weights only, self-hosted.** No partner nodes and no closed APIs. All models used:
   - **LTX-2.5** 22B (int8), its video and audio VAEs, and its **Gemma 4 12B** text encoder (Lightricks; LTX-2.x Community License, Gemma terms);

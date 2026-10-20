@@ -1,0 +1,69 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "explosion",
+  "made": "explosion",
+  "form": "fist",
+  "fluid": "explosion",
+  "behaviour": "fist"
+ },
+ "inputs": {
+  "point": [
+   0.575,
+   0.42
+  ],
+  "seed": 1,
+  "offset_s": 2.584,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "(made, not rendered: cuesync.explosion)",
+  "guide_scale": 1.0
+ },
+ "bending": {
+  "track": "hand_track.json",
+  "mask": "hand_mask.npz",
+  "k_hit": 68,
+  "tap_frame": 68,
+  "aim": null,
+  "k_launch": 68,
+  "snap": {
+   "cue": 68,
+   "motion": 68,
+   "frame": 68,
+   "used": "motion",
+   "mismatch": false
+  },
+  "hits": [
+   {
+    "frame": 68,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 68,
+     "motion": 68,
+     "frame": 68,
+     "used": "motion",
+     "mismatch": false
+    }
+   }
+  ],
+  "holds": [
+   [
+    68,
+    92
+   ]
+  ],
+  "performed_again": null,
+  "camera": "handheld: what it leaves moves with the room"
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 38.5
+}

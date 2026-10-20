@@ -355,7 +355,8 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             </button>
           );
         };
-        const real = live ? [] : voices.filter(isReady);
+        const offered = voices.filter((v) => hand || !v.hand); // (a hand's lightning, water, air: not a pumpkin's)
+        const real = live ? [] : offered.filter(isReady);
         return (
           <>
             {real.length > 0 && (
@@ -366,7 +367,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             )}
             <div className="row">
               <span className="muted">{hand ? "or use a sample noise:" : onlyReady ? "the others need the GPU:" : real.length ? "or, as an instant shot (the GPU is offline):" : live ? "or use a sample noise:" : "or use a sample noise (an instant shot: the GPU is offline):"}</span>
-              {voices.filter((v) => !real.includes(v)).map(sample)}
+              {offered.filter((v) => !real.includes(v)).map(sample)}
             </div>
           </>
         );

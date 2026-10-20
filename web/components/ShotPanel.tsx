@@ -74,7 +74,10 @@ function HandChips({ job }: { job: JobStatus }) {
         : job.effect === "smoke_puff" || r.render.prompt?.startsWith("(made") ? "made, not rendered: an air blast"
         : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)`
         : "rendered over black ahead of time on open weights (LTX-2.5)"}</span>
-      <span className="chip">carried on your hand frame by frame, and lighting it from where it is</span>
+      <span className="chip">{job.effect?.startsWith("water") ? "on your hand frame by frame: the room seen through it and mirrored in it"
+        : job.effect?.startsWith("air") ? "on your hand frame by frame: seen by what it bends and the dust it carries"
+        : job.effect === "explosion" ? "set off ahead of your strike and left in the room, lighting your arm from where it is"
+        : "carried on your hand frame by frame, and lighting it from where it is"}</span>
       {b.hits.length > 1 && <span className="chip">{b.hits.length} hits, each on its own strike, as big as it was loud</span>}
       {b.snap.used === "motion" && <span className="chip">launched on your hand&apos;s strike</span>}
       {b.charge && <span className="chip">charged up by your hum for {b.charge.seconds.toFixed(1)} s, released on the strike</span>}
@@ -117,8 +120,11 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const firstMode: Mode = hand ? "bending" : sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
   const [mode, setModeState] = useState<Mode>(firstMode);
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
-  const [effect, setEffect] = useState(AUTO_EFFECT);
-  const [pickOwn, setPickOwn] = useState(false); // a hand shot: the cue decides unless you open the list
+  // ... a sample noise made for one of the elements made here picks it (a "shhhhh" is water, not steam)
+  const madeFor = hand && MADE_EFFECTS.includes(performance.suggested) ? performance.suggested : null;
+  const [effect, setEffect] = useState(madeFor ?? AUTO_EFFECT);
+  const [pickOwn, setPickOwn] = useState(!!madeFor); // a hand shot: the cue decides unless you open the list
+  useEffect(() => { if (madeFor) { setEffect(madeFor); setPickOwn(true); } }, [madeFor]);
   const [subject, setSubject] = useState(plate.subject ?? "");
   const [kinds, setKinds] = useState<ObjectKind[]>([]);
   const [kind, setKind] = useState<string | null>(null); // your own clip: what it is

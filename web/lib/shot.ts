@@ -119,7 +119,8 @@ export const fetchObjects = async (): Promise<ObjectKind[]> => {
   return r.ok ? r.json() : [];
 };
 
-export interface SampleVoice { name: string; url: string; title?: string; effect?: string; gesture?: string }
+export interface SampleVoice { name: string; url: string; title?: string; effect?: string; gesture?: string;
+  hand?: boolean } // hand: a noise for an element thrown from a hand (offered on hands only)
 
 /** What a sample noise does to a sample plate in scene mode: its own entry in the plate's map, else its gesture's. */
 export function sceneEffect(scene: SceneMap | undefined, v: SampleVoice): string | undefined {
@@ -180,13 +181,13 @@ export const EFFECT_LABELS: Record<string, { name: string; cue: string }> = {
   wick_flare: { name: "Flare-up", cue: "fwoooOOOM" },
   blow_out: { name: "Blow it out", cue: "pf. · pfffff" },
   fire_burst: { name: "Fire burst", cue: "pf. · KA-BOOM" },
-  explosion: { name: "Explosion", cue: "KA-BOOM" },
+  explosion: { name: "Explosion", cue: "BOOOOM" },
   lightning_arc: { name: "Lightning", cue: "zzzzz · tsst!" },
-  lightning_ball: { name: "Ball lightning", cue: "zzzzzz" },
+  lightning_ball: { name: "Ball lightning", cue: "zzzzz" },
   water_orb: { name: "Water orb", cue: "shhhhh · sploosh" },
   water_whip: { name: "Water whip", cue: "shhhhh" },
   air_ball: { name: "Air ball", cue: "hoooooo" },
-  air_blast: { name: "Air blast", cue: "HOO!" },
+  air_blast: { name: "Air blast", cue: "hoo · HOO!" },
 };
 
 export const AUTO_EFFECT = "auto";

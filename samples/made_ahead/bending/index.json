@@ -58,5 +58,53 @@
   "tap_frame": 68,
   "real": true,
   "rank": -103
+ },
+ "bending|hand_punch.mp4|boooom.wav|explosion@made|0.57,0.42|1": {
+  "dir": "hand_punch__boooom__explosion",
+  "title": "BOOOOM · an explosion off the fist",
+  "plate": "hand_punch.mp4",
+  "voice": "boooom.wav",
+  "effect": "explosion",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 68,
+  "real": true,
+  "rank": -103.5
+ },
+ "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_arc@made|0.51,0.65|1": {
+  "dir": "hand_palm__zzzzz__lightning",
+  "title": "zzzzz · lightning from the fingertips",
+  "plate": "hand_palm.mp4",
+  "voice": "zzzzz-tsst.wav",
+  "effect": "lightning_arc",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -103.2
+ },
+ "bending|hand_point.mp4|zzzzz-tsst.wav|lightning_arc@made|0.83,0.31|1": {
+  "dir": "hand_point__zzzzz__lightning",
+  "title": "zzzzz · lightning from a fingertip",
+  "plate": "hand_point.mp4",
+  "voice": "zzzzz-tsst.wav",
+  "effect": "lightning_arc",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 48,
+  "real": true,
+  "rank": -101.5
+ },
+ "bending|hand_palm.mp4|hoooo.wav|air_ball@made|0.51,0.65|1": {
+  "dir": "hand_palm__hoooo__air_ball",
+  "title": "hoooooo · a ball of air in the palm",
+  "plate": "hand_palm.mp4",
+  "voice": "hoooo.wav",
+  "effect": "air_ball",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -102.5
  }
 }

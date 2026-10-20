@@ -55,6 +55,32 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
   - On a handheld stand-in with a known camera path, the error is 0.6 px median over the flame's 10-frame history, against 27 px of camera motion.
   - The tracker's ground truth in [`cuesync/tests/bending/gt/`](cuesync/tests/bending/gt) is provisional: points marked by eye on gridded crops (AI-assisted), not hand-clicked.
 
+### Lightning, water, air and an explosion
+
+These four are made on the CPU, frame by frame, from the plate, the hand's track and matte, and the voice's timeline: each hit, how loud it is, and where the voice holds. None of them renders anything. Each module follows one contract ([`elements.py`](cuesync/src/cuesync/elements.py): `render(plate, track, mask, timeline, form, seed)`). A shot is deterministic per seed. At 1080x1920, lightning, water and air take under a second a frame and the explosion about 1.5 s. The noise picks two of them by itself ([`bending.bending_effect`](cuesync/src/cuesync/bending.py)):
+- a voiced buzz, whose energy above 4 kHz makes up more than a third, is lightning;
+- a BOOM held unbroken for 0.4 s or more with a fist or a palm strike is an explosion.
+
+The other two are picked in the studio. Each gets its own Foley ([`sfx_synth.py`](cuesync/src/cuesync/sfx_synth.py): crackle and hum, bubbles and splash, a whoosh).
+
+- **Lightning** ([`lightning.py`](cuesync/src/cuesync/lightning.py)): each channel is a jagged path made by recursive midpoint displacement, with forks that grow dimmer and thinner. A finger strikes one main channel, and the rest are fainter streamers. A channel is re-struck down the same path for one to three frames before it forks anew. Its root rides the fingertip and its far end stays where it struck, carried by the camera. No channel crosses another or runs alongside one, because loops and parallel wires are the shapes that read as fake. The light from each frame's channels falls on the skin and the room as cool-white. The ball form is a volume of plasma over the palm: a cool-white core with arcs crackling over its shell, whose glow brightens the skin round it.
+- **Water** ([`water.py`](cuesync/src/cuesync/water.py)): water throws no light, so it is drawn as a lens and a mirror over the plate. A frame's water is a set of metaballs read as a thickness map. Each pixel's ray is refracted in and out by Snell's law, with a little dispersion, then lands on the hand behind it (at its landmark depth) or on the room. On top go Fresnel reflection of the room, the key light's glints, aeration, and motion blur along the water's own flow. Under it: a caustic in its shadow and wet skin where it has been. It reads as water and not glass because it never holds still. Its outline wobbles in its low modes, ripples run over it, and it circulates, drips and froths. The orb is thrown on a final hit and bursts on the wall, then drains into a wet patch. The whip's stream rises from a puddle on the palm and lashes as a sheet that tears into ligaments.
+- **Air** ([`air.py`](cuesync/src/cuesync/air.py)): air is invisible, so what shows is what it bends:
+  - the plate refracted where the air is dense or swirls;
+  - a shadowgraph band, the bright and dark pair a candle's hot air casts on a wall;
+  - the dust it carries, lit in the colour of the room's lit surfaces.
+
+  The ball is a weak spinning lens over the palm, with streaks on bands of latitude. It grows with a held voice, pops on a hit and bursts when the voice lets go. The blast is a pressure front that runs out across the room, with a turbulent wake and dust pushed at the lens.
+- **An explosion** ([`explosion.py`](cuesync/src/cuesync/explosion.py)): the fireball is an LTX-2.5 + ainvfx-fluid render over black. Its blast frame, centre and radius are measured on the render itself, so any render of a fireball plays: a spark the model holds before the blast does not count as the blast. It goes off ahead of the fist on the strike and stays fixed in the room after that. It is sized off the hand and capped so its whole smoke cloud fits the frame. Its fire is graded onto a camera's fire colours, and its black smoke is composited as soot lit by the room. The cloud's dim middle is filled so it stays solid, and the render's own billow shading is put back over it. The smoke clears thinnest-first after about a second and a half. Round it are made:
+  - the white-hot core;
+  - an exposure flash with the iris overshooting after it;
+  - the shock front bending the room;
+  - sparks and embers;
+  - the blast's light wrapping round the arm;
+  - the camera's knock and zoom punch.
+
+The live preview draws lightning in the browser ([`lightning.ts`](web/lib/lightning.ts)); the other three are made only in the shot.
+
 **The path a judge's laptop takes, on nineteen phone takes.** Nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library.
 - Every one of the nineteen made a shot, in 32 to 100 s each on a desktop CPU.
 - The hand was lost on at most 23 % of a clip's frames.

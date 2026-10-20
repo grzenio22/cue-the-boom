@@ -29,6 +29,36 @@
    "title": "pf, pf, KA-BOOM",
    "effect": "fireball",
    "gesture": "rhythm"
+  },
+  "zzzzz-tsst.wav": {
+   "title": "zzzzz · tsst!",
+   "effect": "lightning_arc",
+   "gesture": "sustained",
+   "hand": true
+  },
+  "boooom.wav": {
+   "title": "BOOOOM",
+   "effect": "explosion",
+   "gesture": "hit",
+   "hand": true
+  },
+  "shhhhh-sploosh.wav": {
+   "title": "shhhhh · sploosh",
+   "effect": "water_orb",
+   "gesture": "hiss",
+   "hand": true
+  },
+  "hoooo.wav": {
+   "title": "hoooooo",
+   "effect": "air_ball",
+   "gesture": "sustained",
+   "hand": true
+  },
+  "hoo-hoo-HOO.wav": {
+   "title": "hoo · hoo · HOO!",
+   "effect": "air_blast",
+   "gesture": "rhythm",
+   "hand": true
   }
  },
  "plates": {
