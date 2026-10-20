@@ -9,20 +9,24 @@ linear light, with numpy and OpenCV, every random part from ``seed``: the same i
 no light of its own, so nothing here lights the hand or the room; what it carries takes the colour of the room's lit
 surfaces (fx_light._lit_tone), and the plate's own grain where it covers the plate.
 
-- ``ball``: a sphere of air standing on the palm, held by the voice. What is behind it is magnified a little (a weak
-  lens), squeezed at its rim and twisted round its spin axis by lobes that turn with it; a shadowgraph band runs round
-  its rim; a faint milky shell is densest at its limb, where the eye grazes the most of it; streaks of air orbit it on
-  orbits leaning off its axis, so they wrap a ball (round one axis alone they stacked into a jar of rings), the far
-  ones behind the fingers; dust swirls inside, the room's dust is drawn in round its equator, and a few bigger motes
-  glint as they turn. It gathers in from wide as the voice starts, grows and spins faster the longer and louder the
-  voice holds, rides out a breath, and bursts outward when the voice lets go.
+- ``ball``: a sphere of air standing on the palm, held by the voice, nearer the lens than the palm and so drawn bigger.
+  What is behind it is magnified a little (a weak lens; less over the hand, so the fingers seen through it keep their
+  shape), squeezed at its rim and twisted round its spin axis by lobes that turn with it; its outline wobbles and a
+  broken shadowgraph band runs round it; a faint milky shell is densest at its limb, where the eye grazes the most of
+  it; streaks of air orbit it on orbits leaning off its axis, so they wrap a ball (round one axis alone they stacked
+  into a jar of rings), a few of them bright at a time and each thinning towards its tail, the far ones behind the
+  fingers; dust swirls inside, the room's dust is drawn in round its equator, and a few bigger motes glint as they
+  turn. It gathers in from wide as the voice starts, grows and spins faster the longer and louder the voice holds,
+  rides out a breath, and when the voice lets go bursts into a push of air, as the blast's.
 - ``blast``: a push of air out of the palm on each of the voice's hits. A pressure front runs out across the room
-  (what is seen through it bulges outward, its edge is a shadowgraph band), a turbulent wake behind it smears what it
-  passes, a lumpy cloud of dusty air thrown off the palm lags the front, dust and flakes fly out of the palm in 3D
-  (towards the lens they grow and go soft), the room's own dust is shoved outward as the front passes it, and all of
-  it then slows, swirls and settles; what goes behind the palm's plane is hidden by the hand. What was thrown stays in
-  the room: on a handheld shot it moves with the room, not with the screen. A push at the lens reaches the phone: the
-  picture swells and smears outward for a moment.
+  (what is seen through it is bent outward in a thin band at its front, which is a shadowgraph band), a turbulent wake
+  behind it smears what it passes, a vortex ring of dusty air rolls out of the palm after it (lit on the side facing
+  the room's light, darker on the other) trailing a wake, dust and flakes fly out of the palm in 3D (towards the lens
+  they grow and go soft), the room's own dust near the push is shoved outward as the front passes it (one pool for the
+  shot, which the next push throws again), and all of it then slows, swirls, settles and fades; what goes behind the
+  palm's plane is hidden by the hand. What was thrown stays in the room: on a handheld shot it moves with the room,
+  not with the screen. A push at the lens reaches the phone: the picture swells and smears outward and the phone
+  shakes for a moment.
 """
 
 from __future__ import annotations
@@ -36,7 +40,8 @@ from . import fx_light as fx
 from .elements import FORMS, Timeline
 from .transfer import gam, lin
 
-_BALL, _BLAST, _ROOM, _GRAIN = 11, 12, 13, 14  # mixed into each seed, so one seed gives each part its own randomness
+_BALL, _BLAST, _ROOM, _GRAIN, _CLOUD = 11, 12, 13, 14, 15  # mixed into each seed, so one seed gives each part its own
+# randomness
 
 # ---- the hand -------------------------------------------------------------------------------------------------------
 TURN_EDGE = 0.3  # a palm whose normal faces the lens less than this (its z) is close to edge-on: there its side is
@@ -49,13 +54,23 @@ AIM_ACROSS = 0.7  # with the studio's arrow drawn, the push goes at least this m
 # in the picture; a palm facing the lens would otherwise send it at the camera whatever was drawn)
 FEED = 0.35  # the voice feeds the element while it holds a sound, or while it is louder than this (of the take's
 # loudest: a phone's room tone and breaths read 0.15-0.34 of a "ffff" and fed a ball from the first frame)
+OPEN_LOOK, OPEN = 4, 0.85  # a push is placed on the first of the hit's frame and the next this many on which the hand
+# is at least this open (the fingers' reach past their knuckles against the take's most open), else on the most open
+# of them; its timing stays the hit's (on a fist opening on the hit, the push came from between the knuckles; at 0.8
+# the fingers were still flinging open)
 
 # ---- the ball -------------------------------------------------------------------------------------------------------
-BALL_R = 0.72  # hand sizes: the ball's radius once formed (about as wide as the spread hand)
+BALL_R = 0.72  # hand sizes: the ball's radius once formed (about as wide as the spread hand) ...
+BALL_SPAN = 0.92  # ... and at least this many knuckle spans (index to little finger: the track's hand size runs
+# small on a palm turned to the lens, and there the ball sat sunk in the palm at half the hand's width)
 BALL_GROW, BALL_GROW_S = 0.3, 3.0  # ... and it grows this much more over this many seconds of held voice
 BALL_BREATH = 0.06  # ... and swells this much more at the voice's loudest
 BALL_GAP = 0.15  # hand sizes between the palm and the ball's underside (along the palm's normal)
-BALL_FORM, BALL_RELEASE = 12, 9  # frames it gathers over (half a second), and bursts and thins out over
+BALL_LIFT = 0.35  # hand sizes: a palm turned to the lens (its normal's z past 0.7) lifts the ball up the picture by up
+# to this, over the fingertips and onto the room (on the palm it was white over pink, and vanished at phone size)
+BALL_FORM, BALL_RELEASE = 12, 6  # frames it gathers over (half a second), and bursts and thins out over while the
+# push of air it lets go carries the burst on (on its own, a 9-frame fade, letting go had no payoff)
+RELEASE_GAIN = (0.5, 0.4)  # that push is this hard, and this much harder at the voice's loudest (of a loudest hit's)
 BALL_LINGER = 6  # frames it stays after the voice last feeds it, before it bursts
 BALL_BRIDGE = 30  # frames: a silence no longer than this (a breath between two "ffff"s) keeps the ball, thinned out
 # and slowing (BALL_IDLE); a longer one lets it go, and the next sound gathers a new one
@@ -65,20 +80,32 @@ BALL_SPIN = 0.9  # revolutions a second once formed on a quiet voice ...
 BALL_SPIN_VOICE, BALL_SPIN_HELD = 1.0, 0.6  # ... this much faster at the voice's loudest, and this much after
 # BALL_GROW_S seconds held (about 2.5 a second at the most: faster smeared every streak into a ring)
 BALL_LENS = 0.16  # the plate behind its middle is magnified this much (dense spinning air, a weak lens)
-BALL_RIM = 0.05  # radii: at its rim what is behind is pulled in from this much further out (the rim draws the ball's
-# outline across the fingers seen through it)
+BALL_RIM = 0.02  # radii: at its rim what is behind is pulled in from this much further out (the rim draws the ball's
+# outline across the fingers seen through it; 0.05 drew it as hard as a glass globe's)
 BALL_TWIST = 0.17  # rad: how far the shell twists what is behind it round the axis, at its densest
 BALL_TURB = 3.2  # px at 1080: the co-rotating shimmer
+BALL_HAND = (0.65, 0.8)  # over the hand the bend is cut by this share and the shimmer by this (bent in full, a palm
+# under the ball melted into a disc and the fingers' outlines broke)
 BALL_CA = 0.06  # colour fringe of the bend (0.22 drew red and cyan outlines round the fingers)
-BALL_SHADOW = 0.12  # the shadowgraph: the rim focuses the room's light into a band this much brighter, with a darker
-# band inside it (without it, on a plain wall the ball was a few faint streaks: refraction shows only what has texture)
-BALL_MIST = 0.2  # opacity of the milky shell at its limb (0.3 and more read as a fogged glass bowl)
+BALL_WOB = (0.09, 0.06)  # radii: its outline wobbles this much in three lobes and in five, turning with the spin and
+# slowly changing (round to 3.5 % and ringed by a crisp band, it was a crystal ball)
+BALL_SHADOW = 0.07  # the shadowgraph: the rim focuses the room's light into a band this much brighter, with a darker
+# band inside it (without it, on a plain wall the ball was a few faint streaks: refraction shows only what has texture;
+# at 0.12 its band drew a hard round outline)
+BALL_BAND = 0.05  # radii: the band's softness (at 0.035 it was a drawn line)
+BALL_MIST = 0.15  # opacity of the milky shell at its limb (0.2 and more read as a fogged glass bowl)
+BALL_UNDER = 0.15  # over the hand what the streaks cross is darkened this much under and round them before their light
+# is laid on (the shadowgraph of a filament of air: light streaks alone did not part from a lit palm)
 BALL_BACK = 0.45  # the far side shows this much (seen through the near side), and not through the fingers
 BALL_CAUSTIC = 0.06  # the palm under the ball takes its light focused into moving patches, this much brighter / darker
 BALL_STREAKS, BALL_INFLOW = 46, 8  # streaks orbiting the ball; long arms drawing the room's air in round its equator
 STREAK_TILT = 0.6  # rad: the streaks' orbits lean off the spin axis by up to this
-STREAK_ALPHA = 0.5  # peak opacity of the brightest streak (at 0.3 the ball vanished at phone size on a plain wall)
-STREAK_PX = (1.3, 2.8)  # px at 1080: a fine streak's softness, and a broad wisp's
+STREAK_ALPHA = 1.0  # peak opacity of the brightest streak (at 0.3 the ball vanished at phone size on a plain wall;
+# with most streaks faint, the few bright ones carry it)
+STREAK_PX = (1.3, 6.5)  # px at 1080: a fine streak's softness, and a broad wisp's, at its head (a wisp under 3 px
+# was under a pixel at phone size, and the ball a ghost) ...
+STREAK_TAPER = (0.4, 0.55)  # ... and past this share of its length it is drawn this much as wide (as wide all along,
+# 46 streaks read as wire wound round a globe)
 STREAK_STEP = 0.7  # px between the points a streak is drawn from (further apart a soft streak turned to beads)
 BALL_DUST, ROOM_DUST, MOTES = 300, 180, 26  # dust inside; the room's dust drawn in; bigger motes that glint
 DUST_ALPHA, MOTE_ALPHA = 0.5, 0.85  # peak opacity of a bright dust speck, and of a mote at its glint
@@ -87,34 +114,67 @@ BALL_PAD = 2.9  # radii: the ball's air (the inflow arms, the dust it draws in) 
 # ---- the blast ------------------------------------------------------------------------------------------------------
 BLAST_FRAMES = 12  # the front crosses the room in half a second
 FRONT_FROM, FRONT_TO = 0.06, 0.95  # shares of the short side: the front's radius first and last (more towards the lens)
-BUBBLE_PX = 46.0  # px at 1080: how far the pressure bubble pushes what is seen through it outward, at its strongest
-BUBBLE_END = 0.3  # ... and the share of that it still has as it leaves the frame (it bulged the switch plate visibly)
+BUBBLE_PX = 30.0  # px at 1080: how far the pressure bubble pushes what is seen through it outward, at its strongest
+# (46 tilted the switch plate and waved its edge at full size) ...
+BUBBLE_END = 0.3  # ... and the share of that it still has as it leaves the frame
+BUBBLE_INNER = 0.35  # ... most of it a thin band at the front, and this share of it a push growing out to the front
+# from inside (all of it growing to the front, the whole room bulged like a funhouse mirror)
 FRONT_W = 0.05  # share of the short side: the front's thickness (it thickens as it goes)
 SHADOWGRAPH = 0.12  # the front gathers and spreads the light behind it: a bright band, dark either side, this deep (at
 # 0.06 the front was invisible on a plain wall)
-WAKE_PX = 5.0  # px at 1080: the turbulent wake's radial smear behind the front
-BLAST_CA = 0.05  # (0.12 split an orange fringe off the fingertips while the bubble was small and strong)
+WAKE_PX = 4.0  # px at 1080: the turbulent wake's radial smear behind the front ...
+WAKE_ROUND = 2.5  # ... its eddies this many half-degrees across round the front (at 0.8 they were a few px across
+# where the front crossed the switch plate, and waved its straight edge like a glitch)
+BLAST_CA = 0.02  # (0.12 split an orange fringe off the fingertips, 0.05 a cyan one off the switch plate)
 BUBBLE_CLEAR = (0.6, 0.9)  # hand sizes: the bubble bends nothing until its front is this far out, and is whole this
 # much further on (bent while it was still over the hand, the fingers wobbled on the hit like a glitch)
-CLOUD_N, CLOUD_CLUMPS = 4000, 9  # parcels of dusty air thrown out with the push, most of them in this many clumps (a
-# puff is lumpy; a texture laid on a ring round the palm read as a faint smudge, not as air going somewhere)
-CLOUD_ALPHA = 0.42  # opacity the dusty air saturates at, where it is thickest
+CLOUD_N = 4000  # parcels of dusty air the push sets rolling: a vortex ring, what a palm pushed through air makes (a
+# cloud of clumps thrown off the palm slowed and faded where it was: a glow stuck on the hand, not air going somewhere)
+RING_R = (0.5, 1.8)  # hand sizes: the ring's radius as it leaves the palm, and how many times wider it ends
+RING_CORE = 0.16  # ring radii (as it leaves): the radius of its core, which the dusty air rolls round (it fattens as
+# it slows; at a quarter, a ring seen at a slant closed its hole and read as a cauliflower; in hand sizes, the wide
+# ring a ball bursts into was a thin string of beads)
+RING_SPEED = 0.06  # share of the short side a frame: how fast the ring leaves the palm on the loudest hit ...
+RING_SLOW = 9.0  # ... slowing over this many frames (a ring holds together and carries on past the dust's 5)
+RING_ROLL = 0.3  # rad a frame: how fast its air rolls round its core at first (slowing with the ring)
+RING_WAKE = 0.2  # share of the dusty air trailing behind the ring, back to the palm
+RING_BILLOW = 0.6  # ring radii (as it leaves): the room's eddies push the ring's air this far about as it slows
+# (lumps that turn; a ring kept round read as a drawn halo)
+RING_LUMPS = 0.8  # how lumpy its air is along the ring and round its core (the parcels' share of it, from a smooth
+# noise fixed in the rolling air: spread evenly, the ring was a smooth tube)
+CLOUD_ALPHA = 0.28  # opacity the dusty air saturates at, where it is thickest (0.42 frosted the hand and the arm)
+CLOUD_MAX = 0.5  # ... and it covers what is behind it this much at the most (0.85 washed the hand white)
 CLOUD_THICK = 0.6  # ... and how fast it gets there: the opacity of a cloud spread evenly over the frame's short side
 # squared is about this much of CLOUD_ALPHA
-CLOUD_DEPTH = 0.3  # the dusty air keeps this share of its speed towards the lens (all of it carried the puff off
-# the bottom of the picture: off the lens's axis, what comes at the lens slides outward)
-CLOUD_Q = 8  # the dusty air is drawn this many times coarser than the frame, then blurred and drawn at full size
-CLOUD_SOFT = (16.0, 4.0)  # px at 1080: how soft the dusty air is as it leaves the palm, and how much softer a frame
-# (it diffuses as it slows; kept sharp, its parcels showed as blobs)
+CLOUD_Q = 4  # the dusty air is drawn this many times coarser than the frame, then blurred and drawn at full size
+CLOUD_SOFT = (6.0, 1.2)  # px at 1080: how soft the dusty air is as it leaves the palm, and how much softer a frame
+# (it diffuses as it slows; at 16 + 4 a frame every lump was blurred away into a smooth veil)
 CLOUD_FADE = (6, 22)  # frames: the dusty air thins out from this many frames after the push, over this many more
-DUST_N, FLAKES = 1400, 60  # dust and grit flung out of the palm; bigger flakes that tumble
-ROOM_N = 1500  # the room's own dust, still and unseen until the front shoves it
+CLOUD_SHADE = (0.95, 0.3)  # its colour: the room's lit tone times this, plus or minus this much where its lumps face
+# towards or away from the room's light (in one flat tone it read as a glow; thin dust hardly shades itself, and at
+# 0.8 +- 0.45 its far side was darker than a lit palm: grime on the skin) ...
+CLOUD_DIM = 0.06  # ... and it dims what is behind it this much where it is thickest, before its light is laid on
+CLOUD_HAND = (0.85, 3, 10)  # over the hand it is this much thinner until this many frames after the push, back to
+# full by this many (it starts on the palm, and fogged the hand)
+DUST_N, FLAKES = 900, 60  # dust and grit flung out of the palm; bigger flakes that tumble (1400 read as sensor snow)
+DUST_R = (1.6, 3.0)  # px at 1080 at the palm's depth: a speck's size (1.1-2.4: too fine to read at phone size)
+DUST_STIR = 0.012  # share of the short side a frame: how hard the eddies push the dust about once it has slowed ...
+DUST_CALM = 14.0  # ... calming over this many frames (stirred as hard for its whole life, the hanging dust zipped
+# about in streaks: film scratches)
+ROOM_N = 500  # the room's own dust, one pool for the shot: still and unseen until a front shoves it ...
+ROOM_NEAR = 0.6  # short sides: ... most of it near the first push and ahead of it, thinning out this far (1500 specks
+# over the whole frame read as sensor snow)
 ROOM_PUSH = 0.06  # share of the short side a frame: how fast the front throws the room's dust it passes
-ROOM_SEEN = 0.45  # thrown, it shows at least this much as it slows and hangs (seen only while fast, the room's dust
-# flashed past and was gone before the eye found it)
+ROOM_SEEN = 0.45  # thrown, it shows at least this much as it slows, fading out with its life (seen only while fast, it
+# flashed past and was gone before the eye found it; held, it hung through the next push)
 DUST_LIFE = (22, 30)  # frames: thrown dust hangs this long after the push, then is gone over the next this many
+SMEAR_MIN = 2.0  # px at 1080: a speck moving less than this over the shutter's half frame is drawn round (smeared,
+# the slow ones were ticks: hairs on the skin)
 FOCAL = 1.0  # focal length in short sides (a phone's main camera: about 53 degrees across the short side)
-BUFFET = 0.018  # a push straight at the lens swells the picture this much when the gust reaches the phone
+BUFFET = 0.035  # a push straight at the lens swells the picture this much when the gust reaches the phone (0.018 was no
+# kick at phone size) ...
+BUFFET_SHAKE = 3.0  # ... knocks it this many px at 1080 along the push, shaking back over six frames ...
+BUFFET_DIP = 0.03  # ... and dims it this much as the gust covers the lens
 FIELD_Q = 2  # the bend is worked out on a grid this many times coarser and drawn at full size (it is smooth)
 
 
@@ -271,6 +331,46 @@ def palm_normals(track: dict, n: int, w: int, h: int) -> np.ndarray:
     return out / np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-9)
 
 
+def _landmarks_px(track: dict, n: int, w: int, h: int) -> list[np.ndarray | None]:
+    """Each frame's 21 landmarks (x, y) in this plate's px, or None on a frame without them."""
+    kx, ky = w / float(track.get("W", w)), h / float(track.get("H", h))
+    lms = list(track.get("landmarks") or [])[:n]
+    return [None if L is None else np.asarray(L, np.float64)[:, :2] * (kx, ky) for L in lms + [None] * (n - len(lms))]
+
+
+def _nearest_filled(x: np.ndarray, fill: float) -> np.ndarray:
+    """``x`` (n,) with each nan taken from the nearest frame that has a value (all ``fill`` when none has)."""
+    have = np.flatnonzero(~np.isnan(x))
+    if have.size == 0:
+        return np.full(len(x), fill)
+    return x[have[np.abs(np.arange(len(x))[:, None] - have[None, :]).argmin(1)]]
+
+
+def knuckle_span(track: dict, n: int, w: int, h: int) -> np.ndarray:
+    """(n,) px between the index and little fingers' knuckles (landmarks 5 and 17), from the nearest frame with
+    landmarks; zeros for a track without them."""
+    L = _landmarks_px(track, n, w, h)
+    return _nearest_filled(np.array([np.nan if p is None else np.linalg.norm(p[5] - p[17]) for p in L]), 0.0)
+
+
+def openness(track: dict, n: int, w: int, h: int) -> np.ndarray:
+    """(n,) how open the hand is, 1 for the take's most open: the four fingers' mean reach past their knuckles over the
+    palm's length (wrist to middle knuckle), which a hand turned to the lens foreshortens alike (the wrist-to-fingertip
+    reach peaked as the fingers flung open, a frame before they were); ones for a track without landmarks."""
+    L = _landmarks_px(track, n, w, h)
+    reach = np.array([np.nan if p is None else np.linalg.norm(p[[8, 12, 16, 20]] - p[[5, 9, 13, 17]], axis=1).mean()
+                      / max(float(np.linalg.norm(p[9] - p[0])), 1e-6) for p in L])
+    reach = _nearest_filled(reach, 1.0)
+    return reach / max(float(reach.max()), 1e-9)
+
+
+def _open_from(opened: np.ndarray, f: int) -> int:
+    """The frame a push on frame ``f`` is placed on (OPEN_LOOK, OPEN)."""
+    look = opened[f: min(len(opened), f + OPEN_LOOK + 1)]
+    ok = np.flatnonzero(look >= OPEN)
+    return f + int(ok[0] if ok.size else np.argmax(look))
+
+
 def voice_level(timeline: Timeline) -> np.ndarray:
     """(n,) the voice's loudness as the air follows it: up at once, down over about half a second."""
     e = timeline.energy
@@ -314,7 +414,7 @@ def ball_lives(timeline: Timeline, level: np.ndarray) -> list[tuple[int, int]]:
         return [(int(timeline.tap_frame), int(timeline.tap_frame) + BALL_MIN)] if 0 <= timeline.tap_frame < n else []
     cut = np.flatnonzero(np.diff(frames) > BALL_BRIDGE)
     lives = []
-    for a, b in zip(np.r_[0, cut + 1], np.r_[cut, frames.size - 1]):
+    for a, b in zip(np.r_[0, cut + 1], np.r_[cut, frames.size - 1], strict=True):
         t0 = int(frames[a])
         t_rel = max(int(frames[b]) + 1 + BALL_LINGER, t0 + BALL_MIN)
         if lives and t0 < lives[-1][1] + BALL_RELEASE:  # the last one has not burst yet: it carries on
@@ -348,7 +448,10 @@ class _Ball:
         self.span = np.where(self.inflow, rng.uniform(2.0, 3.4, N), rng.uniform(1.1, 3.0, N))
         self.speed = np.where(self.inflow, 0.8, rng.uniform(0.85, 1.2, N))
         self.helix = rng.uniform(-0.18, 0.18, N)
-        self.bright = np.where(self.inflow, 0.45 * rng.uniform(0.5, 1.0, N), rng.uniform(0.3, 1.0, N) ** 1.3)
+        self.bright = np.where(self.inflow, 0.45 * rng.uniform(0.5, 1.0, N), rng.uniform(0.12, 1.0, N) ** 2)  # most
+        # faint, a few bright (as bright as each other, the streaks read as wire)
+        self.glow = rng.uniform(0, 2 * np.pi, N)  # ... and each brightens and fades as it turns, so a different few
+        self.glow_f = rng.uniform(0.08, 0.2, N)  # read at a time, at this many times the spin
         self.soft = (rng.random(N) < 0.45) | self.inflow  # broad soft wisps; the rest fine streaks
         self.wob = rng.uniform(0, 2 * np.pi, N)
         self.gaps = rng.uniform(1.0, 2.6, N)  # each streak comes and goes along its length this many times (whole,
@@ -414,7 +517,8 @@ class _Ball:
 
     def points(self, c, R, B, form, rel, vis, omega, t, k):
         """Everything the ball carries, as points: (x, y, depth, weight, kind) with kind 0 a fine streak, 1 a broad
-        wisp, 2 lit dust, 3 dark grit, 4 a mote; the far side's points (depth < 0) carry BALL_BACK of their weight."""
+        wisp, 2 lit dust, 3 dark grit, 4 a mote, 5 and 6 the tails of a fine streak and of a broad wisp (drawn
+        thinner: STREAK_TAPER); the far side's points (depth < 0) carry BALL_BACK of their weight."""
         spread = 1 + 1.4 * (1 - form) ** 2  # forming: it gathers in from wide
         # streaks: each a comet of moving air along its orbit, its head a half frame on (the shutter)
         L = self.span * R * (self.rho + 0.5 * self.flare) * spread * (1 + rel)
@@ -434,8 +538,9 @@ class _Ball:
         tail = tail * np.clip(0.55 + 0.6 * np.sin(2 * np.pi * self.gaps[:, None] * s + self.gph[:, None]
                                                   + 0.15 * self.spin), 0.06, 1.0)  # in wisps, coming and going
         ds = (span[:, 0] * rho.mean(1) / (S - 1))[:, None]  # px of streak each point stands for
-        wt = self.bright[:, None] * tail * vis * ds
-        kind = np.broadcast_to(self.soft[:, None].astype(np.int8), wt.shape)
+        glow = np.where(self.inflow, 1.0, 0.5 + 0.5 * np.sin(self.glow + self.glow_f * self.spin) ** 2)
+        wt = (self.bright * glow)[:, None] * tail * vis * ds
+        kind = (self.soft[:, None].astype(np.int8) + 5 * (s > STREAK_TAPER[0])).astype(np.int8)
         xs, ys, zs, ws, ks = [pts[..., 0].ravel()], [pts[..., 1].ravel()], [pts[..., 2].ravel()], [wt.ravel()], [
             kind.ravel()]
         # dust inside, smeared over the shutter's half frame
@@ -500,11 +605,17 @@ class _Ball:
         box = _clip_box(cx, cy, 1.7 * R, 1.7 * R, w, h)
         if box is not None:
             y0, y1, x0, x1 = box
+            bh, bw = y1 - y0, x1 - x0
             gx, gy = _coarse_grid(box, FIELD_Q)
             dx, dy = gx - cx, gy - cy
             phi = np.arctan2(dy, dx)
-            wob = 1 + 0.035 * np.sin(3 * phi - 0.4 * self.spin + 1.3) + 0.025 * np.sin(5 * phi + 0.7 * self.spin)
+            wob = 1 + BALL_WOB[0] * np.sin(3 * phi - 0.4 * self.spin + 1.3 + 0.9 * math.sin(0.07 * t)) \
+                + BALL_WOB[1] * np.sin(5 * phi + 0.7 * self.spin - 0.11 * t)
             r = np.hypot(dx, dy) / (R * wob)
+            hc = None if hand is None else cv2.resize(hand[y0:y1, x0:x1], (gx.shape[1], gy.shape[0]),
+                                                      interpolation=cv2.INTER_AREA)
+            keep = 1.0 if hc is None else cv2.GaussianBlur(hc, (0, 0), 0.06 * R / FIELD_Q)  # over the hand, eased in
+            # over a few px round it (cut at the matte's edge, the fingers showed a ghost of themselves beside them)
             z = np.sqrt(np.clip(1 - r * r, 0, 1))
             shell = (z - np.sqrt(np.clip(0.36 - r * r, 0, 1))) / 0.8  # the chord through the shell round a 0.6 core
             draft = np.where(r > 1, np.exp(-((r - 1) / 0.25) ** 2), 0.0)  # the swirl drags the air round it a little
@@ -522,19 +633,21 @@ class _Ball:
             nz = cv2.remap(self.noise, u.astype(np.float32), v.astype(np.float32), cv2.INTER_LINEAR,
                            borderMode=cv2.BORDER_WRAP)
             tb = BALL_TURB * k * sw
-            bh, bw = y1 - y0, x1 - x0
-            ddx = _upsample((rx + nz[..., 0] * tb - dx).astype(np.float32), bh, bw)
-            ddy = _upsample((ry + nz[..., 1] * tb - dy).astype(np.float32), bh, bw)
+            bend = 1.0 if hc is None else 1 - BALL_HAND[0] * keep
+            if hc is not None:
+                tb = tb * (1 - BALL_HAND[1] * keep)
+            ddx = _upsample(((rx - dx) * bend + nz[..., 0] * tb).astype(np.float32), bh, bw)
+            ddy = _upsample(((ry - dy) * bend + nz[..., 1] * tb).astype(np.float32), bh, bw)
             _remap_rgb(P, ddx, ddy, box, BALL_CA)
-            # the shadowgraph: a bright band on the rim, broken into arcs that turn with the spin, darker inside it
+            # the shadowgraph: a soft band on the rim, broken into arcs that turn with the spin and wander in and out
+            # with them, darker inside it
             arc = cv2.remap(self.arcs, (((phi - turn * self.spin * 0.6) % (2 * np.pi)) * (512 / (2 * np.pi)))
                             .astype(np.float32), np.zeros_like(phi, np.float32), cv2.INTER_LINEAR,
                             borderMode=cv2.BORDER_WRAP)
-            band = np.exp(-((r - 1.0) / 0.035) ** 2) * np.clip(0.75 + 0.45 * arc, 0.2, 1.6) \
+            band = np.exp(-((r - 1.0 - 0.06 * arc) / BALL_BAND) ** 2) * np.clip(0.75 + 0.45 * arc, 0.2, 1.6) \
                 - 0.55 * np.exp(-((r - 0.88) / 0.07) ** 2)
             gain_ = BALL_SHADOW * vis * band
-            if hand is not None:  # the palm under it takes the light the spinning air focuses, in moving patches
-                hc = cv2.resize(hand[y0:y1, x0:x1], (gx.shape[1], gy.shape[0]), interpolation=cv2.INTER_AREA)
+            if hc is not None:  # the palm under it takes the light the spinning air focuses, in moving patches
                 gain_ = gain_ + BALL_CAUSTIC * vis * hc * (np.clip(nz[..., 2], 0, None) ** 2 - 0.4) * \
                     _smooth((1.15 - r) / 0.3)
             P[y0:y1, x0:x1] *= 1 + _upsample(gain_.astype(np.float32), bh, bw)[..., None]
@@ -553,15 +666,19 @@ class _Ball:
         if hand is not None:  # the far side's points pass behind the fingers
             xi, yi = np.clip(x.astype(np.int64), 0, w - 1), np.clip(y.astype(np.int64), 0, h - 1)
             wgt = np.where(z < 0, wgt * (1 - 0.9 * hand[yi, xi]), wgt)
-        bufs = [np.zeros((h, w), np.float32) for _ in range(5)]
+        bufs = [np.zeros((h, w), np.float32) for _ in range(7)]
         for j, buf in enumerate(bufs):
             sel = kind == j
             _splat(buf, x[sel], y[sel], wgt[sel])
-        lit = _line_blur(bufs[0], STREAK_PX[0] * k) * STREAK_ALPHA + _line_blur(bufs[1], STREAK_PX[1] * k) * (
-            0.8 * STREAK_ALPHA)
+        lit = np.zeros((h, w), np.float32)
+        for j, px, a_ in ((0, STREAK_PX[0], 1.0), (1, STREAK_PX[1], 0.8), (5, STREAK_PX[0] * STREAK_TAPER[1], 1.0),
+                          (6, STREAK_PX[1] * STREAK_TAPER[1], 0.8)):
+            lit += _line_blur(bufs[j], px * k) * np.float32(a_ * STREAK_ALPHA)
         dust_sig, mote_sig = 0.9 * k, 1.6 * k  # a point of weight 1, blurred, peaks at 1 / (2 pi sigma^2)
         lit += cv2.GaussianBlur(bufs[2], (0, 0), dust_sig) * np.float32(DUST_ALPHA * 2 * math.pi * dust_sig ** 2 / 1.6)
         lit += cv2.GaussianBlur(bufs[4], (0, 0), mote_sig) * np.float32(MOTE_ALPHA * 2 * math.pi * mote_sig ** 2)
+        if hand is not None:  # over the skin, a darker bed under the light (a filament of air bends light both ways)
+            P *= (1 - BALL_UNDER * hand * np.clip(cv2.GaussianBlur(lit, (0, 0), 2.5 * k), 0, 1))[..., None]
         col_s = np.minimum(np.maximum(tone * 1.25, tone.max() * 0.55), 0.95).astype(np.float32)
         _over(P, lit, col_s, noise, code)
         grit = cv2.GaussianBlur(bufs[3], (0, 0), dust_sig) * np.float32(DUST_ALPHA * 2 * math.pi * dust_sig ** 2 / 1.6)
@@ -575,11 +692,13 @@ def _ball_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarray
     lives = ball_lives(tl, level)
     xy, _, size = fx.track_arrays(track, n, w, h)
     xy, size = _gauss_smooth(xy, SMOOTH_XY), _gauss_smooth(size, SMOOTH_SIZE)
+    span = _gauss_smooth(knuckle_span(track, n, w, h), SMOOTH_SIZE)
     normal = palm_normals(track, n, w, h)
     feed = fed(tl, level)
     k = min(h, w) / 1080.0
     total = sum(min(n, b + BALL_RELEASE) - a for a, b in lives)
     done = 0
+    blasts = []
     for j, (t0, t_rel) in enumerate(lives):
         ball = _Ball(seed, j)
         held, idle, tone_s = 0, 1.0, None
@@ -590,10 +709,18 @@ def _ball_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarray
             form = float(_smooth((t - t0 + 1) / BALL_FORM))
             rel = float(np.clip((t - t_rel + 1) / BALL_RELEASE, 0, 1))
             e = float(level[t])
-            R0 = BALL_R * size[t] * (1 + BALL_GROW * grow) * (1 + BALL_BREATH * e)
+            R0 = max(BALL_R * size[t] * (1 + BALL_GROW * grow), BALL_SPAN * span[t]) * (1 + BALL_BREATH * e)
+            off = R0 + BALL_GAP * size[t]  # px off the palm, along its normal: nearer the lens, so drawn bigger
+            near = 1.0 / max(0.5, 1 - normal[t, 2] * off / (FOCAL * min(h, w)))
+            R0 *= near
             R = R0 * (0.3 + 0.7 * form) * (1 + 1.0 * rel ** 0.7)
-            c = xy[t] + normal[t, :2] * (R0 + BALL_GAP * size[t])
+            lift = BALL_LIFT * size[t] * float(np.clip((normal[t, 2] - 0.7) / 0.3, 0, 1))
+            c = xy[t] + normal[t, :2] * off * near - np.array([0.0, lift])
             omega = 2 * np.pi * BALL_SPIN * (0.5 + 0.5 * form + BALL_SPIN_VOICE * e + BALL_SPIN_HELD * grow) / fx.FPS
+            if t == t_rel:  # letting go: the ball bursts into a push of air, its ring as wide as the ball
+                u, q = push_direction(track, t, normal[t], tl.aim, tl.tap_frame, n, w, h)
+                blasts.append(_Blast(c, u, q, normal[t], size[t], w, h, t, RELEASE_GAIN[0] + RELEASE_GAIN[1] * e,
+                                     seed, j, ring=R0))
             tone = _tone(plate[t])
             tone_s = tone if tone_s is None else 0.85 * tone_s + 0.15 * tone
             pad = BALL_PAD * R0 * (1 + rel) + 8 * k
@@ -610,7 +737,9 @@ def _ball_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarray
                       tone_s, noise, code, k)
             out[t, y0:y1, x0:x1] = gam(P)
             if done % 8 == 0:
-                say("air", done / total, f"Spinning the air over your palm: frame {done} of {total}")
+                say("air", 0.5 * done / total, f"Spinning the air over your palm: frame {done} of {total}")
+    if blasts:
+        _push_frames(out, blasts, mask, tl, seed, code, lambda stage, share, msg: say(stage, 0.5 + 0.5 * share, msg))
 
 
 # ---- the blast ------------------------------------------------------------------------------------------------------
@@ -641,12 +770,12 @@ def push_direction(track: dict, t: int, normal: np.ndarray, aim: float | None, t
 class _Blast:
     """One push of air from ``origin`` (frame px on its ``start`` frame) along ``u`` (``q``: how much of it crosses
     the picture, the rest coming at the lens), off a palm facing ``normal`` (palm_normals), from a hand ``size`` px,
-    ``gain`` as loud as the loudest hit. All of it lives in the room as the start frame saw it: each frame is drawn
-    through the camera's motion since. Points in it are 3D: x, y in px at the palm's depth, z in palm depths (the lens
-    at 0)."""
+    ``gain`` as loud as the loudest hit, its vortex ring ``ring`` px across as it leaves (RING_R's first by default).
+    All of it lives in the room as the start frame saw it: each frame is drawn through the camera's motion since.
+    Points in it are 3D: x, y in px at the palm's depth, z in palm depths (the lens at 0)."""
 
     def __init__(self, origin, u, q: float, normal, size: float, w: int, h: int, start: int, gain: float, seed: int,
-                 salt: int):
+                 salt: int, ring: float | None = None):
         rng = fx._rng(seed, _BLAST, salt)
         self.o = np.asarray(origin, np.float64)
         self.u = np.asarray(u, np.float64)
@@ -658,26 +787,26 @@ class _Blast:
         self.lob, self.lph = lobes, rng.uniform(0, 2 * np.pi, lobes.size)
         self.lamp = rng.uniform(0.5, 1.0, lobes.size) / lobes
         self.reach = FRONT_TO + 0.6 * (1 - self.q)  # straight at the lens it fills the frame
-        self.wake = cv2.GaussianBlur(_tile_noise(rng, 64, 720, 1.2, 1.2, 2), (0, 0), sigmaX=0.8, sigmaY=3.0)
+        self.wake = cv2.GaussianBlur(_tile_noise(rng, 64, 720, 1.2, 1.2, 2), (0, 0), sigmaX=WAKE_ROUND, sigmaY=3.0)
         self.arcs = _tile_noise(rng, 1, 720, 6.0, 0.5).reshape(1, -1)  # where round the front its band is strong
         self.curl = _Curl(rng, 0.1 * side)
         f = FOCAL * side
         self.f = f
         self.pp = np.array([w / 2, h / 2])
         n3 = np.array([self.u[0] * self.q, self.u[1] * self.q, math.sqrt(max(0.0, 1 - self.q * self.q))])
+        self.n3 = n3
         self.nrm = np.asarray(normal, np.float64) / max(float(np.linalg.norm(normal)), 1e-9)
         e1 = np.cross(self.nrm, [0.0, 0.0, 1.0] if abs(self.nrm[2]) < 0.9 else [1.0, 0.0, 0.0])
         e1 /= np.linalg.norm(e1)
         e2 = np.cross(self.nrm, e1)
 
-        def thrown(d: np.ndarray, sp: np.ndarray, spread: float, depth: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
+        def thrown(d: np.ndarray, sp: np.ndarray, spread: float) -> tuple[np.ndarray, np.ndarray]:
             """Points leaving the palm's face (a hand ``spread`` across, just off its skin) along unit directions
-            ``d`` (x, y and towards the lens) at ``sp`` px a frame, keeping ``depth`` of their speed towards or away
-            from the lens: their positions and velocities."""
+            ``d`` (x, y and towards the lens) at ``sp`` px a frame: their positions and velocities."""
             a, b = rng.standard_normal((2, len(d))) * spread * size
             off = a[:, None] * e1 + b[:, None] * e2 + 0.08 * size * self.nrm
             p_ = np.column_stack([self.o[0] + off[:, 0], self.o[1] + off[:, 1], 1 - off[:, 2] / f])
-            return p_, np.column_stack([d[:, 0] * sp, d[:, 1] * sp, -d[:, 2] * sp / f * depth])  # (the lens: z falls)
+            return p_, np.column_stack([d[:, 0] * sp, d[:, 1] * sp, -d[:, 2] * sp / f])  # (the lens: z falls)
 
         def ahead(d: np.ndarray) -> np.ndarray:
             """Unit directions spread round the push's own from random vectors ``d``, none of them back into it."""
@@ -691,38 +820,60 @@ class _Blast:
         sp = rng.uniform(0.15, 1.0, N) ** 1.8 * 0.33 * side * gain  # px a frame at the palm's depth
         p, v = thrown(ahead(rng.standard_normal((N, 3))), sp, 0.4)
         delay = rng.uniform(0, 2.5, N).astype(int)
-        r0 = np.where(np.arange(N) < DUST_N, rng.uniform(1.1, 2.4, N), rng.uniform(2.4, 4.0, N))
+        r0 = np.where(np.arange(N) < DUST_N, rng.uniform(*DUST_R, N), rng.uniform(DUST_R[1], 4.5, N))
         bright = rng.uniform(0.3, 1.0, N) ** 1.5
         dark = rng.random(N) < np.where(np.arange(N) < DUST_N, 0.12, 0.4)
         flake = np.arange(N) >= DUST_N
-        # the dusty air: parcels in clumps round a few directions, a third of them on their own, slower than the
-        # fastest dust (the front runs ahead of the air it pushes)
+        # the dusty air: a vortex ring round the push's axis (ring() places its parcels), a share of it a wake
         C = CLOUD_N
-        lobe = ahead(rng.standard_normal((CLOUD_CLUMPS, 3)))[rng.integers(0, CLOUD_CLUMPS, C)]
-        dc = np.where((rng.random(C) < 0.33)[:, None], ahead(rng.standard_normal((C, 3))),
-                      ahead(lobe + 0.35 * rng.standard_normal((C, 3))))
-        pc, vc = thrown(dc, (0.03 + 0.1 * rng.uniform(0, 1, C) ** 0.8) * side * gain, 0.3, CLOUD_DEPTH)
-        # the room's own dust: anywhere in front of the wall, still (and so unseen) until the front reaches it
-        rr = fx._rng(seed, _ROOM, salt)
-        M = ROOM_N
-        zr = rr.uniform(0.45, 2.5, M)
-        scr = np.column_stack([rr.uniform(-0.1, 1.1, M) * w, rr.uniform(-0.1, 1.1, M) * h])
-        pr = np.column_stack([self.pp + (scr - self.pp) * zr[:, None], zr])
-        self.p = np.concatenate([p, pc, pr])
-        self.v = np.concatenate([v, vc, np.zeros((M, 3))])
-        self.delay = np.concatenate([delay, rng.uniform(0, 3.0, C).astype(int), np.zeros(M, int)])
-        self.r0 = np.concatenate([r0, np.ones(C), rr.uniform(1.0, 2.4, M)])
-        self.bright = np.concatenate([bright, rng.uniform(0.6, 1.4, C) * gain / C, rr.uniform(0.3, 1.0, M) ** 1.5])
-        # (a parcel's bright is its share of the dusty air)
-        self.dark = np.concatenate([dark, np.zeros(C, bool), rr.random(M) < 0.1])
-        self.flake = np.concatenate([flake, np.zeros(C + M, bool)])
-        self.cloud = np.concatenate([np.zeros(N, bool), np.ones(C, bool), np.zeros(M, bool)])
-        self.room = np.arange(N + C + M) >= N + C
-        self.pushed = ~self.room
-        self.scr0 = np.concatenate([np.zeros((N + C, 2)), scr])
-        self.tum = rng.uniform(0, 2 * np.pi, N + C + M)
-        self.tumf = rng.uniform(0.25, 0.8, N + C + M)
-        self.alive = np.ones(N + C + M, bool)
+        a1 = np.cross(n3, [0.0, 0.0, 1.0] if abs(n3[2]) < 0.9 else [1.0, 0.0, 0.0])
+        a1 /= np.linalg.norm(a1)
+        self.spokes = np.stack([a1, np.cross(n3, a1)])  # the ring's plane
+        self.ring0 = RING_R[0] * size if ring is None else float(ring)
+        self.c_th = rng.uniform(0, 2 * np.pi, C)  # where round the ring
+        self.c_ph = rng.uniform(0, 2 * np.pi, C)  # where round its core
+        self.c_r = np.sqrt(rng.uniform(0, 1, C))  # how far out in its core, in core radii (a disc's even spread)
+        self.c_wake = rng.random(C) < RING_WAKE
+        self.c_lag = np.where(self.c_wake, rng.uniform(0.05, 0.75, C), 1.0)  # share of the ring's travel made
+        lumps = _tile_noise(rng, 48, 160, 3.0, 3.0)  # round the core x round the ring, fixed in the rolling air
+        lump = cv2.remap(lumps, (self.c_th * (160 / (2 * np.pi))).astype(np.float32)[None],
+                         (self.c_ph * (48 / (2 * np.pi))).astype(np.float32)[None], cv2.INTER_LINEAR,
+                         borderMode=cv2.BORDER_WRAP)[0]
+        share = np.exp(RING_LUMPS * lump - 0.5 * RING_LUMPS ** 2)  # (mean 1)
+        self.p = np.concatenate([p, self.ring(0.0)])
+        self.v = np.concatenate([v, np.zeros((C, 3))])
+        self.delay = np.concatenate([delay, np.zeros(C, int)])
+        self.r0 = np.concatenate([r0, np.ones(C)])
+        self.bright = np.concatenate([bright, share * rng.uniform(0.6, 1.4, C) * gain / C])  # (a parcel's bright is
+        # its share of the dusty air)
+        self.dark = np.concatenate([dark, np.zeros(C, bool)])
+        self.flake = np.concatenate([flake, np.zeros(C, bool)])
+        self.cloud = np.arange(N + C) >= N
+        self.tum = rng.uniform(0, 2 * np.pi, N + C)
+        self.tumf = rng.uniform(0.25, 0.8, N + C)
+        self.alive = np.ones(N + C, bool)
+        self.room_hit: np.ndarray | None = None  # which of the room's dust this push has thrown (_Room.throw)
+
+    def ring(self, kf: float) -> np.ndarray:
+        """The dusty air's parcels on the push's ``kf``-th frame, as self.p holds them: on a torus round the push's
+        axis that travels out along it, widens and slows, its air rolling round its core; the wake's parcels lag back
+        towards the palm, narrower and looser; the room's eddies push it about as it slows. Coming at the lens it
+        swells as it nears it, and slides outward off the lens's axis (kept to a share of its travel there, it sat on
+        a palm turned to the lens and fogged it)."""
+        go = 1 - math.exp(-kf / RING_SLOW)
+        travel = RING_SPEED * self.side * self.gain * RING_SLOW * go
+        radius = self.ring0 * (1 + (RING_R[1] - 1) * go)
+        core = RING_CORE * self.ring0 * (1 + 0.6 * go)
+        ph = self.c_ph + RING_ROLL * RING_SLOW * go * np.where(self.c_wake, 0.3, 1.0)
+        rc = self.c_r * core * np.where(self.c_wake, 1.5, 1.0)
+        rad = np.where(self.c_wake, radius * (0.25 + 0.5 * self.c_lag), radius)  # (a stem narrowing back to the palm;
+        # as wide as the ring, it filled the ring's hole and the ring read as a cauliflower)
+        spoke = np.cos(self.c_th)[:, None] * self.spokes[0] + np.sin(self.c_th)[:, None] * self.spokes[1]
+        off = (rad + rc * np.cos(ph))[:, None] * spoke + (travel * self.c_lag + rc * np.sin(ph))[:, None] * self.n3
+        x, y = self.o[0] + off[:, 0], self.o[1] + off[:, 1]
+        cx, cy = self.curl(x, y, kf)
+        sway = RING_BILLOW * self.ring0 * go * go
+        return np.column_stack([x + cx * sway, y + cy * sway, 1 - off[:, 2] / self.f])
 
     def cone(self, ca: np.ndarray) -> np.ndarray:
         """How strong the push is at directions whose cosine with its aim is ``ca``: all round when it comes at the
@@ -743,20 +894,18 @@ class _Blast:
         return next((kf for kf in range(BLAST_FRAMES + 1) if self.front(kf)[0] >= 0.75 * far), BLAST_FRAMES)
 
     def last_frame(self) -> int:
-        return self.start + DUST_LIFE[0] + DUST_LIFE[1]
+        """The last frame anything it throws shows on (the room's dust its front reaches as it ends included)."""
+        return self.start + BLAST_FRAMES + DUST_LIFE[0] + DUST_LIFE[1]
 
     def behind(self, p: np.ndarray) -> np.ndarray:
         """Which points are behind the plane of the palm (so behind the hand, where its matte is)."""
         return (p[:, 0] - self.o[0]) * self.nrm[0] + (p[:, 1] - self.o[1]) * self.nrm[1] - (
             p[:, 2] - 1.0) * self.f * self.nrm[2] < 0
 
-    def project(self, p: np.ndarray) -> np.ndarray:
-        return self.pp + (p[:, :2] - self.pp) / np.clip(p[:, 2:3], 0.07, None)
-
     def bend(self, P: np.ndarray, kf: int, o: np.ndarray, u: np.ndarray, zoom: float) -> None:
         """The pressure bubble on frame ``kf`` of the push (``o``, ``u``, ``zoom``: its origin, aim and scale as the
-        camera sees them now): what is seen through it pushed outward (a bulge sweeping the room), its front a thin
-        band of bend and a shadowgraph, and behind it a turbulent wake, in place."""
+        camera sees them now): what is seen through it pushed outward, most in a thin band of bend at its front
+        sweeping the room, which is a shadowgraph, and behind it a turbulent wake, in place."""
         h, w = P.shape[:2]
         radius, strength, uu = self.front(kf)
         strength *= float(_smooth((radius - BUBBLE_CLEAR[0] * self.size) / (BUBBLE_CLEAR[1] * self.size)))
@@ -779,8 +928,9 @@ class _Blast:
         x = dist / rr
         width = FRONT_W * self.side * zoom * (1 + uu) / 2
         zz = (dist - rr) / width
-        bulge = strength * cone * np.clip(x, 0, 1.2) ** 1.5 * np.exp(-0.5 * zz * zz * (zz > 0)) * (x < 1.25)
-        # (inside: a smooth outward push growing to the front; outside it falls off within one front's width)
+        bulge = strength * cone * (BUBBLE_INNER * np.clip(x, 0, 1) ** 3 * np.exp(-0.5 * zz * zz * (zz > 0))
+                                   + np.exp(-0.5 * zz * zz))  # (inside it barely moves; a band one front wide sweeps
+        # across; outside it all falls off within one front's width)
         behind = np.clip((rr - dist) / (0.45 * radius + 1), 0, 1)
         wake_amp = WAKE_PX * self.k * zoom * self.gain * (1 - uu) ** 0.6 * np.exp(-3 * behind) * (dist < rr) * cone
         wake_amp *= _smooth((dist - 0.6 * self.size * zoom) / (1.2 * self.size * zoom))  # (its fine grain near the
@@ -800,58 +950,46 @@ class _Blast:
         P[y0:y1, x0:x1] *= 1 + _upsample((SHADOWGRAPH * self.gain * rel * cone * sg).astype(np.float32), bh, bw)[
             ..., None]
 
+    def seen(self, p: np.ndarray, xy: np.ndarray, hand: np.ndarray | None) -> np.ndarray:
+        """How much of each point shows (``p`` as self.p holds them, drawn at ``xy`` frame px): behind the palm's
+        plane, only off the hand's matte ``hand`` (0..1, or None)."""
+        out = np.ones(len(p))
+        if hand is not None:
+            hh, ww = hand.shape
+            back = self.behind(p)
+            xi = np.clip(xy[back, 0].astype(np.int64), 0, ww - 1)
+            yi = np.clip(xy[back, 1].astype(np.int64), 0, hh - 1)
+            out[back] = 1 - hand[yi, xi]
+        return out
+
     def dust(self, kf: int, H: np.ndarray, H_prev: np.ndarray, lit: list, drk: list, scale: float, haze: np.ndarray,
              hand: np.ndarray | None) -> None:
         """Moves the dust and the dusty air on a frame (``kf``: frames since the push; ``H``: the start frame's px ->
-        this frame's, ``H_prev`` the frame before's) and splats them: the dust into ``lit`` and ``drk`` (one buffer per
-        softness, each ``scale`` times smaller than the frame for the softer ones), the dusty air into ``haze``
-        (CLOUD_Q times smaller). What is behind the palm is hidden by the hand's matte ``hand`` (0..1, or None)."""
+        this frame's, ``H_prev`` the frame before's) and splats them: the dust into ``lit`` and ``drk`` (_specks), the
+        dusty air into ``haze`` (CLOUD_Q times smaller). What is behind the palm is hidden by the hand's matte
+        ``hand`` (0..1, or None)."""
         side, k = self.side, self.k
-        before = self.project(self.p)
-        go = kf >= self.delay
-        # the room's dust the front has just reached is thrown outward from the palm, harder ahead of the push
-        radius, strength, uu = self.front(min(kf, BLAST_FRAMES))
-        if kf <= BLAST_FRAMES:
-            rel_ = self.scr0 - self.o
-            dd = np.hypot(rel_[:, 0], rel_[:, 1]) + 1e-6
-            hit = self.room & ~self.pushed & (dd <= radius)
-            if hit.any():
-                ca = (rel_[hit] @ self.u) / dd[hit]
-                D = np.column_stack([self.p[hit, 0] - self.o[0], self.p[hit, 1] - self.o[1],
-                                     (self.p[hit, 2] - 1.0) * self.f])
-                D /= np.maximum(np.linalg.norm(D, axis=1, keepdims=True), 1e-6)
-                sp = ROOM_PUSH * side * self.gain * self.cone(ca) * (0.35 + 0.65 * (1 - uu)) * \
-                    np.exp(-dd[hit] / (0.9 * side))
-                self.v[hit] = np.column_stack([D[:, 0] * sp, D[:, 1] * sp, D[:, 2] * sp / self.f])
-                self.pushed |= hit
+        before = _project(self.p, self.pp)
+        go = (kf >= self.delay) & ~self.cloud
         self.v[go] *= math.exp(-1 / 5.0)  # drag: out fast, slowing
-        cx, cy = self.curl(self.p[:, 0], self.p[:, 1], kf)
-        sp = np.hypot(self.v[:, 0], self.v[:, 1])
-        turb = 0.012 * side * self.gain * (1 - math.exp(-kf / 4.0))  # the eddies take it as it slows
-        stir = go & self.pushed
-        self.v[stir, 0] += cx[stir] * turb * np.where(self.room[stir], 0.5, 1.0)
-        self.v[stir, 1] += cy[stir] * turb * np.where(self.room[stir], 0.5, 1.0)
-        self.v[stir, 1] += 0.0008 * side * ((sp[stir] < 0.015 * side) & ~self.cloud[stir])  # the heavier grit settles
+        cx, cy = self.curl(self.p[go, 0], self.p[go, 1], kf)
+        turb = DUST_STIR * side * self.gain * float(_eddies(kf))
+        sp = np.hypot(self.v[go, 0], self.v[go, 1])
+        self.v[go, 0] += cx * turb
+        self.v[go, 1] += cy * turb + 0.0008 * side * (sp < 0.015 * side)  # the heavier grit settles
         self.p[go] += self.v[go]
+        self.p[self.cloud] = self.ring(kf)
         self.alive &= self.p[:, 2] > 0.07
-        after = self.project(self.p)
-
-        def cam(M: np.ndarray, xy: np.ndarray) -> np.ndarray:
-            return xy @ M[:2, :2].T + M[:2, 2]
-
-        before, after = cam(H_prev, before), cam(H, after)
+        after = _project(self.p, self.pp)
+        before, after = _cam(H_prev, before), _cam(H, after)
         zz = np.clip(self.p[:, 2], 0.07, None)
         a0 = after + (before - after) * 0.5  # the shutter: half a frame of motion
         disp = np.hypot(*(after - a0).T)
-        seen = np.ones(len(zz))
-        if hand is not None:  # behind the palm, hidden by the hand
-            hh, ww = hand.shape
-            back = self.behind(self.p)
-            xi = np.clip(after[back, 0].astype(np.int64), 0, ww - 1)
-            yi = np.clip(after[back, 1].astype(np.int64), 0, hh - 1)
-            seen[back] = 1 - hand[yi, xi]
-        # the dusty air, smeared along its half frame of motion (the fast parcels draw the gust's streaks)
-        cl = self.cloud & self.alive & go
+        seen = np.where(self.cloud, 1.0, self.seen(self.p, after, hand))  # (the ring is pushed out of the palm, so it
+        # is in front of it; by the palm's plane alone, its core as it forms and the side of a ring tilted off that
+        # plane went behind it, and half the ring hid behind the fingers)
+        # the dusty air, smeared along its half frame of motion
+        cl = self.cloud & self.alive
         life_c = float(np.clip(1 - (kf - CLOUD_FADE[0]) / CLOUD_FADE[1], 0, 1) * _smooth((kf + 1) / 3))
         if cl.any() and life_c > 0:
             S = 6
@@ -860,74 +998,220 @@ class _Blast:
             Y = (a0[cl, 1:2] + (after[cl, 1:2] - a0[cl, 1:2]) * ss + 0.5) / CLOUD_Q - 0.5
             wv = self.bright[cl] * life_c * seen[cl] / np.clip(zz[cl], 0.5, None)  # (nearer the lens it spreads over
             # more of the picture, and thins less than its spread)
+            wake = float(_smooth((1 - math.exp(-kf / RING_SLOW)) / 0.3))  # the wake trails a ring that has gone
+            wv = wv * np.where(self.c_wake[cl[self.cloud]], wake, 1.0)  # somewhere (there from the start, it lay in
+            # the palm as a grey disc)
             _splat(haze, X.ravel(), Y.ravel(), np.repeat(wv / S, S))
-        bright = self.bright * np.clip(disp / (3 * k), 0.4, 1.0)  # dust shows most as it moves
-        bright = np.where(self.room, self.bright * np.where(self.pushed, np.clip(ROOM_SEEN + disp / (2.5 * k), 0, 1),
-                                                            0.0), bright)  # the room's: unseen until the front
-        # throws it, then catching the light as it hangs and drifts
-        bright = np.where(self.flake, bright * (0.2 + 0.8 * np.abs(np.cos(self.tum + self.tumf * kf)) ** 3), bright)
         life = float(np.clip(1 - (kf - DUST_LIFE[0]) / DUST_LIFE[1], 0, 1) * _smooth(kf / 1.5))
-        if life <= 0:
+        sel = self.alive & go
+        if life <= 0 or not sel.any():
             return
-        rad = self.r0 * k / zz  # bigger near the lens ...
-        soft = np.maximum(rad, 0.8 * k) + 10 * k * np.clip((0.4 - zz) / 0.33, 0, 1) ** 1.5  # ... and out of focus
-        S = 10
-        ss = np.linspace(0, 1, S)[None, :]
-        for j, (lo, hi) in enumerate(((0, 1.6), (1.6, 4), (4, 9), (9, 1e9))):
-            sel = self.alive & go & ~self.cloud & (soft >= lo * k) & (soft < hi * k) & (bright > 0)
-            if not sel.any():
-                continue
-            q = 1.0 if j < 2 else scale  # (a pixel's middle lands on the middle of the coarse pixel holding it)
-            X = (a0[sel, 0:1] + (after[sel, 0:1] - a0[sel, 0:1]) * ss + 0.5) / q - 0.5
-            Y = (a0[sel, 1:2] + (after[sel, 1:2] - a0[sel, 1:2]) * ss + 0.5) / q - 0.5
-            L = np.maximum(disp[sel], 1.0)
-            # each grain's light spread over its smear: a fast one is a fainter streak, never a brighter one
-            wv = bright[sel] * life * seen[sel] * np.minimum(1.0, (rad[sel] / k) ** 2) * np.minimum(1.0, 2.0 / L) ** 0.5
-            wv = wv * np.where(self.flake[sel], 2.5, 1.0) / (q * q)
-            Wt = np.repeat((wv / S)[:, None], S, 1)
-            dk = np.repeat(self.dark[sel][:, None], S, 1)
-            _splat(lit[j], X[~dk], Y[~dk], Wt[~dk])
-            _splat(drk[j], X[dk], Y[dk], Wt[dk])
+        bright = self.bright * np.clip(disp / (3 * k), 0.4, 1.0)  # dust shows most as it moves
+        bright = np.where(self.flake, 2.5 * bright * (0.2 + 0.8 * np.abs(np.cos(self.tum + self.tumf * kf)) ** 3),
+                          bright)
+        _specks(a0[sel], after[sel], disp[sel], zz[sel], (bright * life * seen)[sel], self.r0[sel], self.dark[sel], lit,
+                drk, scale, k)
+
+
+def _project(p: np.ndarray, pp: np.ndarray) -> np.ndarray:
+    """Points (n, 3: x, y in px at the palm's depth, z in palm depths) as the camera sees them (principal point
+    ``pp``)."""
+    return pp + (p[:, :2] - pp) / np.clip(p[:, 2:3], 0.07, None)
+
+
+def _cam(M: np.ndarray, xy: np.ndarray) -> np.ndarray:
+    """Frame px ``xy`` (n, 2) carried by the camera's 3x3 ``M`` (cuesync.bending.camera_between)."""
+    return xy @ M[:2, :2].T + M[:2, 2]
+
+
+def _eddies(age):
+    """How hard the room's eddies stir dust ``age`` frames after it was thrown: they take it as it slows, then calm."""
+    return (1 - np.exp(-np.asarray(age, np.float64) / 4.0)) * np.exp(-np.asarray(age, np.float64) / DUST_CALM)
 
 
 DUST_SIGMA = (0.8, 2.8, 6.5, 13.5)  # px at 1080: how soft each class of dust is drawn (sharp ... out of focus)
 
 
-def _blast_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarray | None, tl: Timeline, seed: int,
-                code: float, say) -> None:
+def _specks(a0: np.ndarray, after: np.ndarray, disp: np.ndarray, zz: np.ndarray, weight: np.ndarray, r0: np.ndarray,
+            dark: np.ndarray, lit: list, drk: list, scale: float, k: float) -> None:
+    """Splats specks of dust into ``lit`` and ``drk`` (grit darker than the wall: ``dark``), one buffer per softness
+    (DUST_SIGMA; the softer two ``scale`` times smaller than the frame): each smeared from ``a0`` to ``after`` (frame
+    px: the shutter's half frame), or round when it moves less than SMEAR_MIN, ``zz`` palm depths from the lens,
+    ``r0`` px across at the palm's depth (at 1080), showing ``weight`` of itself."""
+    rad = r0 * k / zz  # bigger near the lens ...
+    soft = np.maximum(rad, 0.8 * k) + 10 * k * np.clip((0.4 - zz) / 0.33, 0, 1) ** 1.5  # ... and out of focus
+    tip = np.where((disp < SMEAR_MIN * k)[:, None], a0, after)
+    S = 10
+    ss = np.linspace(0, 1, S)[None, :]
+    for j, (lo, hi) in enumerate(((0, 1.6), (1.6, 4), (4, 9), (9, 1e9))):
+        sel = (soft >= lo * k) & (soft < hi * k) & (weight > 0)
+        if not sel.any():
+            continue
+        q = 1.0 if j < 2 else scale  # (a pixel's middle lands on the middle of the coarse pixel holding it)
+        X = (a0[sel, 0:1] + (tip[sel, 0:1] - a0[sel, 0:1]) * ss + 0.5) / q - 0.5
+        Y = (a0[sel, 1:2] + (tip[sel, 1:2] - a0[sel, 1:2]) * ss + 0.5) / q - 0.5
+        L = np.maximum(disp[sel], 1.0)
+        # each grain's light spread over its smear: a fast one is a fainter streak, never a brighter one
+        wv = weight[sel] * np.minimum(1.0, (rad[sel] / k) ** 2) * np.minimum(1.0, 2.0 / L) ** 0.5 / (q * q)
+        Wt = np.repeat((wv / S)[:, None], S, 1)
+        dk = np.repeat(dark[sel][:, None], S, 1)
+        _splat(lit[j], X[~dk], Y[~dk], Wt[~dk])
+        _splat(drk[j], X[dk], Y[dk], Wt[dk])
+
+
+class _Room:
+    """The room's own dust, one pool for all of a shot's pushes: still and unseen until a front reaches it, then
+    thrown outward from the palm, slowing, swirling and fading out as it settles, and thrown again by the next push
+    (each push brought its own and it built up: the dust of one still hung through the next). Most of it is near the
+    first push and ahead of it, thinning out with distance (spread evenly over the frame, it read as sensor snow). It
+    lives in the room as the first push's start frame saw it."""
+
+    def __init__(self, first: _Blast, seed: int):
+        rr = fx._rng(seed, _ROOM)
+        w, h, side = first.w, first.h, first.side
+        m = 4 * ROOM_N  # where it may be: anywhere in front of the wall
+        zr = rr.uniform(0.45, 2.5, m)
+        scr = np.column_stack([rr.uniform(-0.1, 1.1, m) * w, rr.uniform(-0.1, 1.1, m) * h])
+        r0, bright, dark = rr.uniform(*DUST_R, m), rr.uniform(0.3, 1.0, m) ** 1.5, rr.random(m) < 0.1
+        rel = scr - first.o
+        dd = np.hypot(rel[:, 0], rel[:, 1]) + 1e-6
+        near = first.cone((rel @ first.u) / dd) * np.exp(-dd / (ROOM_NEAR * side))
+        keep = np.sort(rr.choice(m, ROOM_N, replace=False, p=near / near.sum()))
+        self.start, self.side, self.k, self.f, self.pp = first.start, side, first.k, first.f, first.pp
+        self.p = np.column_stack([first.pp + (scr[keep] - first.pp) * zr[keep, None], zr[keep]])
+        self.v = np.zeros((ROOM_N, 3))
+        self.r0, self.bright, self.dark = r0[keep], bright[keep], dark[keep]
+        self.kick = np.full(ROOM_N, -1)  # the frame each speck was last thrown on (-1: not yet)
+        self.gain = np.zeros(ROOM_N)  # ... and how hard that push was
+        self.curl = _Curl(rr, 0.1 * side)
+
+    def throw(self, b: _Blast, kf: int, t: int, Hb: np.ndarray) -> None:
+        """Throws the dust that push ``b``'s front reaches on its ``kf``-th frame (frame ``t``; ``Hb``: the room's px
+        -> ``b``'s start frame's) outward from its palm, harder ahead of the push and nearer it."""
+        if b.room_hit is None:
+            b.room_hit = np.zeros(ROOM_N, bool)
+        radius, _, uu = b.front(kf)
+        rel = _cam(Hb, _project(self.p, self.pp)) - b.o
+        dd = np.hypot(rel[:, 0], rel[:, 1]) + 1e-6
+        hit = ~b.room_hit & (dd <= radius)
+        if not hit.any():
+            return
+        o = np.linalg.solve(Hb[:2, :2], b.o - Hb[:2, 2])  # its palm in the room's px
+        D = np.column_stack([self.p[hit, 0] - o[0], self.p[hit, 1] - o[1], (self.p[hit, 2] - 1.0) * self.f])
+        D /= np.maximum(np.linalg.norm(D, axis=1, keepdims=True), 1e-6)
+        sp = ROOM_PUSH * self.side * b.gain * b.cone((rel[hit] @ b.u) / dd[hit]) * (0.35 + 0.65 * (1 - uu)) * \
+            np.exp(-dd[hit] / (0.9 * self.side))
+        self.v[hit] = np.column_stack([D[:, 0] * sp, D[:, 1] * sp, D[:, 2] * sp / self.f])
+        self.kick[hit], self.gain[hit] = t, b.gain
+        b.room_hit |= hit
+
+    def dust(self, t: int, H: np.ndarray, H_prev: np.ndarray, lit: list, drk: list, scale: float,
+             hand: np.ndarray | None, b: _Blast, Hb: np.ndarray) -> None:
+        """Moves the thrown dust on frame ``t`` and splats it into ``lit`` and ``drk`` (_specks; ``H``: the room's px
+        -> this frame's, ``H_prev`` the frame before's). What is behind the palm of the latest push ``b`` (``Hb``: the
+        room's px -> its start frame's) is hidden by the hand's matte ``hand``."""
+        thrown = self.kick >= 0
+        if not thrown.any():
+            return
+        age = t - self.kick
+        before = _project(self.p, self.pp)
+        self.v[thrown] *= math.exp(-1 / 5.0)
+        cx, cy = self.curl(self.p[thrown, 0], self.p[thrown, 1], t)
+        turb = 0.5 * DUST_STIR * self.side * self.gain[thrown] * _eddies(age[thrown])  # (the room's air is calmer)
+        self.v[thrown, 0] += cx * turb
+        self.v[thrown, 1] += cy * turb
+        self.p[thrown] += self.v[thrown]
+        after = _project(self.p, self.pp)
+        before, after = _cam(H_prev, before), _cam(H, after)
+        zz = np.clip(self.p[:, 2], 0.07, None)
+        a0 = after + (before - after) * 0.5
+        disp = np.hypot(*(after - a0).T)
+        seen = b.seen(np.column_stack([_cam(Hb, self.p[:, :2]), self.p[:, 2]]), after, hand)
+        life = np.clip(1 - (age - DUST_LIFE[0]) / DUST_LIFE[1], 0, 1) * _smooth(age / 1.5)
+        fade = np.clip(1 - age / (DUST_LIFE[0] + DUST_LIFE[1]), 0, 1)
+        weight = self.bright * np.clip(ROOM_SEEN * fade + disp / (2.5 * self.k), 0, 1) * life * seen * thrown
+        sel = weight > 0
+        if sel.any():
+            _specks(a0[sel], after[sel], disp[sel], zz[sel], weight[sel], self.r0[sel], self.dark[sel], lit, drk,
+                    scale, self.k)
+
+
+def _light_dir(frame_u8: np.ndarray, hand: np.ndarray | None, origin) -> np.ndarray:
+    """Unit direction in the picture from ``origin`` towards the room's light: the middle of the brightest tenth of
+    the room off the hand's matte ``hand`` (up when that is too near to tell)."""
+    h, w = frame_u8.shape[:2]
+    q = 8
+    small = cv2.resize(frame_u8, (max(1, w // q), max(1, h // q)), interpolation=cv2.INTER_AREA).astype(np.float32)
+    y = small @ fx._LUMA
+    room = np.ones(y.shape, bool) if hand is None else \
+        cv2.resize(hand, y.shape[::-1], interpolation=cv2.INTER_AREA) < 0.1
+    up = np.array([0.0, -1.0])
+    if room.sum() < 16:
+        return up
+    ys, xs = np.nonzero(room & (y >= np.percentile(y[room], 90)))
+    d = np.array([(xs.mean() + 0.5) * w / y.shape[1], (ys.mean() + 0.5) * h / y.shape[0]]) - np.asarray(origin)
+    nd = float(np.hypot(*d))
+    return d / nd if nd > 0.1 * min(h, w) else up
+
+
+def _lay_cloud(P: np.ndarray, dens: np.ndarray, tone: np.ndarray, light: np.ndarray, sig: float, grain: tuple,
+               code: float) -> None:
+    """In place: the dusty air of density ``dens`` (CLOUD_Q times coarser than ``P``) laid over ``P``, lit from the
+    room's light (``light``: its direction in the picture): where its lumps face the light (the density falling
+    towards it, over ``sig`` coarse px) in the room's lit ``tone`` and more, away from it darker (CLOUD_SHADE), and
+    dimming what is behind it (CLOUD_DIM). ``grain``: (seed, frame) of the plate's grain laid in it."""
+    h, w = P.shape[:2]
+    a_q = CLOUD_ALPHA * (1 - np.exp(-CLOUD_THICK * dens))
+    gy, gx = np.gradient(np.log(dens + 0.05 / CLOUD_THICK))
+    facing = np.clip(-(gx * light[0] + gy * light[1]) * sig, -1, 1)
+    col_q = np.minimum(tone[None, None] * (CLOUD_SHADE[0] + CLOUD_SHADE[1] * facing)[..., None], 0.95)
+    alpha = cv2.resize(a_q.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+    box = fx._box(alpha > 2e-3, 2)
+    if box is None:
+        return
+    y0, y1, x0, x1 = box
+    a = alpha[y0:y1, x0:x1]
+    col = cv2.resize(col_q.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)[y0:y1, x0:x1]
+    P[y0:y1, x0:x1] *= (1 - CLOUD_DIM * a / CLOUD_ALPHA)[..., None]
+    _over(P[y0:y1, x0:x1], np.minimum(a, CLOUD_MAX), col, _grain(grain[0], _CLOUD, grain[1], y1 - y0, x1 - x0), code)
+
+
+def _push_frames(out: np.ndarray, blasts: list[_Blast], mask: np.ndarray | None, tl: Timeline, seed: int,
+                 code: float, say) -> None:
+    """Draws pushes of air (``blasts``, in the order they start) over ``out`` (uint8 frames) in place: on each frame
+    each push's bubble bends what is behind it, its ring of dusty air is laid on lit by the room's light, the dust it
+    throws and the room's dust (_Room) are drawn through the camera's motion since; then the pushes that come at the
+    lens knock the phone (buffet)."""
     from .bending import camera_between
 
-    n, h, w = plate.shape[:3]
-    xy, _, size = fx.track_arrays(track, n, w, h)
-    normal = palm_normals(track, n, w, h)
-    hits = [f for f in tl.hits if 0 <= f < n] or ([tl.tap_frame] if 0 <= tl.tap_frame < n else [])
-    sizes = [tl.sizes[i] for i, f in enumerate(tl.hits) if 0 <= f < n] if tl.hits else [1.0] * len(hits)
-    blasts = []
-    for j, (f, sz) in enumerate(zip(hits, sizes)):
-        u, q = push_direction(track, f, normal[f], tl.aim, tl.tap_frame, n, w, h)
-        gain = 0.55 + 0.45 * float(np.clip(sz, 0, 1))  # a "pf" pushes three quarters as hard as the loudest hit
-        blasts.append(_Blast(xy[f], u, q, normal[f], size[f], w, h, f, gain, seed, j))
-    if not blasts:
-        return
+    n, h, w = out.shape[:3]
     cam = tl.camera
     k = min(h, w) / 1080.0
     sc = 4  # the softer dust is drawn this many times smaller
     hq = (-(-h // CLOUD_Q), -(-w // CLOUD_Q))
-    first, last = min(b.start for b in blasts), min(n - 1, max(b.last_frame() for b in blasts))
+    room = _Room(blasts[0], seed)
+    first, last = blasts[0].start, min(n - 1, max(b.last_frame() for b in blasts))
+
+    def hand_at(t: int) -> np.ndarray | None:
+        return None if mask is None else mask[min(t, len(mask) - 1)].astype(np.float32) / 255.0
+
+    light = _light_dir(out[first], hand_at(first), blasts[0].o)
     buffets = []
     tone_s = None
     for t in range(first, last + 1):
-        live = [b for b in blasts if b.start <= t <= b.last_frame()]
+        started = [b for b in blasts if b.start <= t]
+        live = [b for b in started if t <= b.last_frame()]
         if not live:
             continue
-        P = lin(plate[t])
-        tone = _tone(plate[t])
+        P = lin(out[t])
+        tone = _tone(out[t])
         tone_s = tone if tone_s is None else 0.85 * tone_s + 0.15 * tone
-        hand = None if mask is None else mask[min(t, len(mask) - 1)].astype(np.float32) / 255.0
+        hand = hand_at(t)
+        hand_q = None if hand is None else cv2.resize(hand, hq[::-1], interpolation=cv2.INTER_AREA)
         lit = [np.zeros((h, w), np.float32) for _ in range(2)] + [
             np.zeros((-(-h // sc), -(-w // sc)), np.float32) for _ in range(2)]
         drk = [np.zeros_like(b) for b in lit]
-        alpha, dark = np.zeros((h, w), np.float32), np.zeros((h, w), np.float32)
+        dens, sig = np.zeros(hq, np.float32), 1.0
         for b in live:
             kf = t - b.start
             H = camera_between(cam, b.start, t)
@@ -938,28 +1222,37 @@ def _blast_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarra
             u = u / max(float(np.hypot(*u)), 1e-9)
             if kf <= BLAST_FRAMES:
                 b.bend(P, kf, o, u, zoom)
+                room.throw(b, kf, t, camera_between(cam, room.start, b.start))
             haze = np.zeros(hq, np.float32)
             b.dust(kf, H, Hp, lit, drk, sc, haze, hand)
             if haze.any():  # the dusty air: diffusing as it goes, as thick as its parcels are close together
                 soft = (CLOUD_SOFT[0] + CLOUD_SOFT[1] * kf) * k * zoom / CLOUD_Q
-                dens = cv2.GaussianBlur(haze, (0, 0), soft) * np.float32((min(h, w) / CLOUD_Q) ** 2)
-                a_ = cv2.resize(CLOUD_ALPHA * (1 - np.exp(-CLOUD_THICK * dens)), (w, h), interpolation=cv2.INTER_LINEAR)
-                alpha += a_
+                d_ = cv2.GaussianBlur(haze, (0, 0), soft) * np.float32((min(h, w) / CLOUD_Q) ** 2)
+                if hand_q is not None and kf < CLOUD_HAND[2]:
+                    d_ *= 1 - CLOUD_HAND[0] * hand_q * float(np.clip((CLOUD_HAND[2] - kf) /
+                                                                     (CLOUD_HAND[2] - CLOUD_HAND[1]), 0, 1))
+                dens += d_
+                sig = max(sig, soft)
             if kf == b.reaches_lens():
-                buffets.append((t, o, b.gain * (1 - b.q)))
-        col = np.minimum(tone_s * 1.15, 0.95).astype(np.float32)
-        for j, sig in enumerate(DUST_SIGMA):
+                buffets.append((t, o, b.gain * (1 - b.q), u))
+        b = started[-1]
+        room.dust(t, camera_between(cam, room.start, t), camera_between(cam, room.start, max(room.start, t - 1)), lit,
+                  drk, sc, hand, b, camera_between(cam, room.start, b.start))
+        if dens.any():
+            _lay_cloud(P, dens, tone_s, light, sig, (seed, t), code)
+        alpha, dark = np.zeros((h, w), np.float32), np.zeros((h, w), np.float32)
+        for j, sig_ in enumerate(DUST_SIGMA):
             q = 1 if j < 2 else sc
             for buf, into in ((lit[j], alpha), (drk[j], dark)):
                 if buf.any():
-                    gain_ = 12.0 * (0.7 / sig) ** 0.6  # an out-of-focus grain is bigger and fainter
-                    b_ = cv2.GaussianBlur(buf, (0, 0), max(0.5, sig * k / q)) * np.float32(gain_)
+                    gain_ = 12.0 * (0.7 / sig_) ** 0.6  # an out-of-focus grain is bigger and fainter
+                    b_ = cv2.GaussianBlur(buf, (0, 0), max(0.5, sig_ * k / q)) * np.float32(gain_)
                     into += b_ if q == 1 else cv2.resize(b_, (w, h), interpolation=cv2.INTER_LINEAR)
         box = fx._box(alpha > 2e-3, 2)
         if box is not None:
             y0, y1, x0, x1 = box
-            _over(P[y0:y1, x0:x1], np.clip(alpha[y0:y1, x0:x1], 0, 0.85), col,
-                  _grain(seed, _BLAST, t, y1 - y0, x1 - x0), code)
+            _over(P[y0:y1, x0:x1], np.clip(alpha[y0:y1, x0:x1], 0, 0.85), np.minimum(tone_s * 1.15, 0.95)
+                  .astype(np.float32), _grain(seed, _BLAST, t, y1 - y0, x1 - x0), code)
         box = fx._box(dark > 2e-3, 2)
         if box is not None:
             y0, y1, x0, x1 = box
@@ -968,29 +1261,55 @@ def _blast_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarra
         if (t - first) % 8 == 0:
             say("air", (t - first) / max(1, last + 1 - first), f"Pushing the air out: frame {t - first + 1} of "
                                                                  f"{last + 1 - first}")
-    for t, o, strength in buffets:
-        buffet(out, t, o, strength)
+    for t, o, strength, u in buffets:
+        buffet(out, t, o, strength, u)
 
 
-def buffet(frames_u8: np.ndarray, at: int, centre, strength: float) -> None:
+def _blast_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarray | None, tl: Timeline, seed: int,
+                code: float, say) -> None:
+    n, h, w = plate.shape[:3]
+    xy, _, size = fx.track_arrays(track, n, w, h)
+    normal = palm_normals(track, n, w, h)
+    opened = openness(track, n, w, h)
+    hits = [f for f in tl.hits if 0 <= f < n] or ([tl.tap_frame] if 0 <= tl.tap_frame < n else [])
+    sizes = [tl.sizes[i] for i, f in enumerate(tl.hits) if 0 <= f < n] if tl.hits else [1.0] * len(hits)
+    blasts = []
+    for j, (f, sz) in enumerate(zip(hits, sizes, strict=True)):
+        g = _open_from(opened, f)  # where and which way the push goes: from the open hand
+        u, q = push_direction(track, g, normal[g], tl.aim, tl.tap_frame, n, w, h)
+        gain = 0.55 + 0.45 * float(np.clip(sz, 0, 1))  # a "pf" pushes three quarters as hard as the loudest hit
+        blasts.append(_Blast(xy[g], u, q, normal[g], size[g], w, h, f, gain, seed, j))
+    if blasts:
+        _push_frames(out, blasts, mask, tl, seed, code, say)
+
+
+def buffet(frames_u8: np.ndarray, at: int, centre, strength: float, along=(0.0, -1.0)) -> None:
     """The gust reaching the phone, in place: the picture swells round the push and settles, smeared outward on the
-    frames it hits (a zoom blur: the phone knocked back). ``strength`` 0..1: how much of a full push came at the
-    lens."""
+    frames it hits (a zoom blur), dims as the gust covers the lens, and the phone, knocked along the push (``along``,
+    its direction in the picture), shakes back over six frames. ``strength`` 0..1: how much of a full push came at
+    the lens."""
     if strength <= 0.05:
         return
     n, h, w = frames_u8.shape[:3]
-    for d, a in {0: 0.4, 1: 1.0, 2: 0.65, 3: 0.3, 4: 0.1}.items():
+    k = min(h, w) / 1080.0
+    ax, ay = np.asarray(along, np.float64) / max(float(np.hypot(*along)), 1e-9)
+    swell = {0: 0.4, 1: 1.0, 2: 0.65, 3: 0.3, 4: 0.1}
+    for d in range(6):
         f = at + d
         if not 0 <= f < n:
             continue
-        s = 1 + BUFFET * strength * a
+        s = 1 + BUFFET * strength * swell.get(d, 0.0)
+        knock = BUFFET_SHAKE * k * strength * min(1.0, (d + 1) / 2) * math.exp(-max(0, d - 1) / 2) * \
+            math.cos(2 * math.pi * max(0, d - 1) / 3)  # (a damped shake, at its most as the gust hits)
         taps = 7 if d in (0, 1) else 1
         acc = np.zeros((h, w, 3), np.float32)
         for j in range(taps):
             sj = 1 + (s - 1) * (0.4 + 0.6 * j / max(taps - 1, 1)) if taps > 1 else s
-            M = np.array([[sj, 0, centre[0] * (1 - sj)], [0, sj, centre[1] * (1 - sj)]], np.float32)
+            M = np.array([[sj, 0, centre[0] * (1 - sj) + knock * ax], [0, sj, centre[1] * (1 - sj) + knock * ay]],
+                         np.float32)
             acc += cv2.warpAffine(frames_u8[f], M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-        frames_u8[f] = np.clip(acc / taps + 0.5, 0, 255).astype(np.uint8)
+        dim = 1 - BUFFET_DIP * strength * (d == 1)
+        frames_u8[f] = np.clip(acc * np.float32(dim / taps) + 0.5, 0, 255).astype(np.uint8)
 
 
 # ---- the contract -----------------------------------------------------------------------------------------------------

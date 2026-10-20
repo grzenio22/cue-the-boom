@@ -1,6 +1,9 @@
 """Air, made rather than rendered (cuesync.air): a ball of air over the palm sized to the hand and held by the voice,
-a push of air whose front runs out across the room and whose dust stays in the room on a handheld shot, the same
-bytes for the same seed, and the plate untouched where the air never reaches."""
+which leaves the hand seen through it whole and bursts into a push of air when the voice lets go; a push of air whose
+front runs out across the room, whose ring of dusty air rolls away from the palm, whose dust stays in the room on a
+handheld shot and is one pool the next push throws again, placed on the open hand, and which knocks the phone when it
+comes at the lens; the same bytes for the same seed, the plate untouched where the air never reaches, and a frame
+within its time."""
 
 import time
 
@@ -60,13 +63,13 @@ def test_an_unknown_form_or_a_timeline_of_another_length_is_refused():
 
 
 def test_frames_the_air_never_reaches_are_the_plate_byte_for_byte():
-    n = 70
+    n = 140
     plate = wall(n, W, H)
     tr = track_of(n, W, H, lambda t: (108, 260))
     out = air.render(plate, tr, None, held(n, 20, 30), "ball", seed=3)
     assert out.dtype == np.uint8 and out.shape == plate.shape
     assert np.array_equal(out[:20], plate[:20])  # before the voice
-    assert np.array_equal(out[-10:], plate[-10:])  # after the ball has burst and gone
+    assert np.array_equal(out[-10:], plate[-10:])  # after the ball has burst and the air it let go has settled
     assert all(change(plate, out, t).max() > 20 for t in range(28, 34))
 
 
@@ -118,6 +121,95 @@ def test_a_breath_keeps_the_ball_and_a_long_silence_lets_it_go():
     assert len(lives(air.BALL_BRIDGE + air.BALL_LINGER + air.BALL_RELEASE + 10)) == 2
     quiet = Timeline(n=60, energy=np.zeros(60), hits=[], sizes=[], tap_frame=12)
     assert air.ball_lives(quiet, air.voice_level(quiet)) == [(12, 12 + air.BALL_MIN)]  # no voice: one on the tap
+
+
+def test_the_hand_seen_through_the_ball_keeps_its_shape():
+    # bent as much as the wall, a palm under the ball melted into a disc and the fingers' outlines broke
+    n = 30
+    plate = wall(n, W, H)
+    tr = track_of(n, W, H, lambda t: (108, 280), scale=30.0)
+    mask = np.zeros((n, H, W), np.uint8)
+    mask[:, 170:330, 70:146] = 255  # a hand under the ball and reaching into it
+    tl = held(n, 2, 30)
+    bare = change(plate, air.render(plate, tr, None, tl, "ball", seed=2), 24)
+    over = change(plate, air.render(plate, tr, mask, tl, "ball", seed=2), 24)
+    inside = mask[24] > 0
+    assert over[inside].mean() < 0.7 * bare[inside].mean()
+
+
+def test_letting_go_of_the_ball_throws_a_push_of_air():
+    n = 100
+    plate = wall(n, W, H)
+    tr = track_of(n, W, H, lambda t: (108, 280), scale=22.0)
+    tl = held(n, 4, 30)
+    (_, t_rel), = air.ball_lives(tl, air.voice_level(tl))
+    out = air.render(plate, tr, None, tl, "ball", seed=4)
+    ball = spread(change(plate, out, t_rel - 1))[2]
+    gone = t_rel + air.BALL_RELEASE + 1  # the ball itself has burst and thinned out: what shows is the push
+    assert change(plate, out, gone).max() > 20
+    assert spread(change(plate, out, t_rel + 4))[2] > 1.5 * ball  # out past where the ball was
+
+
+def test_the_ring_of_dusty_air_rolls_out_along_the_push_and_widens():
+    b = air._Blast((108, 300), (0.0, -1.0), 0.8, (0.0, -0.8, 0.6), 24.0, W, H, 0, 1.0, 0, 0)
+
+    def ring(kf):  # (middle, median radius) of the ring's parcels as the camera sees them, its wake left out
+        xy = air._project(b.ring(kf)[~b.c_wake], b.pp)
+        c = xy.mean(0)
+        return c, float(np.median(np.hypot(*(xy - c).T)))
+
+    (c0, r0), (c8, r8) = ring(0), ring(8)
+    assert c8[1] < c0[1] - 24 and abs(c8[0] - c0[0]) < 12  # up the picture, the way it was pushed, over a hand
+    assert r8 > 1.3 * r0
+
+
+def test_a_push_on_a_fist_opening_comes_from_the_open_hand():
+    n = 12
+
+    def hand(o):  # landmarks: the wrist, and each finger's knuckle with its tip reaching o palms past it
+        L = np.zeros((21, 3))
+        L[0] = (100, 300, 0)
+        for j, x in zip((5, 9, 13, 17), (85, 95, 105, 115), strict=True):
+            L[j], L[j + 3] = (x, 260, 0), (x, 260 - 40 * o, 0)
+        return L.tolist()
+
+    opens = [0.15] * 6 + [0.5, 0.95, 1.0, 1.0, 1.0, 1.0]
+    opened = air.openness(track_of(n, W, H, lambda t: (100, 290), landmarks=[hand(o) for o in opens]), n, W, H)
+    assert air._open_from(opened, 5) == 7  # a hit on the fist: the push comes from the first open frame
+    assert air._open_from(opened, 9) == 9  # a hit on the open hand: its own frame
+
+
+def test_the_rooms_dust_is_one_pool_the_next_push_throws_again():
+    # each push brought its own room dust and it built up: the dust of one still hung through the next
+    b1 = air._Blast((108, 300), (0.0, -1.0), 0.6, (0.0, -0.6, 0.8), 24.0, W, H, 0, 1.0, 0, 0)
+    b2 = air._Blast((108, 300), (0.0, -1.0), 0.6, (0.0, -0.6, 0.8), 24.0, W, H, 30, 1.0, 0, 1)
+    room = air._Room(b1, 0)
+    for kf in range(air.BLAST_FRAMES + 1):
+        room.throw(b1, kf, kf, np.eye(3))
+    first = room.kick >= 0
+    assert first.mean() > 0.5
+    for kf in range(air.BLAST_FRAMES + 1):
+        room.throw(b2, kf, 30 + kf, np.eye(3))
+    assert room.kick.size == air.ROOM_N and (room.kick[first] >= 30).mean() > 0.5  # the same dust, thrown again
+
+
+def test_a_push_at_the_lens_knocks_the_phone():
+    w, h = 540, 960
+    frames = np.zeros((8, h, w, 3), np.uint8)
+    frames[:, 440:520, 230:310] = 200  # a bright patch round the swell's middle: only the knock moves it
+    knocked = frames.copy()
+    air.buffet(knocked, 2, (w / 2, h / 2), 1.0, (1.0, 0.0))
+    assert np.array_equal(knocked[:2], frames[:2])
+
+    def middle(f):
+        y, x = np.mgrid[0:h, 0:w]
+        g = f[..., 1].astype(np.float64)
+        return (g * x).sum() / g.sum(), (g * y).sum() / g.sum()
+
+    hit = knocked[3]
+    assert hit[480, 270, 1] < 200 * (1 - 0.5 * air.BUFFET_DIP)  # the gust covers the lens
+    (x0, y0), (x1, y1) = middle(frames[3]), middle(hit)
+    assert x1 - x0 > 0.5 * air.BUFFET_SHAKE * w / 1080 and abs(y1 - y0) < 0.2  # knocked along the push
 
 
 def test_what_is_behind_the_palm_is_behind_the_hand():
@@ -188,6 +280,19 @@ def test_the_palm_faces_the_lens_whichever_way_the_landmarks_wind():
         tr = track_of(n, W, H, lambda t: (108, 290), landmarks=[pts.tolist()] * n)
         nm = air.palm_normals(tr, n, W, H)
         assert np.all(nm[:, 2] > 0.9) and np.allclose(np.linalg.norm(nm, axis=1), 1)
+
+
+@pytest.mark.parametrize("form", ["ball", "blast"])
+def test_a_quarter_size_frame_takes_a_quarter_of_the_time(form):
+    # the fast suite's guard on speed: a quarter of a phone frame's pixels in a quarter of its second
+    n, w, h = 16, 540, 960
+    plate = wall(n, w, h)
+    tr = track_of(n, w, h, lambda t: (270 + 2 * t, 650), scale=140.0)
+    tl = held(n, 2, 16, hits=[3])
+    t0 = time.perf_counter()
+    out = air.render(plate, tr, None, tl, form, seed=1)
+    touched = sum(not np.array_equal(out[t], plate[t]) for t in range(n))
+    assert (time.perf_counter() - t0) / touched < 0.25
 
 
 @pytest.mark.parametrize("form", ["ball", "blast"])
