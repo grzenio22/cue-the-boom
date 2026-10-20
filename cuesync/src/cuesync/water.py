@@ -11,32 +11,36 @@ bright glint. Then the water is blurred along its motion over the exposure, pixe
 light the water focuses, inside the shadow it casts; and where it has been, the skin or the wall is left wet.
 
 What makes it read as water and not glass is that it never holds still: its outline wobbles in its low modes (driven
-by the hand's motion and the voice), small ripples travel over it and the sheen round its glint breaks and stretches
-with them (the window the glint mirrors keeps its shape, as a window's reflection does), the water circulates inside it
-(seen as the room through it swirling, and bubbles carried round and rising), it drips from its underside, and it
-froths where it is thin and fast.
+by the hand's motion and the voice), small ripples travel over it and the window its glint mirrors shivers and breaks
+with them, the water circulates inside it (seen as the room through it swirling, and bubbles carried round and rising),
+it drips from its underside, and it froths where it is thin and fast; and that it is lit as water is: its rim mirrors
+the key light on its side towards it and darkens away from it, and inside its far edge it gathers the light into a
+bright crescent, as a ball lens does.
 
 Two forms (cuesync.elements.FORMS["water"]):
 
-- ``orb``: water gathers out of the air into a ball floating over the open palm, sized to the hand, wobbling and
-  circulating, carried on the hand with the lag a mass of water has. It is held while the voice holds, and each hit in
-  it jolts it. When the voice ends with a hit, or the hand thrusts, it is thrown along the aim and into the room, and
-  bursts on the room's back wall, where the water stays: it lands as a squashed body flashing white, bursting
-  into spray, and spreads over the wall in a lobed sheet drawn out the way it was thrown, its edge torn into tongues,
-  flinging drops that land round it, and over the next frames drains into a wet patch whose lower edge sags into runs
-  while drips swell out of it one by one and slide down, leaving wet trails; a voice that just stops lets it fall onto
-  the palm and splash off it.
-- ``whip``: a stream of water rising out of a churning puddle on the palm, that swirls round the hand and trails it
-  like a ribbon when it moves (each part of it held to the swirl by a spring, stiff at the root and soft at the tail),
-  swelling and thinning as bulges run down it, rippled, thinning to its tail, where it frays into beads; where it lies
-  on the palm it spreads into an uneven film that thins into the skin and wets it round it, where it is held up in the
-  air it is a thin ribbon catching the light in a few lengths along one edge, and where it hangs off the hand or swings
-  round behind it it also fades, sags and drips. It rises out of its puddle through a rough, heaving ring. It pours out
-  with the voice, each hit lashes it out along the aim, swept by its speed into a sheet of water that bends what is
-  behind it as a lens and catches the light along its curled edges, torn where it sweeps far into a few ligaments each
-  drawn into one long glint, its streams ending in a ragged curve, its front tearing into threads and drops; swinging
-  back, its outer part breaks into drops that fall and it pours out again; and when the voice ends it breaks into beads
-  that fall.
+- ``orb``: water gathers out of the air into a ball floating over the open palm, drops drawn in from far round it into
+  a seed that grows as they come, sized to the hand, wobbling and circulating, carried on the hand with the lag a mass
+  of water has. It is held while the voice holds, and each hit in it squashes it along the aim, flings drops out round
+  it, sends a ripple over it and flares the light it focuses. When the voice ends with a hit, or the hand thrusts, it is
+  thrown along the aim and into the room, churned white and smeared along its flight, trailing drops, leaving the palm
+  wet where it sat, and bursts on the room's back wall, where the water stays: it lands as a squashed body flashing
+  white, throwing drops out along the wall that fall, and spreads over the wall in a lobed sheet drawn out the way it
+  was thrown, its edge torn into tongues, flinging drops that land round it, and over the next frames drains into a wet
+  patch that soaks in, darker where the water lies thicker, whose lower edge creeps down and runs down in narrow runs
+  of their own lengths, a bead at the head of each, the water collecting there glossy, while drips break off the
+  longest and slide down, leaving wet trails; a voice that just stops lets it fall onto the palm and splash off it.
+- ``whip``: a stream of water rising out of a thin puddle on the palm, wetting the skin round it, that stands up out of
+  the palm and coils round as it rises, one connected stream one and a half to two palms long, and trails the hand
+  when it moves (each part of it held to its coil by a spring, stiff at the root and soft at the tail), swelling and
+  thinning as bulges run down it, rippled, churning white at its head, spraying off its outer part as it turns,
+  thinning to its tail, where it frays into beads; where it lies on the palm it spreads into an uneven film that thins
+  into the skin and wets it round it, and where it hangs off the hand it sags and drips. It pours out with the voice;
+  each hit flings its water out along the aim, its tail fastest, curving round as it goes and away into the room: out
+  in two frames, one stream tapering to a fine tail, it necks into beads and threads and breaks into drops from its
+  tail back, falls, and its drops fly on and strike the room's wall, where they leave a wet streak that runs as the
+  orb's splash does; what is left at its root drains into the pool, and while the voice sounds it pours out again.
+  When the voice ends it breaks into beads that fall.
 
 The orb floats over the palm, not in it: it sits along the palm's normal, which is taken to face the camera (the
 tracker's handedness, and with it the normal's sign, is unreliable for an upturned palm), and the hand hides water only
@@ -82,13 +86,19 @@ LENS_FULL, LENS_MIN = 0.25, 0.15  # ... seen that far through water this thick (
 # pieces showed into glass and ribbed a stream like a hose)
 NEAR = (0.08, 1.5)  # hand sizes: the hand behind the water is taken at least / at most this far behind its back...
 NEAR_OPEN = 0.6  # ... and this far where no hand is right behind it (a ray turned onto the hand from beside it)
-DEFOCUS = 0.5  # a magnified patch of the plate is blurred by this share of its magnification: a ball lens is never sharp
-# on what is right behind it (read point by point it showed the video's blocks, magnified)
-BASE_BLUR = 0.04  # of the water's local radius: the least the plate is blurred through it
+DEFOCUS = 0.25  # a magnified patch of the plate is blurred by this share of its magnification: a ball lens is never
+# sharp on what is right behind it (read point by point it showed the video's blocks, magnified; at 0.5 the fingers seen
+# through the orb were a pink smear)
+BASE_BLUR = 0.015  # of the water's local radius: the least the plate is blurred through it
 LOD_MAX = 4  # pyramid levels the plate is read through (16 times smaller: the widest squeeze the water makes)
 RIM_DARK = 0.3  # grazing rays see the room far round the side, through little water: the rim is this much darker...
 RIM_BAND = (0.55, 0.88)  # ... over this range of 1 - n_z (on a ball, its last tenth of the radius: from 0.35, a ring
-# 15 % of the radius wide, even all round, said glass), broken up by the waves
+# 15 % of the radius wide, even all round, said glass), broken up by the waves...
+RIM_FAR = 0.15  # ... in full on its side away from the key light and this share of it on the side towards it (dark
+# evenly all round, a glass marble's or a soap bubble's outline)
+RIM_LIT = (0.8, (0.5, 0.85))  # on its side towards the key light the rim mirrors the light: how bright (of the key
+# light), coming on over this range of 1 - n_z (Fresnel: a grazing surface mirrors nearly all of the light it faces),
+# so the rim is at least twice as bright towards the light as away from it
 RIM_BREAK = 0.8  # how much the waves running round the rim break up the room mirrored in it
 ROUND = (0.5, 0.85)  # a ray leaving the water this far off its way (the sine of the turn) sees the room round the
 # water, by its direction, not the plate behind: near a ball's rim, bright towards the lights over it and dark
@@ -114,6 +124,9 @@ GLINT_CORE = (1.3, 0.55, 0.08, 0.8, 0.025)  # ... clipped to white in its core: 
 # key's strength: dimmer than the brightest things in the frame, a puff of cloud inside the ball), how big (of the
 # window), the share of the finest waves it is mirrored in, how much dimmer it is where the surface curves both ways,
 # and the waves it is not mirrored in (the surface smoothed over this many hand sizes; on the orb, none of its waves)...
+GLINT_HOLD = 0.65  # ... on the orb this share of its core mirrored in its broad shape alone, the rest in its waves and
+# the ripples a hit sends over it, so the highlight shivers and breaks up as the water moves (all of it in the broad
+# shape, one window sat fixed on the ball for seconds: a glass marble's)...
 GLINT_POW = 12.0  # ... how tight the sheen is...
 WINDOW = (0.4, 0.26, 0.07, 0.25, 4.0, 0.7)  # ... and the window's half width and height (in the mirrored ray's
 # direction, across and along the light's), how soft its edge is (of its size, either side: still water mirrors
@@ -132,14 +145,16 @@ GLINT_BREAK = (1.6, 0.05, 0.85)  # along a stream its glints are broken by a noi
 GLINT_LINES = (1.2, 0.5, 0.1, 0.76)  # a stream's edges catch the key light as a cylinder's do: the line along its
 # edge towards the light, how bright (of the key light), and fast, along the other, how wide (of its radius, at least
 # about a px) and how far out (of its radius); they carry a lashing stream's read through its blur...
-GLINT_FAST = 0.75  # ... its broader glints dimmed this much while it lashes...
+GLINT_FAST = 0.3  # ... its broader glints dimmed this much while it is flung (at 0.75, a flung stream was a ghost)...
 GLINT_SEG = (0.25, -0.6, 0.2)  # ... and the line towards the light broken into lengths: where a noise along the stream
 # (features this many hand sizes long) is over the first of these, fully over the second (about two thirds lit)
 EDGE_SHADE = (0.35, 1.6, 1.0)  # along its edge away from the light, a darker band: how much darker, how far in from
 # its outline and how wide (px)
-CRESCENT = (0.45, 0.45, 0.72)  # the key light gathered by the water onto its far inside edge, opposite the light: how
-# bright, and the band of 1 - n_z it lies in (a thin crescent hugging the rim; over a quarter of the radius it was not
-# seen at all)
+CRESCENT = (1.1, (0.1, 0.15), (0.22, 0.3), 0.3)  # the key light gathered by the water onto its far inside edge,
+# opposite the light, as a ball lens images it: how bright (of the key light), the band it lies in, in from its outline
+# (of its radius: on a ball about 0.7 to 0.9 of the way out, inside the dark rim, not on it: on it, the rim was as
+# bright away from the light as towards it; at 0.45 brightness it was not seen), and on a stream or a drop this share
+# of it
 INNER_GLOW = 0.06  # light bent and gathered inside the body: a faint moving net of brighter lines where it is thick
 KEY_ELEV = 0.25  # the key light's direction out of the picture, towards the camera, per unit across it: a room's lights
 # are over the water more than in front of it, so its glint sits towards its upper rim (at 0.9, in the middle of the
@@ -162,11 +177,11 @@ EDGE_SOFT = 0.5  # px: the camera's own softness on the water's outline (a cut-o
 FOAM_ALBEDO = 1.1  # froth is white matter lit by the room: this share of its key light comes back (at 0.75 it was
 # no brighter than lit skin, and froth over the palm read as a grey haze)
 FOAM_FAST = 0.4  # froth on water faster than WHIP_SHED is this much whiter (more air, finer bubbles)...
-FOAM_EDGE = (0.2, 0.3, 0.75)  # ... its core keeping this share of its froth, clear: froth fully only from this far
+FOAM_EDGE = (0.5, 0.3, 0.75)  # ... its core keeping this share of its froth, clear: froth fully only from this far
 # across it to this (of its radius), at its broken edges...
-FOAM_TORN = (0.75, 1.25, 2.5)  # ... and there only in torn bits: where a noise (features this many times its bubbles)
-# is over the first of these, fully over the second (about a sixth of it: torn into streaks all over, smeared, it was
-# a frosted brush, a whisk broom)...
+FOAM_TORN = (0.2, 0.9, 2.5)  # ... and there only in torn bits: where a noise (features this many times its bubbles)
+# is over the first of these, fully over the second (about two fifths of it: torn into streaks all over, smeared, it
+# was a frosted brush, a whisk broom; in a sixth, a flung stream was clear and lost against the wall)...
 FOAM_LEAD = (0.5, 0.25)  # ... more along its leading edge, where it tears into the air, but hiding at most this much
 # there (its froth all at the front, its streaks' white ends lined up like a comb's teeth)
 FOAM_MAX = 0.8  # froth hides at most this much of what is seen through the water
@@ -175,7 +190,7 @@ FOAM_STREAK = (0.15, 0.3, 0.1)  # along a stream it lies in streaks running with
 # (of its radius), and this much of it between them
 ROOT_CALM = (0.1, 0.45)  # hand sizes along a stream from its root: its ripples, broken glints and froth streaks come
 # on from the first to the second (laid out by the distance along it, they ringed its root in the pool: a whorl)
-RIPPLE = (0.14, 0.25, 0.3)  # a stream's surface is broken by ripples running out along it: their height (log-field
+RIPPLE = (0.22, 0.25, 0.3)  # a stream's surface is broken by ripples running out along it: their height (log-field
 # units), their length (hand sizes) and width (of its radius): flow lines along it (0.06 long and the stream's whole
 # width across, they were rings: a ribbed hose, a larva)
 MENISCUS = (0.55, 1.2, 0.9, 0.12, 3.2, 0.25)  # water lying flat on something (the pool, a stream along the palm) shows
@@ -187,13 +202,14 @@ REST = (3.0, 10.0, 0.3, 0.6)  # a stream whose middle is within the first to the
 # swirl holds it up to nine radii over the palm, and from 5 its round middle over the palm was a glass snake), bending
 # the skin seen through it this much less, as a puddle does (a film of water on the skin hardly bends it: bent as much
 # as a stream bends the room, a curl of it on the palm was a glass hook, and its pool a glass foot)
-RIVULET = (0.8, 0.6, 3.5, 0.55, (2.5, 6.0), 0.16, 0.4)  # lying on the skin, a stream spreads this much wider, its
+RIVULET = (0.8, 0.6, 3.5, 0.55, (2.5, 6.0), 0.16, 0.4, 0.5)  # lying on the skin, a stream spreads this much wider, its
 # width varying this much more, thins into the skin over this many px inside its outline, and catches the light along
 # its edge only where a noise along it is over this (a few short glints: lit in long lengths down both edges, as round
 # as a tube, it was a glass rod, a hose); it spreads with its middle within the first to the second of its radii of the
 # skin (spread where the swirl held it up off the palm, it was a wide glass ribbon), to at most this radius (hand
-# sizes: spread further, where it flared out of the pool it was a fat glass horn); and the wet skin shows through it
-# this much (covering the skin, a curl of it on the palm was a clear glass hook)
+# sizes: spread further, where it flared out of the pool it was a fat glass horn); the wet skin shows through it
+# this much (covering the skin, a curl of it on the palm was a clear glass hook), and its glint line is this much
+# dimmer
 POOL_EDGE = (0.45, 0.9, 0.12)  # a puddle on the skin catches the light along its edge only where that faces the light
 # from the first of these to the second, in lengths (a noise this many hand sizes across) (lit round half its outline
 # and lined dark round the rest, it was a hard glass foot)
@@ -209,37 +225,15 @@ BLUR_STEP, BLUR_TAPS = 1.0, 256  # px between a moving pixel's taps along its pa
 # shifted pixel by pixel by a patterned share of a step to hide it, the pattern showed as a screen-door hatch on slow
 # water and as evenly spaced bars across a lash)
 BLUR_TAPER = 0.6  # the share of the exposure the shutter spends opening and closing (_shutter)
-BLUR_KEEP = (0.32, 0.25, 0.85)  # along their smear, as the shutter lets them through, the water's own light (glints,
-# froth) keeps at least this much of itself, its froth's cover this much, and the sheet a lash sweeps (SHEET) this much
-# (spread evenly, a lashing stream's froth and glints thinned out with its refraction and it was gone at a phone's size;
-# kept most at its front, its white ends lined up into bristles)...
+BLUR_KEEP = (0.32, 0.25)  # along their smear, as the shutter lets them through, the water's own light (glints,
+# froth) keeps at least this much of itself, and its froth's cover this much (spread evenly, a fast stream's froth and
+# glints thinned out with its refraction and it was gone at a phone's size; kept most at its front, its white ends
+# lined up into bristles)...
 DOT_KEEP = 0.4  # ... a small drop's glint this share of that (kept in full, its spray was a shower of white dashes)...
 BLUR_SOFT = 1.5  # ... softened over this many px (sigma)
 BLUR_RAGGED = (0.3, 30.0)  # torn water's smear is up to this much longer or shorter (a noise this many px across its
 # motion, so neighbouring streams end alike and its front is a ragged curve: each streak its own length 3 px apart, the
 # front of a lash was a row of teeth, pinking shears; cut by one line, a comb)
-LASH = (0.12, -0.3, 0.5, 0.2, (0.25, -1.0, -0.3), 0.4, (0.9, 1.6, 2.6))  # a lashing stream tears along its length
-# into ligaments, thick streams with a thin sheet between them: a noise along it (features this many hand sizes long)
-# is a ligament from the first to the second of these, the sheet between keeps this share of the water, and it is torn
-# through in holes where another noise (features, hand sizes) is under the first, whole over the second; where its
-# smear lies over the hand its froth and its own light keep this share of themselves; torn only where it smears over
-# from the first to the second of the stretches between its ligaments (that noise's features times the last) (swept
-# into a fan of thin streaks, all of it alike, it was a feather duster, a curtain, and a pale veil over the fingers)
-LASH_GLINT = (3.0, 0.3, 1.8, 0.6)  # on a ligament's ridge a glint the motion draws into one long bright line: how
-# bright (of the key light), how high a ligament's noise must be to carry one (the strongest few), its half width px
-# along the stream, and how far across it it lies (of its radius, on its side towards the light)
-SHEET = (0.1, 3.0, 18.0, 0.35, 0.6, 5.0, 0.6, 0.15, 0.6, 4.0)  # a lashing stream is seen as the sheet of water it
-# sweeps over the exposure: the plate there this much darker on its ligaments, bent as a lens is by its thickness (its
-# slope times this, at most this many px), the sheet between its ligaments this share of their thickness, its mirror at
-# most this strong where it curls, its rim this many px wide, over the hand its mirror and glints this much less, its
-# outline where its share is over this, its rim curled up this many of its widths thicker, and the lens read through
-# its thickness smoothed over this many px (the plate shifted evenly under it and darker, it did not show against a
-# soft background, and darkening is lost on black coats: the take's strongest beat was a faint ghost)
-SHEET_GLINT = (0.9, 3.0, 90.0)  # the key light's window mirrored in it: how bright, off its surface smoothed over this
-# many px, in lengths (a noise this many px across)...
-SHEET_CLEAN = (5, 900, 0.6, 1.2, 400)  # ... its outline cleared of slivers narrower than this (px) and holes smaller
-# than this (px) (_outline), and its glint rolled off into at most this (of the key light), softened over this many px
-# and kept only in lengths of at least this many px (its short bits along a ragged front were confetti)
 
 # ---- motion and imperfection ----------------------------------------------------------------------------------------
 WAVE = (0.028, 0.04)  # log-field units: the surface's small waves at rest, and more at the voice's loudest (about 3 %
@@ -252,8 +246,9 @@ SPARKLE = 0.1  # slope: finer, faster waves that break up the edge of the key li
 SPARKLE_SIZE = 0.035  # hand sizes
 SPARKLE_BENDS = 0.15  # the share of that slope that bends what is seen through the water (all of it crumpled the room
 # seen through the orb like cellophane: its glints break up, the lens stays whole)
-INNER = 0.022  # slope: the water circulating inside turns what is seen through it this much, where it is thick
-# (the room seen through it, a frame's height behind, moves about 20 px for it: at 0.035 it swirled into mush)
+INNER = 0.015  # slope: the water circulating inside turns what is seen through it this much, where it is thick
+# (the room seen through it, a frame's height behind, moves about 15 px for it: at 0.035 it swirled into mush, at
+# 0.022 the hand seen through the orb was smeared)
 INNER_SIZE = 0.15  # hand sizes
 FOAM_SIZE = 0.022  # hand sizes: the bubbles froth is made of
 FLOW_CYCLE = 12  # frames: the water's patterns drift with its flow this long, then cross-fade into fresh ones (a pattern
@@ -275,17 +270,22 @@ ORB_GAP = 0.25  # hand sizes between its underside and the palm: it floats (at 0
 ORB_SPRING = (2.4, 0.45)  # Hz, damping: it follows the palm as a mass of water held on a spring would, trailing and
 # overshooting
 ORB_BOB = (0.025, 0.8)  # hand sizes, Hz: its slow float up and down
-GATHER, GATHER_MIN, GATHER_LEAD = 12, 4, 2  # frames: gathering takes this long, at least this long squeezed in front of
-# an early throw, and is done this long before a throw it was gathered for
-GATHER_DROPS = 22  # drops that come together out of the air into it
+GATHER, GATHER_MIN, GATHER_LEAD = 16, 4, 2  # frames: gathering takes this long (in 12, whole by its eighth frame, it
+# was a poof), at least this long squeezed in front of an early throw, and is done this long before a throw it was
+# gathered for
+GATHER_DROPS = 64  # drops that come together out of the air into it (22 were a puff, not water drawn in)
 GATHER_LIGHT = 5.0  # its shade and the light it focuses come on as this power of how much of it has gathered
-GATHER_FROM = (1.3, 2.2)  # radii: how far out they start (from 3, they flew in so fast they were glass needles)...
-GATHER_R = (0.03, 0.07)  # ... and how big they are (at up to a fifth of its radius, a cluster of clear balloons
-# fusing)
+GATHER_FROM = (1.5, 3.2)  # radii: how far out they start (about 400 px on a phone's picture)...
+GATHER_R = (0.012, 0.04)  # ... how big they are (hand sizes: at up to 0.07, a cluster of clear balloons fusing)...
+GATHER_TRIP = (6, 11)  # ... and the frames each takes to come in, slowing as it reaches the ball (from 3 radii in 3
+# frames, they were glass needles)
+GATHER_SEED = 0.15  # the ball is this big (of its radius) when the first drops reach it, and grows evenly to its full
+# size as the rest come in, more of them late (grown as the cube root of its water, it was nearly whole after a third
+# of them: a poof)
 MODE_HZ = {2: 1.6, 3: 3.1, 4: 4.8}  # its wobbles: two, three and four lobes round it (a drop's ratios, 1 : 1.9 : 3)
-MODE_AMP = {3: 0.03, 4: 0.012}  # of the radius, at rest the third of it and at the voice's loudest all of it (the
-# four lobes at 0.022 squared its outline)
-MODE_REST = 0.55
+MODE_AMP = {3: 0.045, 4: 0.012}  # of the radius, at rest MODE_REST of it and at the voice's loudest all of it (the
+# four lobes at 0.022 squared its outline; three at 0.017 at rest left a still showing a perfect circle, a marble)
+MODE_REST = 0.7
 MODE2_DRIVE, MODE2_DAMP, MODE2_MAX = 0.006, 0.25, 0.35  # the two-lobe stretch, driven by its acceleration (inertia
 # squashes it), its damping, and the most it stretches
 CIRCULATE = (1.9, 1.5)  # rad a second: it turns over inside this fast at rest (0.3 turns a second: slower, a held orb
@@ -306,12 +306,26 @@ DRIP_WET = (1.1, 48, 0.16, 3, (1.5, 3.0), 0.6)  # where it lands on the palm it 
 # across, drying over this many frames (half gone in half of them: a wet spot on skin stays for seconds; gone in 8, it
 # was barely seen), at first this much darker with a point of glint, and this many tiny drops jump off it as it lands,
 # this fast (hand sizes a second); round, feathered over this share of its radius (small, hard-edged and uneven, a mole)
-SKIN_WET = (0.12, 0.3, 0.05, 1.0, 0.05)  # wet skin: how much more saturated, how much darker again round a patch's
+SKIN_WET = (0.15, 0.3, 0.05, 1.0, 0.05)  # wet skin: how much more saturated, how much darker again round a patch's
 # outline, its gloss towards its middle, the point of glint off a fresh drop's (of the key light), and how dark a patch
 # is at which its colour and gloss are full (drying, they fade with it)
-JOLT = (0.18, 4)  # a hit while it is held: how hard it stretches it, and how many drops it spits per unit of the hit
-RING = (0.025, 0.5, 0.25, 6.0)  # the ripple a hit sends over it: log-field height, wavelength and speed (radii, a
-# frame) and how long it lasts (frames)...
+SKIN_CREASE = (8.0, 2.0)  # wet skin darkens more in its creases: its darkening raised by this times how much darker
+# than round it the skin is there (a share, read over this many px) (evenly darker, a wet patch was a shadow)
+PALM_WET = (0.2, 0.9, 2, 150, 0.55)  # where the orb sat the palm is left wet as it leaves: this much darker, over
+# this share of its radius, coming on over this many frames and drying over this many (half gone in half of them),
+# feathered over this share of its radius (thrown off a palm left as dry as before, the ball had never been on it)...
+PALM_DROPS = ((3, 6), (0.015, 0.035), 0.7)  # ... with this many drops left on it, this big (hand sizes), spread over
+# this share of the wet patch
+JOLT = (0.08, (20, 40), (1.0, 1.7), (0.01, 0.035))  # a hit while it is held: how hard it kicks its slow wobble, how
+# many drops it flings at the quietest and the loudest hit, how fast (hand sizes a second: about 300 to 500 px a
+# second) and how big (hand sizes, a power law: most small), out round its middle across the aim and along it...
+HIT_SQUASH = ((0.25, 0.35), 2, 6.0, 4.0, 0.06)  # ... squashing it along the aim by this much at the quietest and the
+# loudest hit, for this many frames, then springing back through a stretch, ringing every this many frames and dying
+# over this many (e-folding), and hopping it this far along the aim (of its radius) (a kick of its wobble alone
+# changed 3 % of the picture on a hit: a marble that sat still on the beat)...
+HIT_FLARE = (0.5, 0.2)  # ... the light it focuses this much brighter on the hit's frame and on the next...
+RING = (0.07, 0.5, 0.3, 6.0)  # ... and the ripple it sends over it: log-field height, wavelength and speed (radii, a
+# frame) and how long it lasts (frames; at 0.025 high it was not seen)...
 RING_FROM = (0.6, 0.9)  # ... struck this far out from its middle as seen (struck near the middle, its rings were a
 # target drawn on the ball)
 THROW_SPEED = 18.0  # hand sizes a second, at the loudest hit (0.6 of it at the quietest): at 11 gravity took back
@@ -324,6 +338,11 @@ THROWN_STRETCH = 0.35  # the most it stretches along its flight (its motion blur
 # sharp glass capsule)
 NECK = (4, 3, 0.35)  # frames a neck pulled off its back takes to pinch off, the drops it leaves, their radius (of the
 # neck's)
+THROWN_SHUTTER = 1.0  # frames: thrown, it is smeared over this much of its travel a frame (over SHUTTER's half, its
+# streak was half its size, and it read as a ball standing in the air)
+THROWN_FOAM = 0.45  # thrown, it is churned this white (clear, it was a hollow outline filled with the wall)
+TRAIL = ((2, 3), (0.03, 0.08), (0.45, 0.8))  # drops it sheds off its back in flight: how many a frame, how big (of its
+# radius), and how fast against it (left behind it in a line, a trail: a mass of water torn by the air)
 THRUST_SIZE = 0.8  # how hard a thrust with no hit throws it
 DROP_SIZE = 0.35  # how hard it splashes when let fall onto the palm
 LINGER = 6  # frames it is held on after the voice stops before it falls
@@ -360,11 +379,11 @@ WALL_SPREAD = (1.3, 2.15, 0.9)  # burst on the wall, it lands as a body squashed
 WALL_THROWN = (0.18, 0.15)  # it lies drawn out the way it was thrown, this much longer and narrower (of its radius:
 # about 1.45 times as long as wide), its middle this far on that way (of its radius) (round and centred, with its
 # drips hanging under it, it was a jellyfish)
-WALL_FINGERS = (5, 9, 0.6)  # its edge torn into this many fingers, grown out over this many frames (e-folding), the
-# tongues of the sheet it bursts out in...
+WALL_FINGERS = (8, 13, 0.6)  # its edge torn into this many fingers, grown out over this many frames (e-folding), the
+# tongues of the sheet it bursts out in (four or five, a spiked crown: a stamp)...
 FINGER_LEN = (0.25, 1.0)  # ... this long (of the sheet's radius: at 0.3 to 0.6 they were not seen, and the splash was a
 # disc, a puddle, a starburst)...
-FINGER_DIR = (0.75, 0.8)  # ... this share of them flung out round the way it was thrown, spread about it by this much
+FINGER_DIR = (0.75, 0.6)  # ... this share of them flung out round the way it was thrown, spread about it by this much
 # (rad), the rest anywhere and shorter (more of them down, they were a jellyfish's legs; as long out to the sides, a
 # figure's arms)...
 FINGER_W = (0.03, 0.09)  # ... each this wide (half its width, of the sheet's radius), narrowing to half that at its
@@ -401,35 +420,51 @@ WALL_RAYS = (0.08, 0.7, 0.35, 3)  # the streaks it runs out in, thicker and thin
 # ridge along each of its jets, how long they are (of its radius), and how many tiles of noise round it (narrow across:
 # about a twentieth of a turn) (flat and even it was a decal; in regular rays, a cut lemon)
 WALL_GLINT = 0.6  # the key light mirrored in its slopes (of the key light), its core clipped to white as the orb's is
-WALL_WET = (0.2, 0.12, 0.05, 6, 0.12)  # the wet patch it leaves: how much darker the wall, how much more saturated, its
-# gloss towards the key light, the frames it takes to come on fully (at a tenth darker with a hard top edge, a soft
-# shadow), and how much darker its outer part is, softly (a dark line round it was a stain's outline)
+WALL_WET = (0.13, 0.05, 0.04, 30, 0.08)  # the wet patch it leaves: how much darker the wall where its film is even, how
+# much more saturated, its gloss towards the key light, the frames it takes to soak in fully (half as dark at first),
+# and how much darker its outer part is, softly (a dark line round it was a stain's outline; a fifth darker and a tenth
+# more saturated all over from its sixth frame, it was a flat brown decal stamped on the wall)
+WALL_FILM = (0.3, 0.15, 0.15)  # its film is uneven: this much thicker in the middle, where the ball landed, and
+# mottled by a noise this strong in features this big (of its radius), the wall darker where it is thicker (even all
+# over, a decal; blotched by 0.45 in features a third of it across, camouflage)...
+WALL_GLOSS = 0.12  # ... and where it collects at its lower edge and in its runs it mirrors the room's light, this
+# bright (of the key light), more on its side towards the light (mirrored in blotches over all of it, pale stencilled
+# shapes on a stain)
 WALL_ROUND = (0.05, 2.5)  # the patch's outline is the sheet's rounded over this share of its radius and feathered over
 # this many px (it kept the sheet's spikes as a hard-edged stain)
-WALL_SAG = (3, (3, 6), (0.1, 0.2), (0.05, 0.1), 0.6, 6)  # from this frame after the hit the patch's lower edge sags
-# into this many runs, this long and wide (of its radius), the film collecting there this much darker and glossier, all
-# of it over this many frames (in ten frames it never sagged)
+WALL_SAG = (3, (5, 8), (0.2, 1.0), (0.02, 0.045), 0.6)  # from this frame after the hit its lower edge runs down in this
+# many narrow runs, each its own length (of its radius, a power law: most short, one or two long) and half width (of
+# its radius), the film collecting in them this much darker and glossier...
+WALL_RUN = ((0, 10), (10, 36), 1.5)  # ... each setting off this many frames after that and creeping on, slowing, over
+# this many frames (e-folding), with a bead at its head this many times its half width (three to six runs set at once,
+# all over in six frames, and the patch kept its outline for seconds: a stamp)
+WALL_CREEP = (0.4, 30, (0.35, 0.8))  # its lower edge creeps down this far (of its radius: a fifth of the patch's
+# height) over this many frames (e-folding), as the film drains, at its sides this share of that, in full over this
+# much of its middle (of its radius) (crept down evenly, its lower edge was cut straight: a rectangle, a stamp)
 WALL_SOAK = (0.12, 10)  # it soaks out this much wider over this many frames
-WALL_BEADS = (16, (0.025, 0.09), (0.6, 2.2), (1.2, 2.5), (6, 10))  # drops flung out of the sheet onto the wall: how
+WALL_BEADS = (40, (0.04, 0.14), (0.4, 2.4), (1.2, 2.5), (6, 10))  # drops flung out of the sheet onto the wall: how
 # many, their radii (of the ball's), how far beyond the sheet's edge they come to rest (of the ball's radius), in how
-# many frames (e-folding, held back by the wall), and after how many frames the small ones are gone into the wall
+# many frames (e-folding, held back by the wall), and after how many frames the small ones are gone into the wall (16
+# under three px, round a stain, were not seen)
 WALL_TIPS = ((0.05, 0.09), (0.03, 0.15), 3)  # a drop left at each finger's tip: its radius (of the ball's), how far it
 # runs on past the tip (of the ball's radius), and the frame it gathers on, as the sheet drains (drawn over the finger's
 # own bead while the water still ran, a loop on a hook)
-WALL_SLIDE = (0.08, 0.8, 0.25)  # a drop on the wall bigger than this (of the ball's radius) slides down it, at most
+WALL_SLIDE = (0.11, 0.8, 0.25)  # a drop on the wall bigger than this (of the ball's radius) slides down it, at most
 # this fast (hand sizes a second, for the biggest), taking this long (seconds) to get going
-WALL_DRIPS = (3, (0.13, 0.2), 2.6, 0.15, 3, (2, 5), 8, (0.45, 1.0))  # drips running down from the runs at its lower
-# edge: how many, their radius (of the ball's), how fast at most (hand sizes a second, at the wall: at 1.5 they ran 40
-# px in the ten frames left), how soon they get to it (seconds), the frame the first sets off on and the frames between
-# one and the next, the frames each takes to swell out of the edge, and its share of that speed (all setting off on one
-# frame, as long as each other, a row of legs: gravity cannot draw drips in the 40 ms after a hit)
+WALL_DRIPS = (2, (0.15, 0.22), 2.6, 0.15, 6, (4, 9), 8, (0.45, 1.0))  # drips breaking off its runs and sliding on down
+# the wall: how many, their radius (of the ball's), how fast at most (hand sizes a second, at the wall: at 1.5 they ran
+# 40 px in the ten frames left), how soon they get to it (seconds), the frame the first sets off on and the frames
+# between one and the next, the frames each takes to swell out of the edge, and its share of that speed (all setting
+# off on one frame, as long as each other, a row of legs: gravity cannot draw drips in the 40 ms after a hit)
 WALL_TRAIL = (0.5, 0.5, 1.0, 0.12)  # the wet trail a running drop leaves: how dark against the patch (a thinner film:
 # as dark, a needle-thin dark stem), its half width at its top (px) and at the drop (of the drop's radius: as wide as
 # the drop at its foot), and the gloss along its side towards the key light
 WALL_FALL = (4, (0.035, 0.07), (2, 8))  # drops that fall off the splash's lower edge into the air: how many, their
 # radii (of the ball's), the frames after the hit they let go on (spread out: falling all at once, a sudden shower)
-WALL_SPRAY = (70, (10.0, 20.0), (0.012, 0.04))  # spray off the hit, flying out along the wall and off it: how many
-# specks at full strength, how fast (hand sizes a second) and how big (of the ball's radius, a power law)
+WALL_SPRAY = (64, (3.5, 7.5), (0.05, 0.16), (8, 16))  # drops off the hit, flying out along the wall and off it and
+# falling: how many at full strength, how fast (hand sizes a second at the wall: about 400 to 800 px a second), how big
+# (of the ball's radius, a power law) and the frames they last (70 specks under a px at twice the speed, gone in 3 to 7
+# frames, were not seen: the burst was a stamp)
 WALL_CROWN = (8, (0.07, 0.13), (3.0, 6.0), (2.0, 4.0), (5, 8))  # bigger drops thrown off its rim at the hit towards
 # the camera: how many, how big (of the ball's radius), how fast out along the wall and towards the camera (hand sizes
 # a second), and the frames before they are past
@@ -446,25 +481,26 @@ BEAD_SHADOW = (0.35, 0.14)  # its soft shadow on the wall: this far away from th
 
 # ---- the whip -------------------------------------------------------------------------------------------------------
 WHIP_NODES = 40  # the stream's nodes, root to tail
-WHIP_ORBIT = 1.1  # hand sizes: the stream swirls round the hand this far out...
-WHIP_SWEEP = (0.55, 0.8)  # ... wrapping this much of a turn round it, quiet and at the voice's loudest
-WHIP_RISE = 0.3  # of its length: it rises out of the palm over this much of it before it swings out to that circle
-WHIP_FACE = 0.7  # its circle faces the camera this much and the palm the rest (round the palm's own normal, an
-# upturned palm's circle was seen edge on, a slug on the palm)
-WHIP_TILT = 35.0  # degrees its circle is tipped about the hand's length, so one side passes behind the hand
-WHIP_SPIN = (0.45, 0.5)  # turns a second it swirls at, quiet, and more at the voice's loudest
-WHIP_WOBBLE = (0.14, 3.0, 1.3)  # its swirl's lobes: how far in and out (of its circle), how many, turns a second
+WHIP_HEIGHT = 2.4  # hand sizes: the stream rises this far out of the palm, along its normal...
+WHIP_UP = 1.4  # ... bent this much towards the picture's up (a palm facing the camera sent it straight at it, a palm
+# facing up sent it along the fingers, foreshortened away from the camera)...
+WHIP_COIL = 0.26  # ... and coils round that way as it rises, this far out (hand sizes): with its rise, one and a half
+# to two palms long (swirled round the whole hand 1.1 hand sizes out, most of it behind and beside the hand, it read as
+# a puddle with a faint hoop; round the palm 0.42 out, as a ring of water lying on it)...
+WHIP_SWEEP = (0.6, 0.85)  # ... wrapping this many turns round it, quiet and at the voice's loudest...
+WHIP_RISE = 0.3  # ... its coil opening over this much of its length from the root
+WHIP_SPIN = (0.45, 0.5)  # turns a second its coil turns at, quiet, and more at the voice's loudest
+WHIP_WOBBLE = (0.14, 3.0, 1.3)  # its coil's lobes: how far in and out (of its coil), how many, turns a second
 WHIP_HZ = (3.0, 0.9)  # how stiffly it holds its swirl at the root and at the tail: the tail trails a moving hand,
 # as a ribbon does (one stiffness throughout and the stream moved with the hand as one piece, a hoop)
 WHIP_DAMP = 0.55  # their damping ratio
-WHIP_R = (0.1, 0.033)  # hand sizes: the stream's radius at its root and at its tail (blobs weighted, as thick as
+WHIP_R = (0.1, 0.035)  # hand sizes: the stream's radius at its root and at its tail (blobs weighted, as thick as
 # designed: summed unweighted, they drew a hose 1.7 times as thick)
 WHIP_TIP = 0.35  # its last fifth thins by this much to its end
 WHIP_SPACING = 0.6  # its blobs are at most this share of their radius apart
-WHIP_POOL = (1.35, 0.14, 0.12, 0.07)  # the pool on the palm it rises out of: its radius (of the stream's at its root),
-# its thickness (of a ball's), its froth, and how far its outline ripples (of its radius); a ball of water there was a
-# test tube's closed end; frothing all over and rippling at 0.16 it was crumpled cellophane with a frilled edge (the
-# stream churns it where it rises: WHIP_FOAM); at 1.8 a bulb on the stream, a tadpole's head
+WHIP_POOL = (1.35, 0.035, 0.06, 0.06)  # the pool on the palm it rises out of: its radius (of the stream's at its root),
+# its thickness (of a ball's: at 0.14 it was a domed gel lens with a raised rim, and what was seen through it was bent
+# 10 px), its froth, and how far its outline ripples (of its radius; at 0.16 a frilled edge)
 WHIP_POOL_ALONG = (1.15, 0.2)  # it is drawn out this many times longer along the way the stream leaves it (keeping its
 # area) and lies this far that way (of its radius): the stream widens into it (round, centred on the root, a spoon;
 # drawn out 1.5 times, with the stream narrowing out of it, a pointed snake's head)
@@ -476,41 +512,31 @@ WHIP_FLARE = (0.5, 0.15, 1.0, 0.4, 0.5)  # the stream flares out this much wider
 # side than the other: its flare leaning up to this share of itself to one side, swaying at this many Hz, and swelling
 # and thinning along it by this share of itself (at 0.7, even all round and smooth, the foot of a crystal vase, a glass
 # boot)
-WHIP_BASE = (7, 0.95, 0.32, 0.45, (2.5, 5.0), (0.5, (0.003, 0.008), (1.0, 2.5)))  # where it leaves the pool the
-# water heaves in a rough ring round its foot: this many bumps, this far out from its middle and this big (of its
-# radius there), frothing this much, each swelling and drifting at its own rate in this range (Hz); and now and then
-# (this chance a frame) a tiny drop this big (hand sizes) jumps off it this fast (hand sizes a second) (a smooth foot it
-# stood on, the stream was a glass object set on the palm)
-WHIP_WET = 1.3  # the palm round the pool is wet this far out (of the pool's radius)
+WHIP_WET = (2.3, 0.17, 0.65)  # the palm round the pool is wet this far out (of the pool's radius), this much darker,
+# fading out over this share of that (at 0.08 out to 1.3, the skin round the pool was as dry as ever; as dark out to the
+# pool's own edge, a grey sticker on the palm)
 WHIP_TRAIL = (0.15, 4, 1, 0.03, 1.5, 0.05, 0.7)  # where the stream lies on the palm it wets the skin round it: how
 # much darker at first, drying over this many frames (left for a second where the stream had swirled past, a string of
 # dark spots), marked every this many frames (every other one, the palm flickered frame to frame) at points this far
-# apart along it (hand sizes: further apart, beads),
-# wet this many of its radii out and this many hand sizes besides, feathered over this share of that (a clear stream
-# with nothing round it on the skin was a glass snake)
+# apart along it (hand sizes: further apart, beads), wet this many of its radii out and this many hand sizes besides,
+# feathered over this share of that (a clear stream with nothing round it on the skin was a glass snake)
 WHIP_LIFT = 0.06  # hand sizes it starts over the palm
-WHIP_CRACK = (11, 3.8, 0.45, 2.5, 1.0, 0.5, 0.7)  # a hit cracks it: frames (in 8 it was back on the palm before its
-# sweep, the take's strongest beat a faint ghost), how far out along the aim (hand sizes), the kink that runs down it
-# (hand sizes across), how much stiffer it is while it lashes out, how much thicker its outer part (it throws more
-# water), the share of its frames it is held out before it swings back (swung back sooner, it swept slower and less
-# far), and how much thicker again its outer third (as thick as the rest, the strike's peak had less weight than the
-# swing back)
 WHIP_SHED, WHIP_SHED_RATE = 9.0, 0.12  # hand sizes a second: where it is faster than this it sheds drops, each point
 # of it past WHIP_SHED_FROM of its length at this chance a frame per time over it...
 WHIP_SHED_FROM = 0.3  # (shed near the root, they wound round it like a screw's thread)
-WHIP_SPRAY = (1, 4, 18)  # fine drops its tail sprays a frame while it moves, and at most this many threads and drops
-# off its front while it lashes out (a smooth front was a hard sheet)
-WHIP_FOAM = (0.14, 0.3, 0.9, 0.45)  # how aerated it is all along, more at its tail, more where it is fast (a fast jet
-# goes white: at 0.5 the lash was a clear smear, gone at a phone's size), and more at its root where it churns out of
-# the pool (clear all along, a glass rod)
+WHIP_SPRAY = (1, 4)  # fine drops its tail sprays a frame while it moves
+WHIP_MIST = (0.3, 0.25, (0.004, 0.014), (0.8, 2.0))  # turning, the stream sprays off its outer part: from this share
+# of its length out, at this chance a frame at each node, drops this big (hand sizes, a power law) flung out of its
+# coil this fast (hand sizes a second) (smooth all along, it was a crisp glass hoop)
+WHIP_FOAM = (0.45, 0.6, 0.9, 0.45)  # how aerated it is all along, more at its tail, its head churning into the air (a
+# bright leading edge), more where it is fast (a fast jet goes white), and more at its root where it churns out of the
+# pool (clear all along, a glass rod; at 0.14 standing up out of the palm, a glass sculpture)
 WHIP_AIR, WHIP_AIR_R, WHIP_AIR_SEEN = 10, (0.12, 0.28), 0.45  # bubbles carried along it, their size (of its radius),
 # and how clearly they are seen (at 0.7, rings like glass beads)...
 WHIP_AIR_FAST = (8.0, 15.0)  # ... gone where it moves from this many px a frame to this (drawn sharp inside the
 # stream's motion blur, they were a glass paperweight's)
 WHIP_SAG = (0.12, 0.55)  # of gravity, while it is held up: over the hand, and hanging off it (at 0.3, a loop held up
 # off the side of the hand was a carry handle, a hose)...
-WHIP_FADE = (0.2, (0.8, 1.3))  # ... where it also fades to this share of itself (held up off the hand in full, its
-# loops were a handle, a bangle), but not while it is flung out faster than these shares of WHIP_SHED...
 OFF_HAND = ((0.04, 0.2), (0.6, 0.9), 0.09)  # ... which it is from this far outside the hand to this (hand sizes), or
 # with none, from its palm's point; its fingers taken as this thick (half their width, hand sizes)...
 SKIN = ((0.15, 0.6), 8, 0.05)  # ... and wherever the hand's matte, softened, is under the first of these, on it over
@@ -523,10 +549,6 @@ WHIP_DRIP = ((8, 13), 1.6)  # hanging off the hand, it drops a drip from its low
 WHIP_WIDTH = (0.3, 0.7, 0.25, 0.42)  # its width varies along it besides its bulges, this much (spread, of its radius),
 # in features this long (hand sizes), drifting out at this share of its flow, and at most this much either way (even
 # all along, a silicone tube; at a spread of 0.18 it was not seen at a phone's size)
-WHIP_THREADS = 0.5  # the share of what its front tears off that are threads, drawn out 2.5 to 5 times their width...
-WHIP_TORN = ((0.004, 0.02), (0.8, 1.3))  # ... their radii (hand sizes, a power law), and their speed against the
-# stream's there: each flung on along its own path, smeared to its own length (all at the stream's speed, their
-# streaks ended in a line)
 WHIP_CULL = (1.3, 2.0)  # hand sizes: what it sheds while it pours is gone between these distances from it
 WHIP_SWELL = (0.26, 0.13, 0.38)  # bulges carried down the stream with its flow: how much thicker and thinner (the
 # spread, of its radius), their size (hand sizes: about eight of its radii apart, at no set spacing), and the most
@@ -537,16 +559,36 @@ WHIP_BEAD = (8.0, 0.8, 0.4)  # ... beads this many of its radii apart, flowing o
 # carried with the water)
 WHIP_FLOW = 2.0  # hand sizes a second: the water flows out along it (its inside pattern drifts that way)
 WHIP_GROW, WHIP_BREAK = 10, 5  # frames it takes to pour out, and to neck into beads when the voice stops
-RIBBON = (0.4, 1.8, 0.5, 0.5)  # held up in the air (neither lashing nor lying on the skin, or off the hand) it is a
-# ribbon, not a tube: thinned to this share of its width once its underside is this many of its radii over the skin,
-# and flattened to this share of a tube's thickness, with no rim, mirroring the room and the light along its edge
-# towards the light alone, in a few short lengths, its glint line there this much dimmer (a round tube held up off the
-# palm, its two edges bright, was a clear glass hook, a carry handle, a bangle round the fingers)
-WAKE = (10, 4, 0.35, 0.5, (4, 8), 0.12)  # after a crack, as it swings back: this many frames after the hit its outer
-# part collapses, its radius cut by this share a frame over this many frames, from this share of its length out,
-# breaking into this many drops that fall; then it pours out again along its length over WHIP_GROW frames, its front
-# rounding over this share of it (held whole as it swung back, it closed round the fingers into a glass ring)
 WHIP_LEAD = 6  # frames it is out before a hit that opens the voice
+
+# ---- the lash: a hit flings the stream's water out along the aim ----------------------------------------------------
+LASH_SPEED = (1.5, 0.6, 0.8)  # hand sizes a frame: its tail is flung this fast at the loudest hit and this share of
+# it at the quietest, its root not at all, in between as this power of how far along it (driven to a straight line
+# and held there for six frames, it was a glass rod standing to the frame's top)...
+LASH_CURL = 1.2  # ... its tail this far round from its root's way (rad, the way it swirled: the hand's flick), so it
+# curves along the aim...
+LASH_RECEDE = 0.6  # ... and this share of that away from the camera, into the room, where it strikes the wall (as
+# fast as along it, it went off into the room foreshortened, a squirt, not a lash)
+LASH_DRAG = 0.62  # a frame: what the flung stream keeps of its speed across the picture while it is whole (a thin jet
+# tearing into drops in the air): out in two frames, it falls under gravity within three of its apex, its drops flying
+# on into the room
+LASH_R = (0.2, 0.025)  # hand sizes: the flung stream's radius at its root and at its tail (about 80 px wide to a 10 px
+# tip on a phone's picture), thinning as it is drawn out
+LASH_BREAK = (1.5, 3.0, 0.3)  # frames after the hit its tail breaks into drops, the frames more its root end takes,
+# and the share of it from the root that never breaks but falls back into the pool (its top third in drops by its
+# second frame, all of its outer part by its fourth)...
+LASH_NECK = 1.3  # ... necking into beads joined by threads over this many frames before it breaks (ligaments)...
+LASH_DROPS = (1.9, 2, (0.3, 0.55))  # ... each length of it beading up into a drop at most this many times its radius,
+# with this many satellite drops this big (of it) beside it
+LASH_BACK = (3, 6)  # frames after the hit the part left at its root has drained into the pool, and it pours out again
+LASH_GONE = 30  # frames after the hit what it flung is let go of, if it has not struck the wall (thrown away from it)
+LASH_SPRAY = 18  # threads and drops its tail tears into as it is flung (a smooth front was a hard sheet)
+WHIP_THREADS = 0.5  # the share of them that are threads, drawn out 2.5 to 5 times their width...
+WHIP_TORN = ((0.004, 0.02), (0.8, 1.3))  # ... their radii (hand sizes, a power law), and their speed against the
+# stream's there: each flung on along its own path, smeared to its own length (all at the stream's speed, their
+# streaks ended in a line)
+LASH_WALL = (0.16, 0.5)  # what of it strikes the wall lands as a ball of this radius (hand sizes) would, drawn out this
+# much along its way: a wet streak, draining and running as the orb's splash does
 
 # ---- the voice ------------------------------------------------------------------------------------------------------
 VOICE_ON = 0.1  # the voice sounds where its energy is over this (a breath, the room's hum is not the voice)
@@ -787,9 +829,7 @@ class Blob(NamedTuple):
     # for the ripples, glints and froth that run along it
     flat: float = 1.0  # its thickness against a ball's (the pool a stream rises out of lies flat on the palm)
     glint: float = 1.0  # a small free drop: how much of the key light's glint it catches (DOT_FACING)
-    seen: float = 1.0  # how much of it shows (a stream hanging off the hand fades: WHIP_FADE)
-    air: float = 0.0  # 0..1: how much of a stream here is held up in the air, a ribbon (RIBBON)...
-    lie: float = 0.0  # ... and how much of it lies on the skin, a rivulet (RIVULET, REST)
+    lie: float = 0.0  # 0..1: how much of a stream here lies on the skin, a rivulet (RIVULET, REST)
 
 
 @dataclass
@@ -807,6 +847,7 @@ class Scene:
     lobes: tuple = ()  # the held orb's wobble ((lobes, share of the radius, phase), ...): its light on the palm wobbles
     # with it...
     net: float = 1.0  # ... and lies this much in the net of lines its surface draws (SPOT_IN)
+    flare: float = 1.0  # the light it focuses, this many times as bright (on a hit: HIT_FLARE)
     wet: list = field(default_factory=list)  # (x, y, rx, ry, angle, strength, phase of its uneven edge, glint, soft):
     # wet patches it leaves on the palm, darker and faintly glossy (under the stream's pool, where a drip lands)
     band: list = field(default_factory=list)  # ((m, 2) px, (m,) radii px, strength): the skin wet round where the
@@ -828,8 +869,8 @@ class Sheet(NamedTuple):
     look: float  # 0..1: how much it still shows as running water (0: only the wet patch it leaves)
     wet: float  # 0..1: how far the wet patch has come on
     froth: float = 0.0  # 0..1: how churned white its middle is (at the hit)
-    sag: float = 0.0  # 0..1: how far the wet patch's lower edge has run down into its runs
-    runs: tuple = ()  # ((angle rad, width (of r), length (of r)), ...): where its lower edge runs down
+    sag: float = 0.0  # how far the wet patch's whole lower edge has crept down (of r)
+    runs: tuple = ()  # ((angle rad, half width (of r), length (of r)), ...): the runs its lower edge runs down in
 
 
 class Bead(NamedTuple):
@@ -861,13 +902,13 @@ def _shape(u: np.ndarray, k: float, across: float = 1.0) -> tuple:
     return (k * ux * ux + across * uy * uy, (k - across) * ux * uy, (k - across) * ux * uy, k * uy * uy + across * ux * ux)
 
 
-def _moving(r: float, v: np.ndarray, k: float = 1.0) -> tuple[tuple, tuple]:
+def _moving(r: float, v: np.ndarray, k: float = 1.0, shutter: float = SHUTTER) -> tuple[tuple, tuple]:
     """A blob of radius ``r`` moving ``v`` px a frame, stretched ``k`` times along it (keeping its volume): (its shape,
-    how far it travels over the shutter: Blob.move, at most SMEAR_MAX times its size)."""
+    how far it travels over ``shutter`` frames: Blob.move, at most SMEAR_MAX times its size)."""
     sp = float(np.hypot(*v))
     if sp < 1e-6:
         return _shape(np.array([1.0, 0.0]), k, 1.0 / math.sqrt(k)), ()
-    travel = min(SMEAR_MAX * 2.0 * r, sp * SHUTTER)
+    travel = min(SMEAR_MAX * 2.0 * r, sp * shutter)
     return _shape(v / sp, k, 1.0 / math.sqrt(k)), (float(v[0] / sp * travel), float(v[1] / sp * travel))
 
 
@@ -885,11 +926,10 @@ def _tube_weight(shape: tuple, sig: float, tang: np.ndarray, gap: float) -> floa
 class Field:
     """The blobs on a box of the frame: ``f`` the field the surface is drawn from (the body's blobs summed, plus the
     strongest free piece over them), per pixel the weighted means of the blobs' sigma^2 (``s2``), depth, flow, foam,
-    motion over the exposure (``mx``, ``my``), thickness (``th``, Blob.flat), how much of it shows (``se``,
-    Blob.seen), how much of it is held up in the air (``ai``, Blob.air) and lies on the skin (``li``, Blob.lie); over a
-    stream, where along it a pixel is
-    (``sa``, px from its root), how far across it (``sx``, in its radius, signed) and how much of the water there is
-    the stream's (``sw``). ``dots``: the free pieces (x, y, z, r), for the glints of the small ones (_dots)."""
+    motion over the exposure (``mx``, ``my``), thickness (``th``, Blob.flat) and how much of it lies on the skin
+    (``li``, Blob.lie); over a stream, where along it a pixel is (``sa``, px from its root), how far across it (``sx``,
+    in its radius, signed) and how much of the water there is the stream's (``sw``). ``dots``: the free pieces (x, y,
+    z, r), for the glints of the small ones (_dots)."""
 
     def __init__(self, blobs: list[Blob], h: int, w: int):
         ext = []
@@ -914,14 +954,13 @@ class Field:
                     max(b[3] for b in boxes))
         y0, y1, x0, x1 = self.box
         (self.f, self.fm, self.wt, self.s2, self.zc, self.vx, self.vy, self.fo, self.mx, self.my, self.th, self.sa,
-         self.sx, self.sw, self.se, self.ai, self.li) = (np.zeros((y1 - y0, x1 - x0), np.float32) for _ in range(17))
+         self.sx, self.sw, self.li) = (np.zeros((y1 - y0, x1 - x0), np.float32) for _ in range(15))
         for b, e in ext:
             self._splat(b, e)
         self.f += self.fm
         wt = np.maximum(self.wt, 1e-12)
-        for a in (self.s2, self.zc, self.vx, self.vy, self.fo, self.mx, self.my, self.th, self.se, self.ai, self.li):
+        for a in (self.s2, self.zc, self.vx, self.vy, self.fo, self.mx, self.my, self.th, self.li):
             a /= wt
-        self.se = 1.0 - self.se  # (summed as what is hidden: most of the water shows in full)
         sw = np.maximum(self.sw, 1e-12)
         self.sa /= sw
         self.sx /= sw
@@ -963,10 +1002,6 @@ class Field:
             self.my[sl] += g * np.float32(b.move[1])
         if b.foam:
             self.fo[sl] += g * np.float32(b.foam)
-        if b.seen < 1.0:
-            self.se[sl] += g * np.float32(1.0 - b.seen)
-        if b.air > 0.0:
-            self.ai[sl] += g * np.float32(b.air)
         if b.lie > 0.0:
             self.li[sl] += g * np.float32(b.lie)
         if b.stream:
@@ -1034,7 +1069,7 @@ class Room:
 class Noise:
     """Tiling noise textures (zero mean, unit spread), read anywhere at fractional px, drifting with the water."""
 
-    def __init__(self, seed: int, count: int = 14):
+    def __init__(self, seed: int, count: int = 15):
         rng = _rng(seed, _NOISE)
         N = NOISE_SIZE
         fy, fxq = np.fft.fftfreq(N)[:, None], np.fft.rfftfreq(N)[None, :]
@@ -1151,8 +1186,6 @@ class Layer:
     z: np.ndarray  # (h, w): ... its middle's depth (for the light it focuses onto the hand behind it)...
     r: np.ndarray  # (h, w): ... and the radius of the water there (a small drop's light on the hand is lost in the
     # room's soft light)
-    sheet: np.ndarray | None = None  # (h, w, 2): the sheet a lashing stream sweeps over the exposure: its share, and
-    # the thickness px of the water that passed (SHEET; None: no lash)
 
 
 def _refract(ix, iy, iz, nx, ny, nz, eta):
@@ -1222,10 +1255,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         rest = (_resting(hand, k, matte, (by0, bx0), fld.zc[crop], Rmap, s, fld.li[crop])
                 * _ss(0.6, 0.9, th)).astype(np.float32)
         th = th * (1.0 - (1.0 - REST[2]) * rest)
-    ribbon = th * (1.0 - RIBBON[2] * fld.ai[crop])  # held up in the air, a stream's profile is a ribbon's (its edges
-    # sloping in gently, not a tube's sheer walls; it lies on nothing, so it has no meniscus: th stays a tube's)
-    h2 = (sig[crop] * np.float32(math.sqrt(2.0 * LN_TAU)) * ribbon
-          * np.clip(lf[crop] / np.float32(LN_TAU), 0.0, None) ** (1.0 - 0.5 * ribbon)).astype(np.float32)
+    h2 = (sig[crop] * np.float32(math.sqrt(2.0 * LN_TAU)) * th
+          * np.clip(lf[crop] / np.float32(LN_TAU), 0.0, None) ** (1.0 - 0.5 * th)).astype(np.float32)
     hb = cv2.GaussianBlur(h2, (0, 0), 0.8)
     gy, gx = np.gradient(hb)
     gx, gy = np.clip(gx, -6, 6), np.clip(gy, -6, 6)
@@ -1248,9 +1279,6 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     sw = fld.sw[crop][iy, ix]
     rivulet = rest_p * np.clip(sw / 0.5, 0.0, 1.0)  # a stream lying on the skin (the orb as it gathers over the palm
     # is none)
-    air = np.maximum(fld.ai[crop][iy, ix], rivulet)  # a stream held up in the air (a ribbon) or a rivulet: no rim, its
-    # edge lit towards the light alone (round an outline lit and lined all round, a curl of it on the palm or off it was
-    # a clear glass hook)
     st = np.flatnonzero(sw > 0.02)
     sa, sxs = fld.sa[crop][iy, ix][st], fld.sx[crop][iy, ix][st]
     mxc, myc = fld.mx[crop], fld.my[crop]
@@ -1284,8 +1312,9 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     # fast water, and a stream bent tightly, sends a ray less far off its way (through a lashing stream the room
     # behind it was magnified into zebra stripes; in a stream's tight bend, into a fan of fine lines)
     curv = (np.abs(hxx) + np.abs(hyy) + 2.0 * np.abs(hxy))[iy, ix] * R
-    calm = (1.0 / ((1.0 + fast / CALM[0]) * (1.0 + (1.0 - big) * (curv / CALM[1]) ** 2))
-            * (1.0 - REST[3] * np.maximum(rivulet, pool))).astype(np.float32)
+    calm = (1.0 / ((1.0 + (1.0 - big) * fast / CALM[0]) * (1.0 + (1.0 - big) * (curv / CALM[1]) ** 2))
+            * (1.0 - REST[3] * np.maximum(rivulet, pool))).astype(np.float32)  # (the thrown orb bends as much as the
+    # held one: calmed by its speed, it was a hollow outline filled with the wall)
     tanx = (np.clip(ox / np.maximum(-oz, 0.3), -3, 3) + swirl * inner) * calm
     tany = (np.clip(oy / np.maximum(-oz, 0.3), -3, 3) + swirl * noise.flow(2, X, Y, fvx, fvy, k, INNER_SIZE * s)) * calm
 
@@ -1308,7 +1337,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     p = hand.p[k]
     zroom = float(hand.depth(k, np.float32([p[0]]), np.float32([p[1]]))[0]) - ROOM_DEPTH * max(H, W)
     dfar = np.minimum(dfar, np.maximum(zc - h - zroom, NEAR[0] * s))
-    dfar = dfar * (1.0 - (1.0 - FAR_FAST) * _ss(0.5, 1.0, fast * FPS / WHIP_SHED)).astype(np.float32)
+    dfar = dfar * (1.0 - (1.0 - FAR_FAST) * (1.0 - big) * _ss(0.5, 1.0, fast * FPS / WHIP_SHED)).astype(np.float32)
     seen = np.float32(TINY_SEES) * R  # a small drop shows what is right behind it, a little magnified (sent a room
     dfar = dfar + tiny * (seen - dfar)  # away, it showed the room shrunk into a grey bead: metal)
     dn = dn + tiny * (np.minimum(dn, seen) - dn)
@@ -1334,17 +1363,22 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     else:
         col = far
     # the rim's darkening and the dimming where rays are turned back belong to a body of water: a small drop is all
-    # rim, and with them it was a grey metal sliver; it keeps a thin edge and a darker core round its glint; a ribbon
+    # rim, and with them it was a grey metal sliver; it keeps a thin edge and a darker core round its glint; a rivulet
     # has no rim
     small = np.clip(R / (SMALL_RIM * s), 0.0, 1.0)
-    edge = (SMALL_EDGE + (1.0 - SMALL_EDGE) * big) * small * (1.0 - air)
+    edge = (SMALL_EDGE + (1.0 - SMALL_EDGE) * big) * small * (1.0 - rivulet)
     oxy = np.maximum(np.hypot(ox, oy), 1e-3)  # a ray turned far off its way sees the room round the water (near a
     rnd = (edge * _ss(ROUND[0], ROUND[1], oxy)).astype(np.float32)  # ball's rim, turned down: the floor under its top)
     col += rnd[:, None] * (room.reflect(k, ox / oxy, oy / oxy) - col)
     col *= np.exp(-ABSORB[None, :] * (path / max(s, 1.0))[:, None])
     rr = np.clip(1.0 - nz, 0.0, 1.0)
     band = _ss(RIM_BAND[0], RIM_BAND[1], rr).astype(np.float32)
-    col *= (1.0 - edge * RIM_DARK * band * np.clip(0.75 + 0.5 * inner, 0.25, 1.25))[:, None]
+    Lk = room.key(k, ((x0 + x1) / 2.0, (y0 + y1) / 2.0))
+    lit = room.lit(k)
+    lxy = math.hypot(float(Lk[0]), float(Lk[1])) + 1e-6
+    face = (nx * Lk[0] + ny * Lk[1]) / lxy / np.maximum(np.hypot(nx, ny), 1e-3)  # its slope towards the light, -1..1
+    away = (RIM_FAR + (1.0 - RIM_FAR) * _ss(-0.3, 0.7, -face)).astype(np.float32)
+    col *= (1.0 - edge * RIM_DARK * band * away * np.clip(0.75 + 0.5 * inner, 0.25, 1.25))[:, None]
     col *= (1.0 - edge * (1.0 - TIR_DIM) * (1.0 - out) * band)[:, None]
     col *= (1.0 - tiny * (TINY_EDGE * _ss(0.55, 0.95, rr) + TINY_CORE * (1.0 - _ss(0.0, 0.7, rr))))[:, None]
     # the room reflected (a small piece of water is a weak mirror: at full strength a splash's thin pieces were
@@ -1364,44 +1398,13 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         F[st] *= 1.0 + 0.5 * sw[st] * (gm - 1.0)
         n_seg = noise.along(13, sa, sxs, k, GLINT_SEG[0] * s, 3.0, flow_a)
         seg = _ss(GLINT_SEG[1], GLINT_SEG[2], n_seg)
-        seg += air[st] * (_ss(RIVULET[3], RIVULET[3] + 0.4, n_seg) - seg)  # lying on the skin or held up in the air,
-        # a few short glints (lit along most of its edge, a ribbon held up off the palm was a glass rim)
-    # a lashing stream torn along its length (LASH): ``lig`` the water there (1 on a ligament, the thin sheet's share
-    # between them, less in its holes), ``ridge`` the glint along a ligament's ridge, ``keep`` how much of its froth
-    # and its own light it keeps where its smear lies over the hand
-    lig, ridge, keep = (np.ones(X.shape, np.float32), np.zeros(X.shape, np.float32), np.ones(X.shape, np.float32))
-    jt = np.flatnonzero(whip[st] > 0.01) if st.size else st
-    if jt.size:
-        tw = st[jt]
-        at_, z_ = sa[jt], np.zeros(jt.size, np.float32)
-        size = LASH[0] * s
-        d_ = 0.15 * size
-        n0, n_up, n_dn = (noise.along(11, at_ + o, z_, k, size, 1.0, flow_a) for o in (0.0, d_, -d_))
-        curv = np.minimum((n_up + n_dn - 2.0 * n0) / (d_ * d_), -1e-6)
-        off_r = (n_up - n_dn) / (2.0 * d_) / curv  # px along the stream from its ridge (a Newton step to the peak)
-        rid = np.exp(-(off_r / LASH_GLINT[2]) ** 2) * _ss(LASH_GLINT[1], LASH_GLINT[1] + 0.3, n0)
-        body = _ss(LASH[1], LASH[2], n0)
-        whole = _ss(LASH[4][1], LASH[4][2], noise.along(12, at_, z_, k, LASH[4][0] * s, 1.0, flow_a))
-        body = body + (1.0 - body) * LASH[3] * whole
-        mxt, myt = mxc[iy[tw], ix[tw]], myc[iy[tw], ix[tw]]
-        wt = whip[tw] * _ss(LASH[6][0], LASH[6][1], np.hypot(mxt, myt) / (LASH[6][2] * size))  # (torn where it
-        # smears over a stretch of the stream to its next ligament and more: swept less far, its ligaments were blocks
-        # along it, a stream of broken glass)
-        lig[tw] = 1.0 + wt * (body - 1.0)
-        ridge[tw] = wt * rid * np.exp(-((np.abs(sxs[jt]) - LASH_GLINT[3]) / 0.2) ** 2)  # a point on its edge (across
-        # all of it, the motion drew it into a broad band)
-        if matte is not None:  # where its smear will lie over the hand: read along its motion over the exposure
-            over = sum(_remap(matte, X[tw] + f_ * mxt, Y[tw] + f_ * myt) for f_ in (-0.35, 0.0, 0.35)) / (3 * 255.0)
-            keep[tw] = 1.0 - whip[tw] * (1.0 - LASH[5]) * over
-    Lk = room.key(k, ((x0 + x1) / 2.0, (y0 + y1) / 2.0))
-    lit = room.lit(k)
-    lxy = math.hypot(float(Lk[0]), float(Lk[1])) + 1e-6
-    face = (nx * Lk[0] + ny * Lk[1]) / lxy / np.maximum(np.hypot(nx, ny), 1e-3)  # its slope towards the light, -1..1
-    if st.size and float(air.max()) > 0.0:  # a ribbon mirrors the room at a grazing angle along its edge towards the
-        # light alone, in lengths (mirrored along both its edges, the stream was a glass tube's closed outline)
+        seg += rivulet[st] * (_ss(RIVULET[3], RIVULET[3] + 0.4, n_seg) - seg)  # lying on the skin, a few short glints
+        # (lit along most of its edge, a stream on the palm was a glass rim)
+    if st.size and float(rivulet.max()) > 0.0:  # a rivulet mirrors the room at a grazing angle along its edge towards
+        # the light alone, in lengths (mirrored along both its edges, the stream was a glass tube's closed outline)
         lit_edge = np.zeros(X.shape, np.float32)
         lit_edge[st] = seg * _ss(0.15, 0.7, face[st])
-        F = F0 + (F - F0) * (1.0 - air * (1.0 - lit_edge))
+        F = F0 + (F - F0) * (1.0 - rivulet * (1.0 - lit_edge))
     ev = room.reflect(k, nx, ny)
     col = col * (1.0 - F)[:, None] + ev * F[:, None]
     sdp = sd[crop][iy, ix]  # water lying flat: a bright line round its edge towards the light, where its surface curls
@@ -1420,9 +1423,9 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     col += men[:, None] * (0.6 * ev + 0.4 * lit[None, :])
     if st.size:  # a stream's edge away from the light: a thin darker band, the room round it bent in there (bright
         # lines down both its edges, it was a glass tube); none where it lies on the skin (a rivulet's edge there
-        # only thins into the skin: lined on its shadow side, it was a glass rod), nor along a ribbon
+        # only thins into the skin: lined on its shadow side, it was a glass rod)
         col[st] *= (1.0 - EDGE_SHADE[0] * sw[st] * np.exp(-((sdp[st] - EDGE_SHADE[1]) / EDGE_SHADE[2]) ** 2)
-                    * _ss(-0.2, 0.6, -face[st]) * (1.0 - rest_p[st]) * (1.0 - air[st]))[:, None]
+                    * _ss(-0.2, 0.6, -face[st]) * (1.0 - rest_p[st]) * (1.0 - rivulet[st]))[:, None]
     # the key light: its window mirrored in the surface, waves and all, a soft sheen round it, the window again off the
     # inside of the far wall (opposite, smaller, dimmer), the light the water gathers onto its far inside edge, and a
     # faint moving net inside it
@@ -1437,8 +1440,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
                * np.clip(broad[crop] / np.float32(LN_TAU), 0.0, None) ** (1.0 - 0.5 * th)).astype(np.float32)
         gyb, gxb = np.gradient(cv2.GaussianBlur(hbr, (0, 0), max(1.0, GLINT_CORE[4] * s)))
         gxb, gyb = np.clip(gxb, -6, 6)[iy, ix], np.clip(gyb, -6, 6)[iy, ix]
-        gxc += big * (gxb - gxc)
-        gyc += big * (gyb - gyc)
+        gxc += GLINT_HOLD * big * (gxb - gxc)
+        gyc += GLINT_HOLD * big * (gyb - gyc)
         gxw += WINDOW[5] * big * (gxb - gxw)
         gyw += WINDOW[5] * big * (gyb - gyw)
     nw = np.sqrt(gxw * gxw + gyw * gyw + 1.0)
@@ -1455,18 +1458,24 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     spec += GLINT[1] * ndh ** GLINT_POW
     if st.size:
         spec[st] *= 1.0 + sw[st] * (gm - 1.0)
-    # a fast stream only (the thrown orb at its speed went milky): froth in torn bits, its edges catching the key light
-    # as a cylinder's do, and the sheet it sweeps
+    # a fast stream only (the thrown orb at its speed went milky): froth in torn bits, and its edges catching the key
+    # light as a cylinder's do
     spec *= 1.0 - GLINT_FAST * whip  # (its broad glints, smeared by its speed, were a slab of white streaks)
     if st.size:  # a thin bright line along its edge towards the light, broken into lengths, and fast, a dimmer one
         # along the other (where the light grazed both edges, lit all along, they were a glass tube's)
         wl = np.maximum(GLINT_LINES[2], 0.9 / np.maximum(R[st], 1.0))
-        lines = ((GLINT_LINES[0] * (1.0 - RIBBON[3] * air[st]) * _ss(0.15, 0.7, face[st]) * seg
-                  + GLINT_LINES[1] * whip[st] * (1.0 - air[st]) * _ss(-0.1, 0.6, -face[st]))
+        lines = ((GLINT_LINES[0] * (1.0 - RIVULET[7] * rivulet[st]) * _ss(0.15, 0.7, face[st]) * seg
+                  + GLINT_LINES[1] * whip[st] * (1.0 - rivulet[st]) * _ss(-0.1, 0.6, -face[st]))
                  * np.exp(-((np.abs(sxs) - GLINT_LINES[3]) / wl) ** 2))
         spec[st] += sw[st] * lines * np.clip(gm, 0.3, 2.0)
-    cres = (CRESCENT[0] * _ss(CRESCENT[1], CRESCENT[1] + 0.12, rr) * (1.0 - _ss(CRESCENT[2] - 0.1, CRESCENT[2], rr))
-            * _ss(0.4, 0.95, -face) * (1.0 - air))  # (a ribbon gathers none onto its far edge)
+    gsy, gsx = np.gradient(cv2.GaussianBlur(np.clip(sd[crop], -20.0, None).astype(np.float32), (0, 0), 2.0))
+    gsx, gsy = gsx[iy, ix], gsy[iy, ix]  # its outline's way out (laid off its waves' slopes, the crescent was frilled)
+    out_face = -(gsx * Lk[0] + gsy * Lk[1]) / lxy / np.maximum(np.hypot(gsx, gsy), 1e-4)
+    ins = sdp / np.maximum(R, 1.0)  # how far in from its outline, of its radius
+    cres = (CRESCENT[0] * (CRESCENT[3] + (1.0 - CRESCENT[3]) * big) * _ss(*CRESCENT[1], ins)
+            * (1.0 - _ss(*CRESCENT[2], ins)) * _ss(0.2, 0.9, -out_face) * np.clip(0.9 + 0.2 * inner, 0.6, 1.1)
+            * (1.0 - rivulet))  # (a rivulet gathers none onto its far edge; it flickers with the water inside)
+    cres += RIM_LIT[0] * edge * _ss(*RIM_LIT[1], rr) * _ss(0.0, 0.85, face)  # the rim towards the light
     net = INNER_GLOW * np.exp(-(inner / 0.22) ** 2) * deep * (1.0 - F)
     col += (spec + cres + net).astype(np.float32)[:, None] * lit[None, :]
     # froth: white matter lit by the room, in bubbles, and along a stream in streaks running out with it
@@ -1486,36 +1495,28 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     fn *= 1.0 - whip * (1.0 - torn)  # only its torn bits white, clear water between (smeared, short white threads)
     fm = np.clip(foam * fn, 0.0, 1.0) * FOAM_MAX
     fm = np.minimum(fm, FOAM_MAX - (FOAM_MAX - FOAM_LEAD[1]) * _ss(0.0, 0.5, front))
-    fm *= np.clip((lig - LASH[3]) / (1.0 - LASH[3]), 0.0, 1.0) * keep  # a lash froths in its ligaments only
     glint = FOAM_GLINT[0] * np.exp(-(noise.flow(9, X, Y, fvx, fvy, k, FOAM_GLINT[1] * FOAM_SIZE * s) / 0.3) ** 2)
     froth = (0.75 + 0.25 * nz) * FOAM_ALBEDO * (1.0 + FOAM_FAST * whip) + glint
     col = col * (1.0 - fm)[:, None] + (fm * froth)[:, None] * lit[None, :]
     alpha = np.zeros(a_.shape, np.float32)
     feather = 1.0 + film * (np.clip((sdp + 0.5) / RIVULET[2], 0.0, 1.0) - 1.0)  # a rivulet, a puddle, thins into the
     # skin (a puddle's outline drawn hard, it was a glass foot set on the palm)
-    alpha[iy, ix] = (cover[crop][iy, ix] * vis * lig * feather * fld.se[crop][iy, ix]
+    alpha[iy, ix] = (cover[crop][iy, ix] * vis * feather
                      * (1.0 - RIVULET[6] * np.maximum(rivulet, pool)))  # (a rivulet, a puddle, is a film: the wet
     # skin shows through it)
     C = np.zeros(alpha.shape + (3,), np.float32)
     C[iy, ix] = col * alpha[iy, ix, None]
-    # what keeps some of itself through the blur: its own light (key light units), its froth's cover, and a lash's
-    # sheet: its share, and its thickness there (px)
-    own = np.zeros(alpha.shape + (4,), np.float32)
-    ridge *= _ss(0.1, 0.6, face)  # (on its side towards the light)
-    own[iy, ix, 0] = ((((spec + cres) * (1.0 - whip) + LASH_GLINT[0] * ridge) * (1.0 - fm) + fm * froth)
-                      * alpha[iy, ix] * keep)  # (a lash keeps only its ridges' glints and its froth: every glint along
-    # it kept, each drawn into a line by the motion, it was a fan of hair-thin streaks)
+    # what keeps some of itself through the blur: its own light (key light units) and its froth's cover
+    own = np.zeros(alpha.shape + (2,), np.float32)
+    own[iy, ix, 0] = ((spec + cres) * (1.0 - whip) * (1.0 - fm) + fm * froth) * alpha[iy, ix]  # (a fast stream keeps
+    # only its froth: every glint along it kept, each drawn into a line by the motion, it was a fan of hair-thin
+    # streaks)
     own[iy, ix, 1] = fm * alpha[iy, ix]
     rag = np.zeros(alpha.shape, np.float32)
-    fastp = np.flatnonzero(whip > 0.01)
-    if fastp.size:
-        rag[iy[fastp], ix[fastp]] = whip[fastp]
-        pres = whip[fastp] * alpha[iy[fastp], ix[fastp]]
-        own[iy[fastp], ix[fastp], 2] = pres
-        own[iy[fastp], ix[fastp], 3] = pres * h[fastp]
+    rag[iy, ix] = whip
     _dots(C, fld.dots, (by0, bx0), s, Lk, lit, hand, k, matte, own)
-    box, C, alpha, sheet = _motion_blur(C, alpha, mxc, myc, (by0, by0 + C.shape[0], bx0, bx0 + C.shape[1]), H, W,
-                                        own, lit, rag, k)
+    box, C, alpha = _motion_blur(C, alpha, mxc, myc, (by0, by0 + C.shape[0], bx0, bx0 + C.shape[1]), H, W, own, lit,
+                                 rag, k)
     C = cv2.GaussianBlur(C, (0, 0), EDGE_SOFT)
     alpha = cv2.GaussianBlur(alpha, (0, 0), EDGE_SOFT)
     if code > 0:  # the plate's grain, on what the water shows (what is seen through it was read smoothed, its glints
@@ -1525,9 +1526,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         g = _rng(seed, _GRAIN, k).standard_normal(y.shape).astype(np.float32)
         C = np.maximum(C * (1.0 + g * step)[..., None], 0.0)
     pad = ((by0 - box[0], box[1] - by0 - h2.shape[0]), (bx0 - box[2], box[3] - bx0 - h2.shape[1]))
-    if sheet is not None:
-        sheet = cv2.GaussianBlur(sheet, (0, 0), EDGE_SOFT)
-    return Layer(box, C, alpha, np.pad(h2, pad), np.pad(fld.zc[crop], pad), np.pad(Rmap, pad), sheet)
+    return Layer(box, C, alpha, np.pad(h2, pad), np.pad(fld.zc[crop], pad), np.pad(Rmap, pad))
 
 
 def _resting(hand: Hand, k: int, matte: np.ndarray, at: tuple, zc: np.ndarray, R: np.ndarray, s: float,
@@ -1638,18 +1637,15 @@ def _motion_blur(C: np.ndarray, A: np.ndarray, mx: np.ndarray, my: np.ndarray, b
     in taps BLUR_STEP apart, the same for every pixel moving alike: scattered along its own motion, so a fast drop
     smears past its outline into a streak and a slow root stays sharp beside a fast tail.
 
-    ``own`` (h, w, 4) is what keeps some of itself wherever it passes over the exposure (BLUR_KEEP: a fast jet's
+    ``own`` (h, w, 2) is what keeps some of itself wherever it passes over the exposure (BLUR_KEEP: a fast jet's
     glints and froth smear into streaks, not into nothing): the water's own light in units of the key light ``lit``,
-    its froth's cover, and the sheet a lash sweeps (its share, and that times its thickness px). ``rag`` (h, w) 0..1:
-    how torn the water is: its smear is longer or shorter from stream to stream (BLUR_RAGGED, drawn afresh on frame
-    ``k``).
-    Returns (the box, grown to hold the smear, C, A, the sheet (h, w, 2): its share and the thickness px of the water
-    that passed; None where there is none)."""
+    and its froth's cover. ``rag`` (h, w) 0..1: how torn the water is: its smear is longer or shorter from stream to
+    stream (BLUR_RAGGED, drawn afresh on frame ``k``). Returns (the box, grown to hold the smear, C, A)."""
     y0, y1, x0, x1 = box
     sp = np.hypot(mx, my)
     on = (A > 1e-4) | (C.max(-1) > 1e-4)
     if not on.any() or float(sp[on].max()) < 0.5:
-        return box, C, A, None
+        return box, C, A
     iy, ix = np.nonzero(on)
     mxs, mys = mx[iy, ix].astype(np.float32), my[iy, ix].astype(np.float32)
     rg = np.zeros(iy.size, np.float32) if rag is None else rag[iy, ix]
@@ -1670,7 +1666,7 @@ def _motion_blur(C: np.ndarray, A: np.ndarray, mx: np.ndarray, my: np.ndarray, b
     n = np.clip(np.ceil(lens / BLUR_STEP), 1, BLUR_TAPS).astype(np.int64)
     px, py = ix + (x0 - nx0), iy + (y0 - ny0)
     acc = np.zeros((nch, hh * ww), np.float64)
-    peak = np.zeros((3, hh * ww), np.float32)
+    peak = np.zeros((2, hh * ww), np.float32)
     still = np.flatnonzero(n == 1)  # a pixel that hardly moves stays where it is
     idx = py[still] * ww + px[still]
     for c in range(nch):
@@ -1709,30 +1705,26 @@ def _motion_blur(C: np.ndarray, A: np.ndarray, mx: np.ndarray, my: np.ndarray, b
             at = yn[ok] * ww + xn[ok]
             np.maximum.at(peak[0], at, BLUR_KEEP[0] * win[ok] * v[ok, 4])
             np.maximum.at(peak[1], at, BLUR_KEEP[1] * win[ok] * v[ok, 5])
-            if float(val[:, 6].max()) > 0:  # (the sheet over all of the exposure: its edges are where the water was
-                # when the shutter opened and closed, and catch the light there)
-                np.maximum.at(peak[2], at, BLUR_KEEP[2] * v[ok, 6])
     acc = acc.reshape(nch, hh, ww).astype(np.float32)
     C, A = np.ascontiguousarray(acc[:3].transpose(1, 2, 0)), acc[3].copy()
-    sheet = None
     if keep:  # (softened a little: the most taken pixel by pixel combed the froth's smear into hard parallel lines)
-        pk = cv2.GaussianBlur(peak.reshape(3, hh, ww).transpose(1, 2, 0), (0, 0), BLUR_SOFT)
+        pk = cv2.GaussianBlur(peak.reshape(2, hh, ww).transpose(1, 2, 0), (0, 0), BLUR_SOFT)
         gain = np.maximum(pk[..., 0] - acc[4], 0.0)
         cover = np.maximum(pk[..., 1] - acc[5], 0.0)
         C += gain[..., None] * lit
         A = np.minimum(A + cover, 1.0)
-        share = np.clip(np.maximum(pk[..., 2], acc[6]), 0.0, 1.0)
-        if float(share.max()) > 0.01:  # and the thickness of the water that passed here
-            sheet = np.stack([share, acc[7] / np.maximum(acc[6], 1e-4)], -1).astype(np.float32)
-    return (ny0, ny1, nx0, nx1), C, A, sheet
+    return (ny0, ny1, nx0, nx1), C, A
 
 
 CAUSTIC_GAIN, CAUSTIC_KEEP = 1.0, 0.3  # the focus's strength, and the key light's share of what lights the hand (the
 # rest is the room's soft light, which the water does not focus)
 CAUSTIC_NEAR = 0.02  # hand sizes: the least the water's light falls to the hand (water lying on the palm, its pool,
 # throws its shadow right under it: taken as falling NEAR's least, the pool cast a shadow beside it like a raised lump)
-CAUSTIC_MAX = 2.0  # the most the focus multiplies the key light by (at 3, with 0.4 of it the key's, the skin under the
+CAUSTIC_MAX = 1.6  # the most the focus multiplies the key light by (at 3, with 0.4 of it the key's, the skin under the
 # orb clipped to white under a soft room light)
+CAUSTIC_KNEE = (0.6, 0.86)  # linear: what the water's light raises is rolled off channel by channel from the first of
+# these towards the second, and never below the plate (lifted straight, the focus clipped to white: a lamp glued to
+# the palm)
 CAUSTIC_SOFT = (0.06, 0.3)  # of the distance it falls: how soft the focus and the shadow are (a room's key light is
 # wide: a shadow blurred as little as its focus showed the orb's outline drawn on the palm, a hard-edged disc)
 CAUSTIC_SMOOTH = 0.04  # hand sizes: the surface the light is bent through is smoothed over this (bent through its small
@@ -1749,18 +1741,19 @@ SPOT = (0.85, 0.8, 0.1)  # the held orb's focus: the share of the light through 
 # against its rays' width there, and the share of the orb's light still traced cell by cell over it (the spot alone
 # was a projector's disc; that share dances with its surface)
 SPOT_LOBES = 4.0  # its outline's wobble shows this many times over in its focus...
-SPOT_MAX = 3.5  # ... which multiplies the key light by at most this, rolled off (held to CAUSTIC_MAX with the rest of
+SPOT_MAX = 2.2  # ... which multiplies the key light by at most this, rolled off (held to CAUSTIC_MAX with the rest of
 # the water's light, the spot was a pale pink disc barely brighter than the lit skin: a lens gathers the light through
-# all of it into a hot spot)...
-SPOT_NET = (96, 4, 2.0, (0.6, 1.0), 2.2, 0.03, 0.12, 0.15)  # ... and its light lies in the net of bright lines that
-# rays through the orb's moving surface draw where they land: a grid of this many rays across it, laid between each
-# two as if refined this many times (the light between neighbouring rays lands between where they do: splatted as
+# all of it into a hot spot; at 3.5, a lamp glued to the palm)...
+SPOT_NET = (96, 4, 4.5, (0.6, 1.0), 1.8, 0.03, 0.25, 0.12)  # ... and its light lies in the uneven patches that rays
+# through the orb's moving surface gather it into where they land: a grid of this many rays across it, laid between
+# each two as if refined this many times (the light between neighbouring rays lands between where they do: splatted as
 # points, a few to a cell, they were a cluster of soft blobs, bubble wrap), splatted at the picture's resolution and
-# blurred this much (px), the light there this base plus this gain times how many rays land there against the spot's
-# mean, at most this many times it, how fast its ripples drift (of its radius a frame), the share of the finest ripples
-# the rays are bent by (all of them folded the light into glitter), and its surface smoothed over this share of its
-# radius: bent by its broad wobble, the light folds into soft curves and loops round the hot spot (bent by its small
-# waves too, and lines up to 3.5 times as bright, it branched into a white filament, an electric spark)
+# blurred this much (px: at 2, thin lines meeting in a white star, a lamp glued to the palm), the light there this base
+# plus this gain times how many rays land there against the spot's mean, at most this many times it, how fast its
+# ripples drift (of its radius a frame), the share of the finest ripples the rays are bent by (all of them folded the
+# light into glitter), and its surface smoothed over this share of its radius: bent by its broad wobble and a little by
+# its ripples, the light breaks into soft patches round the hot spot that move with the water (bent by its small waves
+# in full, and lines up to 3.5 times as bright, it branched into a white filament, an electric spark)
 SPOT_IN = 4  # frames after the orb has formed its light comes into that net (drawn through a surface still settling
 # from its gathering, the net was a four-armed cross, a lens flare's star)
 PAD_MAX = 1.2  # hand sizes: the most the light it throws reaches off the water
@@ -1783,7 +1776,8 @@ def _splat(tgt: np.ndarray, x: np.ndarray, y: np.ndarray, w: np.ndarray) -> None
 
 
 def caustic(P: np.ndarray, layer: Layer, k: int, hand: Hand, room: Room, matte: np.ndarray,
-            held: tuple | None = None, lobes: tuple = (), noise: Noise | None = None, net_in: float = 1.0) -> tuple:
+            held: tuple | None = None, lobes: tuple = (), noise: Noise | None = None, net_in: float = 1.0,
+            flare: float = 1.0) -> tuple:
     """The water's light on the hand behind it, in place: each cell of water in front of the hand sends its share of
     the key light along the ray bent through it to the hand, at the hand's own depth there, and lights it there; the
     light the hand had there without the water is taken away (energy kept: a bright focus inside a soft shadow). A
@@ -1791,7 +1785,8 @@ def caustic(P: np.ndarray, layer: Layer, k: int, hand: Hand, room: Room, matte: 
     the orb over the palm (x, y, z, R, w): its light lands as one, wobbling with its ``lobes`` (Scene.lobes), at
     ``net_in`` of it in the net of brighter lines rays through its moving surface draw (_rays; ``noise``: its finest
     ripples; Scene.net), and its bulk also takes some of the room's soft light off the palm right under it, both at w
-    of their strength, the shade shrinking as it goes. Returns the box it changed."""
+    of their strength, the shade shrinking as it goes. What it raises is ``flare`` times as bright (a hit: Scene.flare)
+    and rolled off below white (CAUSTIC_KNEE). Returns the box it changed."""
     s = float(hand.s[k])
     ly0, ly1, lx0, lx1 = layer.box
     L = room.key(k, ((lx0 + lx1) / 2.0, (ly0 + ly1) / 2.0)) * np.float32([1.0, 1.0, CAUSTIC_ELEV / KEY_ELEV])
@@ -1869,10 +1864,14 @@ def caustic(P: np.ndarray, layer: Layer, k: int, hand: Hand, room: Room, matte: 
         net = np.pad(net, ((0, g.shape[0] - net.shape[0]), (0, g.shape[1] - net.shape[1])), constant_values=1.0)
         g = np.where(g > 1.0, 1.0 + (g - 1.0) * (1.0 + wh * net_in * (net - 1.0)), g)
     m = matte[y0:y1, x0:x1].astype(np.float32) / 255.0
-    lift = CAUSTIC_KEEP * (g - 1.0)
+    lift = CAUSTIC_KEEP * (g - 1.0) * np.where(g > 1.0, np.float32(flare), np.float32(1.0))
     edge = _box_fade(y1 - y0, x1 - x0, max(4, pad // 2))  # what reaches the box's edge fades by it (faded over an
     # eighth of the box, the light moved when a drip grew the box)
-    P[y0:y1, x0:x1] *= (1.0 + lift * m * edge)[..., None]
+    patch = P[y0:y1, x0:x1]
+    raised = patch * (1.0 + lift * m * edge)[..., None]
+    k0, k1 = CAUSTIC_KNEE
+    soft = np.where(raised > k0, k0 + (k1 - k0) * np.tanh((raised - k0) / (k1 - k0)), raised)
+    patch[:] = np.where(raised > patch, np.maximum(soft, patch), raised)
     if shade_box[1] <= shade_box[0]:
         return (y0, y1, x0, x1)
     return (min(y0, shade_box[0]), max(y1, shade_box[1]), min(x0, shade_box[2]), max(x1, shade_box[3]))
@@ -2249,19 +2248,22 @@ def _slide(t, vmax, T):
     return run, vmax * np.minimum(1.0, t / T)
 
 
-def _wall(scenes: list, drops: Drops, hit: tuple, n: int, cam: np.ndarray | None, rng) -> list:
-    """The orb bursting on the room's wall on frame ``hit[0]``: ``hit`` = (frame, x, y, z, R, s, fan, size), the px it
-    hits at on that frame and its depth, the ball's radius and a hand's size there, the unit direction along the wall
-    it was thrown in and how hard. The water stays on the wall (Scene.film, from that frame on, held to the room as
-    the camera moves): it lands as a squashed body flashing white for a moment, throwing a burst of spray out along
-    the wall and bigger drops off its rim towards the camera, and spreads over its first frames as a lobed sheet drawn
-    out the way it was thrown, its edge torn into tongues flung out round it, mostly that way, each ending in a bead,
-    thinning; drops flung out of it land on the wall round it and slow to a stop, the smallest going into the wall, the
-    big ones sliding down; from a few frames on, drips swell out of its lower edge one after another and run down it,
-    each its own length, leaving a wet trail; and the sheet drains, over a few frames, into the wet patch it leaves,
-    whose lower edge sags into runs. Over the next frames a few drops let go of its lower edge and fall. Returns those,
-    (frame, px and depth, velocity px a frame, radius, gravity px a frame squared) each, for the caller to let go on
-    their frame. Every piece eases in: nothing of it comes or goes between two frames."""
+def _wall(scenes: list, drops: Drops, hit: tuple, n: int, cam: np.ndarray | None, rng,
+          drawn: float = WALL_THROWN[0]) -> list:
+    """A ball of water bursting on the room's wall on frame ``hit[0]`` (the orb, or what a lash flings): ``hit`` =
+    (frame, x, y, z, R, s, fan, size), the px it hits at on that frame and its depth, the ball's radius and a hand's
+    size there, the unit direction along the wall it was thrown in and how hard. The water stays on the wall
+    (Scene.film, from that frame on, added to what is there, held to the room as the camera moves): it lands as a
+    squashed body flashing white for a moment, throwing a burst of drops out along the wall and off it, and bigger
+    drops off its rim towards the camera, and spreads over its first frames as a lobed sheet drawn out the way it was
+    thrown (``drawn`` longer than wide: WALL_THROWN), its edge torn into tongues flung out round it, mostly that way,
+    each ending in a bead, thinning; drops flung out of it land on the wall round it and slow to a stop, the smallest
+    going into the wall, the big ones sliding down; the sheet drains, over a few frames, into the wet patch it leaves,
+    soaking in, whose lower edge creeps down and runs down in narrow runs of their own lengths, each with a bead at its
+    head; drips break off the longest and slide on down, leaving a wet trail. Over the next frames a few drops let go
+    of its lower edge and fall. Returns those, (frame, px and depth, velocity px a frame, radius, gravity px a frame
+    squared) each, for the caller to let go on their frame. Every piece eases in: nothing of it comes or goes between
+    two frames."""
     kh, xh, yh, zh, R, s, fan, size = hit
     to_room = np.linalg.inv(cam[kh]) if cam is not None else np.eye(3)
     q = to_room @ np.array([xh, yh, 1.0])
@@ -2271,13 +2273,14 @@ def _wall(scenes: list, drops: Drops, hit: tuple, n: int, cam: np.ndarray | None
     n_on = int(round(FINGER_DIR[0] * nf))  # the way it was thrown, short upwards unless it was thrown so
     f_ang = np.r_[fa + rng.normal(0.0, FINGER_DIR[1], n_on), rng.uniform(0.0, 2.0 * math.pi, nf - n_on)]
     along = np.maximum(np.cos(f_ang - fa), 0.0)  # (1: the way it was thrown)
-    f_len = (FINGER_LEN[0] + (FINGER_LEN[1] - FINGER_LEN[0]) * rng.uniform(0.0, 1.0, nf) ** 2.5  # (most short, one or
-             * (0.25 + 0.75 * along))  # two long, the way it was thrown: all long, they were legs; long across, arms)
+    reach = rng.uniform(0.0, 1.0, nf) ** 2.5  # (most short, one or two long, the way it was thrown: all long, they
+    reach[int(np.argmax(along))] = max(float(reach.max()), 0.8)  # were legs; long across, arms; all short, a disc)
+    f_len = (FINGER_LEN[0] + (FINGER_LEN[1] - FINGER_LEN[0]) * reach) * (0.25 + 0.75 * along)
     f_len = np.minimum(f_len, FINGER_UP + (FINGER_LEN[1] - FINGER_UP) * np.maximum(_ss(0.7, 0.0, -np.sin(f_ang)),
                                                                                   along ** 2))  # (up only if thrown so)
     f_wid = rng.uniform(*FINGER_W, nf)
     f_bead = rng.uniform(*FINGER_BEAD, nf)
-    wob = ((2, WALL_THROWN[0], 2.0 * fa),) + tuple(
+    wob = ((2, drawn, 2.0 * fa),) + tuple(
         (l, a * float(rng.uniform(0.5, 1.5)), float(rng.uniform(0.0, 2.0 * math.pi))) for l, a in WALL_WOBBLE)
     s0, s1, tau_s = WALL_SPREAD
     fan2 = np.asarray(fan, np.float64)
@@ -2311,19 +2314,41 @@ def _wall(scenes: list, drops: Drops, hit: tuple, n: int, cam: np.ndarray | None
     t_start = np.stack([tip(j, kt) for j in range(nf)])
     t_far = np.hypot(*(np.stack([tip(j, 60.0) for j in range(nf)]) - t_start).T) + R * rng.uniform(*WALL_TIPS[1], nf)
     t_r = np.clip(0.8 * f_bead * f_wid * s1, *WALL_TIPS[0]) * R
-    # the drips, off its lower edge, well apart (in an even row along it, three pearls on a string; two together, a
-    # clump); each runs down from one of the runs its wet patch sags into
-    d_ang: list[float] = []
-    for a in rng.uniform(0.25 * math.pi, 0.75 * math.pi, 24):
-        if len(d_ang) < WALL_DRIPS[0] and all(abs(float(np.angle(np.exp(1j * (a - b))))) > 0.35 for b in d_ang):
-            d_ang.append(float(a))
-    md = len(d_ang)
+    # its lower edge creeping down as the film drains, in narrow runs well apart (in an even row along it, a comb; two
+    # together, a clump), each its own length, setting off on its own frame and slowing, a bead at its head; the
+    # drips break off the first few and slide on down the wall
+    def soaked(t):  # the patch's radius px ``t`` frames after the hit
+        return radius(t) * (1.0 + WALL_SOAK[0] * float(_ss(0.0, WALL_SOAK[1], t)))
+
+    def creep(t):  # how far its whole lower edge has crept down (of its radius)
+        return WALL_CREEP[0] * (1.0 - math.exp(-max(t - WALL_SAG[0], 0.0) / WALL_CREEP[1]))
+
+    r_ang: list[float] = []
+    for a in rng.uniform(0.2 * math.pi, 0.8 * math.pi, 64):
+        if len(r_ang) < int(rng.integers(WALL_SAG[1][0], WALL_SAG[1][1] + 1)) and all(
+                abs(float(np.angle(np.exp(1j * (a - b))))) > 0.15 for b in r_ang):
+            r_ang.append(float(a))
+    nr = len(r_ang)
+    r_wid = rng.uniform(*WALL_SAG[3], nr)
+    r_len = WALL_SAG[2][0] + (WALL_SAG[2][1] - WALL_SAG[2][0]) * rng.uniform(0.0, 1.0, nr) ** 2.5  # (most short)
+    r_t0 = WALL_SAG[0] + rng.uniform(*WALL_RUN[0], nr)
+    r_tau = rng.uniform(*WALL_RUN[1], nr)
+    md = min(WALL_DRIPS[0], nr)
+    r_len[:md] = np.maximum(r_len[:md], 0.6 * WALL_SAG[2][1])  # (the drips break off the long ones)
+
+    def run_len(t):  # each run's length (of the radius) ``t`` frames after the hit, and how fast it grows a frame
+        e_ = np.exp(-np.maximum(t - r_t0, 0.0) / r_tau)
+        return r_len * (1.0 - e_), np.where(t > r_t0, r_len / r_tau * e_, 0.0)
+
+    def heads(t):  # px on the room's wall of each run's head, and how fast it moves down (px a frame)
+        rs = soaked(t)
+        ln_, v_ = run_len(t)
+        top = centre(t) + np.stack([np.cos(r_ang), np.sin(r_ang)], -1) * _body(np.array(r_ang), rs, wob)[:, None]
+        return top + np.c_[np.zeros(nr), (creep(t) + ln_) * rs], v_ * rs
+
     d_born = WALL_DRIPS[4] + np.r_[0.0, np.cumsum(rng.uniform(*WALL_DRIPS[5], max(md - 1, 0)))].round()[:md]
-    d_start = c0 + (edge(np.array(d_ang), d_born) - c0) * 0.95  # setting off from just inside the edge
-    n_runs = max(md, int(rng.integers(WALL_SAG[1][0], WALL_SAG[1][1] + 1)))
-    r_ang = np.r_[d_ang, rng.uniform(0.2 * math.pi, 0.8 * math.pi, n_runs - md)]
-    runs = tuple(zip(r_ang.tolist(), rng.uniform(*WALL_SAG[3], n_runs).tolist(),
-                     (rng.uniform(*WALL_SAG[2], n_runs) * np.r_[np.full(md, 1.3), np.ones(n_runs - md)]).tolist()))
+    d_start = np.array([heads(float(b))[0][j] for j, b in enumerate(d_born)]).reshape(-1, 2)
+    d_ang = r_ang[:md]
     ang = np.r_[ang, f_ang, d_ang]
     rb = np.r_[rb, t_r, R * rng.uniform(*WALL_DRIPS[1], md)]
     far = np.r_[far, t_far, np.zeros(md)]
@@ -2347,7 +2372,7 @@ def _wall(scenes: list, drops: Drops, hit: tuple, n: int, cam: np.ndarray | None
     d_sp = np.c_[np.cos(a_sp), np.sin(a_sp), rng.uniform(0.1, 0.6, nsp)]
     p_sp = np.c_[np.array([xh, yh]) + d_sp[:, :2] * R * rng.uniform(0.8, 1.15, (nsp, 1)), np.full(nsp, zh)]
     drops.add(kh, p_sp, d_sp * rng.uniform(*WALL_SPRAY[1], (nsp, 1)) * pace, R * _sizes(rng, nsp, *WALL_SPRAY[2], 1.5),
-              foam=0.0, life=rng.uniform(3, SPRAY_LIFE, nsp), fade=SPRAY_LIFE / 2, g=g)
+              foam=0.0, life=rng.uniform(*WALL_SPRAY[3], nsp), fade=4.0, g=g)
     nc = max(3, int(WALL_CROWN[0] * (0.4 + 0.6 * size)))  # and bigger drops off its rim, towards the camera
     a_c = rng.uniform(0.0, 2.0 * math.pi, nc)
     d_c = np.c_[np.cos(a_c), np.sin(a_c)]
@@ -2380,11 +2405,16 @@ def _wall(scenes: list, drops: Drops, hit: tuple, n: int, cam: np.ndarray | None
         ln = f_len * grown(t)
         short = np.minimum(ln, FINGER_DRAIN[1])  # draining into its tip's drop
         ln = short + (ln - short) * math.exp(-max(t - FINGER_DRAIN[0], 0.0) / FINGER_DRAIN[2])
-        film = [Sheet(c[0], c[1], radius(t) * (1.0 + WALL_SOAK[0] * float(_ss(0.0, WALL_SOAK[1], t))),
-                      tuple(zip(f_ang.tolist(), ln.tolist(), f_wid.tolist(), f_bead.tolist())), wob,
-                      R * (WALL_THICK[0] * math.exp(-t / WALL_THICK[1]) + WALL_THICK[2]), math.exp(-t / WALL_THICK[1]),
-                      look, wet, WALL_FROTH[0] * max(0.0, 1.0 - t / WALL_FROTH[1]) ** 2,
-                      float(_ss(WALL_SAG[0], WALL_SAG[0] + WALL_SAG[5], t)), runs)]
+        rs_t, ln_runs = soaked(t), run_len(float(t))[0]
+        film = [Sheet(c[0], c[1], rs_t, tuple(zip(f_ang.tolist(), ln.tolist(), f_wid.tolist(), f_bead.tolist())),
+                      wob, R * (WALL_THICK[0] * math.exp(-t / WALL_THICK[1]) + WALL_THICK[2]),
+                      math.exp(-t / WALL_THICK[1]), look, wet, WALL_FROTH[0] * max(0.0, 1.0 - t / WALL_FROTH[1]) ** 2,
+                      creep(t), tuple(zip(r_ang, r_wid.tolist(), ln_runs.tolist())))]
+        hp, hv = heads(float(t))  # each run's head: a bead of the water collecting there, swelling as it runs
+        hp = at(hp)
+        for j in np.flatnonzero(ln_runs * rs_t > 1.0):
+            rh = WALL_RUN[2] * r_wid[j] * rs_t * float(_ss(1.0, 6.0, ln_runs[j] * rs_t))
+            film.append(Bead(hp[j, 0], hp[j, 1] - 0.5 * rh, rh, 0.0, float(hv[j]), 1.0, float(r_ang[j] * 7.0)))
         age = t - born
         on = age >= 0
         if on.any():
@@ -2405,7 +2435,7 @@ def _wall(scenes: list, drops: Drops, hit: tuple, n: int, cam: np.ndarray | None
                     film.append(Trail(P0[j, 0], P0[j, 1], P1[j, 0], P1[j, 1], rn[j]))
             for j in np.flatnonzero(on & (a > 0.01)):
                 film.append(Bead(P1[j, 0], P1[j, 1], rn[j], V[j, 0], V[j, 1], float(a[j]), float(ph[j])))
-        scenes[k].film = film
+        scenes[k].film = scenes[k].film + film
     return falling
 
 
@@ -2449,7 +2479,7 @@ def _film(P: np.ndarray, items: list, matte: np.ndarray | None, room: Room, k: i
     for it in items:
         if isinstance(it, Sheet):
             ext = max((ln + hw * bd for _, ln, hw, bd in it.fingers), default=0.0)
-            sag = it.sag * max((ln for _, _, ln in it.runs), default=0.0)
+            sag = it.sag + max((ln for _, _, ln in it.runs), default=0.0)
             reach = (it.r * (1.0 + sum(abs(a) for _, a, _ in it.wobble) + ext + sag + 3.0 * WALL_ROUND[0])
                      + 3.0 * WALL_ROUND[1] + WALL_EDGE[0] + 6)
             b = box(it.x, it.y, reach)
@@ -2480,23 +2510,29 @@ def _film(P: np.ndarray, items: list, matte: np.ndarray | None, room: Room, k: i
             rays = (rays + WALL_RAYS[1] * jets) * _ss(0.45, 0.9, u).astype(np.float32)
             towards = (dx * kx + dy * ky) / np.maximum(rho, 1.0)  # its side towards the key light, -1..1
             patch = P[y0:y1, x0:x1]
-            # the wet patch: the sheet's outline rounded (blurred and cut again), sagging into its runs, feathered
+            # the wet patch: the sheet's outline rounded (blurred and cut again), its lower edge crept down and run
+            # down in its runs, feathered
             wm = cv2.GaussianBlur(_ss(-1.0, 1.0, din).astype(np.float32), (0, 0), max(0.8, WALL_ROUND[0] * it.r))
             wm = _ss(0.3, 0.7, wm).astype(np.float32)
             collect = 0.0
-            if it.sag > 0.0 and it.runs:
+            if sag > 0.0:
                 fall = np.zeros(xx.shape[1], np.float32)
                 for ang, wd, ln in it.runs:
                     xr = math.cos(ang) * float(_body(ang, it.r, it.wobble))
-                    fall += np.float32(ln) * np.exp(-((dx[0] - xr) / (wd * it.r)) ** 2)
+                    fall = np.maximum(fall, np.float32(ln) * np.exp(-((dx[0] - xr) / (wd * it.r)) ** 2))
+                fall += np.float32(it.sag) * (WALL_CREEP[2][0] + (1.0 - WALL_CREEP[2][0])
+                                              * np.exp(-(dx[0] / (WALL_CREEP[2][1] * it.r)) ** 2))
                 down = _ss(-0.1, 0.6, dy / it.r).astype(np.float32)
-                wm = cv2.remap(wm, xx - x0, (yy - y0 - np.float32(it.sag * it.r) * fall[None, :] * down).astype(
-                    np.float32), cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-                collect = WALL_SAG[4] * it.sag * _ss(0.3, 1.1, dy / it.r)
+                wm = cv2.remap(wm, xx - x0, (yy - y0 - np.float32(it.r) * fall[None, :] * down).astype(np.float32),
+                               cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+                collect = WALL_SAG[4] * _ss(0.3, 1.1, dy / it.r) * min(1.0, it.sag / (0.25 * WALL_CREEP[0]))
             wm = cv2.GaussianBlur(wm, (0, 0), WALL_ROUND[1]) * free
             soft = 1.0 + WALL_WET[4] * _ss(0.6, 1.0, u)
-            wetten(patch, it.wet * wm * np.clip(1.0 + 0.2 * rays, 0.7, 1.3) * soft * (1.0 + collect))
-            patch += (WALL_WET[2] * it.wet * wm * (_ss(-0.6, 1.0, towards) + collect))[..., None] * lit
+            film = np.clip(1.0 + WALL_FILM[0] * (1.0 - u * u) + 0.2 * rays
+                           + WALL_FILM[1] * noise.flow(14, dx, dy, 0.0, 0.0, 0, WALL_FILM[2] * it.r), 0.4, 1.9)
+            wetten(patch, it.wet * wm * film * soft * (1.0 + collect))
+            patch += ((WALL_WET[2] * _ss(-0.6, 1.0, towards) + WALL_GLOSS * collect * (0.35 + 0.65 * _ss(
+                -0.6, 1.0, towards))) * it.wet * wm)[..., None] * lit
             if it.look > 0.01:  # the running water
                 rw = WALL_RIM[0] * (1.0 + 0.6 * it.dome)  # (thick at the hit, where the ball's skin lands)
                 e = np.clip(edge / rw, 0.0, 1.0)
@@ -2628,9 +2664,16 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
     rng = _rng(seed, _ORB)
     e = np.clip(_tsmooth(tl.energy, VOICE_SMOOTH), 0, 1)
     drops = Drops(cam, size, float(np.median(hand.s)))
-    gather = [(rng.uniform(0, 2 * math.pi), rng.uniform(*GATHER_FROM), rng.uniform(*GATHER_R), rng.uniform(-0.8, 0.8),
-               rng.uniform(0.0, 0.15), rng.uniform(g0 + 0.6 * (g1 - g0), g1), rng.choice([-1.0, 1.0]))
-              for _ in range(GATHER_DROPS)]
+    span = max(g1 - g0, 1)
+    gather = []  # the drops it gathers from: (angle, how far out (radii), size, depth off it, set off, arrive, spin)
+    for _ in range(GATHER_DROPS):
+        ta = g0 + span * (0.2 + 0.8 * math.sqrt(rng.uniform()))  # (more of them late, as the ball grows)
+        trip = rng.uniform(*GATHER_TRIP) * span / GATHER
+        ts = max(float(g0) - 0.5, ta - trip)
+        d0 = max(1.2, rng.uniform(*GATHER_FROM) * (ta - ts) / trip)  # (one setting off late comes from nearer)
+        gather.append((rng.uniform(0, 2 * math.pi), d0, rng.uniform(*GATHER_R), rng.uniform(-0.8, 0.8), ts, ta,
+                       rng.choice([-1.0, 1.0])))
+    g_seed = min(ta for *_, ta, _ in gather)  # the first drops reach it: its seed
     bub = _unit(rng.normal(size=(BUBBLES, 3))) * rng.uniform(0.15, 0.7, (BUBBLES, 1)) ** (1 / 3)
     bub_r = _sizes(rng, BUBBLES, *BUBBLE_R, 1.5)
     rise = BUBBLE_RISE * rng.uniform(0.5, 1.5, BUBBLES) * (bub_r / BUBBLE_R[1]) ** 0.5  # the bigger, the faster
@@ -2640,6 +2683,7 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
     phase = {l: (rng.uniform(0, 2 * math.pi), rng.uniform(0, 2 * math.pi), rng.uniform(-0.6, 0.6)) for l in (3, 4)}
     jolts = dict(plan.jolts)
     jolt_at: list[tuple[int, float]] = []  # (frame, size): for the lobes' ringing
+    squash: list[tuple] = []  # (frame, size, the unit aim): the hits it squashes on
     rings: list[tuple] = []  # (frame, unit offset from the centre, size)
     spring = None
     m2, m2v = np.zeros(2), np.zeros(2)
@@ -2651,6 +2695,8 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
     # centre None: burst
     falling: list[tuple] = []  # drops to let go off the wall later (_wall)
     landed: list[tuple] = []  # drips landed on the palm: (frame, px off the palm's point, radius)
+    sat = None  # where it sat on the palm, left wet as it leaves: (frame, px off the palm's point, its radius, the
+    # drops left there: (m, 2) px off that, (m,) radii)
     for k in range(g0, n):
         sc = scenes[k]
         p, nrm, s = hand.p[k], hand.nrm[k], float(hand.s[k])
@@ -2658,6 +2704,20 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
         for kf, xf, vf, rf, gf in falling:
             if kf == k:
                 drops.add(k, xf, vf, rf, foam=0.05, g=gf)
+        if sat is not None:  # the palm where it sat, wet, with a few drops left on it, carried on the palm, drying
+            ks, off, rs_, d_off, d_r = sat
+            age = k - ks
+            on = float(_ss(-0.5, PALM_WET[2], age)) * 0.5 ** (age / (0.5 * PALM_WET[3]))
+            rw = PALM_WET[1] * rs_
+            across = math.atan2(float(nrm[1]), float(nrm[0])) + 0.5 * math.pi
+            squash_ = max(abs(float(nrm[2])), 0.5)
+            sc.wet.append((p[0] + off[0], p[1] + off[1], rw, rw * squash_, across, PALM_WET[0] * on, float(ks), 0.0,
+                           PALM_WET[4]))
+            if age >= 1:
+                for (dx_, dy_), r_ in zip(d_off, d_r):
+                    at = np.array([p[0] + off[0] + dx_, p[1] + off[1] + dy_ * squash_])
+                    zl = float(hand.depth(k, np.float32([at[0]]), np.float32([at[1]]), fingers=False)[0])
+                    sc.blobs.append(Blob(at[0], at[1], zl + 0.5 * r_, r_, free=True, flat=0.6))
         for kl, off, rd in landed:  # a wet dot where a drip landed, carried on the palm, drying
             if kl <= k < kl + DRIP_WET[1]:  # (round on the palm, seen squashed as it turns from the camera)
                 dry = 1.0 - (k - kl) / DRIP_WET[1]
@@ -2683,26 +2743,50 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 spring = _Spring(target, *ORB_SPRING)
             acc = spring.step(target)
             c = spring.x
-            if k in jolts:  # a hit while it is held jolts it, sends a ripple over it and spits drops
-                z = jolts[k]
+            if k in jolts:  # a hit while it is held squashes it along the aim and hops it, sends a ripple over it,
+                # flares the light it focuses and flings drops out round it
+                z = min(float(jolts[k]), 1.0)
+                aim = _aim(tl, hand, k)
                 ang = rng.uniform(0, 2 * math.pi)
                 m2v += JOLT[0] * z * 2 * math.pi * MODE_HZ[2] * np.array([math.cos(ang), math.sin(ang)])
                 jolt_at.append((k, z))
+                squash.append((k, z, aim))
+                spring.v[:2] += aim * HIT_SQUASH[4] * R * 2.0 * math.pi * ORB_SPRING[0] * 1.6
                 off = _unit(rng.normal(size=2)) * rng.uniform(*RING_FROM)
                 rings.append((k, np.array([off[0], off[1], math.sqrt(1.0 - off @ off)]), z))
-                m = max(1, int(round(JOLT[1] * z)))
-                d = _unit(rng.normal(size=(m, 3)) + 0.6 * nrm)
-                drops.add(k, c + d * R * 1.15, spring.v / FPS + d * rng.uniform(2.5, 4.5, (m, 1)) * s / FPS,
-                          R * rng.uniform(0.03, 0.05, m))  # (spat from inside its rim, they sat on it like seeds)
+                m = int(round(JOLT[1][0] + (JOLT[1][1] - JOLT[1][0]) * z))
+                across = np.array([-aim[1], aim[0]])
+                th_ = rng.uniform(0.0, 2.0 * math.pi, m)  # out round its middle, squeezed out across the aim...
+                d = _unit(np.c_[np.outer(np.cos(th_), across) + np.outer(0.6 * np.sin(th_), aim),
+                                rng.uniform(-0.5, 0.5, m)])
+                v_ = (d + 0.35 * np.r_[aim, 0.0]) * rng.uniform(*JOLT[2], (m, 1)) * s / FPS  # ... thrown up with it
+                wide = 1.0 / math.sqrt(1.0 - HIT_SQUASH[0][0] - (HIT_SQUASH[0][1] - HIT_SQUASH[0][0]) * z)  # (its
+                # reach across, squashed)
+                drops.add(k, c + d * R * (wide + 0.1), spring.v / FPS + v_, s * _sizes(rng, m, *JOLT[3], 1.5))  # (spat
+                # from inside its rim, they sat on it like seeds)
             w2 = 2 * math.pi * MODE_HZ[2]
             drive = -acc[:2] / max(s, 1.0) * MODE2_DRIVE
             m2v += (-(w2 ** 2) * m2 - 2 * MODE2_DAMP * w2 * m2v + drive * w2 ** 2) / FPS
             m2 += m2v / FPS
-            vol = float(_ss(g0 + 0.15 * (g1 - g0), g1, k)) if k < g1 else 1.0
-            r = R * vol ** (1 / 3)
+            if k < g1:  # a seed when the first drops reach it, growing evenly as the rest come in
+                r = R * (GATHER_SEED + (1.0 - GATHER_SEED) * float(_ss(g_seed, g1, k))) if k >= g_seed - 0.5 else 0.0
+            else:
+                r = R
+            vol = (r / R) ** 3
             st = float(np.hypot(*m2))
             u2 = m2 / st if st > 1e-6 else np.array([1.0, 0.0])
             k2 = 1.0 + min(MODE2_MAX, st)
+            shape = np.asarray(_shape(u2, k2, 1.0 / math.sqrt(k2))).reshape(2, 2)
+            for kj, zj, aj in squash:  # squashed along the aim on a hit, then springing back through a stretch
+                age = k - kj
+                if 0 <= age < 6 * HIT_SQUASH[3]:
+                    ring_ = 1.0 if age < HIT_SQUASH[1] else (
+                        math.cos(2.0 * math.pi * (age - HIT_SQUASH[1] + 1) / HIT_SQUASH[2])
+                        * math.exp(-(age - HIT_SQUASH[1] + 1) / HIT_SQUASH[3]))
+                    q_ = 1.0 - (HIT_SQUASH[0][0] + (HIT_SQUASH[0][1] - HIT_SQUASH[0][0]) * zj) * ring_
+                    shape = np.asarray(_shape(aj, q_, 1.0 / math.sqrt(q_))).reshape(2, 2) @ shape
+                    if age < 2:
+                        sc.flare = max(sc.flare, 1.0 + HIT_FLARE[age] * zj)
             modes = []
             for l in (3, 4):
                 ph0, psi, drift = phase[l]
@@ -2713,7 +2797,7 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 modes.append((l, amp, ph0 + drift * t))
             v_c = spring.v / FPS
             if r > 0.5:
-                sc.blobs.append(Blob(c[0], c[1], c[2], r, _shape(u2, k2, 1.0 / math.sqrt(k2)), v_c[0], v_c[1],
+                sc.blobs.append(Blob(c[0], c[1], c[2], r, tuple(shape.ravel()), v_c[0], v_c[1],
                                      (CIRCULATE[0] + CIRCULATE[1] * float(e[k])) / FPS, 0.0, tuple(modes),
                                      move=tuple(v_c[:2] * SHUTTER)))
                 sc.held = (c[0], c[1], c[2], r, vol ** GATHER_LIGHT)  # its shade and its focus come on as it
@@ -2722,17 +2806,16 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 sc.lobes = ((2, k2 - 1.0, math.atan2(u2[1], u2[0])), *modes)
                 sc.net = float(_ss(g1, g1 + SPOT_IN, k))
             for ang, d0, rs, z0, ts, ta, spin in gather:  # drops coming together out of the air, spiralling in
-                ts_ = g0 + ts * (g1 - g0)
-                if not ts_ <= k < ta:
+                if not ts <= k < ta:
                     continue
-                u = (k - ts_) / max(ta - ts_, 1.0)
+                u = (k - ts) / max(ta - ts, 1.0)
                 rad = d0 * (1 - u) ** 1.2 * R  # drawn in, slowing as it takes them (rushing in at the end, smeared
                 # into glass seeds round it)
                 a = ang + spin * 1.3 * u
                 dd = np.array([math.cos(a), math.sin(a)])
                 pos = c[:2] + rad * dd
-                vel = -dd * 1.2 * d0 * R * (1 - u) ** 0.2 / max(ta - ts_, 1.0) + v_c[:2]
-                rr = rs * R * float(_ss(0.0, 0.3, u))
+                vel = -dd * 1.2 * d0 * R * (1 - u) ** 0.2 / max(ta - ts, 1.0) + v_c[:2]
+                rr = rs * s * float(_ss(0.0, 0.3, u))  # (condensing out of the air as it sets off)
                 if rad > 0.9 * r and rr > 0.5:  # taken in as it touches it (drawn on over it, the drops arriving
                     # sat on the ball like glass seeds)
                     shape, move = _moving(rr, vel)
@@ -2778,6 +2861,12 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 zp = float(hand.depth(k, np.float32([p[0]]), np.float32([p[1]]))[0])
                 fly = (k, c.copy(), v, R, plan.throw, nrm.copy(), zp - ROOM_DEPTH * max(H, W))
                 left = (c.copy(), R)  # where it left the palm: its shade fades there
+                foot = c[:2] - nrm[:2] * (R + ORB_GAP * s)
+                m = int(rng.integers(PALM_DROPS[0][0], PALM_DROPS[0][1] + 1))
+                a_ = rng.uniform(0.0, 2.0 * math.pi, m)
+                d_off = np.c_[np.cos(a_), np.sin(a_)] * (PALM_DROPS[2] * PALM_WET[1] * R
+                                                         * np.sqrt(rng.uniform(0.0, 1.0, m)))[:, None]
+                sat = (k, foot - p, R, d_off, s * rng.uniform(*PALM_DROPS[1], m))
             k0, c0, v, R0, thrown, nrm0, zw = fly
             tau = k - k0
             gone = hit = False
@@ -2819,11 +2908,20 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 sp = float(np.hypot(*vs))
                 u = vs / max(sp, 1e-6)
                 stretch = 1.0 + min(THROWN_STRETCH, sp / (2.5 * R0)) if thrown else 1.0
-                shape, move = _moving(R0 * kz, vs, stretch)
+                shape, move = _moving(R0 * kz, vs, stretch, THROWN_SHUTTER if thrown else SHUTTER)
                 sc.blobs.append(Blob(xy[0], xy[1], c[2], R0 * kz, shape, vs[0], vs[1], CIRCULATE[0] / FPS,
+                                     THROWN_FOAM * (1.0 - fade) if thrown else 0.0,
                                      modes=tuple((l, a * fade, ph) for l, a, ph in modes), move=move))
                 if fade > 0:
                     sc.bubbles += _air(bub, bub_r, rise, bub_spin, axis, circ, t, xy, R0 * kz, s * kz, fade)
+                if thrown and tau >= 1:  # drops torn off its back, left behind it in a trail
+                    m = int(rng.integers(TRAIL[0][0], TRAIL[0][1] + 1))
+                    f_ = rng.uniform(*TRAIL[2], (m, 1))
+                    tp = xy[None, :] - u[None, :] * R0 * kz * rng.uniform(0.9, 1.3, (m, 1)) + rng.normal(
+                        size=(m, 2)) * 0.25 * R0 * kz
+                    life = (c[2] - zw) / np.maximum(-f_[:, 0] * vel[2], 1e-3)  # (they wet the wall where it does)
+                    drops.add(k, np.c_[tp, np.full(m, c[2])], np.c_[f_ * vs, f_[:, 0] * vel[2]],
+                              R0 * kz * rng.uniform(*TRAIL[1], m), foam=0.05, life=life, fade=2)
                 if thrown and 1 <= tau <= NECK[0]:
                     a = tau / NECK[0]  # how far it has pinched off
                     rn = R0 * kz * 0.3
@@ -2862,37 +2960,26 @@ def _chain(pts: np.ndarray, per: int) -> np.ndarray:
 
 def _swirl(hand: Hand, k: int, root: np.ndarray, u: np.ndarray, phase: float, sweep: float, t: float) -> np.ndarray:
     """(m, 3): the shape the stream holds on frame ``k`` at shares ``u`` of its length: out of the palm at ``root``,
-    swung out over WHIP_RISE of it to a circle round the hand (facing the camera, tipped so one side goes behind the
-    hand), wrapped ``sweep`` turns round it from ``phase`` rad, its lobes running round it (``t`` seconds in)."""
+    rising WHIP_HEIGHT out of the palm, bent towards the picture's up (WHIP_UP), and coiling round that way as it rises
+    (WHIP_COIL, its coil opening over WHIP_RISE of it), ``sweep`` turns round it from ``phase`` rad, its lobes running
+    round it (``t`` seconds in): a tendril of water standing out of the palm."""
     s = float(hand.s[k])
-    along = hand.along[k]
-    tilt = math.radians(WHIP_TILT)
-    axis = _unit(WHIP_FACE * np.array([0.0, 0.0, 1.0]) + (1.0 - WHIP_FACE) * hand.nrm[k])
-    axis = _unit(axis * math.cos(tilt) + along * math.sin(tilt))
-    e1 = _unit(along - (along @ axis) * axis)
+    axis = _unit(hand.nrm[k] + WHIP_UP * np.array([0.0, -1.0, 0.0]))
+    e1 = _unit(np.cross(axis, np.array([0.0, 0.0, 1.0])) + 1e-9)
     e2 = np.cross(axis, e1)
     th = phase + 2.0 * math.pi * sweep * u
-    rho = WHIP_ORBIT * s * _ss(0.0, WHIP_RISE, u)
+    rho = WHIP_COIL * s * _ss(0.0, WHIP_RISE, u)
     rho = rho * (1.0 + WHIP_WOBBLE[0] * np.sin(WHIP_WOBBLE[1] * th - 2.0 * math.pi * WHIP_WOBBLE[2] * t))
-    return root + rho[:, None] * (np.cos(th)[:, None] * e1 + np.sin(th)[:, None] * e2)
-
-
-def _lash(root: np.ndarray, aim: np.ndarray, u: np.ndarray, s: float, age: float) -> np.ndarray:
-    """(m, 3): the stream lashed out straight along ``aim`` (unit, 3) by a hit ``age`` frames ago, a kink running down
-    it from the root to the tail as a whip's loop does."""
-    side = _unit(np.cross(aim, np.array([0.0, 0.0, 1.0])) + 1e-9)
-    at = min(1.0, age / (0.6 * WHIP_CRACK[0]))
-    kink = WHIP_CRACK[2] * s * np.exp(-((u - at) / 0.15) ** 2) * (1.0 - at)
-    return root + np.outer(u * WHIP_CRACK[1] * s, aim) + np.outer(kink, side)
+    return (root + np.outer(WHIP_HEIGHT * s * u, axis)
+            + rho[:, None] * (np.cos(th)[:, None] * e1 + np.sin(th)[:, None] * e2))
 
 
 def _stream(pts: np.ndarray, vel: np.ndarray, rad: np.ndarray, foam: np.ndarray, flow: np.ndarray,
-            arc: np.ndarray, flat: np.ndarray, seen: np.ndarray | None = None, air: np.ndarray | None = None,
-            lie: np.ndarray | None = None) -> list[Blob]:
+            arc: np.ndarray, flat: np.ndarray, lie: np.ndarray | None = None) -> list[Blob]:
     """Blobs along a stream through ``pts`` (m, 3) moving ``vel`` (px a frame), its radius ``rad``, ``arc`` px along
-    it on the picture, ``flat`` its thickness against a tube's (Blob.flat), ``seen``, ``air`` and ``lie`` (Blob's): at
-    most WHIP_SPACING of their radius apart, each weighted by its share of the stream (_tube_weight), so the stream is
-    a tube of that radius, blurred by its motion over the shutter."""
+    it on the picture, ``flat`` its thickness against a tube's (Blob.flat), ``lie`` how much of it lies on the skin
+    (Blob.lie): at most WHIP_SPACING of their radius apart, each weighted by its share of the stream (_tube_weight), so
+    the stream is a tube of that radius, blurred by its motion over the shutter."""
     keep = [0]
     for i in range(1, len(pts)):
         if arc[i] - arc[keep[-1]] >= WHIP_SPACING * rad[i] or i == len(pts) - 1:
@@ -2910,9 +2997,21 @@ def _stream(pts: np.ndarray, vel: np.ndarray, rad: np.ndarray, foam: np.ndarray,
         w = _tube_weight(shape, rad[i] * SIG_K, t, max(gap[j], 1e-3))
         out.append(Blob(pts[i, 0], pts[i, 1], pts[i, 2], rad[i], shape, flow[i, 0], flow[i, 1], foam=float(foam[i]),
                         w=w, move=move, stream=(float(arc[i]), float(t[0]), float(t[1])), flat=float(flat[i]),
-                        seen=1.0 if seen is None else float(seen[i]), air=0.0 if air is None else float(air[i]),
                         lie=0.0 if lie is None else float(lie[i])))
     return out
+
+
+def _necked(arc: np.ndarray, rad: np.ndarray, neck: np.ndarray, jit: np.ndarray, flowed: float) -> tuple:
+    """Where a stream necks into beads (``neck`` 0..1 along it, ``arc`` px along it, its radius ``rad``): beads
+    WHIP_BEAD[0] of its radii apart, at no set spacing (``jit``, a smooth noise along it), carried out along it with
+    its water, ``flowed`` px so far: (its radius, thinned between them, the indices of the points they sit at, their
+    radii: each holds its length of the stream, as far as it has necked)."""
+    lam = np.maximum(WHIP_BEAD[0] * rad * (1.0 + WHIP_BEAD[2] * np.clip(jit, -1.5, 1.5)), 1.0)  # (evenly spaced, a
+    ph = np.r_[0.0, np.cumsum(np.diff(arc) / lam[1:])] - flowed / float(np.mean(lam))  # barber's pole)
+    beads = np.flatnonzero((np.diff(np.floor(ph)) > 0) & (neck[1:] > 0.05)) + 1
+    rb = (0.75 * rad[beads] ** 2 * lam[beads]) ** (1 / 3) * np.sqrt(neck[beads])
+    seen = rb >= 0.5  # (under half a px, no bead)
+    return rad * (1.0 - WHIP_BEAD[1] * neck), beads[seen], rb[seen]
 
 
 def _skin(matte: np.ndarray, s: float) -> tuple[np.ndarray, int]:
@@ -2952,15 +3051,13 @@ def _off_hand(hand: Hand, k: int, xy: np.ndarray, skin: tuple | None = None) -> 
 
 
 def _pool(hand: Hand, k: int, r: float, t: float, out: np.ndarray, parts: np.ndarray,
-          v: np.ndarray, ring: np.ndarray, foot: float) -> tuple[list, tuple]:
-    """The pool of radius ``r`` on the palm the stream rises out of on frame ``k`` (``t`` seconds in), flat on it (seen
-    squashed as the palm turns from the camera), drawn out a little along ``out`` (the unit direction the stream leaves
-    it in, in the picture) and lying more that way, so the stream widens into it rather than ending in it; an
-    irregular puddle, flat pools run into it (``parts``: (angle, distance and size of its radius, turns a second) each,
-    WHIP_POOL_PARTS), its outline rippling and churning, carried with the palm at `v` px a frame; where the stream
-    leaves it, the water heaves in a rough ring of bumps round its foot (``ring``: (angle, Hz, phase) each,
-    WHIP_BASE; ``foot``: the stream's radius there, px), so the stream grows out of the water rather than standing on
-    it: (its blobs, the wet patch round it on the palm: Scene.wet)."""
+          v: np.ndarray) -> tuple[list, tuple]:
+    """The pool of radius ``r`` on the palm the stream rises out of on frame ``k`` (``t`` seconds in), a thin film flat
+    on it (seen squashed as the palm turns from the camera), drawn out a little along ``out`` (the unit direction the
+    stream leaves it in, in the picture) and lying more that way, so the stream widens into it rather than ending in it;
+    an irregular puddle, flat pools run into it (``parts``: (angle, distance and size of its radius, turns a second)
+    each, WHIP_POOL_PARTS), its outline rippling, carried with the palm at `v` px a frame: (its blobs, the wet skin
+    round it on the palm: Scene.wet)."""
     p, nrm = hand.p[k], hand.nrm[k]
     zp = float(hand.depth(k, np.float32([p[0]]), np.float32([p[1]]))[0])
     c = np.array([p[0], p[1], zp]) + nrm * 0.5 * WHIP_POOL[1] * r
@@ -2983,28 +3080,137 @@ def _pool(hand: Hand, k: int, r: float, t: float, out: np.ndarray, parts: np.nda
         blobs.append(Blob(c[0] + off[0], c[1] + off[1], c[2], size * r, tuple(disc.ravel()), v[0], v[1],
                           foam=0.5 * WHIP_POOL[2], flat=WHIP_POOL[1],
                           modes=((2, 0.5 * a * math.sin(2 * math.pi * 1.3 * t + ang), ang - t),)))
-    dist, size = WHIP_BASE[1:3]
-    for ang, hz, ph in ring:  # the rough ring of water heaving round the stream's foot, each bump swelling on its own
-        th = ang + 0.4 * math.sin(2.0 * math.pi * 0.6 * hz * t + ph)
-        off = disc @ np.array([math.cos(th), math.sin(th)]) * dist * foot
-        rr = size * foot * (0.7 + 0.3 * math.sin(2.0 * math.pi * hz * t + 2.0 * ph))
-        blobs.append(Blob(p[0] + off[0], p[1] + off[1], c[2], rr, tuple(disc.ravel()), v[0], v[1],
-                          foam=WHIP_BASE[3], flat=WHIP_POOL[1], stream=(0.0, float(out[0]), float(out[1]))))
-    wet = (c[0], c[1], WHIP_WET * r, WHIP_WET * r * squash, math.atan2(un[1], un[0]) + 0.5 * math.pi, 0.08, 0.0, 0.0,
-           0.3)
+    wet = (c[0], c[1], WHIP_WET[0] * r, WHIP_WET[0] * r * squash, math.atan2(un[1], un[0]) + 0.5 * math.pi,
+           WHIP_WET[1], 0.0, 0.0, WHIP_WET[2])
     return blobs, wet
+
+
+@dataclass
+class Flung:
+    """The stream's water a hit flings out along the aim (the lash), node by node from its root to its tail, in the
+    picture's px at the depth it was flung from (seen in perspective from there)."""
+
+    k: int  # the hit's frame
+    x: np.ndarray  # (N, 3) px and depth
+    v: np.ndarray  # (N, 3) px a frame
+    u: np.ndarray  # (N,) how far along it, 0 at its root to 1 at its tail
+    r: np.ndarray  # (N,) radius px, as it was flung
+    seg: np.ndarray  # (N,) px of the stream each node stands for, as it was flung
+    breaks: np.ndarray  # (N,) frames after the hit each node's water breaks into drops (inf: it falls back)
+    broken: np.ndarray  # (N,) bool
+    size: float  # how hard
+    wall: float  # the room's wall's depth
+    struck: bool = False  # it has struck the wall
+
+
+def _fling(k: int, x: np.ndarray, v: np.ndarray, aim: np.ndarray, size: float, s: float, wall: float, rng) -> Flung:
+    """The stream (nodes ``x`` (N, 3) px, moving ``v`` px a second) flung on frame ``k`` by a hit ``size`` strong
+    along ``aim`` (unit, in the picture): its tail fastest, its root still, curling round from its root's way, and away
+    from the camera into the room as fast as along it (LASH_*); tapering from LASH_R's root to its tail."""
+    u = np.linspace(0.0, 1.0, len(x))
+    sp = LASH_SPEED[0] * (LASH_SPEED[1] + (1.0 - LASH_SPEED[1]) * min(size, 1.0)) * s * u ** LASH_SPEED[2]
+    ang = LASH_CURL * float(rng.choice([-1.0, 1.0])) * (u - 0.5)
+    d = np.c_[aim[0] * np.cos(ang) - aim[1] * np.sin(ang), aim[0] * np.sin(ang) + aim[1] * np.cos(ang)]
+    vel = np.c_[d * sp[:, None], -LASH_RECEDE * sp] + 0.3 * v / FPS
+    arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(x, axis=0), axis=1))]
+    seg = np.maximum(np.gradient(arc), 1e-3)
+    r = s * (LASH_R[0] * (1.0 - u) ** 1.2 + LASH_R[1])
+    breaks = np.where(u >= LASH_BREAK[2], LASH_BREAK[0] + (1.0 - u) / (1.0 - LASH_BREAK[2]) * LASH_BREAK[1], np.inf)
+    return Flung(k, x.copy(), vel, u, r, seg, breaks, np.zeros(len(x), bool), size, wall)
+
+
+def _lash(F: Flung, k: int, root: np.ndarray, s: float, size_hw: tuple, thrown: Drops, scenes: list, n: int,
+          cam: np.ndarray | None, rng, width: np.ndarray, cell: float) -> tuple[list, list]:
+    """The flung stream on frame ``k``: moved on a frame (gravity, and the air holding back a jet tearing into drops,
+    LASH_DRAG), its nodes breaking into drops from its tail back (LASH_BREAK), necked into beads joined by threads just
+    before (LASH_NECK; ``width``, a smooth noise its beads are spaced by, its features ``cell`` hand sizes), the drops
+    flying on (``thrown``) and, if they reach the room's wall, striking it as a wet streak (_wall, LASH_WALL); what is
+    left at its root falls back and drains into the pool. Its root rides the palm (``root``; ``s`` a hand's size px,
+    ``size_hw`` the picture's). Returns (its blobs, drops to let go later off the wall streak)."""
+    H, W = size_hw
+    age = k - F.k
+    g = G * s / FPS ** 2
+    zcam = ZCAM * s
+    F.v[:, 1] += g
+    F.v *= DRAG
+    F.v[~F.broken, :2] *= LASH_DRAG / DRAG
+    F.x += F.v
+    F.x[0] = root
+    ctr = np.array([W / 2.0, H / 2.0])
+    kz = zcam / np.maximum(zcam - (F.x[:, 2] - root[2]), 0.2 * zcam)
+    xy = ctr + (F.x[:, :2] - ctr) * kz[:, None]
+    stretch = np.maximum(np.linalg.norm(np.gradient(F.x, axis=0), axis=1) / F.seg, 1.0)
+    rad = F.r / stretch ** 0.35 * kz
+    falling = []
+    new = np.flatnonzero(~F.broken & (age >= F.breaks))
+    if new.size:  # each length of it beads up into a drop with a few satellites, flying on
+        F.broken[new] = True
+        rb = np.minimum(LASH_DROPS[0] * rad[new], (0.75 * rad[new] ** 2 * F.seg[new] * kz[new]) ** (1 / 3))
+        vz = F.v[new, 2]
+        life = np.where(vz < -1e-3, (F.x[new, 2] - F.wall) / np.maximum(-vz, 1e-3), np.inf)  # (gone into the wall)
+        p3 = np.c_[xy[new], F.x[new, 2]]
+        v3 = np.c_[F.v[new, :2] * kz[new, None], vz]
+        thrown.add(k, p3, v3, rb, foam=0.05, life=life + 1.0, fade=1.0)
+        m, (lo, hi) = LASH_DROPS[1], LASH_DROPS[2]
+        tang = _unit(np.gradient(xy, axis=0)[new] + 1e-9)
+        for j in range(m):
+            off = tang * (F.seg[new] * kz[new] * rng.uniform(-0.6, 0.6, new.size))[:, None]
+            thrown.add(k, np.c_[xy[new] + off, F.x[new, 2]], v3 * rng.uniform(0.9, 1.1, (new.size, 1)),
+                       rb * rng.uniform(lo, hi, new.size), life=life + 1.0, fade=1.0)
+    m = int(round(LASH_SPRAY * min(F.size, 1.0) / 2)) if age <= 1 else 0
+    if m:  # flung out, its tail tears into threads and drops flung on ahead of it and away from it
+        i = rng.choice(np.flatnonzero(F.u > 0.6), m)
+        lead = _unit(F.v[i, :2] + 1e-9)
+        vz = F.v[i, 2] * rng.uniform(*WHIP_TORN[1], m)
+        life = np.where(vz < -1e-3, (F.x[i, 2] - F.wall) / np.maximum(-vz, 1e-3), np.inf)
+        thrown.add(k, np.c_[xy[i] + lead * rad[i, None], F.x[i, 2]],
+                   np.c_[F.v[i, :2] * kz[i, None] * rng.uniform(*WHIP_TORN[1], (m, 1))
+                         + lead * rng.uniform(1.0, 3.0, (m, 1)) * s / FPS, vz],
+                   s * _sizes(rng, m, *WHIP_TORN[0], 1.5), life=np.minimum(life, rng.uniform(3, 7, m)), fade=2,
+                   stretch=np.where(rng.random(m) < WHIP_THREADS, rng.uniform(2.5, 5.0, m), 1.0))
+    out = F.u > 0.6  # its outer part striking the wall: a wet streak there, drawn out the way it went
+    if not F.struck and F.broken[out].all() and float(F.x[out, 2].mean()) <= F.wall:
+        F.struck = True
+        kw = float(kz[out].mean())
+        at = xy[out].mean(0)
+        way = F.v[out, :2].mean(0)
+        rw = LASH_WALL[0] * s * kw * (0.6 + 0.4 * F.size) ** (1 / 3)
+        falling = _wall(scenes, thrown, (k, at[0], at[1], F.wall, rw, s * kw, way / max(float(np.hypot(*way)), 1e-6),
+                                         F.size), n, cam, rng, LASH_WALL[1])
+    whole = np.flatnonzero(~F.broken)
+    if whole.size < 2:
+        return [], falling
+    last = int(whole.max()) + 1  # from its root out to where it has broken
+    drain = 1.0 - float(_ss(LASH_BACK[0] - 1.0, LASH_BACK[0] + 1.0, age))  # (what is left falls back into the pool)
+    pts = _chain(np.c_[xy[:last], F.x[:last, 2]], 4)
+    vel = _chain(np.c_[F.v[:last, :2] * kz[:last, None], F.v[:last, 2]], 4)
+    arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts[:, :2], axis=0), axis=1))]
+    q = np.linspace(0.0, last - 1.0, len(pts))
+    r_ = np.interp(q, np.arange(last), rad[:last]) * drain
+    neck = np.interp(q, np.arange(last), np.clip((age - (F.breaks[:last] - LASH_NECK)) / LASH_NECK, 0.0, 1.0))
+    jit = np.interp(((arc / s) / cell + 0.5 * len(width)) % (len(width) - 1), np.arange(len(width)), width)
+    r_, beads, rb = _necked(arc, r_, neck, jit, 0.0)
+    foam = WHIP_FOAM[0] + WHIP_FOAM[2] * _ss(0.3, 1.0, q / max(last - 1.0, 1.0))
+    blobs = _stream(pts, vel, r_, foam, vel[:, :2], arc, np.ones(len(pts)))
+    for i, rr in zip(beads, rb):
+        shape, move = _moving(rr, vel[i, :2])
+        blobs.append(Blob(pts[i, 0], pts[i, 1], pts[i, 2], rr, shape, vel[i, 0], vel[i, 1], foam=float(foam[i]),
+                          move=move))
+    return blobs, falling
 
 
 def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], seed: int,
                 cam: np.ndarray | None, matte: np.ndarray | None = None) -> list[Scene]:
     """The whip, frame by frame (see the module's docstring and whip_plan): each node of the stream is held to the
-    swirl it makes round the hand (_swirl) by a spring, stiff at the root and soft at the tail, so when the hand
-    moves the stream trails it like a ribbon; a hit lashes it out along the aim (_lash). It rises, churning, out of a
-    pool on the palm, swells and thins along its length as bulges run down it, thins to its tail and frays there into
-    beads flowing out along it; fast, it froths, sheds drops and sprays off its tail. It is worked in the picture's px
-    (the hand and a first-person camera move together); the drops it sheds fly in the room's. ``matte`` (n, H, W)
-    uint8, if given, says where the hand's skin is under it (_off_hand)."""
+    swirl it makes over the palm (_swirl) by a spring, stiff at the root and soft at the tail, so when the hand moves
+    the stream trails it; a hit flings its water out along the aim (_fling, _lash), and it pours out of the pool again
+    after. It rises out of a thin pool on the palm, swells and thins along its length as bulges run down it, thins to
+    its tail and frays there into beads flowing out along it, and sprays off its outer part as it swirls; fast, it
+    froths, sheds drops and sprays off its tail. It is worked in the picture's px (the hand and a first-person camera
+    move together); the drops it sheds fly in the room's. ``matte`` (n, H, W) uint8, if given, says where the hand's
+    skin is under it (_off_hand)."""
     n = tl.n
+    H, W = size
     scenes = [Scene() for _ in range(n)]
     plan = whip_plan(tl, track)
     if plan.start >= n:
@@ -3013,6 +3219,7 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
     e = np.clip(_tsmooth(tl.energy, VOICE_SMOOTH), 0, 1)
     drops = Drops(cam, size, float(np.median(hand.s)))
     dripping = Drops(cam, size, float(np.median(hand.s)))  # its drips, falling free of it
+    thrown = Drops(cam, size, float(np.median(hand.s)))  # the water a hit flings, flying free
     trail: list[tuple] = []  # where it has lain on the palm: (frame, (m, 2) px off the palm's point, (m,) radii px)
     N = WHIP_NODES
     u_n = np.arange(N) / (N - 1)
@@ -3037,13 +3244,12 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
     m_p, (d0, d1), (r0, r1), spin = WHIP_POOL_PARTS
     parts = np.stack([prng.uniform(0.0, 2.0 * math.pi, m_p), prng.uniform(d0, d1, m_p), prng.uniform(r0, r1, m_p),
                       prng.uniform(-spin, spin, m_p)], 1)  # the flat pools its puddle is made of
-    m_b = WHIP_BASE[0]
-    ring = np.stack([2.0 * math.pi * (np.arange(m_b) + prng.uniform(-0.3, 0.3, m_b)) / m_b,
-                     prng.uniform(*WHIP_BASE[4], m_b), prng.uniform(0.0, 2.0 * math.pi, m_b)], 1)  # its foot's bumps
     sway = float(prng.uniform(0.0, 2.0 * math.pi))  # the side its flare leans to, swaying
-    whole = 1.0 + WAKE[5]
-    front, broke_at = whole, None  # how far along it its water reaches (past 1: all of it), and the frame its outer
-    # part broke off on, swinging back from a crack (WAKE)
+    cracks = dict(plan.cracks)
+    heard = sounding(tl)
+    poured = plan.start  # the frame it last began to pour out of the pool (again after each hit flings its water)
+    flung: list[Flung] = []
+    falling: list[tuple] = []  # drops to let go off a wall streak later (_wall)
     for k in range(plan.start, n):
         sc = scenes[k]
         p, nrm, s = hand.p[k], hand.nrm[k], float(hand.s[k])
@@ -3051,55 +3257,35 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
         root = np.array([p[0], p[1], zp]) + nrm * WHIP_LIFT * s
         alive = plan.end is None or k < plan.end
         broke = 0 if alive else k - plan.end  # frames since it let go
-        grow = float(_ss(plan.start, plan.start + WHIP_GROW, k))
         t = k / FPS
-        pool_r = WHIP_POOL[0] * WHIP_R[0] * s * max(grow, 0.3) ** 0.5 * (1.0 - float(_ss(0, 2 * WHIP_BREAK, broke)))
+        for kf, xf, vf, rf, gf in falling:
+            if kf == k:
+                thrown.add(k, xf, vf, rf, foam=0.05, g=gf)
+        if alive and k in cracks and x is not None and len(x) > 1:  # a hit flings its water out along the aim
+            flung.append(_fling(k, x, v, _aim(tl, hand, k), cracks[k], s, zp - ROOM_DEPTH * max(H, W), rng))
+            x, poured = None, k + LASH_BACK[1]
+        grow = float(_ss(poured, poured + WHIP_GROW, k))
+        pooled = float(_ss(plan.start, plan.start + WHIP_GROW, k))  # (the pool stays while a hit flings the stream)
+        pool_r = WHIP_POOL[0] * WHIP_R[0] * s * max(pooled, 0.3) ** 0.5 * (1.0 - float(_ss(0, 2 * WHIP_BREAK, broke)))
         if pool_r > 0.5:  # the pool on the palm, draining away once it lets go
             lead = x[min(3, len(x) - 1), :2] - x[0, :2] if x is not None and len(x) > 1 else hand.along[k, :2]
-            foot = s * (WHIP_R[0] + WHIP_R[1]) * max(grow, 0.3) ** 0.5 * (1.0 + WHIP_FLARE[0])  # the stream's root
             blobs, wet = _pool(hand, k, pool_r, t, _unit(np.asarray(lead, np.float64) + 1e-9), parts,
-                               hand.p[k] - hand.p[max(k - 1, 0)], ring, foot)
+                               hand.p[k] - hand.p[max(k - 1, 0)])
             sc.blobs += blobs
             sc.wet.append(wet)
-            chance, r_jump, v_jump = WHIP_BASE[5]
-            if alive and prng.random() < chance * grow:  # now and then a tiny drop jumps off its foot
-                a_ = prng.uniform(0.0, 2.0 * math.pi)
-                d_ = _unit(nrm + 0.6 * np.array([math.cos(a_), math.sin(a_), 0.0]))
-                drops.add(k, root + np.r_[math.cos(a_), math.sin(a_), 0.0] * WHIP_BASE[1] * foot,
-                          d_ * prng.uniform(*v_jump) * s / FPS, prng.uniform(*r_jump) * s, life=4.0, fade=2.0)
         sweep = WHIP_SWEEP[0] + (WHIP_SWEEP[1] - WHIP_SWEEP[0]) * float(e[k])
         phase += 2.0 * math.pi * (WHIP_SPIN[0] + WHIP_SPIN[1] * float(e[k])) / FPS
-        u_t = u_n * max(grow, 0.02)  # poured out: the nodes lie along the part of the swirl out so far
-        target = _swirl(hand, k, root, u_t, phase, sweep, t)
-        crack = lashing = 0.0  # how far it is lashed out, and how much it is still lashing (to the last frames of the
-        # crack, as it swings back: a ribbon only once it is done)
-        for kc, z in plan.cracks:
-            age = k - kc
-            if 0 <= age < WHIP_CRACK[0]:
-                w = (min(1.0, (age + 1) / 2.0) * float(_ss(WHIP_CRACK[0], WHIP_CRACK[5] * WHIP_CRACK[0], age))
-                     * min(1.0, z))
-                lashing = max(lashing, float(_ss(WHIP_CRACK[0], WHIP_CRACK[0] - 3.0, age)))
-                if w > crack:
-                    crack, crack_age = w, age
-        if crack > 0:
-            aim = _aim(tl, hand, k)
-            aim3 = _unit(np.array([aim[0], aim[1], -0.2]))
-            target = (1.0 - crack) * target + crack * _lash(root, aim3, u_t, s, crack_age)
-        breaks = False  # swinging back from a crack, its outer part breaks off into drops on this frame...
-        if crack > 0.99:  # (lashing out, it throws all of its water)
-            front, broke_at = whole, None
-        elif alive and crack < 0.5 and any(k == kc + WAKE[0] for kc, _ in plan.cracks):
-            front, broke_at, breaks = WAKE[3], k, True
-        elif broke_at is not None and k - broke_at >= WAKE[1]:  # ... and once it has, it pours out again
-            front = min(front + (whole - WAKE[3]) / WHIP_GROW, whole)
-        left = (1.0 - WAKE[2]) ** (k - broke_at + 1) if broke_at is not None and k - broke_at < WAKE[1] else 0.0
-        if x is None:
-            x, v, root0 = target.copy(), np.zeros((N, 3)), root
         sc.wave = WAVE[0] + WAVE[1] * float(e[k])
         body = None  # where the stream is on this frame (px), for the drops it sheds
-        if broke <= WHIP_BREAK and len(x):
-            om = 2.0 * math.pi * (WHIP_HZ[0] + (WHIP_HZ[1] - WHIP_HZ[0]) * u_n ** 0.7) * (1.0 + (WHIP_CRACK[3] - 1.0)
-                                                                                         * crack)
+        if x is None and k >= poured and alive and (k == plan.start or heard[min(n - 1, k + WHIP_GROW)]):  # (poured
+            # out again only if the voice sounds on as long as it takes: after its last hit, out for a moment and let
+            # go, it was a stutter)
+            x, v, root0 = _swirl(hand, k, root, u_n * 0.02, phase, sweep, t), np.zeros((N, 3)), root
+            poured = k
+        if x is not None and broke <= WHIP_BREAK and len(x):
+            u_t = u_n * max(grow, 0.02)  # poured out: the nodes lie along the part of the swirl out so far
+            target = _swirl(hand, k, root, u_t, phase, sweep, t)
+            om = 2.0 * math.pi * (WHIP_HZ[0] + (WHIP_HZ[1] - WHIP_HZ[0]) * u_n ** 0.7)
             skin = None if matte is None else _skin(matte[k], s)
             off = _off_hand(hand, k, x[:, :2], skin)  # it sags more where it hangs off the hand (held up as stiffly
             sag = (WHIP_SAG[0] + (WHIP_SAG[1] - WHIP_SAG[0]) * off) * G * s  # there, it was a hose)
@@ -3125,8 +3311,6 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
             speed = np.linalg.norm(vel[:, :2], axis=1) * FPS / max(s, 1.0)  # hand sizes a second
             rad = s * (WHIP_R[0] * (1 - u) ** 0.9 + WHIP_R[1]) * grow ** 0.5
             rad *= 1.0 - WHIP_TIP * _ss(0.8, 1.0, u)  # its tail thins to a point (it ended in a rounded worm's head)
-            rad *= 1.0 + crack * (WHIP_CRACK[4] * _ss(0.15, 0.5, u) + WHIP_CRACK[6] * _ss(0.55, 0.8, u))  # lashing
-            # out, it throws more water, the most at its end
             flare = (WHIP_FLARE[0] * (1.0 - _ss(0.0, WHIP_FLARE[1], u)) * rad  # it rises out of the pool, flaring
                      * (1.0 + WHIP_FLARE[4] * np.sin(2.0 * math.pi * (u / WHIP_FLARE[1] + WHIP_FLARE[3] * t) + sway)))
             rad = rad + flare  # unevenly, and more to one side, the side swaying
@@ -3142,38 +3326,16 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
             rad *= 1.0 + np.clip(WHIP_WIDTH[0] * wide, -WHIP_WIDTH[3], WHIP_WIDTH[3]) * _ss(0.0, 0.1, u)  # (even all
             # along, a tube)
             offp = _off_hand(hand, k, pts[:, :2], skin)
-            flung = _ss(*WHIP_FADE[1], speed / WHIP_SHED)  # (flung out, or swinging back from a lash)
             zs = hand.depth(k, pts[:, 0].astype(np.float32), pts[:, 1].astype(np.float32))
             over = (pts[:, 2] - zs) / np.maximum(rad, 1.0)  # its radii in front of the hand's plane
-            seen = (1.0 - (1.0 - WHIP_FADE[0]) * np.maximum(offp, _ss(0.0, -1.5, over)) * (1.0 - crack)
-                    * (1.0 - flung) if alive else np.ones(len(pts)))  # (swung round behind the hand, seen beside its
-            # fingers, as it is off the hand)
-            aloft, lie = np.zeros(len(pts)), np.zeros(len(pts))  # how much of it is held up in the air (Blob.air), and
-            # lies on the skin (Blob.lie)
-            if alive:
-                lie = ((1.0 - offp) * _ss(RIVULET[4][1], RIVULET[4][0], over) * _ss(-1.0, 0.0, over)
-                       * (1.0 - crack))  # (from its root: its flared foot lying along the palm, taken as held up, was a
-                # clear glass hook; swung round behind the hand it lies on nothing)
-                # held up in the air, over the skin, behind the hand or off it, it is a ribbon (RIBBON), its water
-                # draining out of it; lying on the skin, it spreads into a rivulet, unevenly
-                gap = np.where(over >= 0.0, pts[:, 2] - zs - rad, zs - pts[:, 2])  # px from its underside to the
-                # skin, or behind the hand's plane (swung round behind the hand as a tube, seen between the fingers,
-                # it was a glass ring round them)
-                aloft = ((1.0 - lashing) * (1.0 - lie) * _ss(0.1, 0.2, u)
-                         * (offp + (1.0 - offp) * _ss(0.0, RIBBON[1] * np.maximum(rad, 1.0), gap)))
+            lie = np.zeros(len(pts))  # how much of it lies on the skin (Blob.lie)
+            if alive:  # lying on the skin, it spreads into a rivulet, unevenly (from its root: its flared foot lying
+                # along the palm, taken as held up, was a clear glass hook; swung round behind the hand it lies on
+                # nothing)
+                lie = (1.0 - offp) * _ss(RIVULET[4][1], RIVULET[4][0], over) * _ss(-1.0, 0.0, over)
                 spread = rad * (1.0 + lie * np.maximum(RIVULET[0] + RIVULET[1] * np.clip(wide, -1.5, 1.5), 0.0))
-                rad = np.minimum(spread, np.maximum(rad, RIVULET[5] * s)) * (1.0 - (1.0 - RIBBON[0]) * aloft)
-                if breaks:  # swinging back from a crack its outer part breaks into drops that fall, the tail's first
-                    m = int(rng.integers(WAKE[4][0], WAKE[4][1] + 1))
-                    ub = np.sort(rng.uniform(WAKE[3] + 0.05, 0.97, m))
-                    i = np.searchsorted(u, ub).clip(0, len(u) - 1)
-                    dripping.add(k, pts[i], 0.8 * vel[i] + rng.normal(size=(m, 3)) * 0.02 * s, rad[i]
-                                 * rng.uniform(0.7, 1.1, m), foam=0.05,
-                                 delay=1.0 + np.round((1.0 - ub) / (1.0 - WAKE[3]) * (WAKE[1] - 1)))
-                # what is left of it after a crack: its outer part collapsing, then poured out again up to its front
-                rad *= 1.0 - (1.0 - np.maximum(1.0 - _ss(front - WAKE[5], front, u), left)) * (1.0 - crack)
-            if alive and crack == 0.0:  # hanging off the hand, it swells into a drip at its lowest point, necks and
-                # lets go of it, now and then
+                rad = np.minimum(spread, np.maximum(rad, RIVULET[5] * s))
+                # hanging off the hand, it swells into a drip at its lowest point, necks and lets go of it, now and then
                 hang = np.flatnonzero((offp > 0.5) & (u > 0.3) & (u < 0.95) & (speed < 0.5 * WHIP_SHED))
                 if drip_at is None and hang.size:
                     drip_at, drip_u = k, float(u[hang[np.argmax(pts[hang, 1])]])
@@ -3188,9 +3350,7 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
                         da = (arc - arc[i]) / np.maximum(1.5 * rad[i], 1.0)
                         rad *= 1.0 + (WHIP_DRIP[1] - 1.0) * ph_ * np.exp(-da * da)  # it swells there...
                         rad *= 1.0 - 0.5 * ph_ ** 2 * np.exp(-((da + 1.6) / 0.6) ** 2)  # ... necking just above it
-            else:
-                drip_at = None
-            if alive:  # fast, it sheds drops off its leading side, and its tail sprays
+                # fast, it sheds drops off its leading side, and its tail sprays
                 fast = np.flatnonzero((speed > WHIP_SHED) & (u > WHIP_SHED_FROM))
                 go = fast[rng.random(fast.size) < WHIP_SHED_RATE * (speed[fast] / WHIP_SHED - 1.0)]
                 if go.size:
@@ -3201,39 +3361,31 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
                 if m:
                     drops.add(k, np.repeat(pts[-1:], m, 0), 0.8 * vel[-1] + rng.normal(size=(m, 3)) * 0.05 * s,
                               s * _sizes(rng, m, 0.004, 0.012, 1.5), foam=0.0, life=rng.uniform(3, 6, m), fade=2)
-                fastp = np.flatnonzero((speed > WHIP_SHED) & (u > 0.4))
-                m = int(round(WHIP_SPRAY[2] * crack)) if fastp.size else 0
-                if m:  # lashing out, its front tears into threads and drops, flung on ahead of it and away from it
-                    i = rng.choice(fastp, m)
-                    lead = _unit(vel[i] + 1e-9)
-                    drops.add(k, pts[i] + lead * rad[i, None], vel[i] * rng.uniform(*WHIP_TORN[1], (m, 1))
-                              + lead * rng.uniform(1.0, 3.0, (m, 1)) * s / FPS + rng.normal(size=(m, 3)) * 0.05 * s,
-                              s * _sizes(rng, m, *WHIP_TORN[0], 1.5), foam=0.0, life=rng.uniform(3, 7, m), fade=2,
-                              stretch=np.where(rng.random(m) < WHIP_THREADS, rng.uniform(2.5, 5.0, m), 1.0))
+                # swirling, its outer part sprays out of the swirl
+                mist = np.flatnonzero((u > WHIP_MIST[0]) & (rng.random(len(u)) < WHIP_MIST[1] * N / len(u)))
+                if mist.size and grow > 0.5:
+                    away = _unit(np.c_[pts[mist, :2] - root[:2], np.zeros(mist.size)] + 1e-9)
+                    drops.add(k, pts[mist] + away * rad[mist, None], vel[mist] + away * rng.uniform(
+                        *WHIP_MIST[3], (mist.size, 1)) * s / FPS, s * _sizes(rng, mist.size, *WHIP_MIST[2], 1.5),
+                              foam=0.0, life=rng.uniform(4, 9, mist.size), fade=2)
             jit = np.interp(((arc / s - WHIP_FLOW * t) / cell + 0.5 * m_sw) % m_sw, np.arange(m_sw + 1), width)
-            lam = np.maximum(WHIP_BEAD[0] * rad * (1.0 + WHIP_BEAD[2] * np.clip(jit, -1.5, 1.5)), 1.0)  # the beads it
-            # necks into, this far apart, at no set spacing, flowing out along it (evenly spaced, a barber's pole)
-            ph = np.r_[0.0, np.cumsum(np.diff(arc) / lam[1:])] - WHIP_FLOW * s * t / float(np.mean(lam))
             neck = np.maximum(WHIP_FRAY[1] * _ss(WHIP_FRAY[0], 1.0, u) * (1.0 - _ss(0.4, 1.0, speed / WHIP_SHED)),
-                              broke / WHIP_BREAK if not alive else 0.0)  # (lashing, its tail is drawn out whole: its
+                              broke / WHIP_BREAK if not alive else 0.0)  # (fast, its tail is drawn out whole: its
             # beads, each smeared across the frame, were stacked like a staircase)
-            beads = np.flatnonzero((np.diff(np.floor(ph)) > 0) & (neck[1:] > 0.05)) + 1
-            rb = (0.75 * rad[beads] ** 2 * lam[beads]) ** (1 / 3)  # a bead holds its length of the stream
+            rad, beads, rb = _necked(arc, rad, neck, jit, WHIP_FLOW * s * t)
             if not alive and broke == WHIP_BREAK:  # necked through: beads, falling
                 drops.add(k, pts[beads], vel[beads] + rng.normal(size=(len(beads), 3)) * 0.02 * s, rb)
                 x = x[:0]
             else:
                 tang = _unit(np.gradient(pts, axis=0))
-                foam = (WHIP_FOAM[0] + WHIP_FOAM[1] * _ss(0.6, 1.0, u) + WHIP_FOAM[3] * (1.0 - _ss(0.0, 0.15, u))
+                foam = (WHIP_FOAM[0] + WHIP_FOAM[1] * _ss(0.75, 1.0, u) + WHIP_FOAM[3] * (1.0 - _ss(0.0, 0.15, u))
                         + WHIP_FOAM[2] * np.clip((speed - 4.0) / 8.0, 0, 1))
                 out_ = _ss(0.0, 0.2, u)[:, None]  # (in the pool it moves with the palm: flowing out of it at full
                 # speed, and swirled round with the stream, the patterns it carries wound into rings there, a whorl)
                 fl = vel[:1, :2] + out_ * (vel[:, :2] - vel[:1, :2] + tang[:, :2] * WHIP_FLOW * s / FPS)
-                rad = rad * (1.0 - WHIP_BEAD[1] * neck)  # the stream thins where its water is drawn into beads (its
-                # hair); it rises out of the pool as flat as the pool is, widening into it (as round as a tube there,
-                # it ended in a bulb: a tadpole's head)
-                root_flat = 1.0 - (1.0 - WHIP_POOL[1]) * (1.0 - _ss(0.0, WHIP_FLARE[1] * 1.5, u))
-                sc.blobs += _stream(pts, vel, rad, foam, fl, arc2, root_flat, seen, aloft, lie)
+                root_flat = 1.0 - (1.0 - WHIP_POOL[1]) * (1.0 - _ss(0.0, WHIP_FLARE[1] * 1.5, u))  # (it rises out of
+                # the pool as flat as the pool is, widening into it: as round as a tube there, it ended in a bulb)
+                sc.blobs += _stream(pts, vel, rad, foam, fl, arc2, root_flat, lie)
                 if alive:
                     body = pts[::3, :2]
                 if alive and (k - plan.start) % WHIP_TRAIL[2] == 0:  # where it lies on the palm, the skin gets wet
@@ -3244,12 +3396,12 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
                     if wets.size:
                         trail.append((k, pts[wets, :2] - p, WHIP_TRAIL[4] * rad[wets] + WHIP_TRAIL[5] * s))
                 t2 = tang[:, :2] / np.maximum(np.linalg.norm(tang[:, :2], axis=1, keepdims=True), 1e-9)
-                for i, r_ in zip(beads, rb * np.sqrt(neck[beads])):
+                for i, r_ in zip(beads, rb):
                     shape, move = _moving(r_, vel[i, :2])
                     sc.blobs.append(Blob(pts[i, 0], pts[i, 1], pts[i, 2], r_, shape, fl[i, 0], fl[i, 1],
                                          foam=float(foam[i]), move=move,
                                          stream=(float(arc2[i]), float(t2[i, 0]), float(t2[i, 1])),
-                                         seen=float(seen[i]), air=float(aloft[i]), lie=float(lie[i])))
+                                         lie=float(lie[i])))
                 for ua, across, ar in air:  # air carried out along it
                     i = int(np.searchsorted(u, (ua + WHIP_FLOW * s * t / max(arc[-1], 1.0)) % 1.0 * 0.85))
                     i = min(i, len(pts) - 1)
@@ -3258,6 +3410,11 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
                     sc.bubbles.append((pts[i, 0] + across * rad[i] * nx_ / q_, pts[i, 1] + across * rad[i] * ny_ / q_,
                                        ar * rad[i], WHIP_AIR_SEEN * float(_ss(0.0, 0.1, u[i]))
                                        * (1.0 - float(_ss(*WHIP_AIR_FAST, np.hypot(*vel[i, :2]))))))
+        for F in flung:  # the water the hits have flung
+            blobs, fall = _lash(F, k, root, s, size, thrown, scenes, n, cam, rng, width, cell)
+            sc.blobs += blobs
+            falling += fall
+        flung = [F for F in flung if k - F.k < LASH_GONE and not (F.struck and F.broken.all())]
         flying = drops.blobs(k)
         if body is not None and flying:  # while it pours, what it sheds is gone by the time it is far from it (flying
             # on across the frame, a shower of rain)
@@ -3265,13 +3422,15 @@ def whip_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], se
             far = np.sqrt(((xy[:, None, :] - body[None]) ** 2).sum(-1)).min(1)
             keep = 1.0 - _ss(WHIP_CULL[0] * s, WHIP_CULL[1] * s, far)
             flying = [b_._replace(r=b_.r * float(q_)) for b_, q_ in zip(flying, keep) if b_.r * q_ >= 0.5]
-        sc.blobs += flying + dripping.blobs(k)
+        sc.blobs += flying + dripping.blobs(k) + thrown.blobs(k)
         drops.step()
         dripping.step()
+        thrown.step()
         trail = [tr for tr in trail if k - tr[0] < WHIP_TRAIL[1]]
         for kt, off, rw in trail:  # the skin it has lain on, wet round it, drying
             sc.band.append((p + off, rw, WHIP_TRAIL[0] * (1.0 - (k - kt) / WHIP_TRAIL[1])))
-        if not len(x) and not len(drops.x) and not len(dripping.x) and pool_r <= 0.5 and not trail:
+        if (not alive and (x is None or not len(x)) and not len(drops.x) and not len(dripping.x)
+                and not len(thrown.x) and pool_r <= 0.5 and not trail and not flung):
             break
     return scenes
 
@@ -3299,10 +3458,8 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
     if layer is not None:
         boxes.append(layer.box)
         if matte is not None:
-            boxes.append(caustic(P, layer, k, hand, room, matte, sc.held, sc.lobes, noise, sc.net))
+            boxes.append(caustic(P, layer, k, hand, room, matte, sc.held, sc.lobes, noise, sc.net, sc.flare))
         y0, y1, x0, x1 = layer.box
-        if layer.sheet is not None:
-            _sheet(P, layer, matte, room, noise, k)
         P[y0:y1, x0:x1] = P[y0:y1, x0:x1] * (1.0 - layer.alpha[..., None]) + layer.colour
         if sc.bubbles:
             bubbles(P, sc.bubbles, layer, room.lit(k), room.key(k, (sc.held or (W / 2, H / 2))[:2]))
@@ -3320,77 +3477,6 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
         sel = changed[span]
         out[span][sel] = gam(P[span][sel])
     return out
-
-
-def _sheet(P: np.ndarray, layer: Layer, matte: np.ndarray | None, room: Room, noise: Noise, k: int) -> None:
-    """The plate seen through the sheet a lash sweeps over the exposure (Layer.sheet), in place (SHEET): darker, bent
-    as a lens is by its thickness, mirroring the room by the way its surface faces and glinting where that faces the key
-    light: a sheet of water, thin across its body and curled thick along its edges and its ligaments, so its edges
-    catch the light and bend what is behind them; over the hand it mirrors and glints less, so the skin keeps its
-    colour through it."""
-    y0, y1, x0, x1 = layer.box
-    S = np.ascontiguousarray(layer.sheet[..., 0])
-    if float(S.max()) <= 0.01:
-        return
-    rw = SHEET[5]
-    dist = cv2.distanceTransform(_outline(S > SHEET[7]), cv2.DIST_L2, 3)  # px inside its outline
-    e = np.clip(dist / rw, 0.0, 1.0)
-    lg = np.clip(S / BLUR_KEEP[2], 0.0, 1.0)  # 1 on a ligament, the sheet's share between them
-    T = cv2.GaussianBlur(np.ascontiguousarray(layer.sheet[..., 1]), (0, 0), 2.0)
-    H = np.sqrt(e * (2.0 - e)) * (T * (SHEET[3] + (1.0 - SHEET[3]) * lg)
-                                  + SHEET[8] * rw * np.exp(-((dist - 0.8 * rw) / (0.7 * rw)) ** 2))
-    gy, gx = np.gradient(cv2.GaussianBlur(H.astype(np.float32), (0, 0), 1.0))
-    ly, lx = np.gradient(cv2.GaussianBlur(H.astype(np.float32), (0, 0), SHEET[9]))  # the lens: over its thickness
-    g = np.hypot(lx, ly)
-    bend = SHEET[2] * np.tanh(SHEET[1] * g / SHEET[2]) / np.maximum(g, 1e-6)
-    yy, xx = np.mgrid[0:y1 - y0, 0:x1 - x0].astype(np.float32)
-    patch = P[y0:y1, x0:x1]
-    seen = cv2.remap(np.ascontiguousarray(patch), xx + lx * bend, yy + ly * bend, cv2.INTER_LINEAR,
-                     borderMode=cv2.BORDER_REFLECT)
-    cover = cv2.GaussianBlur(np.clip(dist, 0.0, 1.0), (0, 0), EDGE_SOFT)
-    iy, ix = np.nonzero(cover > 1e-3)
-    if not iy.size:
-        return
-    nd = np.sqrt(gx[iy, ix] ** 2 + gy[iy, ix] ** 2 + 1.0)
-    nx, ny, nz = -gx[iy, ix] / nd, -gy[iy, ix] / nd, 1.0 / nd
-    hand_ = 1.0 if matte is None else 1.0 - SHEET[6] * matte[y0:y1, x0:x1][iy, ix].astype(np.float32) / 255.0
-    F = np.minimum(F0 + (1.0 - F0) * (1.0 - nz) ** 5, SHEET[4]) * hand_
-    L3 = room.key(k, ((x0 + x1) / 2.0, (y0 + y1) / 2.0))
-    sy_, sx_ = np.gradient(cv2.GaussianBlur(H.astype(np.float32), (0, 0), SHEET_GLINT[1]))  # its glint off its
-    sx_, sy_ = sx_[iy, ix], sy_[iy, ix]  # surface smoothed, along its edge in a few long lengths (off its every
-    ns = np.sqrt(sx_ * sx_ + sy_ * sy_ + 1.0)  # ripple, a row of white specks, tinsel)
-    X, Y = (ix + x0).astype(np.float32), (iy + y0).astype(np.float32)
-    lengths = _ss(-0.2, 0.4, noise.flow(13, X, Y, 0.0, 0.0, k, SHEET_GLINT[2]))
-    spec = SHEET_GLINT[0] * _window(-sx_ / ns, -sy_ / ns, 1.0 / ns, L3, 1.0) * lengths * hand_
-    soft = np.zeros(S.shape, np.float32)  # in long lengths only, softened, and rolled off into its most (SHEET_CLEAN)
-    soft[iy, ix] = spec
-    soft = cv2.GaussianBlur(soft, (0, 0), SHEET_CLEAN[3])
-    n, lab, st, _ = cv2.connectedComponentsWithStats((soft > 0.05).astype(np.uint8), connectivity=8)
-    short = st[:, cv2.CC_STAT_AREA] < SHEET_CLEAN[4]
-    short[0] = False
-    top = SHEET_CLEAN[2]
-    spec = top * np.tanh(np.where(short[lab], 0.0, soft)[iy, ix] / top)
-    col = (seen[iy, ix] * (1.0 - SHEET[0] * lg[iy, ix])[:, None] * (1.0 - F)[:, None]
-           + room.reflect(k, nx, ny) * F[:, None] + spec[:, None] * room.lit(k)[None, :])
-    c_ = cover[iy, ix, None]
-    patch[iy, ix] = patch[iy, ix] * (1.0 - c_) + col * c_
-
-
-def _outline(inside: np.ndarray) -> np.ndarray:
-    """The sheet a lash sweeps (bool, h by w) as its outline is drawn (uint8 0/1): its slivers narrower than
-    SHEET_CLEAN[0] px taken off it and its holes smaller than SHEET_CLEAN[1] px filled (each, curled up along its rim
-    as the sheet's edge is and catching the light there, was a hard white fleck, a ring of correction fluid with a dark
-    hole in it, and along a fan's front, confetti)."""
-    w = SHEET_CLEAN[0]
-    m = cv2.morphologyEx(inside.astype(np.uint8), cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (w, w)))
-    n, lab, st, _ = cv2.connectedComponentsWithStats(1 - m, connectivity=4)
-    h, wd = m.shape
-    small = np.zeros(n, bool)
-    small[1:] = ((st[1:, cv2.CC_STAT_AREA] < SHEET_CLEAN[1]) & (st[1:, cv2.CC_STAT_LEFT] > 0)
-                 & (st[1:, cv2.CC_STAT_TOP] > 0) & (st[1:, cv2.CC_STAT_LEFT] + st[1:, cv2.CC_STAT_WIDTH] < wd)
-                 & (st[1:, cv2.CC_STAT_TOP] + st[1:, cv2.CC_STAT_HEIGHT] < h))  # (a hole: off no edge of the box)
-    m[small[lab] & (m == 0)] = 1
-    return m
 
 
 def _wet(P: np.ndarray, patches: list, matte: np.ndarray | None, lit: np.ndarray, key: np.ndarray,
@@ -3460,9 +3546,11 @@ def _wet(P: np.ndarray, patches: list, matte: np.ndarray | None, lit: np.ndarray
         np.maximum(gloss[sl], g, out=gloss[sl])
     skin = matte[Y0:Y1, X0:X1].astype(np.float32) / 255.0
     seen = np.minimum(seen, 1.0)
-    d = dark * (1.0 + SKIN_WET[1] * 4.0 * seen * (1.0 - seen)) * skin
     patch = P[Y0:Y1, X0:X1]
     lum = (patch @ fx._LUMA)[..., None]
+    around = cv2.GaussianBlur(lum[..., 0], (0, 0), SKIN_CREASE[1])
+    crease = np.clip((around - lum[..., 0]) / np.maximum(around, 1e-4), 0.0, 0.3)  # (its lines, darker than round them)
+    d = dark * (1.0 + SKIN_WET[1] * 4.0 * seen * (1.0 - seen)) * (1.0 + SKIN_CREASE[0] * crease) * skin
     patch[:] = (lum + (patch - lum) * (1.0 + SKIN_WET[0] * (sat * skin)[..., None])) * (1.0 - d[..., None])
     patch += (gloss * skin)[..., None] * lit
     return [b for b, _ in every]
