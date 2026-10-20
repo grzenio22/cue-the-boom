@@ -5,16 +5,23 @@
  *   beside it at most two dim, thin streamers at most half as long, keeping well round from it, and dim forks towards
  *   its far end, every branch fading and thinning along its length and none crossing the main channel or another
  *   branch, nor a streamer running beside it (each is struck again until it keeps clear, or dropped);
+ * - a new main channel strikes an edge of the camera's picture in its way (a floor's line, a door's jamb, a table's
+ *   edge: a clear line, well inside the frame, within a cone round where the finger points), one of the best few each
+ *   time, with a contact flash there (a white-hot point, a pool of its light along that surface, a splash of forks on
+ *   its first frames); with nothing to strike it ends in the air in a brush of dim forks, never in a bead;
  * - a channel is struck, re-struck down the same path for 1-3 frames with its root riding the finger and its far end
  *   where it struck, then struck anew near its last aim;
- * - the light it throws, a cool blue on the room and lavender on the hand, holds while the strokes strike and dies
- *   within a few frames of the last (it never strobes with them);
- * - over an open palm, a ball that is a light, its body the shot's own by radius (white-hot in its middle, cyan round
- *   that, a saturated blue to a cyan ring at its limb, its outline feathered), the lens's narrow band of blue just over
- *   its limb, its light on the skin close round it violet and on the wall a cool blue, and filaments from its middle
- *   out to its skin at angles in 3D, growing from a crackle over about 5 frames, the camera exposing down for it. */
+ * - the light it throws, a cool blue on the room and a cool white on the hand, holds while the strokes strike and
+ *   goes with the last of them (a tenth for one frame);
+ * - over an open palm, a ball that is a light hovering off it, its body the shot's own by radius (white-hot in its
+ *   middle, cyan round that, a saturated blue to its limb, its outline feathered), moving plasma in it (filaments
+ *   turning through it), a faint blue haze of its light round it, a shell of jagged arcs crawling over its skin in 3D
+ *   (brightest along its outline, which they draw) and arcs bowing through the air from it to the fingertips; its
+ *   light on the skin round it a deep blue and on the wall a blue-white, growing from a crackle over about 5 frames,
+ *   the camera exposing down for it. */
 
 export type P2 = [number, number];
+type P3 = [number, number, number];
 
 /** A small seeded random generator (mulberry32): the same seed, the same channels. */
 export function rng(seed: number): () => number {
@@ -30,8 +37,8 @@ export function rng(seed: number): () => number {
 
 // ---- the arcs (cuesync.lightning's constants, by the same names)
 const ARC_REACH = [1.4, 5.0]; // hand sizes: a main channel's reach, quietest voice to loudest
-const ARC_WIDTH = [1.3, 4.0]; // px at 1080 for a hand HAND_PX across: its width, quietest to loudest
-const HAND_PX = 220, WIDTH_K = [0.6, 1.8]; // (widths scale with the hand, within these)
+const ARC_WIDTH = [2.2, 4.8]; // px at 1080 for a hand HAND_PX across: its width, quietest to loudest
+const HAND_PX = 220, WIDTH_K = [0.6, 1.2]; // (widths scale with the hand, within these: a root of 3-5 px)
 const ARC_LEAD = 0.2; // of its reach: a main channel's first stretch runs along the finger's aim
 const ARC_JITTER = 0.07, ARC_OFF = 0.21; // radians: a new main channel's own turn off its aim, and the most it may be
 const SIDE_ON = [0.3, 0.85]; // the voice's level over which a first, and a second, streamer strikes
@@ -52,8 +59,29 @@ export const BRANCH_W = [1.5, 0.35, 0.5]; // and thins from this many times its 
 // wedge, not a wire (cuesync.lightning's BRANCH_W)
 const CHUNKS = 6; // stretches a channel is drawn in, thinning and (a branch) fading along it
 
-export interface Channel { pts: P2[]; width: number; inten: number; forks: Channel[]; at: number } // at: the parent's
-// point it forks from; inten: against the bolt's main channel (1)
+// ---- where it strikes (cuesync.lightning's TARGET_*, EDGE_*, IMPACT, POOL, SPLASH, BRUSH)
+export const TARGET_CONE = [25, 40]; // degrees either side of the finger's aim: an edge within the first, else in
+// the second
+const TARGET_BAND = [0.4, 1.1]; // shares of its reach: how far out what it strikes may be
+export const TARGET_BORDER = 0.12; // share of the picture's short side: never this close to its edge
+export const TARGET_TOP = 3, TARGET_APART = 40; // one of the best this many, px at 1080 apart and from the last
+const EDGE_Q = 8; // the picture is read at 1 / EDGE_Q of the canvas
+const EDGE_MIN = 40; // the gradient (Sobel, code values, at that size, softened) a line must reach to be struck: a step
+// of about 15 levels (a blank wall's grain and the camera's noise stay under it)
+const EDGE_NEAR = 3; // ...and at least this many more edge px round it (in its 5 x 5): a line, not a speck
+export const IMPACT_MIN = 0.6; // a stroke at least this bright strikes with a contact flash (a weak one with none)
+const IMPACT_PX = 2.5; // px at 1080: the white-hot point where it touches
+const POOL = [110, 0.3, 0.45]; // (px at 1080 along the surface, its width across against that, alpha): its light
+// pooled along the surface it strikes
+export const SPLASH = [3, 6, 30, 80, 0.55, 0.8, 0.45, 2]; // (count, its range; length px at 1080, its range;
+// intensity against its stroke, its range; width against its root's; frames): forks splashing out where it strikes
+export const BRUSH = [2, 3, 0.06, 0.14, 0.3, 0.5, 0.26, 0.7]; // (count, its range; length in its own, its range;
+// intensity, its range; radians turned, its range): a channel that strikes nothing ends in the air in a brush of dim
+// forks fanning on from its end
+
+/** A channel: its points, width (px), brightness against its bolt's main channel (1), forks, the parent's point it
+ * forks from (``at``), and (a main channel) ``strikes``: which way the surface its far end strikes runs, or none. */
+export interface Channel { pts: P2[]; width: number; inten: number; forks: Channel[]; at: number; strikes?: P2 }
 
 /** Midpoint displacement from ``a`` to ``b``: each midpoint pushed across its segment by up to ``rough`` of its length
  * (gently at the coarse levels so it runs on, sharply at the fine ones so it kinks), ``depth`` levels. */
@@ -208,9 +236,176 @@ export function ride(c: Channel, root: P2): Channel {
   return { ...c, pts, forks: c.forks.map((f) => ride(f, pts[f.at])) };
 }
 
-/** A stream of lightning: its channel, struck anew every 1-3 frames near its last aim (which sways slowly), and how
- * bright its stroke is on this frame (1 struck, 0.55-0.9 re-struck, under 0.1 dark). */
-export interface Stream { ch: Channel | null; left: number; aim: number; seed: number; flash?: number }
+// ---- the picture it strikes into
+/** The camera's picture, small: its luminance (0-255) ``w`` x ``h``, each of its px ``k`` canvas px. */
+export interface Plate { w: number; h: number; k: number; lum: Float32Array }
+
+/** The picture the lightning was last drawn over (drawChannels reads it), where a new bolt looks for what to strike:
+ * a frame old, as a strike is struck before it is drawn. */
+let seen: Plate | null = null;
+const small = new WeakMap<object, Ctx2D>();
+
+/** Reads the picture under ``ctx`` as drawn so far, at 1 / EDGE_Q, into ``seen`` (none where it cannot be read). */
+function look(ctx: CanvasRenderingContext2D) {
+  const main = ctx.canvas as HTMLCanvasElement | undefined;
+  if (!main?.width || typeof ctx.getImageData !== "function") return;
+  const w = Math.max(1, Math.round(main.width / EDGE_Q)), h = Math.max(1, Math.round(main.height / EDGE_Q));
+  let s = small.get(main);
+  try {
+    if (!s || s.canvas.width !== w || s.canvas.height !== h) {
+      const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(w, h)
+        : Object.assign(document.createElement("canvas"), { width: w, height: h });
+      const made = c.getContext("2d", { willReadFrequently: true }) as Ctx2D | null;
+      if (!made) return;
+      small.set(main, (s = made));
+    }
+    s.drawImage(main, 0, 0, w, h);
+    const px = s.getImageData(0, 0, w, h).data;
+    const lum = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) lum[i] = 0.2126 * px[4 * i] + 0.7152 * px[4 * i + 1] + 0.0722 * px[4 * i + 2];
+    seen = { w, h, k: main.width / w, lum };
+  } catch {
+    seen = null; // (a picture it may not read)
+  }
+}
+
+/** The edges of ``plate`` a bolt may strike: rows [x, y, strength, ax, ay] in canvas px, (ax, ay) the way the line
+ * runs there: the picture softened (3 x 3, twice), its Sobel gradient over EDGE_MIN, thinned to the line's ridge
+ * across it and kept where EDGE_NEAR more of them are round it (a line, not a speck). */
+export function surfaces(plate: Plate): number[][] {
+  const { w, h, k } = plate;
+  let a = plate.lum;
+  for (let pass = 0; pass < 2; pass++) {
+    const b = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let sum = 0, n = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if (xx >= 0 && xx < w && yy >= 0 && yy < h) { sum += a[yy * w + xx]; n++; }
+        }
+        b[y * w + x] = sum / n;
+      }
+    }
+    a = b;
+  }
+  const gx = new Float32Array(w * h), gy = new Float32Array(w * h), mag = new Float32Array(w * h);
+  const at = (x: number, y: number) => a[Math.min(h - 1, Math.max(0, y)) * w + Math.min(w - 1, Math.max(0, x))];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      gx[i] = at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1)
+        - at(x - 1, y - 1) - 2 * at(x - 1, y) - at(x - 1, y + 1);
+      gy[i] = at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1)
+        - at(x - 1, y - 1) - 2 * at(x, y - 1) - at(x + 1, y - 1);
+      mag[i] = Math.hypot(gx[i], gy[i]);
+    }
+  }
+  const ridge = new Uint8Array(w * h);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      if (mag[i] < EDGE_MIN) continue;
+      const sx = Math.round(gx[i] / mag[i]), sy = Math.round(gy[i] / mag[i]); // (across the line)
+      if (mag[i] >= mag[(y + sy) * w + x + sx] && mag[i] >= mag[(y - sy) * w + x - sx]) ridge[i] = 1;
+    }
+  }
+  const rows: number[][] = [];
+  for (let y = 2; y < h - 2; y++) {
+    for (let x = 2; x < w - 2; x++) {
+      const i = y * w + x;
+      if (!ridge[i]) continue;
+      let near = -1;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near += ridge[(y + dy) * w + x + dx];
+      if (near < EDGE_NEAR) continue;
+      rows.push([(x + 0.5) * k, (y + 0.5) * k, mag[i], -gy[i] / mag[i], gx[i] / mag[i]]);
+    }
+  }
+  return rows;
+}
+
+/** Where a new main channel from ``root`` aimed ``aim`` (radians) ``reach`` px out strikes, and the way the surface
+ * runs there, or null: of the ``edges`` (surfaces) within TARGET_CONE of the aim (its first, else its second),
+ * TARGET_BAND of the reach out and TARGET_BORDER inside the ``size`` (w, h) frame, the strongest, nearest its
+ * ``heading`` and furthest out, with a little chance; then one of the best TARGET_TOP, TARGET_APART from each other
+ * and from where it struck ``last``. ``px``: a pixel at 1080 lines. */
+export function pickTarget(edges: number[][], root: P2, aim: number, heading: number, reach: number, size: P2,
+  rand: () => number, px = 1, last: P2 | null = null): { at: P2; along: P2 } | null {
+  const [w, h] = size;
+  const border = TARGET_BORDER * Math.min(w, h), apart = TARGET_APART * px;
+  const offOf = (d: number) => ((d + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+  const found: [number, number[], number][] = []; // (cone, row, off)
+  for (const row of edges) {
+    const [x, y] = row;
+    if (x < border || x > w - 1 - border || y < border || y > h - 1 - border) continue;
+    const dist = Math.hypot(x - root[0], y - root[1]);
+    if (dist < TARGET_BAND[0] * reach || dist > TARGET_BAND[1] * reach) continue;
+    const off = Math.abs(offOf(Math.atan2(y - root[1], x - root[0]) - aim)) * 180 / Math.PI;
+    const cone = TARGET_CONE.findIndex((c) => off <= c);
+    if (cone >= 0) found.push([cone, row, offOf(Math.atan2(y - root[1], x - root[0]) - heading)]);
+  }
+  const first = Math.min(...found.map(([c]) => c));
+  const scored = found.filter(([c]) => c === first).map(([c, row, off]): [number, number[]] => [
+    Math.min(1, row[2] / (2 * EDGE_MIN)) + 0.5 * Math.hypot(row[0] - root[0], row[1] - root[1]) / reach -
+    0.5 * Math.abs(off) / (TARGET_CONE[c] * Math.PI / 180) + 0.3 * rand(), row]);
+  scored.sort((p, q) => q[0] - p[0]);
+  const best: number[][] = [];
+  for (const [, row] of scored) {
+    const far = (p: P2 | number[]) => Math.hypot(row[0] - p[0], row[1] - p[1]) >= apart;
+    if ((last && !far(last)) || !best.every(far)) continue;
+    best.push(row);
+    if (best.length === TARGET_TOP) break;
+  }
+  if (!best.length) return null;
+  const pick = best[Math.min(best.length - 1, Math.floor(rand() * best.length))];
+  return { at: [pick[0], pick[1]], along: [pick[3], pick[4]] };
+}
+
+/** The forks splashing out where ``main`` strikes a surface running ``along`` (SPLASH): two of every three along it,
+ * either way, the third back off it the way the channel came in, at least half as bright as their stroke. */
+function splash(main: Channel, along: P2, rand: () => number, px: number): Channel[] {
+  const [n0, n1, l0, l1, i0, i1, wide] = SPLASH;
+  const p = main.pts, end = p[p.length - 1], from = p[Math.max(0, p.length - 1 - Math.max(2, p.length >> 3))];
+  const come = Math.atan2(end[1] - from[1], end[0] - from[0]);
+  const out: Channel[] = [];
+  let way = rand() < 0.5 ? 0 : Math.PI;
+  const count = n0 + Math.floor(rand() * (n1 - n0 + 1));
+  for (let i = 0; i < count; i++) {
+    let a: number;
+    if (i % 3 === 2) a = come + Math.PI + (rand() - 0.5) * 1.75;
+    else {
+      way += Math.PI;
+      a = Math.atan2(along[1], along[0]) + way + (rand() - 0.5) * 1.05;
+    }
+    const l = (l0 + (l1 - l0) * rand()) * px;
+    out.push({ ...channel(end, [end[0] + Math.cos(a) * l, end[1] + Math.sin(a) * l], rand, main.width * wide, 0.36, 4,
+      0, { inten: i0 + (i1 - i0) * rand() }), at: p.length - 1 });
+  }
+  return out;
+}
+
+/** The brush of dim forks a main channel that strikes nothing ends in (BRUSH), as forks of it. */
+function brush(main: Channel, rand: () => number): Channel[] {
+  const [n0, n1, l0, l1, i0, i1, t0, t1] = BRUSH;
+  const p = main.pts, len = Math.hypot(p[p.length - 1][0] - p[0][0], p[p.length - 1][1] - p[0][1]);
+  const out: Channel[] = [];
+  const count = n0 + Math.floor(rand() * (n1 - n0 + 1));
+  for (let i = 0; i < count; i++) {
+    const at = Math.min(p.length - 2, Math.floor((0.82 + 0.14 * rand()) * (p.length - 1)));
+    const q = p[Math.min(p.length - 1, at + 3)];
+    const a = Math.atan2(q[1] - p[at][1], q[0] - p[at][0]) + (rand() < 0.5 ? -1 : 1) * (t0 + (t1 - t0) * rand());
+    const l = len * (l0 + (l1 - l0) * rand());
+    out.push(channel(p[at], [p[at][0] + Math.cos(a) * l, p[at][1] + Math.sin(a) * l], rand, main.width * 0.33, 0.36, 4,
+      0, { at, inten: i0 + (i1 - i0) * rand() }));
+  }
+  return out;
+}
+
+/** A stream of lightning: its channel, struck anew every 1-3 frames near its last aim (which sways slowly), how
+ * bright its stroke is on this frame (1 struck, 0.55-0.9 re-struck, under 0.1 dark), the forks splashing where it
+ * strikes a surface (``splash``, shown SPLASH's frames) and how many frames since it was struck (``age``). */
+export interface Stream { ch: Channel | null; left: number; aim: number; seed: number; flash?: number;
+  splash?: Channel[]; age?: number }
 
 function life(rand: () => number): number {
   const r = rand();
@@ -219,22 +414,31 @@ function life(rand: () => number): number {
 
 /** One frame of a main channel from ``root`` (welded to it): ridden to the hand and re-struck, or struck anew towards
  * ``aim`` (radians) ``reach`` px long when its time is up (or on ``strike``: a hit strikes every stream at once), its
- * first ARC_LEAD along the aim and its heading never more than ARC_OFF off it. ``level``: the voice, which sets how
- * often a re-stroke flashes. */
+ * first ARC_LEAD along the aim and its heading never more than ARC_OFF off it, at an edge of the ``plate`` in its way
+ * (pickTarget: a contact flash and a splash there) or, with none, ending in the air in a brush. ``level``: the voice,
+ * which sets how often a re-stroke flashes; ``px``: a pixel at 1080 lines. */
 export function streamStep(s: Stream, root: P2, aim: number, reach: number, width: number, strike: boolean,
-  frame: number, level = 1): Stream {
+  frame: number, level = 1, plate: Plate | null = null, px = 1): Stream {
   const rand = rng(s.seed * 7919 + frame);
   if (s.ch && s.left > 0 && !strike) {
     const on = rand() < RESTROKE[0] + RESTROKE[1] * level;
-    return { ...s, ch: ride(s.ch, root), left: s.left - 1, flash: on ? 0.55 + 0.35 * rand() : 0.1 * rand() };
+    return { ...s, ch: ride(s.ch, root), left: s.left - 1, flash: on ? 0.55 + 0.35 * rand() : 0.1 * rand(),
+      age: (s.age ?? 0) + 1 };
   }
   const off = s.ch ? s.aim - aim + (rand() - 0.5) * 2 * ARC_JITTER : (rand() - 0.5) * 2 * ARC_JITTER; // (near its last)
   const a = aim + Math.max(-ARC_OFF, Math.min(ARC_OFF, off * 0.6));
   const l = reach * (0.8 + 0.25 * rand());
-  const lead: P2 = [root[0] + Math.cos(aim) * ARC_LEAD * l, root[1] + Math.sin(aim) * ARC_LEAD * l];
-  const far: P2 = [root[0] + Math.cos(a) * l, root[1] + Math.sin(a) * l];
+  const last = s.ch?.strikes ? s.ch.pts[s.ch.pts.length - 1] : null;
+  const hit = plate ? pickTarget(surfaces(plate), root, aim, a, l, [plate.w * plate.k, plate.h * plate.k], rand, px,
+    last) : null;
+  const far: P2 = hit ? hit.at : [root[0] + Math.cos(a) * l, root[1] + Math.sin(a) * l];
+  const span = Math.hypot(far[0] - root[0], far[1] - root[1]);
+  const lead: P2 = [root[0] + Math.cos(aim) * ARC_LEAD * span, root[1] + Math.sin(aim) * ARC_LEAD * span];
   const ch = channel(root, far, rand, width, 0.26, 6, 0.1 + 0.1 * level, { lead });
-  return { ch, left: life(rand) - 1, aim: a, seed: s.seed, flash: 1 };
+  if (hit) ch.strikes = hit.along;
+  else ch.forks.push(...brush(ch, rand));
+  return { ch, left: life(rand) - 1, aim: a, seed: s.seed, flash: 1, splash: hit ? splash(ch, hit.along, rand, px) : [],
+    age: 0 };
 }
 
 /** The arcs from one fingertip: its main channel and the streamers beside it. */
@@ -250,17 +454,18 @@ function widthK(scale: number, px: number): number {
 }
 
 /** One frame of the arcs from ``tip`` (the fingertip, px) along ``aim`` (radians) for a hand ``scale`` px across at a
- * voice ``level`` (0-1); ``px``: a pixel at 1080 lines. The main channel is welded to the tip; its streamers (one over
- * SIDE_ON's first level, two over its second) leave its root SIDE_GAP off the main channel's way out on either side,
- * at most SIDE_REACH of its reach, struck anew with it or when their own time is up, and struck again (REDRAW times,
- * then dropped) until they cross neither it nor each other, run beside it no further than ALONG lets them and keep
+ * voice ``level`` (0-1); ``px``: a pixel at 1080 lines; ``plate``: the picture they strike into (by default the one
+ * the lightning was last drawn over). The main channel is welded to the tip; its streamers (one over SIDE_ON's first
+ * level, two over its second) leave its root SIDE_GAP off the main channel's way out on either side, at most
+ * SIDE_REACH of its reach, struck anew with it or when their own time is up, and struck again (REDRAW times, then
+ * dropped) until they cross neither it nor each other, run beside it no further than ALONG lets them and keep
  * SIDE_APART round from it. */
 export function arcStep(arcs: Arcs, tip: P2, aim: number, scale: number, level: number, strike: boolean,
-  frame: number, px = 1): Arcs {
+  frame: number, px = 1, plate: Plate | null = seen): Arcs {
   const kw = widthK(scale, px) * px;
   const width = kw * (ARC_WIDTH[0] + (ARC_WIDTH[1] - ARC_WIDTH[0]) * level);
   const reach = scale * (ARC_REACH[0] + (ARC_REACH[1] - ARC_REACH[0]) * level);
-  const main = streamStep(arcs.main, tip, aim, reach, width, strike, frame, level);
+  const main = streamStep(arcs.main, tip, aim, reach, width, strike, frame, level, plate, px);
   const anew = main.flash === 1;
   const ch = main.ch!;
   const end = ch.pts[ch.pts.length - 1];
@@ -295,11 +500,14 @@ export function arcStep(arcs: Arcs, tip: P2, aim: number, scale: number, level: 
   return { main, sides };
 }
 
-/** Every channel of the arcs as drawn this frame, with how bright: [channel, gain]. */
+/** Every channel of the arcs as drawn this frame, with how bright: [channel, gain] (the main channel's splash on its
+ * first SPLASH frames). */
 export function arcChannels(arcs: Arcs, level: number): [Channel, number][] {
   const g = 0.55 + 0.45 * level;
   const out: [Channel, number][] = [];
-  if (arcs.main.ch) out.push([arcs.main.ch, (arcs.main.flash ?? 1) * g]);
+  const m = arcs.main;
+  if (m.ch) out.push([m.ch, (m.flash ?? 1) * g]);
+  if (m.ch && (m.age ?? 0) < SPLASH[7]) for (const s of m.splash ?? []) out.push([s, (m.flash ?? 1) * g]);
   for (const s of arcs.sides) if (s.ch && (s.flash ?? 1) > 0.02) out.push([s.ch, (s.flash ?? 1) * g]);
   return out;
 }
@@ -359,13 +567,37 @@ function stroke(ctx: Ctx2D, pts: P2[]) {
   ctx.stroke();
 }
 
+/** The contact flash where a channel strikes a surface running ``along`` at ``at``, ``amp`` bright, added: its light
+ * pooled along the surface (an ellipse falling off from where it strikes) and the white-hot point where it touches. */
+function drawImpact(ctx: CanvasRenderingContext2D, at: P2, along: P2, amp: number, px: number) {
+  const [len, across, alpha] = POOL;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.translate(at[0], at[1]);
+  ctx.rotate(Math.atan2(along[1], along[0]));
+  ctx.scale(1, across);
+  const r = len * px;
+  const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+  pool.addColorStop(0, `rgba(170, 195, 255, ${alpha * amp})`);
+  pool.addColorStop(0.15, `rgba(120, 160, 255, ${0.45 * alpha * amp})`);
+  pool.addColorStop(0.45, `rgba(90, 130, 255, ${0.15 * alpha * amp})`);
+  pool.addColorStop(1, "rgba(80, 120, 255, 0)");
+  ctx.fillStyle = pool;
+  ctx.fillRect(-r, -r, 2 * r, 2 * r);
+  ctx.restore();
+  drawSpark(ctx, at, IMPACT_PX * 2 * px, amp);
+}
+
 /** Draws channels, added: the blue air glowing round them (drawn small, blurred at three sizes, so a Gaussian-like
  * falloff in Canvas 2D at a sixteenth of the pixels; without a canvas for it, wide faint strokes), a violet-blue rim
  * and the core, white for a main channel (far over white: a phone clips it white with a blue rim) and bluer the
- * dimmer a branch, each channel in its stretches (thinning, a branch fading along it). ``px``: a pixel at 1080 lines;
- * ``most``: the widest glow, in px (a small ball's filaments glow no wider than it is). */
+ * dimmer a branch, each channel in its stretches (thinning, a branch fading along it), and a contact flash where a
+ * bright one strikes a surface (IMPACT_MIN). First (``read``) it reads the picture it is drawn over, for the next
+ * strike to look for what to hit in. ``px``: a pixel at 1080 lines; ``most``: the widest glow, in px (a small ball's
+ * arcs glow no wider than it is). */
 export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] | [Channel, number][], px: number,
-  glow = 1, most = Infinity) {
+  glow = 1, most = Infinity, read = true) {
+  if (read) look(ctx);
   const list = (channels as (Channel | [Channel, number])[])
     .map((c): [Channel, number] => (Array.isArray(c) ? c : [c, 1]));
   const flat: [P2[], number, number, number][] = []; // (points, width, alpha, how much of a branch it is)
@@ -420,6 +652,9 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
     stroke(ctx, pts);
   }
   ctx.restore();
+  for (const [c, g] of list) {
+    if (c.strikes && c.inten * g >= IMPACT_MIN) drawImpact(ctx, c.pts[c.pts.length - 1], c.strikes, c.inten * g, px);
+  }
 }
 
 /** The burning fingertip: a white spark with a cyan-blue halo, added. */
@@ -437,27 +672,24 @@ export function drawSpark(ctx: CanvasRenderingContext2D, at: P2, r: number, amp:
 }
 
 // ---- the light it throws
-export const LIGHT_HOLD = 4, LIGHT_LETGO = 0.55; // frames the light holds the strokes' peak, then lets go by this a
-// frame (following each stroke, the room strobed with the channels; letting go slowly, it glowed with no source)
-const LIGHT_GONE = 0.02;
+export const LIGHT_HOLD = 4, LIGHT_TAIL = 0.1; // frames the light holds the strokes' peak while they strike, and the
+// share of it it keeps for one frame once they stop (letting go by 0.55 a frame, the room stayed lit with no bolt in
+// it)
 
-/** The light's state: the last LIGHT_HOLD frames' power and the light held from them. */
+/** The light's state: the last LIGHT_HOLD frames' power while the strokes strike, and the light held from them. */
 export interface Light { recent: number[]; held: number }
 
-/** One frame of the light the lightning throws, for this frame's ``power`` (0-1: how much is striking): it holds the
- * strokes' peak over LIGHT_HOLD frames and lets go by LIGHT_LETGO a frame once they stop, gone under LIGHT_GONE. */
+/** One frame of the light the lightning throws, for this frame's ``power`` (0-1: how much is striking): while it
+ * strikes, the strokes' peak over LIGHT_HOLD frames; once they stop, LIGHT_TAIL of it for one frame, then none. */
 export function lightStep(l: Light | null, power: number): Light {
+  if (power <= 0) return { recent: [], held: l?.recent.length ? LIGHT_TAIL * l.held : 0 };
   const recent = [...(l?.recent ?? []), power].slice(-LIGHT_HOLD);
-  const now = Math.max(...recent);
-  let held = Math.max(now, (l?.held ?? 0) * LIGHT_LETGO);
-  if (now <= 0 && held <= LIGHT_GONE) held = 0;
-  return { recent, held };
+  return { recent, held: Math.max(...recent) };
 }
 
-export const DIP = [0.5, 4, 24]; // stops, frames rising, frames falling: the camera exposes down for the ball (as a
-// phone's does for a bright light in the picture), so its body is the brightest thing over the palm, settling for a
-// phrase rather than breathing with the voice (with the palm as bright as ever, the lit skin round it outshone it: a
-// glass marble)
+export const DIP = [0.35, 4, 24]; // stops, frames rising, frames falling: the camera exposes down for the ball (as a
+// phone's does for a bright light in the picture), so its body is the brightest thing over the palm and skin at the
+// top of red comes off it to take its blue, settling for a phrase rather than breathing with the voice
 
 /** Stops the camera is exposed down this frame, following ``target`` (0-1, how bright the ball is) from ``prev``:
  * DIP's stops at most, rising over its first frames, coming back over its second. */
@@ -481,11 +713,12 @@ const PALM = [0, 1, 2, 5, 9, 13, 17]; // the hand's landmarks round its palm, an
 const FINGERS = [[2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]];
 
 export const ROOM_RGB = "120, 150, 255"; // the arcs' light on the room: a cool blue (in the hand's violet, a tinted
-export const HAND_RGB = "185, 160, 255"; // wall went mauve); on the hand lavender, blue-violet on skin
-export const BALL_ROOM_RGB = "110, 116, 128"; // the ball's, on the room and the hand alike: the cool near-white of its
-export const BALL_HAND_RGB = BALL_ROOM_RGB; // plasma (cuesync.lightning's PLASMA_RGB) at half strength, which brightens
-// skin and cools it a little (in a deep blue, skin already at the top of red took only the blue, and was dyed fuchsia;
-// at full strength, screened, the palm round it went white)
+export const HAND_RGB = "175, 195, 255"; // wall went mauve); on the hand a cool white (in a lavender, the fingertips
+// went hot pink)
+export const BALL_ROOM_RGB = "70, 105, 160"; // the ball's on the room, a blue-white, and on the hand a deep blue at
+export const BALL_HAND_RGB = "20, 45, 130"; // a share of it, next to no red or green in it, so skin already at the top
+// of red takes it as blue and keeps its colour (cuesync.lightning's LIGHT_RGB; in its near-white the palm round it went
+// chalky)
 
 /** The light on the room and the hand, screened over the picture: round ``at`` (the bolts or the ball) on the room,
  * weaker out to the frame's edge; on the hand (its 21 landmarks ``lm``, px: the palm and each finger as thick as a
@@ -537,34 +770,64 @@ function handLayer(ctx: CanvasRenderingContext2D, name: string, lm: P2[], scale:
 }
 
 // ---- the ball over the palm
-const BALL_R = [0.1, 0.42]; // hand sizes: its radius, from a point to one held long and loud
+const BALL_R = [0.12, 0.5]; // hand sizes: its radius, from a point to one held long and loud
 export const BALL_RISE = 0.2; // its growth (0-1) rises at most this much a frame: from a crackle to full over ~5 frames
-const BALL_GROW = 10, BALL_SHRINK = 3; // frames: its charge follows the voice up this slowly, down this fast
+const BALL_GROW = 6, BALL_SHRINK = 3; // frames: its charge follows the voice up this slowly, down this fast
 const BALL_ON = [0.03, 0.015]; // it shows once the voice or its charge passes the first, goes once both are under
-const BALL_FORMED = 0.08; // its charge at which its body is dense: under half of it, only its filaments' crackle
-const FIL_REACH = 0.7; // radii: a young ball's filaments crackle this much further out than its body
+const BALL_FORMED = 0.08; // its charge at which its body is dense: under half of it, only its shell's crackle
+const FIL_REACH = 0.7; // radii: a young ball's shell crackles this much further out than its body
 const BALL_PULSE = 0.12; // a hit swells it by this share, gone over 3 frames
 const BALL_TURN = 0.02; // radians a frame: it turns slowly (the shot's 0.05 at 24 frames a second, on a 60 Hz screen)
-export const BALL_FILAMENTS = [5, 9]; // filaments from its middle to its skin, small to full grown, each leaving its
-// middle at a random angle in 3D, its depth scaled by BALL_DEPTH, so they reach its skin at different lengths as seen
-// (all reaching the same radius, a dozen made evenly spaced sun-ray spikes)
-const BALL_DEPTH = 0.45, BALL_FLAT = 0.5; // one that reaches less than this many radii across the picture is struck
-// again (pointing at the camera, it is a short scribble in the middle)
+const BALL_LIFT = 150; // px at 1080: it hovers this far up the picture off the palm (on it, it was a sticker on skin)
+export const SHELL = [10, 18]; // arcs crawling over its skin, small to full grown: the shell of filaments that draws
+// its outline (filaments from its middle out to its skin were a radial starburst: a lens flare)
+const SHELL_OUTLINE = 0.5, SHELL_SPAN = [0.87, 2.27]; // how often a shell arc runs along its outline; radians of its
+// great circle it runs over
+const SHELL_INNER = [0.3, 0.5, 0.85]; // share, radii: of them, this many crawl over a sphere this far in, seen through
+// its body (dimmer, SHELL_INNER_INTEN)
+const SHELL_INNER_INTEN = 0.55, SHELL_BACK = 0.4, SHELL_FACE = 0.35; // an inner arc's brightness; a stretch behind its
+// middle; one facing the camera against one along its outline, where the shell is seen edge on and shows densest
+export const SHELL_SKIN = 0.05; // radii: a shell arc is held this close to its sphere, however jagged (thrown past it,
+// its arcs lay on the palm like glowing veins)
+export const GROUND = [6, 10]; // arcs jumping from its skin to the fingers, quiet to loud, struck every frame or two
+const TARGETS = [4, 8, 12, 16, 20, 2, 5, 9, 13, 17, 6, 10, 14, 18]; // the landmarks they go to: tips, bases, joints
+export const GROUND_BOW = [30, 60]; // px at 1080: each bows through the air, its middle this far off its straight line,
+// up the picture (out from the palm's middle where it runs up or down it), coming down onto the finger
 const NEAR_LIGHT = [0.6, 0.73, 3.5]; // its light on what is close round it: this strong at its edge, falling off
 // with distance d (radii) as (1 + h^2) / (d^2 + h^2), h how high it hovers over the palm (radii), the softened inverse
-// square of cuesync.lightning's, gone by the last: the skin next to it brighter, the fingertips far from it barely
-const HALO: [number, number, string] = [0.25, 0.7, "170, 166, 255"]; // the faint blue-violet haze of its light round
-// it, added over skin and wall alike: at most this, falling off as a Gaussian of this sigma (radii; cuesync.lightning's
-// HALO)
+// square of cuesync.lightning's, gone by the last: the skin next to it lit, the fingertips far from it barely
+const HALO: [number, number, string] = [0.22, 0.8, "20, 90, 255"]; // the faint blue haze of its light round it, added
+// over skin and wall alike: at most this, falling off as a Gaussian of this sigma (radii; cuesync.lightning's HALO)
+export const PLASMA = [0.45, 1.5]; // (contrast, turns a second): its body is moving plasma, filaments of brighter and
+// darker light turning through it (cuesync.lightning's PLASMA), not an airbrushed marble
+const PLASMA_LAYERS: [number, number, string][] = [[1, 1, "multiply"], [-0.75, 0.5, "lighter"]]; // (rate, share, how):
+// its two turning layers, one deepening its blue along its filaments, the other brightening them (added alone, a pale
+// cyan, they washed it white)
 
-/** The ball's state between frames; each filament's ``aim`` is how far towards the camera its far end is (-1 to 1:
- * those at the back are dimmer). */
+/** An arc of the ball's shell: its points on the unit sphere (3D, z towards the camera), turned with the ball, and
+ * how bright (an inner one dimmer); struck and re-struck as a channel is. */
+export interface Shell { pts: P3[]; inten: number; left: number; flash: number }
+
+/** An arc jumping from the ball to a finger: its shape from (0, 0) to (1, 0), the landmark it goes to, how far it bows
+ * (px at 1080), struck and re-struck as a channel is. */
+export interface Jump { ch: Channel; to: number; lift: number; left: number; flash: number }
+
+/** The ball's state between frames. */
 export interface Ball { charge: number; grown: number; born: boolean; pulse: number; flare: number; level: number;
-  fils: Stream[]; turn: number }
+  shell: Shell[]; jumps: Jump[]; turn: number; frame: number }
 
 /** A normal deviate from ``rand`` (Box-Muller). */
 function gauss(rand: () => number): number {
   return Math.sqrt(-2 * Math.log(Math.max(rand(), 1e-12))) * Math.cos(2 * Math.PI * rand());
+}
+
+function unit3(v: P3): P3 {
+  const l = Math.hypot(...v) || 1;
+  return [v[0] / l, v[1] / l, v[2] / l];
+}
+
+function cross3(a: P3, b: P3): P3 {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
 /** How much of a body a ball has (0-1): none until its charge (and the voice) pass half BALL_FORMED. */
@@ -572,40 +835,62 @@ export function dense(level: number, charge: number): number {
   return Math.max(0, Math.min(1, (2 * (0.3 * level + 0.7 * charge)) / BALL_FORMED - 1));
 }
 
+/** A shell arc (cuesync.lightning's _shell): a jagged stretch of a great circle SHELL_SPAN long, SHELL_OUTLINE of them
+ * lying across the picture along its outline, SHELL_INNER's share on a sphere inside it, every point held within
+ * SHELL_SKIN of its sphere. */
+function shellArc(rand: () => number): P3[] {
+  const outline = rand() < SHELL_OUTLINE;
+  const inner = rand() < SHELL_INNER[0];
+  const r = inner ? SHELL_INNER[1] + (SHELL_INNER[2] - SHELL_INNER[1]) * rand() : 1;
+  const nrm = outline ? unit3([0.25 * gauss(rand), 0.25 * gauss(rand), 1])
+    : unit3([gauss(rand), gauss(rand), gauss(rand)]);
+  const e1 = unit3(cross3(nrm, [gauss(rand), gauss(rand), gauss(rand)]));
+  const e2 = cross3(nrm, e1);
+  const start = 2 * Math.PI * rand(), span = SHELL_SPAN[0] + (SHELL_SPAN[1] - SHELL_SPAN[0]) * rand();
+  const n = 33;
+  const pts: P3[] = [];
+  let wob = 0, vel = 0;
+  for (let i = 0; i < n; i++) {
+    const phi = start + (span * i) / (n - 1);
+    vel = 0.6 * vel + 0.09 * gauss(rand); // (a jagged wander off the circle, across it)
+    wob = Math.max(-0.35, Math.min(0.35, wob + vel));
+    const p: P3 = [0, 1, 2].map((k) => (Math.cos(phi) * e1[k] + Math.sin(phi) * e2[k]) * r + wob * nrm[k] * r) as P3;
+    const l = Math.hypot(...p) || 1;
+    const held = Math.max(r - SHELL_SKIN, Math.min(r + SHELL_SKIN, l)) / l;
+    pts.push([p[0] * held, p[1] * held, p[2] * held]);
+  }
+  return pts;
+}
+
 /** One frame of the ball for a voice ``level`` (0-1), or null when it is gone: its charge follows the voice, its body
  * forms at its least size and grows at most BALL_RISE a frame towards the square root of its charge, a hit swells it
- * and flares its middle; its filaments (BALL_FILAMENTS, from its middle to past its skin while it is young) are struck
- * and re-struck as channels are, turning slowly with it. */
+ * and flares its middle; its shell (SHELL arcs) and its arcs to the fingers (GROUND) are struck and re-struck as
+ * channels are, every frame or two, turning slowly with it. */
 export function ballStep(b: Ball | null, level: number, hit: boolean, frame: number): Ball | null {
   const prev = b?.charge ?? 0;
   const charge = prev + (level - prev) * (1 - Math.exp(-1 / (level > prev ? BALL_GROW : BALL_SHRINK)));
   if (Math.max(level, charge) < BALL_ON[b ? 1 : 0]) return null;
   const born = (b?.born ?? false) || dense(level, charge) > 0;
   const grown = b?.born ? Math.min(Math.sqrt(charge), b.grown + BALL_RISE) : 0;
-  const count = Math.round(BALL_FILAMENTS[0] + (BALL_FILAMENTS[1] - BALL_FILAMENTS[0]) * charge);
-  const reach = 1 + FIL_REACH * (1 - grown);
-  const fils: Stream[] = [];
-  for (let i = 0; i < count; i++) {
-    const old = b?.fils[i];
-    const rand = rng((i + 1) * 104729 + frame);
-    if (old?.ch && old.left > 0 && !hit) {
-      const on = rand() < RESTROKE[0] + RESTROKE[1] * level;
-      fils.push({ ...old, left: old.left - 1, flash: on ? 0.55 + 0.35 * rand() : 0.1 * rand() });
-      continue;
-    }
-    let d = [0, 0, 1];
-    for (let tries = 0; tries < 6 && Math.hypot(d[0], d[1]) < BALL_FLAT; tries++) {
-      const v = [gauss(rand), gauss(rand), BALL_DEPTH * gauss(rand)];
-      const l = Math.hypot(v[0], v[1], v[2]) || 1;
-      d = v.map((x) => x / l);
-    }
-    const far = reach * (0.92 + 0.13 * rand());
-    const from: P2 = [0.05 * (rand() - 0.5), 0.05 * (rand() - 0.5)];
-    fils.push({ ch: channel(from, [d[0] * far, d[1] * far], rand, 1, 0.22, 5, 0.25, { clear: 0.02 }),
-      left: life(rand) - 1, aim: d[2], seed: i + 1, flash: 1 });
+  const restroke = (rand: () => number) => (rand() < RESTROKE[0] + RESTROKE[1] * level ? 0.55 + 0.35 * rand()
+    : 0.1 * rand());
+  const shell: Shell[] = [];
+  for (let i = 0; i < Math.round(SHELL[0] + (SHELL[1] - SHELL[0]) * charge); i++) {
+    const old = b?.shell[i], rand = rng((i + 1) * 104729 + frame);
+    if (old && old.left > 0 && !hit) { shell.push({ ...old, left: old.left - 1, flash: restroke(rand) }); continue; }
+    const pts = shellArc(rand);
+    shell.push({ pts, inten: Math.hypot(...pts[16]) < 0.9 ? SHELL_INNER_INTEN : 1, left: life(rand) - 1, flash: 1 });
   }
-  return { charge, grown, born, pulse: hit ? BALL_PULSE : (b?.pulse ?? 0) * 0.6, flare: hit ? 1 : 0, level, fils,
-    turn: (b?.turn ?? 0) + BALL_TURN };
+  const jumps: Jump[] = [];
+  for (let i = 0; i < Math.round(GROUND[0] + (GROUND[1] - GROUND[0]) * level); i++) {
+    const old = b?.jumps[i], rand = rng((i + 1) * 15485863 + frame);
+    if (old && old.left > 0 && !hit) { jumps.push({ ...old, left: old.left - 1, flash: restroke(rand) }); continue; }
+    jumps.push({ ch: channel([0, 0], [1, 0], rand, 1, 0.2, 5, 0),
+      to: TARGETS[(i + Math.floor(rand() * 4)) % TARGETS.length],
+      lift: GROUND_BOW[0] + (GROUND_BOW[1] - GROUND_BOW[0]) * rand(), left: Math.min(2, life(rand)) - 1, flash: 1 });
+  }
+  return { charge, grown, born, pulse: hit ? BALL_PULSE : (b?.pulse ?? 0) * 0.6, flare: hit ? 1 : 0, level, shell,
+    jumps, turn: (b?.turn ?? 0) + BALL_TURN, frame };
 }
 
 /** The ball's radius in px for a hand ``scale`` px across. */
@@ -614,20 +899,65 @@ export function ballRadius(b: Ball, scale: number): number {
   return scale * (BALL_R[0] + (BALL_R[1] - BALL_R[0]) * g * g * (3 - 2 * g)) * (1 + b.pulse);
 }
 
+/** Where the ball hovers for a palm at ``palm``: BALL_LIFT up the picture off it (``px``: a pixel at 1080 lines). */
+export function ballAt(palm: P2, px: number): P2 {
+  return [palm[0], palm[1] - BALL_LIFT * px];
+}
+
 /** The body's colour from its middle out, as gradient stops [radii, r, g, b, alpha]: the shot's ball as shown
- * (cuesync.lightning, the median of each ring at full charge: test_lightning's BALL_PROFILE), white-hot in its middle
- * and a pale cyan-blue round that, the lit palm showing through towards its edge; dense in its middle, light over the
- * palm towards its edge (so the palm shows through it there), and gone a little past its radius with no outline. */
+ * (cuesync.lightning, the median of each ring at full charge: test_lightning.py's BALL_PROFILE, which
+ * lightning.test.ts reads to hold these to), white-hot in its middle, cyan round that and a saturated blue to its
+ * limb, the palm lit blue showing through it there; dense in its middle, light over the palm towards its edge, and
+ * gone a little past its radius with no outline. */
 export const BODY_STOPS: [number, number, number, number, number][] = [
-  [0, 253, 254, 255, 1], [0.15, 248, 251, 255, 1], [0.3, 230, 242, 255, 1], [0.45, 211, 234, 255, 1],
-  [0.6, 210, 233, 255, 0.97], [0.75, 224, 234, 255, 0.88], [0.9, 244, 234, 252, 0.65], [1, 240, 228, 250, 0.35],
-  [1.15, 236, 222, 248, 0],
+  [0, 250, 252, 255, 1], [0.15, 230, 241, 255, 1], [0.3, 161, 204, 255, 1], [0.45, 140, 195, 254, 1],
+  [0.6, 152, 197, 254, 0.97], [0.75, 172, 202, 253, 0.88], [0.9, 196, 212, 254, 0.65], [1, 200, 214, 252, 0.35],
+  [1.15, 205, 216, 250, 0],
 ];
 
-/** Draws the ball at ``c`` for a hand ``scale`` px across: its body (once formed, BODY_STOPS), the faint blue-violet
- * haze of its light round it (HALO), its filaments white over it (dim inside, brightest at its skin, those at the back
- * dimmer) and its white-hot middle. ``px``: a pixel at 1080 lines. */
-export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: number, px: number) {
+const plasmaMaps = new WeakMap<object, Ctx2D>();
+
+/** A tile of ridged noise (a blue, its alpha the noise: filaments), made once per canvas; null where there is none
+ * to make it on. */
+function plasmaTile(ctx: CanvasRenderingContext2D): Ctx2D | null {
+  const main = ctx.canvas as HTMLCanvasElement | undefined;
+  if (!main?.width) return null;
+  const got = plasmaMaps.get(main);
+  if (got) return got;
+  const n = 128;
+  const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(n, n)
+    : Object.assign(document.createElement("canvas"), { width: n, height: n });
+  const t = c.getContext("2d") as Ctx2D | null;
+  if (!t) return null;
+  const rand = rng(17);
+  const img = t.createImageData(n, n);
+  const field = new Float32Array(n * n);
+  for (const [cells, weight] of [[4, 0.6], [9, 0.4]]) { // (two octaves of smooth noise, wrapping round the tile)
+    const g = Array.from({ length: cells * cells }, () => rand() * 2 - 1);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const fx = (x / n) * cells, fy = (y / n) * cells, x0 = Math.floor(fx), y0 = Math.floor(fy);
+      const u = fx - x0, v = fy - y0, s = (q: number) => q * q * (3 - 2 * q);
+      const at = (i: number, j: number) => g[((j % cells) * cells) + (i % cells)];
+      const top = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * s(u);
+      const bot = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * s(u);
+      field[y * n + x] += weight * (top + (bot - top) * s(v));
+    }
+  }
+  for (let i = 0; i < n * n; i++) { // (ridged: its zero crossings bright, filaments)
+    const ridge = (1 - Math.min(1, Math.abs(field[i]) * 3)) ** 2;
+    img.data.set([90, 160, 255, Math.round(255 * ridge)], 4 * i);
+  }
+  t.putImageData(img, 0, 0);
+  plasmaMaps.set(main, t);
+  return t;
+}
+
+/** Draws the ball over a palm at ``palm`` (hovering off it: ballAt) for a hand ``scale`` px across: its body (once
+ * formed, BODY_STOPS) with its plasma turning through it (PLASMA, where there is a canvas to make it on), the faint
+ * blue haze of its light round it (HALO), its shell's arcs white over it (brightest along its outline, those behind
+ * it and inside it dimmer) and its white-hot middle. ``px``: a pixel at 1080 lines. */
+export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale: number, px: number) {
+  const c = ballAt(palm, px);
   const R = ballRadius(b, scale);
   const body = b.born ? dense(b.level, b.charge) : 0;
   ctx.save();
@@ -642,6 +972,23 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: n
     ctx.beginPath();
     ctx.arc(c[0], c[1], reach, 0, 2 * Math.PI);
     ctx.fill();
+    const tile = plasmaTile(ctx);
+    if (tile) { // (its plasma: the tile turned two ways at once inside its body, brighter filaments, added)
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(c[0], c[1], 0.95 * R, 0, 2 * Math.PI);
+      ctx.clip();
+      for (const [rate, share, how] of PLASMA_LAYERS) {
+        ctx.save();
+        ctx.globalCompositeOperation = how as GlobalCompositeOperation;
+        ctx.translate(c[0], c[1]);
+        ctx.rotate((2 * Math.PI * PLASMA[1] * rate * b.frame) / 60); // (a 60 Hz screen)
+        ctx.globalAlpha = PLASMA[0] * share * body;
+        ctx.drawImage(tile.canvas, -1.2 * R, -1.2 * R, 2.4 * R, 2.4 * R);
+        ctx.restore();
+      }
+      ctx.restore();
+    }
     const [k, sigma, rgb] = HALO;
     const far = 3.5 * sigma * R;
     const haze = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], far);
@@ -653,58 +1000,102 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: n
     ctx.fillStyle = haze;
     ctx.fillRect(c[0] - far, c[1] - far, 2 * far, 2 * far);
   }
-  const turn = b.turn, cs = Math.cos(turn), sn = Math.sin(turn);
-  const place = (p: P2): P2 => [c[0] + R * (p[0] * cs - p[1] * sn), c[1] + R * (p[0] * sn + p[1] * cs)];
+  const reach = 1 + FIL_REACH * (1 - b.grown) ** 2; // (a young ball's shell crackles past where its skin will be)
+  const cs = Math.cos(b.turn), sn = Math.sin(b.turn), tilt = 0.35, ct = Math.cos(tilt), st = Math.sin(tilt);
   const lines: [Channel, number][] = [];
-  const width = Math.max(0.8, widthK(scale, px) * px * (0.8 + 0.6 * b.level));
-  for (const f of b.fils) {
-    if (!f.ch || (f.flash ?? 1) <= 0.02) continue;
-    const pts = f.ch.pts.map(place);
-    const j = Math.floor(0.2 * pts.length), k = Math.floor(0.45 * pts.length); // (lost in the white-hot middle, dim
-    // round it, brightest at its skin: drawn from its middle at one brightness, they met there as a star's rays)
-    const gain = (f.flash ?? 1) * (0.4 + 0.6 * b.level) * (0.55 + 0.45 * Math.max(-1, Math.min(1, f.aim)));
-    lines.push([{ pts: pts.slice(j, k + 1), width: 0.7 * width, inten: 1, forks: [], at: 0 }, 0.3 * gain]);
-    const forks = f.ch.forks.map((o) => ({ ...o, pts: o.pts.map(place), width: 0.6 * width }));
-    lines.push([{ pts: pts.slice(k), width, inten: 1, forks, at: 0 }, gain]);
+  const width = Math.max(0.7, widthK(scale, px) * px * (0.5 + 0.4 * b.level));
+  for (const s of b.shell) {
+    if (s.flash <= 0.02) continue;
+    const seen3 = s.pts.map(([x, y, z]): P3 => { // (turned about its upright, then tipped towards the camera)
+      const x1 = x * cs + z * sn, z1 = -x * sn + z * cs;
+      return [x1, y * ct - z1 * st, y * st + z1 * ct];
+    });
+    const front = seen3.filter(([, , z]) => z >= -0.1).length / seen3.length;
+    const limb = seen3.reduce((sum, p) => sum + 1 - Math.abs(p[2]) / (Math.hypot(...p) || 1), 0) / seen3.length;
+    const gain = 0.7 * s.flash * (0.4 + 0.6 * b.level) * s.inten * (SHELL_FACE + (1 - SHELL_FACE) * limb) *
+      (SHELL_BACK + (1 - SHELL_BACK) * front);
+    lines.push([{ pts: seen3.map(([x, y]): P2 => [c[0] + R * reach * x, c[1] + R * reach * y]), width, inten: 1,
+      forks: [], at: 0 }, gain]);
   }
-  drawChannels(ctx, lines, px, 0.6, 0.3 * R);
+  drawChannels(ctx, lines, px, 0.4, 0.15 * R, false);
   ctx.restore();
   drawSpark(ctx, c, 0.16 * R + 3 * px, (body ? 0.9 : 0.5) * (1 + b.flare) * (0.5 + 0.5 * b.level)); // (its body is
-  // white-hot round it already: wider, it was a white star the filaments ran into like rays)
+  // white-hot round it already: wider, it was a white star the arcs ran into like rays)
 }
 
-/** The ball's light on what is close round it (NEAR_LIGHT), screened under it: the cool near-white of its plasma on
- * the room and on the hand (its 21 landmarks ``lm``, px, or null), which brightens skin and cools it a little, keeping
- * its lines; strongest at its edge and falling off as the softened inverse square of the distance, so the fingertips
- * far from it are barely lit; as strong as its body is dense. */
-export function drawBallLight(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: number, lm: P2[] | null,
-  w: number, h: number) {
-  const body = b.born ? dense(b.level, b.charge) : 0;
-  if (body <= 0) return;
+/** The ball's light on what is close round it (NEAR_LIGHT), screened under it: a blue-white on the room and a deep
+ * blue on the hand (its 21 landmarks ``lm``, px, or null), which skin takes as blue keeping its colour; strongest at
+ * its edge and falling off as the softened inverse square of the distance, so the fingertips far from it are barely
+ * lit; as strong as its body is dense. And, with the hand, the arcs it throws to the fingers (GROUND), bowing up
+ * through the air from its skin and coming down onto each finger, white-hot with a spark where they land. ``palm``:
+ * the palm it hovers over (ballAt); ``px``: a pixel at 1080 lines. */
+export function drawBallLight(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale: number, lm: P2[] | null,
+  w: number, h: number, px = h / 1080) {
+  const c = ballAt(palm, px);
   const R = ballRadius(b, scale);
-  const [k, hover, reach] = NEAR_LIGHT;
-  const falloff = (fill: CanvasGradient, rgb: string, gain: number) => {
-    for (let i = 0; i <= 8; i++) { // (from its edge out to ``reach`` radii, faded out over the last one)
-      const d = 1 + ((reach - 1) * i) / 8, fade = Math.min(1, reach - d);
-      const a = (gain * k * body * (1 + hover * hover)) / (d * d + hover * hover);
-      fill.addColorStop(i / 8, `rgba(${rgb}, ${a * fade * fade * (3 - 2 * fade)})`);
+  const body = b.born ? dense(b.level, b.charge) : 0;
+  if (body > 0) {
+    const [k, hover, reach] = NEAR_LIGHT;
+    const falloff = (fill: CanvasGradient, rgb: string, gain: number) => {
+      for (let i = 0; i <= 8; i++) { // (from its edge out to ``reach`` radii, faded out over the last one)
+        const d = 1 + ((reach - 1) * i) / 8, fade = Math.min(1, reach - d);
+        const a = (gain * k * body * (1 + hover * hover)) / (d * d + hover * hover);
+        fill.addColorStop(i / 8, `rgba(${rgb}, ${a * fade * fade * (3 - 2 * fade)})`);
+      }
+    };
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const room = ctx.createRadialGradient(c[0], c[1], R, c[0], c[1], reach * R);
+    falloff(room, BALL_ROOM_RGB, 0.5);
+    ctx.fillStyle = room;
+    ctx.fillRect(c[0] - reach * R, c[1] - reach * R, 2 * reach * R, 2 * reach * R);
+    const mask = lm ? handLayer(ctx, "ball-hand", lm, scale) : null;
+    if (mask) {
+      const hand = mask.createRadialGradient(c[0], c[1], R, c[0], c[1], reach * R);
+      falloff(hand, BALL_HAND_RGB, 0.6);
+      mask.fillStyle = hand;
+      mask.fillRect(c[0] - reach * R, c[1] - reach * R, 2 * reach * R, 2 * reach * R);
+      ctx.drawImage(mask.canvas, 0, 0, w, h);
     }
-  };
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  const room = ctx.createRadialGradient(c[0], c[1], R, c[0], c[1], reach * R);
-  falloff(room, BALL_ROOM_RGB, 0.4);
-  ctx.fillStyle = room;
-  ctx.fillRect(c[0] - reach * R, c[1] - reach * R, 2 * reach * R, 2 * reach * R);
-  const mask = lm ? handLayer(ctx, "ball-hand", lm, scale) : null;
-  if (mask) {
-    const hand = mask.createRadialGradient(c[0], c[1], R, c[0], c[1], reach * R);
-    falloff(hand, BALL_HAND_RGB, 0.7);
-    mask.fillStyle = hand;
-    mask.fillRect(c[0] - reach * R, c[1] - reach * R, 2 * reach * R, 2 * reach * R);
-    ctx.drawImage(mask.canvas, 0, 0, w, h);
+    ctx.restore();
   }
-  ctx.restore();
+  if (!lm || !b.born) return;
+  const middle: P2 = [[0, 5, 9, 13, 17].reduce((s, i) => s + lm[i][0], 0) / 5,
+    [0, 5, 9, 13, 17].reduce((s, i) => s + lm[i][1], 0) / 5];
+  const lines: [Channel, number][] = [];
+  const sparks: [P2, number][] = [];
+  for (const j of b.jumps) {
+    const to = lm[j.to];
+    if (j.flash <= 0.05 || Math.hypot(to[0] - c[0], to[1] - c[1]) < 1.15 * R) continue; // (not to a knuckle under it)
+    const d = Math.hypot(to[0] - c[0], to[1] - c[1]);
+    const a: P2 = [c[0] + ((to[0] - c[0]) / d) * R, c[1] + ((to[1] - c[1]) / d) * R];
+    lines.push([bowed(j.ch, a, to, j.lift * px, middle, Math.max(0.9, widthK(scale, px) * px * 1.4)), 0.85 * j.flash]);
+    sparks.push([to, 0.4 * j.flash]);
+  }
+  drawChannels(ctx, lines, px, 0.5, 0.1 * scale, false);
+  for (const [at, amp] of sparks) drawSpark(ctx, at, 0.04 * scale, amp);
+}
+
+/** ``c`` (drawn from (0, 0) to (1, 0)) carried onto a bow from ``a`` to ``b``, its middle ``lift`` px off the straight
+ * line across it, up the picture, or out from ``middle`` (the palm's) where it runs up or down the picture; ``width``
+ * px wide. */
+export function bowed(c: Channel, a: P2, b: P2, lift: number, middle: P2, width: number): Channel {
+  const dx = b[0] - a[0], dy = b[1] - a[1], chord = Math.hypot(dx, dy) || 1;
+  let n: P2 = [-dy / chord, dx / chord];
+  const mid: P2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  if (Math.abs(n[1]) < 0.35) {
+    if (n[0] * (mid[0] - middle[0]) + n[1] * (mid[1] - middle[1]) < 0) n = [-n[0], -n[1]];
+  } else if (n[1] > 0) n = [-n[0], -n[1]];
+  const ctl: P2 = [mid[0] + 2 * lift * n[0], mid[1] + 2 * lift * n[1]];
+  const pts = c.pts.map(([u, v]): P2 => {
+    const x = (1 - u) ** 2 * a[0] + 2 * u * (1 - u) * ctl[0] + u * u * b[0];
+    const y = (1 - u) ** 2 * a[1] + 2 * u * (1 - u) * ctl[1] + u * u * b[1];
+    const tx = 2 * (1 - u) * (ctl[0] - a[0]) + 2 * u * (b[0] - ctl[0]);
+    const ty = 2 * (1 - u) * (ctl[1] - a[1]) + 2 * u * (b[1] - ctl[1]);
+    const tl = Math.hypot(tx, ty) || 1;
+    return [x - (ty / tl) * v * chord, y + (tx / tl) * v * chord];
+  });
+  return { pts, width, inten: 1, forks: [], at: 0 };
 }
 
 /** What a frame of the microphone sounds like for lightning: the share of its energy at 4-11 kHz (of 150 Hz-11 kHz,
