@@ -106,5 +106,41 @@
   "tap_frame": 35,
   "real": true,
   "rank": -99
+ },
+ "bending|hand_open.mp4||flame_plume@5ce2d86e|0.53,0.71|1": {
+  "dir": "hand_open__fff__flame_plume",
+  "title": "fff, fff, fff · a flame on each beat",
+  "plate": "hand_open.mp4",
+  "voice": "",
+  "effect": "flame_plume",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 30,
+  "real": true,
+  "rank": -98.5
+ },
+ "bending|hand_open.mp4|shhhhh-sploosh.wav|water_orb@made|0.53,0.71|1": {
+  "dir": "hand_open__shhhhh__water_orb",
+  "title": "shhhhh · sploosh · a ball of water, thrown at the wall",
+  "plate": "hand_open.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_orb",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 30,
+  "real": true,
+  "rank": -102.8
+ },
+ "bending|hand_open.mp4|shhhhh-sploosh.wav|water_whip@made|0.53,0.71|1": {
+  "dir": "hand_open__shhhhh__water_whip",
+  "title": "shhhhh · a water whip",
+  "plate": "hand_open.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_whip",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 30,
+  "real": true,
+  "rank": -101.8
  }
 }

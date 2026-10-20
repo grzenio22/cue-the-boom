@@ -149,7 +149,7 @@ cuesync studio
 - **Models:** see [The entry at a glance](#the-entry-at-a-glance).
 - **Software:** ComfyUI (GPL-3.0); the Comfy Python SDK and comfy-api-proxy (Comfy Org); ComfyUI-LTXVideo (Lightricks); Next.js; PyAV/FFmpeg; OpenCV.
 - **Footage and sounds:**
-  - `hand_palm`, `hand_point`, `hand_walk`, `hand_punch` and `hand_fist` are the author's own hand and voice.
+  - `hand_palm`, `hand_point`, `hand_walk`, `hand_punch`, `hand_fist` and `hand_open` are the author's own hand and voice.
   - `hand_cupped` is a Pexels clip (Kindel Media).
   - The other sample clips are stand-ins generated with LTX-2.5, and the sample noises are synthetic.
   - The real-footage scene shots are made from stock clips and photos, and real people's CC0 voices, by the authors in [samples/CREDITS.md](samples/CREDITS.md). Only the processed shots are in the repository.

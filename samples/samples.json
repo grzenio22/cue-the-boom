@@ -293,6 +293,17 @@
     "frame": 35
    },
    "note": "the author's own hand closing to a fist on a BOOM, filmed on a phone; its fireball was made ahead of time, and a BOOOOM sets off an explosion: no GPU"
+  },
+  "hand_open.mp4": {
+   "title": "Your hand: open palm, lit room",
+   "point": [
+    0.532,
+    0.707
+   ],
+   "hand": {
+    "frame": 30
+   },
+   "note": "the author's own open palm in a lit hallway; its flame was made ahead of time, and water, air and ball lightning are made on it from your noise: no GPU"
   }
  }
 }

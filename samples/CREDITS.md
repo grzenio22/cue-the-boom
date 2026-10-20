@@ -5,8 +5,9 @@ photos. Each one is processed (the effect rendered into it by LTX-2.5 with ainvf
 themselves are not in this repository. The one exception is the sample hand: `plates/hand_cupped.mp4` is the
 Pexels clip itself (at 720p), so a hand of your own can be tried with no camera.
 
-`plates/hand_palm.mp4`, `hand_point.mp4`, `hand_walk.mp4`, `hand_punch.mp4` and `hand_fist.mp4` (and their shots in
-`made_ahead/bending/hand_palm__*`, `hand_point__*`, `hand_walk__*`, `hand_punch__*` and `hand_fist__*`) are the author's
+`plates/hand_palm.mp4`, `hand_point.mp4`, `hand_walk.mp4`, `hand_punch.mp4`, `hand_fist.mp4` and `hand_open.mp4` (and
+their shots in `made_ahead/bending/hand_palm__*`, `hand_point__*`, `hand_walk__*`, `hand_punch__*`, `hand_fist__*` and
+`hand_open__*`) are the author's
 own hand and voice, filmed on a phone for this project, under the repository's licence. The sample noises in `voices/`
 are synthetic (`tools/make_hand_noises.py` makes the five for lightning, water, air and the explosion).
 
