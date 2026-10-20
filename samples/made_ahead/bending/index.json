@@ -59,15 +59,39 @@
   "real": true,
   "rank": -103
  },
- "bending|hand_punch.mp4|boooom.wav|explosion@made|0.57,0.42|1": {
-  "dir": "hand_punch__boooom__explosion",
-  "title": "BOOOOM · an explosion off the fist",
-  "plate": "hand_punch.mp4",
+ "bending|hand_fist.mp4||fire_burst@f9c3de6f|0.50,0.52|1": {
+  "dir": "hand_fist__boom__fire_burst",
+  "title": "BOOM · a fireball as the hand closes",
+  "plate": "hand_fist.mp4",
+  "voice": "",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 35,
+  "real": true,
+  "rank": -99
+ },
+ "bending|hand_open.mp4||flame_plume@5ce2d86e|0.53,0.71|1": {
+  "dir": "hand_open__fff__flame_plume",
+  "title": "fff, fff, fff · a flame on each beat",
+  "plate": "hand_open.mp4",
+  "voice": "",
+  "effect": "flame_plume",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 30,
+  "real": true,
+  "rank": -98.5
+ },
+ "bending|hand_fist.mp4|boooom.wav|explosion@made|0.50,0.52|1": {
+  "dir": "hand_fist__boooom__explosion",
+  "title": "BOOOOM · an explosion, the smoke clearing",
+  "plate": "hand_fist.mp4",
   "voice": "boooom.wav",
   "effect": "explosion",
   "mode": "bending",
   "seed": 1,
-  "tap_frame": 68,
+  "tap_frame": 35,
   "real": true,
   "rank": -103.5
  },
@@ -95,29 +119,29 @@
   "real": true,
   "rank": -103.2
  },
- "bending|hand_fist.mp4||fire_burst@f9c3de6f|0.50,0.52|1": {
-  "dir": "hand_fist__boom__fire_burst",
-  "title": "BOOM · a fireball as the hand closes",
-  "plate": "hand_fist.mp4",
-  "voice": "",
-  "effect": "fire_burst",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 35,
-  "real": true,
-  "rank": -99
- },
- "bending|hand_open.mp4||flame_plume@5ce2d86e|0.53,0.71|1": {
-  "dir": "hand_open__fff__flame_plume",
-  "title": "fff, fff, fff · a flame on each beat",
+ "bending|hand_open.mp4|zzzzz-tsst.wav|lightning_ball@made|0.53,0.71|1": {
+  "dir": "hand_open__zzzzz__lightning_ball",
+  "title": "zzzzz · ball lightning in the palm",
   "plate": "hand_open.mp4",
-  "voice": "",
-  "effect": "flame_plume",
+  "voice": "zzzzz-tsst.wav",
+  "effect": "lightning_ball",
   "mode": "bending",
   "seed": 1,
   "tap_frame": 30,
   "real": true,
-  "rank": -98.5
+  "rank": -102.9
+ },
+ "bending|hand_open.mp4|hoooo.wav|air_ball@made|0.53,0.71|1": {
+  "dir": "hand_open__hoooo__air_ball",
+  "title": "hoooooo · a ball of air in the palm",
+  "plate": "hand_open.mp4",
+  "voice": "hoooo.wav",
+  "effect": "air_ball",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 30,
+  "real": true,
+  "rank": -100.0
  },
  "bending|hand_open.mp4|shhhhh-sploosh.wav|water_orb@made|0.53,0.71|1": {
   "dir": "hand_open__shhhhh__water_orb",
