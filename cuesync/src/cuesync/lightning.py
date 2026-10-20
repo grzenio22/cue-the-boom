@@ -28,18 +28,17 @@ an open palm, drawn frame by frame from the hand's track and lit onto the plate.
   and on the silhouette's outline), never from a finger curled into the hand whatever the tracker's depth says of it.
   The bolts go into the room behind the hand: a channel is drawn again rather than lie across the hand's matte, and
   what of one still passes behind the hand away from its fingertip is hidden by it.
-- **The ball.** A light held over the palm, a sphere of plasma: a round body white-hot within a third of its radius,
-  cyan round that and a saturated blue to its limb (it rolls off to white with its hue kept, never clipped channel by
-  channel to a flat pale aqua), far brighter in its middle than at its limb and well over the luminance of the skin
-  round it, as dense nearly to its outline as at its middle, soft streaks from its middle to its limb, a cyan ring
-  brightening at its limb (so it never darkens towards its outline), filaments from its middle out to its skin, white
-  over its colour (in 3D, turning slowly, mostly across the picture: one pointing at the camera is a short scribble, a
-  knotted one is drawn again), broken arcs crawling over its skin and arcs jumping from it to a fingertip, blue-white
-  over the skin they cross. What shows through its body is scattered in it, so the wall in a gap between two fingers
-  is no window through a glass marble. It hovers off the palm along the palm's normal, sized to sit over it. It lights
-  what is close round it, skin or wall, times that surface's own colour (violet on skin, which keeps its pores and
-  edges; a cooler blue on the wall), the hand more broadly and the edges of the fingers facing it, and the lens's glare
-  is a narrow band of its blue just over its limb, the same over skin and over the wall, never a veil.
+- **The ball.** A light held over the palm, a ball of plasma: a volume of light, brightest and whitest in its middle
+  (a cool near-white far over white there, PLASMA_RGB), a pale cyan-blue towards its edge and falling off smoothly
+  with no outline, then a faint blue-violet haze of its light round it, the same over skin and wall. It rolls off to
+  white with its hue kept as far as its own light outshines what is behind it, never clipped channel by channel to a
+  flat pale aqua. It hides what is behind it only as much as it is dense, nearly all behind its middle and little at
+  its edge, where it is light added over the palm and the palm's lines show through, brightened; what shows through
+  its middle is scattered in it, so the wall in a gap between two fingers is no window through a glass marble. Soft
+  streaks run from its middle to its edge; filaments from its middle out to its skin, white-hot with a cyan-blue glow
+  (in 3D, turning slowly, mostly across the picture: one pointing at the camera is a short scribble, a knotted one is
+  drawn again), broken arcs crawling over its skin and arcs jumping from it to a fingertip, white-hot over the skin
+  they cross as over the ball. It hovers off the palm along the palm's normal, sized to sit over it.
 - **The voice.** The louder the voice, the more streams leave each finger, the further they reach and the thicker
   they are; a hit strikes every stream afresh at once, a little further. Between strikes, and for a moment after the
   voice stops, a crackle stays at a steady burning fingertip, and arcs crawl up a steady finger. The ball grows from a
@@ -57,14 +56,17 @@ an open palm, drawn frame by frame from the hand's track and lit onto the plate.
   of it, the wall just behind it and the room further behind, shaded on the round hand, times each surface's own
   colour, so skin keeps its texture under it: the arcs' blue-violet on the hand, a cooler blue-white on the room,
   divided by the room's own tint so it lands as the same blue on a tinted wall, and lifting the room by half a stop at
-  most (two fingers light it as one does). The large-area light does not strobe with the channels (a
-  photosensitivity limit: at most about 3 big changes a second): its strength holds the strokes' peak while they
-  strike and dies within a few frames of the last, and its shape is pooled over the last few frames' channels; only
-  the channels and their glow flicker frame to frame. On the hand it is capped (HAND_CAP), at the peak of the burst
-  so the cap does not hold it up as it dies. The camera exposes down while the lightning shines (as a phone's does
-  for a bright light in the picture: a flash for the arcs, never so far that the room they light goes darker than
-  the plate; settling once for the ball's phrases, held through the gaps between them, and coming back once the ball
-  has gone), so skin already at the top of red has room to take the blue light as blue, and the plate's own
+  most (two fingers light it as one does). The ball's light is the cool near-white of its plasma, on the hand as on
+  the room, falling off with distance as the inverse square, softened by how far it hovers over the palm: the skin
+  next to it goes brighter and a little cooler, towards a pale cool pink, the fingers near it are lit, and their tips
+  far from it barely; the edges of the fingers facing it catch a rim of it. The large-area light does not strobe with
+  the channels (a photosensitivity limit: at most about 3 big changes a second): its strength holds the strokes' peak
+  while they strike and dies within a few frames of the last, and its shape is pooled over the last few frames'
+  channels; only the channels and their glow flicker frame to frame. On the hand it is capped (HAND_CAP), at the peak
+  of the burst so the cap does not hold it up as it dies. The camera exposes down while the lightning shines (as a
+  phone's does for a bright light in the picture: a flash for the arcs, never so far that the room they light goes
+  darker than the plate; settling once for the ball's phrases, held through the gaps between them, and coming back
+  once the ball has gone), so skin already at the top of red has room to take the light, and the plate's own
   highlights are never dimmed by the roll-off to white.
 
 Everything is numpy and OpenCV; the random parts come from ``seed`` (the strikes, in one pass over the frames, then
@@ -84,7 +86,7 @@ from .elements import FORMS, Timeline
 from .hand_track import REACH_OUT, _pointing, finger_reach
 from .transfer import gam, lin
 
-_STRIKES, _CRACKLE, _FRAME, _SPARK, _LIMB, _STREAK = 11, 12, 13, 14, 15, 16  # mixed into each seed: each random part
+_STRIKES, _CRACKLE, _FRAME, _SPARK, _STREAK = 11, 12, 13, 14, 16  # mixed into each seed: each random part
 # its own stream
 
 # ---- the voice
@@ -239,72 +241,46 @@ BALL_TURN = 0.05  # radians a frame: it turns slowly (its filaments' far ends mo
 BALL_PULSE = 0.12  # a hit swells it by this share, gone over 3 frames
 BALL_FLARE = 1.0  # and on the frame it lands, its middle's spark flares by this share of the hit's size, its white-hot
 # glow by at most INNER_FLARE: the sound's sync, now that the ball grows rather than pops into being
-BALL_CORE, BALL_SPARK = 0.09, 2.4  # radii, and amplitude at the loudest: its middle, clipped to white-cyan (at 0.05
-# and 1.2 the ball had no source; at 0.11 it was a flat white disc)
-BALL_BODY = 0.85  # the glowing air inside it, at its middle, in BODY_RGB: a light, a saturated blue towards its limb
-# (just at white there, its blue full and its red and green under it), over-exposed to cyan and then white towards its
-# middle (BRIGHT_TONE), well over the luminance of the skin round it (at 1.0 in a deep blue, little luminance, it was
-# only 1.3 times the skin's: a glass marble; at 1.9 in a greener blue, clipped channel by channel, a flat pale-aqua
-# disc with no white middle; at 1.3 its blue was over white everywhere and rolled off to a pale lavender)
-BODY_RGB = np.array([0.28, 0.66, 1.0], np.float32)  # (the arcs' own blue: in a greener one it read aqua beside them;
-# its filaments' violet glow over it shifts it a little towards violet)
-BODY_FALL = 0.3  # its glow falls off this much from its middle to its edge (as deep as the sphere is there): round
-# (at 0.45 its outer part was mauve)
-BODY_INNER = (2.8, 0.18)  # and it glows this much more round its middle (a Gaussian of that sigma, in radii), in
-# INNER_RGB: its white-hot middle, within a third of its radius, going to cyan and then blue, so it is far brighter in
-# its middle than at its limb (at 1.0 and 0.35, over-exposed, the whole body was the same white; in the body's own blue,
-# white went straight to lavender-blue; at 0.22 the white reached half way out and the gradient to its limb was shallow)
-INNER_RGB = np.array([0.25, 0.95, 1.0], np.float32)
-BODY_STREAKS = (6, 0.3, 0.035)  # (count, gain, width in radii): its glow is this much brighter along soft streaks from
-# its middle out to its limb, a plasma globe's (ridges where drifting waves crossed left dark round cells between them:
+BALL_CORE, BALL_SPARK = 0.09, 2.4  # radii, and amplitude at the loudest: the spark at its middle, flickering and
+# flaring on a hit (at 0.05 and 1.2 the ball had no source; at 0.11 it was a flat white disc)
+PLASMA_RGB = np.array([0.75, 0.85, 1.0], np.float32)  # linear: the colour of its light, a cool near-white (lightning
+# and an electric arc glow at about 7000-10000 K): its white-hot middle, and the light it throws on the hand and the
+# room. Added to skin it brightens it and cools it a little, towards a pale cool pink (in a saturated blue, skin already
+# at the top of red could only take the blue, and was dyed fuchsia with no more light on it)
+BALL_HOT = (3.0, 0.2)  # (gain, sigma in radii): its middle, where the plasma is hottest and densest, glows this far
+# over white in PLASMA_RGB, falling off as a Gaussian of that sigma: white-hot out to about a third of its radius
+BODY = (0.75, 0.92)  # (gain, radii): the rest of it glows in BODY_RGB, as exp(-(r / that)^4) through it: nearly as
+# bright out to two thirds of its radius, then falling off smoothly over its last third and a little past it, so it
+# has no outline (a sphere of even density, or one with a bright limb, read as a hard-edged disc pasted on the palm; one
+# whose glow ran out at a fixed radius had a crisp edge over the dark wall between the fingers). Under white, so its
+# filaments show white over it (over white, it was a formless pale cloud with them lost in it)
+BODY_RGB = np.array([0.3, 0.7, 1.0], np.float32)  # a cyan-blue: with what of the lit palm shows through it, a pale
+# cyan-blue. Green in it matters: added to pink skin, a blue with little green made lavender and mauve
+HALO = (0.3, 0.7)  # (gain, sigma in radii): and round it, in HALO_RGB, the faint haze of its light scattered in the air
+# and the lens, a Gaussian of that sigma, the same light added over skin and wall alike (in the picture as shown, a band
+# of saturated blue over its limb read as a drawn ring)
+HALO_RGB = np.array([0.4, 0.38, 1.0], np.float32)  # a soft blue-violet
+BALL_TAU = (4.0, 0.45)  # (optical depth through its middle, sigma in radii): it hides what is behind it as much as it
+# is dense, as 1 - exp(-tau), tau falling off as a Gaussian of that sigma: nearly all of it behind its middle, 70 % at
+# 0.7 of its radius, 30 % at its radius; its outer part is light added over the palm, whose lines show through
+# brightened (dense out to its outline, the palm vanished under a flat disc; lighter in its middle, the lit palm behind
+# it washed its blue to pink-white)
+BODY_STREAKS = (6, 0.5, 0.035)  # (count, gain, width in radii): its glow is this much brighter along soft streaks from
+# its middle out to its edge, a plasma globe's (ridges where drifting waves crossed left dark round cells between them:
 # bubbles, a cracked marble)
 STREAK_TURN = 0.04  # radians a frame: each streak turns at most this fast
-BALL_VEIL, VEIL_THICK = 0.95, 8.0  # and so dense it hides this much of the palm behind its middle, inside its outline
-# only, as 1 - exp(-VEIL_THICK x the sphere's depth), so nearly as much close to its outline: added over a palm at the
-# top of red, even a bright cyan-blue made it pink-white (under 0.75 it read lavender; at 0.85 and as thick as its glow,
-# the lit palm showing through paled its blue to lavender, most of all at its limb); spread past its edge (a wide
-# Gaussian), the palm round it went milky and lost its lines
-SCATTER = 0.2  # radii: what shows through its body is blurred this much, as much as the body is dense (seen sharp
+SCATTER = 0.2  # radii: what shows through its body is blurred this much, as much as the body hides it (seen sharp
 # through it, the wall in the gap between two fingers was a dark window across its top: a glass marble)
-BALL_THICK = 4.0  # its optical depth through the middle: its body glows and hides the palm as 1 - exp(-this x the
-# depth of the sphere along the line of sight), nearly as much near its edge as at its middle (as the depth alone, the
-# outer half of it was a pale lavender rim; at 2.5 a mauve one)
 BALL_FORMED = 0.08  # its charge (and level, as its body's glow is) at which it is as dense and bright as it gets:
 # almost at once, so a young ball is small and bright, not big and faint (at 0.25 a forming ball was a pale
 # pink-lavender disc, a soap bubble); under half of it there is no body yet, only its filaments' crackle (_dense)
-BODY_YOUNG = 0.35  # radii: a body short of dense has an outline this much softer, as much as it is short (half dense
-# with a crisp outline, it was a pale disc)
-BALL_EDGE = 2.5  # px at 1080: its outline is as soft as this (the plate's own edges are about as soft)
-LIMB_AT, LIMB_W, LIMB = 0.95, 0.06, 0.22  # radii, radii, and share of its middle's brightness: a ring (a Gaussian of
-# that sigma) inside its outline glows, where the line of sight grazes its shell (a sphere of plasma brightens towards
-# its limb), so the body never darkens towards its outline nor against the lit skin just outside it (thinner and paler,
-# at 0.93, 0.05 and 1.1, it was a white ring drawn round it; at 0.45 over the dimmer body, a white-cyan one; at 0.25
-# in near-white lavender, a glass bubble's edge; at 0.15 in cyan, darker than the violet-lit skin round it: a sticker)
-LIMB_RGB = np.array([0.35, 0.9, 1.0], np.float32)  # (cyan: a rim of light)
-LIMB_WAVES, LIMB_SPIN, LIMB_VARY = (3, 5, 9, 14), 0.25, 0.3  # the ring's brightness drifts by up to this share either
-# way with waves this many times round it, each drifting up to LIMB_SPIN radians a frame: whole, but alive (switched
-# off where the waves were low, it was a dotted outline)
 CONTACT = 0.025  # hand sizes: the spark where a filament meets the ball's skin, facing us
 TARGETS = (4, 8, 12, 16, 20, 5, 9, 13)  # the landmarks a grounding arc may jump to: fingertips and knuckles
-NEAR_LIGHT = (1.0, 0.3)  # (strength at its limb, dense; radii): what is close round it, skin or wall, takes its light
-# as its own colour times (1 + strength x its light's colour, LIGHT_RGB), the strength falling off past its limb as a
-# Gaussian of that sigma, so skin goes violet-lit and keeps its pores and edges (a glare taking the picture towards a
-# cool white there was a milky veil: the fingers round it lost their saturation, texture and edges, as if seen through
-# frosted glass; a pool of light under it as well lit the palm round it white)
-GLARE_RIM = (0.12, 0.12, 0.05)  # the lens's glare round it, in the picture as shown: a narrow band of its blue added
-# over its limb, at most this strong (over skin as over the wall), falling off as a Gaussian of the second sigma (radii)
-# outside it and of the third inside it; never towards white and never over its body (a wide halo, veil and bloom
-# screened over the picture and the body washed both to one pale ice-blue and frosted the fingers round it; at 0.2 over
-# the lit skin the band just outside its limb outshone the limb)
-GLARE_RGB = np.array([0.15, 0.3, 1.0], np.float32)  # (as shown, not linear: over lit skin a greener blue whitened it)
-INNER_FLARE = 0.5  # a hit's flare (BALL_FLARE) brightens its white-hot middle by at most this share (on its glare, it
-# washed the palm round it white)
+INNER_FLARE = 0.5  # a hit's flare (BALL_FLARE) brightens its white-hot middle by at most this share (more, and the
+# light it throws washed the palm round it white)
 WRAP_PX, WRAP_GAIN, WRAP_REACH = 5.0, 4.0, 3.0  # px at 1080, gain at the loudest, radii: the fingers' edges facing the
-# ball, within about twice the first inside the hand's outline, catch its light, falling off as the inverse square of
-# their distance, within the last (lit only through the hand's broad light, the edges next to it stayed pink; at 1.5
-# the edges facing it were as blue as those facing away)
-WRAP_RGB = np.array([0.02, 0.1, 1.0], np.float32) / np.float32(0.148)  # (at luminance 1: its light on the hand, as
-# LIGHT_RGB's)
+# ball, within about twice the first inside the hand's outline, catch its light (PLASMA_RGB), falling off as the
+# inverse square of their distance, within the last: a rim of light on the sides of the fingers next to it
 WRAP_BEHIND = 0.15  # radii: the edges behind its body take none of it, coming up over this much past its outline (a
 # finger's lit edge seen through the body was a bright seam across it)
 
@@ -321,15 +297,12 @@ GLOWS = (  # (sigma in hand sizes, peak over a 1 px line at core 1, linear rgb):
 )
 GLOW_CAP = {"arc": 0.6, "ball": 1.6}  # linear luminance: the glow is held under this, softly. Arcs over a wall held
 # to 0.15 read as white paint; a ball held to 0.3 had no bloom and was dimmer than the palm round it
-BRIGHT_TONE = (0.85, 2.0)  # round the ball the picture rolls off to white with each pixel's hue kept: its channels
-# scaled by the roll-off of its largest from the first on, and as far over white as that is, by the second's
-# multiples, it goes towards white (a share 1 - exp(-over / this)): a light white-hot in its middle, cyan round that and
-# blue at its limb, with its filaments white over it (each channel rolled off on its own, as the arcs' are, its blue
-# body clipped to a flat pale aqua with the filaments lost in it)
-BRIGHT_AREA = (1.0, 1.15)  # radii: so within the first of its middle, the arcs' way past the second, blended between:
-# its body alone (the skin round it, lit past white in red, rolled off to a white-pink there; clipped, it keeps the
-# light's violet), and its filaments and arcs as much as they cover the picture (BALL_COVER: clipped on their own,
-# over the glow round them they went a flat white)
+BRIGHT_TONE = (0.85, 2.0)  # the ball's own light rolls off to white with each pixel's hue kept: its channels scaled
+# by the roll-off of its largest from the first on, and as far over white as that is, by the second's multiples, it
+# goes towards white (a share 1 - exp(-over / this)): white-hot in its middle, pale cyan-blue round that (each channel
+# rolled off on its own, its body clipped to a flat pale aqua). It does so as much as its light outshines the picture
+# under it; the lit skin round it rolls off channel by channel, as skin does, to a pale pink and then white (the two
+# ways split at a fixed radius drew a ring round it, where lit skin changed from one to the other)
 DEFOCUS = (0.7, 2.0)  # px at 1080: the channels are blurred as much as the plate is soft round the hand, within this
 # (drawn crisp over a soft phone picture, they were the cut-out's tell)
 SOFT_AREA, SOFT_R, SOFT_AA = 1.5, 1.5, 0.92  # the plate's softness is read within this many hand sizes of the emitter,
@@ -350,11 +323,9 @@ GLOW_FLOOR, GLOW_HOT = 0.6, (0.4, 0.6)  # an arc's glow is drawn from a channel 
 # channel's width once its intensity passes the second (faded in from the first): a small bolt on a quiet voice is
 # short but as hot as a strike's (with its glow from its own thin, dim line, it read as a drawn line)
 SPARK_RGB = np.array([0.86, 0.94, 1.0], np.float32)  # the burning fingertip and the ball's middle: white, a little cyan
-BALL_COVER, BALL_ARC_RGB = 2.0, np.array([0.66, 0.9, 1.0], np.float32)  # a ball's filament or arc is not added over
-# the plate but lies over it in that electric blue-white, as much as this times its core covers a pixel (at most all
-# of it), its glow added round it, and keeps its hue as it rolls off to white (BRIGHT_AREA): blue-white over skin as
-# over the body (added, its white over skin already at the top of red clipped red and left green behind: magenta-white
-# scratches; in SPARK_RGB under the violet of its glow, lavender)
+BALL_GLOW_RGB = np.array([0.35, 0.75, 1.0], np.float32)  # the glow round a ball's filaments and arcs: a cyan-blue,
+# blue over its body and the wall, a cool white over skin (in the arcs' blue-violet, added to skin already at the top
+# of red, they were magenta scratches on the fingers)
 HAZE_RGB = np.array([0.05, 0.35, 1.0], np.float32)  # the halo round a spark: cyan-blue (the violet-blue it was read
 # as lavender over skin)
 CORONA, CORONA_MIN = 0.07, 0.35  # hand sizes, and its least brightness for the crackle's level: the burning
@@ -367,15 +338,14 @@ LIGHT_RGB = {form: tuple(np.array(rgb, np.float32) / float(np.array(rgb, np.floa
     ("arc", ((0.45, 0.33, 1.0),  # on the hand blue-violet (on skin at the top of red, a greener blue added only green
              (0.30, 0.42, 1.0))),  # and blue: the hand went cyan); on the room a cooler blue-white (in the hand's
     # violet the olive wall went mauve and the white wall and the floor violet)
-    ("ball", ((0.02, 0.1, 1.0),  # on the hand a deep blue, hardly any red or green: skin at the top of red has room
-              # only for blue, and goes violet (with a little red in it, it went magenta; in the arcs' blue-violet hot
-              # pink, in a greener or cyan blue white-pink, lit far past the ball's outline)
-              (0.3, 0.42, 1.0))))}  # on the room the arcs' cooler blue
-LIGHT = {"arc": (0.2, 2.5, 5.0, 1.5), "ball": (0.45, 0.5, 5.0, 0.0)}  # (how far in front of the hand the channels
+    ("ball", (tuple(PLASMA_RGB), tuple(PLASMA_RGB))))}  # its own cool near-white on both (PLASMA_RGB): the light of
+# the plasma, not of its blue haze
+LIGHT = {"arc": (0.2, 2.5, 5.0, 1.5), "ball": (0.3, 3.0, 5.0, 0.0)}  # (how far in front of the hand the channels
 # are, in hand sizes; gain on the hand; gain on the room; gain on the wall right behind them, ROOM_NEAR away). A thin
 # channel has no radius to stand off by; at fx_light's own HAND_DEPTH of it the palm under a ball went white. A ball
-# lights the hand broadly at 0.5, close round it by NEAR_LIGHT (at 1.4 on top of that, the skin next to it went
-# white-pink)
+# hovers about this far over the palm, and its light there falls off with distance d across the picture as
+# 1 / (d^2 + this^2) (fx_light.spread): the skin next to it a third brighter than in the plate under the camera's dip
+# for it, the fingers near it lit, their tips far from it barely
 ROOM_NEAR = 1.0  # hand sizes: the wall the arcs strike is this far behind them (with the room's far light alone, a
 # lone bolt lit nothing next to it; at 0.5 the light on it jumped about with each new path)
 ROOM_CAST = 1.5  # the room's light is divided by the room's own colour (room_cast), each channel of which is held
@@ -1365,19 +1335,9 @@ def _smear(core: np.ndarray, box: tuple, move: np.ndarray, around: list, s: floa
     return core
 
 
-def _limb(theta: np.ndarray, seed: int, frame: int) -> np.ndarray:
-    """How bright the ball's limb is at each angle ``theta`` (radians) on ``frame``: 1 give or take LIMB_VARY, with
-    LIMB_WAVES drifting round it."""
-    rng = np.random.default_rng([seed & 0xFFFFFFFF, _LIMB])
-    phase, spin = rng.uniform(0, 2 * np.pi, len(LIMB_WAVES)), rng.uniform(-LIMB_SPIN, LIMB_SPIN, len(LIMB_WAVES))
-    wave = sum(np.sin(k * theta + np.float32(p + sp * frame)) * np.float32(1.0 / k ** 0.5)
-               for k, p, sp in zip(LIMB_WAVES, phase, spin)) / np.float32(sum(k ** -0.5 for k in LIMB_WAVES))
-    return 1.0 + np.float32(LIMB_VARY) * wave
-
-
 def _streaks(dist: np.ndarray, theta: np.ndarray, seed: int, frame: int) -> np.ndarray:
     """In [0, 1] at ``dist`` radii from the ball's middle and angle ``theta`` on ``frame``: BODY_STREAKS soft streaks
-    from round its white middle out to its limb, each bent and wavering, turning slowly its own way (STREAK_TURN)."""
+    from round its white middle out to its edge, each bent and wavering, turning slowly its own way (STREAK_TURN)."""
     count, _, width = BODY_STREAKS
     rng = np.random.default_rng([seed & 0xFFFFFFFF, _STREAK])
     at = rng.uniform(0, 2 * np.pi, count) + np.arange(count) * (2 * np.pi / count)
@@ -1392,43 +1352,35 @@ def _streaks(dist: np.ndarray, theta: np.ndarray, seed: int, frame: int) -> np.n
     return out * np.clip((dist - np.float32(0.12)) / np.float32(0.25), 0.0, 1.0)
 
 
-def _sphere(glow: np.ndarray, out: np.ndarray, veil: np.ndarray, box: tuple, ball: tuple, edge: float, seed: int,
-            frame: int) -> None:
-    """Adds the ball's round body (over ``box``), in place: inside its outline (soft over ``edge`` px), BODY_RGB air
-    glowing as much of it as the line of sight goes through (BALL_THICK), deeper towards its middle (BODY_FALL), in
-    INNER_RGB much brighter round its middle (BODY_INNER) and along streaks out to its limb (_streaks), to ``glow``;
-    a cyan ring glowing at its limb inside its outline, brighter and dimmer round it (_limb), to ``out``; and the palm
-    behind it hidden by BALL_VEIL as much as there is of it (VEIL_THICK), to ``veil``. A young or fading ball (_dense)
-    has as much less of a body, and a softer outline; a hit's flare brightens its middle by at most INNER_FLARE."""
+def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: tuple, seed: int, frame: int) -> None:
+    """Adds the ball's body (over ``box``) to ``out``, in place: a volume of light, white-hot in PLASMA_RGB through its
+    middle (BALL_HOT), a pale cyan-blue glow out to where its density runs out (BODY), brighter along soft streaks
+    (_streaks), and the blue-violet haze of its light round it (HALO), with no outline; and to ``veil`` how much of
+    what is behind it it hides, only where it is dense (BALL_TAU). A young or fading ball (_dense) has as much less of
+    a body; a hit's flare brightens its middle by at most INNER_FLARE."""
     x, y, R, lv, full, flick = ball
-    y0, _, x0, _ = box
     dense = _dense(lv, full)
-    edge += BODY_YOUNG * R * (1.0 - dense)
-    r = int(R + 2 * edge) + 2
+    if dense <= 0:
+        return
+    y0, _, x0, _ = box
+    r = int(R * max(BODY[1], 3.5 * HALO[1])) + 2
     a0, a1 = max(0, int(x - x0) - r), min(veil.shape[1], int(x - x0) + r)
     b0, b1 = max(0, int(y - y0) - r), min(veil.shape[0], int(y - y0) + r)
     if a1 <= a0 or b1 <= b0:
         return
     dx = np.arange(a0, a1, dtype=np.float32) - np.float32(x - x0)
     dy = np.arange(b0, b1, dtype=np.float32)[:, None] - np.float32(y - y0)
-    dist = np.hypot(dx, dy)
-    d2 = (dist / np.float32(R)) ** 2
-    inside = np.clip((np.float32(R) - dist) / np.float32(edge) + 0.5, 0.0, 1.0)
-    depth = np.sqrt(np.clip(1.0 - d2, 0.0, 1.0))  # (the sphere's, along the line of sight, 1 through its middle)
-    deep = (1.0 - np.exp(np.float32(-BALL_THICK) * depth)) * inside
-    deep *= np.float32(1.0 / (1.0 - math.exp(-BALL_THICK)))  # (how much of it there is along the line of sight)
-    ring = np.exp(((dist / np.float32(R) - np.float32(LIMB_AT)) / np.float32(LIMB_W)) ** 2 * np.float32(-0.5)) * inside
-    theta = np.arctan2(dy, dx)
-    lit = _limb(theta, seed, frame)
-    lift = np.float32(BALL_BODY * dense) * deep * \
-        (1.0 + np.float32(BODY_STREAKS[1]) * _streaks(dist / np.float32(R), theta, seed, frame))
-    inner = np.float32(BODY_INNER[0] * min(max(flick, 1.0), 1.0 + INNER_FLARE)) * \
-        np.exp(d2 * np.float32(-0.5 / BODY_INNER[1] ** 2))
-    glow[b0:b1, a0:a1] += (lift * (np.float32(1.0 - BODY_FALL) + np.float32(BODY_FALL) * depth))[..., None] * BODY_RGB
-    glow[b0:b1, a0:a1] += (lift * inner)[..., None] * INNER_RGB
-    out[b0:b1, a0:a1] += (np.float32(LIMB * BALL_SPARK * lv * dense) * ring * lit)[..., None] * LIMB_RGB
-    veil[b0:b1, a0:a1] = np.float32(BALL_VEIL * dense / (1.0 - math.exp(-VEIL_THICK))) * inside * \
-        (1.0 - np.exp(np.float32(-VEIL_THICK) * depth))
+    d = np.hypot(dx, dy) / np.float32(R)
+    d2 = d * d
+    hot = np.float32(BALL_HOT[0] * min(max(flick, 1.0), 1.0 + INNER_FLARE)) * \
+        np.exp(d2 * np.float32(-0.5 / BALL_HOT[1] ** 2))
+    body = np.exp(-(d2 / np.float32(BODY[1] ** 2)) ** 2) * np.float32(BODY[0]) * \
+        (1.0 + np.float32(BODY_STREAKS[1]) * _streaks(d, np.arctan2(dy, dx), seed, frame))
+    halo = np.float32(HALO[0]) * np.exp(d2 * np.float32(-0.5 / HALO[1] ** 2))
+    out[b0:b1, a0:a1] += np.float32(dense) * (hot[..., None] * PLASMA_RGB + body[..., None] * BODY_RGB +
+                                              halo[..., None] * HALO_RGB)
+    tau = np.float32(BALL_TAU[0]) * np.exp(d2 * np.float32(-0.5 / BALL_TAU[1] ** 2))
+    veil[b0:b1, a0:a1] = np.float32(dense) * (1.0 - np.exp(-tau))
 
 
 def _dense(lv: float, full: float) -> float:
@@ -1440,13 +1392,13 @@ def _dense(lv: float, full: float) -> float:
 def layer(bolts: list, spots: list, ball: tuple | None, s: float, box: tuple, cap: float, soft: float,
           move: np.ndarray, around: list, seed: int = 0, frame: int = 0, side: int = 1080,
           floor: float = 0.0, hide: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
-    """Over ``box``: linear RGB (bh, bw, 3), the channels' white-hot core and the blue-violet glow round them, the
-    burning spots (white, a blue halo) and the ball's middle and round body (_sphere); and (bh, bw) how much of the
-    plate it hides: behind the ball's body (BALL_VEIL) and, with a ball, under its filaments and arcs, which lie over
-    the plate in BALL_ARC_RGB (BALL_COVER) rather than add to it. The channels are smeared along ``move`` round
-    ``around`` (_smear), hidden as much as ``hide`` (bh, bw: what of them passes behind the hand, HIDE_NEAR) says, and
-    blurred ``soft`` px (the plate's softness); only the brightest clip (CORE_GAMMA), and their glow, from the channels
-    as drawn (a hot one as if ``floor`` px wide: draw), is held under ``cap`` (GLOW_CAP). ``side``: the picture's short
+    """Over ``box``: linear RGB (bh, bw, 3), the light added to the plate: the channels' white-hot core and the
+    blue-violet glow round them (a ball's filaments and arcs white-hot as an arc's, over skin and over its body alike,
+    in BALL_GLOW_RGB's glow), the burning spots (white, a blue halo) and the ball's middle and body (_sphere); and (bh, bw) how much of the plate
+    it hides: what is behind the ball's dense middle. The channels are smeared along ``move`` round ``around``
+    (_smear), hidden as much as ``hide`` (bh, bw: what of them passes behind the hand, HIDE_NEAR) says, and blurred
+    ``soft`` px (the plate's softness); only the brightest clip (CORE_GAMMA), and their glow, from the channels as
+    drawn (a hot one as if ``floor`` px wide: draw), is held under ``cap`` (GLOW_CAP). ``side``: the picture's short
     side, which the px constants are given at 1080 of."""
     k = side / 1080.0
     lines = _smear(draw(bolts, box, seed, frame, floor), box, move, around, s, SMEAR_MAX * k)
@@ -1456,14 +1408,11 @@ def layer(bolts: list, spots: list, ball: tuple | None, s: float, box: tuple, ca
         lines = cv2.GaussianBlur(lines, (0, 0), soft)
     core, hot = np.maximum(lines[..., 0], 0), np.maximum(lines[..., 1], 0)  # (a wide smear is filtered by FFT, a hair
     # under 0 here and there)
-    if ball is None:
-        out = (core ** np.float32(CORE_GAMMA))[..., None] * (CORE_RGB * np.float32(CORE_GAIN))
-    else:  # (a ball's channels lie over the plate as much as they cover it: BALL_COVER)
-        cover = np.minimum(core * np.float32(BALL_COVER), 1.0)
-        out = cover[..., None] * BALL_ARC_RGB
+    out = (core ** np.float32(CORE_GAMMA))[..., None] * (CORE_RGB * np.float32(CORE_GAIN))
     glow = np.zeros_like(out)
     for sig_h, g, rgb in GLOWS:  # (a blur spreads a line's energy: scaled so its peak over a 1 px line is g)
         sig = sig_h * s
+        rgb = rgb if ball is None else BALL_GLOW_RGB
         glow += _blur(hot, sig)[..., None] * (np.float32(g * sig * math.sqrt(2 * math.pi)) * np.float32(rgb))
     spark = np.zeros(core.shape, np.float32)
     for x, y, r, a in spots:
@@ -1472,8 +1421,7 @@ def layer(bolts: list, spots: list, ball: tuple | None, s: float, box: tuple, ca
     if ball is not None:
         x, y, R, lv, _, flick = ball
         _spot(spark, box, x, y, BALL_CORE * R, BALL_SPARK * lv * flick)
-        _sphere(glow, out, veil, box, ball, BALL_EDGE * k, seed, frame)
-        np.maximum(veil, cover, out=veil)
+        _sphere(out, veil, box, ball, seed, frame)
     if spark.any():
         out += spark[..., None] * SPARK_RGB
         glow += (0.6 * _blur(spark, 0.12 * s))[..., None] * HAZE_RGB
@@ -1567,10 +1515,10 @@ def _around(x: float, y: float, r: float, h: int, w: int) -> tuple[int, int, int
 
 
 def wrap_light(matte: np.ndarray, ball: tuple, side: int) -> tuple[tuple[int, int, int, int], np.ndarray] | None:
-    """The ball's light on the edges of the hand that face it: (box, (bh, bw) light over it, at WRAP_RGB) within
-    WRAP_REACH radii of its middle and outside its body (WRAP_BEHIND), inside the matte (0-1 float) within about 2
-    WRAP_PX of its outline where the outline faces the ball, falling off as the inverse square of the distance; or
-    None."""
+    """The ball's light on the edges of the hand that face it: (box, (bh, bw) light over it, to multiply its light's
+    colour by) within WRAP_REACH radii of its middle and outside its body (WRAP_BEHIND), inside the matte (0-1 float)
+    within about 2 WRAP_PX of its outline where the outline faces the ball, falling off as the inverse square of the
+    distance; or None."""
     x, y, R, _, full, _ = ball
     box = _around(x, y, WRAP_REACH * R, *matte.shape)
     if box is None or full <= 0:
@@ -1588,39 +1536,6 @@ def wrap_light(matte: np.ndarray, ball: tuple, side: int) -> tuple[tuple[int, in
     band = m * np.clip(2.0 * (1.0 - e), 0.0, 1.0)
     behind = np.clip((dist / np.float32(R) - 1.0) / np.float32(WRAP_BEHIND), 0.0, 1.0)
     return box, np.float32(WRAP_GAIN * full) * band * facing * behind * np.minimum(1.0, (np.float32(R) / dist) ** 2)
-
-
-def near_light(ball: tuple, h: int, w: int) -> tuple[tuple[int, int, int, int], np.ndarray] | None:
-    """The ball's light on what is close round it (NEAR_LIGHT): (box, (bh, bw) its strength there, to multiply the
-    light's colour by), full inside its outline and falling off past it, as strong as its body is dense (_dense); or
-    None."""
-    x, y, R, lv, full, _ = ball
-    k, sigma = NEAR_LIGHT
-    box = _around(x, y, (1.0 + 3.0 * sigma) * R, h, w)
-    k *= _dense(lv, full)
-    if box is None or k <= 0:
-        return None
-    y0, y1, x0, x1 = box
-    d = np.hypot(np.arange(x0, x1, dtype=np.float32) - np.float32(x),
-                 np.arange(y0, y1, dtype=np.float32)[:, None] - np.float32(y)) / np.float32(R)
-    return box, np.float32(k) * np.exp(np.maximum(d - 1.0, 0.0) ** 2 * np.float32(-0.5 / sigma ** 2))
-
-
-def glare(frame: np.ndarray, ball: tuple) -> None:
-    """The lens's glare round the ball over ``frame`` (uint8 RGB, as shown) in place: GLARE_RIM's narrow band of
-    GLARE_RGB added over its limb, as strong as its body is dense, the same over whatever is behind it."""
-    x, y, R, lv, full, _ = ball
-    g0, out, inside = GLARE_RIM
-    g0 *= _dense(lv, full)
-    box = _around(x, y, (1.0 + 3.0 * out) * R, *frame.shape[:2])
-    if box is None or g0 <= 0:
-        return
-    y0, y1, x0, x1 = box
-    d = np.hypot(np.arange(x0, x1, dtype=np.float32) - np.float32(x),
-                 np.arange(y0, y1, dtype=np.float32)[:, None] - np.float32(y)) / np.float32(R) - np.float32(1.0)
-    g = np.float32(g0) * np.exp(d * d * np.where(d > 0, np.float32(-0.5 / out ** 2), np.float32(-0.5 / inside ** 2)))
-    shown = frame[y0:y1, x0:x1].astype(np.float32) + (g * np.float32(255.0))[..., None] * GLARE_RGB
-    frame[y0:y1, x0:x1] = (np.minimum(shown, 255.0) + 0.5).astype(np.uint8)
 
 
 # ---- the shot ------------------------------------------------------------------------------------------------------
@@ -1780,17 +1695,10 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                         wrap = wrap_light(m, balls[t], side)
                         if wrap is not None:
                             (y0, y1, x0, x1), wl = wrap
-                            lit[y0:y1, x0:x1] += wl[..., None] * WRAP_RGB
+                            lit[y0:y1, x0:x1] += wl[..., None] * hand_rgb
                 P += alb * lit
                 if form == "arc":  # (never so far down that the room away from the arcs goes darker than the plate)
                     stops = min(stops, ARC_DIP_ROOM * room_lift(P, P0, m))
-            near = None if balls[t] is None else near_light(balls[t], h, w)
-            if near is not None:  # (what is close round the ball, in its light, times its own colour)
-                (y0, y1, x0, x1), k_near = near
-                on, off = LIGHT_RGB["ball"]
-                rgb = off if mask is None else \
-                    off + (mask[t, y0:y1, x0:x1, None].astype(np.float32) * np.float32(1 / 255)) * (on - off)
-                P[y0:y1, x0:x1] += P0[y0:y1, x0:x1] * k_near[..., None] * rgb
             if stops >= DIP_MIN:  # (the lightning itself is drawn as the camera shows it, exposed down)
                 e = np.float32(2.0 ** -stops)
                 P *= e
@@ -1798,20 +1706,18 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
             share = None
             if layers[t] is not None:
                 (y0, y1, x0, x1), E, _, veil = layers[t]
-                if veil.any():  # (what shows through the ball's body is scattered in it, then mostly hidden)
-                    seen = np.minimum(veil * np.float32(1.0 / BALL_VEIL), 1.0)[..., None]
+                if veil.any():  # (what shows through the ball's dense middle is scattered in it, and hidden)
                     for img in (P, P0):
                         sub = img[y0:y1, x0:x1]
-                        sub += (_blur(sub, SCATTER * balls[t][2]) - sub) * seen
+                        sub += (_blur(sub, SCATTER * balls[t][2]) - sub) * veil[..., None]
                         sub *= 1.0 - veil[..., None]
-                P[y0:y1, x0:x1] += fx.grain(E[None], noise, seed=seed, frame0=t)[0]
-                if balls[t] is not None:  # (the ball's body, and its filaments and arcs wherever they cover the
-                    # picture, keep their hue as they roll off to white)
-                    x, y, R = balls[t][:3]
-                    d = np.hypot(np.arange(x0, x1, dtype=np.float32) - np.float32(x),
-                                 np.arange(y0, y1, dtype=np.float32)[:, None] - np.float32(y)) / np.float32(R)
-                    body = np.clip((np.float32(BRIGHT_AREA[1]) - d) / np.float32(BRIGHT_AREA[1] - BRIGHT_AREA[0]), 0, 1)
-                    share = np.maximum(body, np.minimum(veil, 1.0))
+                E = fx.grain(E[None], noise, seed=seed, frame0=t)[0]
+                if balls[t] is not None:  # (the ball's own light keeps its hue as it rolls off to white, as much
+                    # as it outshines what it lies over: BRIGHT_TONE)
+                    own = fx._lum(E)
+                    share = own / (own + fx._lum(P[y0:y1, x0:x1]) + np.float32(1e-6))
+                P[y0:y1, x0:x1] += E
+                if share is not None:
                     toned = hue_shoulder(P[y0:y1, x0:x1])
             shoulder(P)  # (the channels' cores clip to white softly)
             if share is not None:
@@ -1819,8 +1725,6 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                 sub += (toned - sub) * share[..., None]
             np.maximum(P, P0, out=P)  # (but the plate's own highlights stay as bright as they were)
             out[t] = gam(P)
-            if balls[t] is not None:  # (the lens's, over the picture as shown)
-                glare(out[t], balls[t])
 
         fx._each(b - a, finish)
         for t in range(a, b):
