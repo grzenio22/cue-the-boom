@@ -754,6 +754,13 @@ def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_p
     done = wait(client, s.json()["id"])
     assert done["status"] == "done", done.get("error")
     assert done["receipt"]["effect"]["id"] == "air_blast" and done["receipt"]["effect"]["made"] == "air"
+    buzz = Path(__file__).resolve().parents[2] / "samples" / "voices" / "zzzzz-tsst.wav"  # your noise decides: a buzz
+    with open(buzz, "rb") as v:  # over the sample's open palm is ball lightning, made on its hand (not its fire again)
+        s = client.post("/api/jobs", files={"voice": ("z.wav", v, "audio/wav")},
+                        data={"mode": "bending", "plate_sample": "hand.mp4", "effect": "auto", "x": "0.4", "y": "0.6"}).json()
+    done = wait(client, s["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["effect"]["id"] == "lightning_ball"
     with open(voice, "rb") as v:  # a hand clip of your own still needs the GPU
         with open(plate, "rb") as p:
             assert client.post("/api/jobs", files={"voice": ("v.wav", v, "audio/wav"), "plate": ("p.mp4", p, "video/mp4")},

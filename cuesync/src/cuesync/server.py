@@ -606,8 +606,10 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         # element made here is made on the sample's own track and matte, GPU or not (no tracker needed)
         ahead_hand = [e for e in cache.values() if e.get("mode") == "bending" and e.get("plate") == plate_sample] \
             if mode == "bending" and plate_sample and (made or not render_ready()) else []
-        if ahead_hand and not auto:
-            ahead_hand = [e for e in ahead_hand if e["effect"] == effect] or (ahead_hand if made else [])
+        if ahead_hand:  # (a fire made ahead replays; an element made here takes a shot's track, the fire's first)
+            fire_ahead = [e for e in ahead_hand if e["effect"] not in MADE]
+            ahead_hand = fire_ahead if auto else [e for e in ahead_hand if e["effect"] == effect] or \
+                ((fire_ahead or ahead_hand) if made else [])
         if not (ahead_scene or ahead_hand):
             need_live()
         (d / "in").mkdir(parents=True)
@@ -663,6 +665,16 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 raise HTTPException(400, f"couldn't read the cue: {exc}") from None
         if ahead_hand:  # the GPU is offline: the sample hand's element made ahead plays this take on it (no new render)
             spec.point, spec.extra["tap_frame"] = tuple(pm.get("point", spec.point)), int(ahead_hand[0].get("tap_frame", 0))
+            if auto:  # your noise may ask for an element made here (a buzz: lightning; a long BOOM with a strike)
+                from .bending import instant_effect, load_track
+
+                try:
+                    t_ = load_track(Path(ahead_hand[0]["path"]) / "hand_track.json")
+                    pick, _ = instant_effect(spec, t_, len(t_["xy"]))
+                except Exception:  # (a noise it can't read: the replay below says why)
+                    pick = None
+                if pick in MADE:
+                    spec.effect = pick
             same = ahead_hand[0]["effect"] == spec.effect  # (else an element made here, on the sample's hand)
             return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="replay", title=ahead_hand[0]["title"] if same else None,
                                  replay={"src": Path(ahead_hand[0]["path"]), "bending": True})).public()
