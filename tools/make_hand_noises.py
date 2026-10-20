@@ -54,16 +54,16 @@ def norm(x: np.ndarray, peak: float = 0.85) -> np.ndarray:
 
 
 def zzzzz_tsst(rng: np.random.Generator) -> np.ndarray:
-    n = int(2.4 * SR)
+    n = int(1.8 * SR)  # (about a second of buzz: the sample hands' clips are 3.5 s, its strike has to land in them)
     t = np.arange(n) / SR
-    pitch = 135 + 6 * np.sin(2 * np.pi * 5.2 * t) + 10 * np.clip(t - 1.0, 0, 1)  # a little vibrato, rising as it pushes
+    pitch = 135 + 6 * np.sin(2 * np.pi * 5.2 * t) + 10 * np.clip(t - 0.6, 0, 1)  # a little vibrato, rising as it pushes
     buzz = voiced(pitch, [(300, 120), (1500, 300)])
     hiss = band(rng.standard_normal(n), 4200, 10000)
     hiss *= 0.6 + 0.4 * np.sin(2 * np.pi * np.cumsum(pitch) / SR) ** 2  # a voiced fricative: the hiss pulses with the pitch
     z = 0.45 * norm(buzz) + 0.9 * norm(hiss)
-    z *= envelope(n, [(0, 0), (0.06, 0.8), (0.7, 0.9), (1.3, 1.0), (1.6, 0.0), (2.4, 0.0)])
-    tsst = norm(band(rng.standard_normal(n), 3000, 11000), 1.0) * envelope(n, [(0, 0), (1.72, 0), (1.73, 1.1), (1.9, 0.4),
-                                                                             (2.05, 0.0), (2.4, 0)])
+    z *= envelope(n, [(0, 0), (0.06, 0.8), (0.5, 0.9), (0.85, 1.0), (1.05, 0.0), (1.8, 0.0)])
+    tsst = norm(band(rng.standard_normal(n), 3000, 11000), 1.0) * envelope(n, [(0, 0), (1.12, 0), (1.13, 1.1), (1.3, 0.4),
+                                                                             (1.45, 0.0), (1.8, 0)])
     return norm(z + tsst)
 
 
