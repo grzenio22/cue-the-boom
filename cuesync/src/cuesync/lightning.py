@@ -1,72 +1,73 @@
-"""Lightning made from the hand (cuesync.elements): arcs struck from the fingertips, or a crackling ball of them over
-an open palm, drawn frame by frame from the hand's track and lit onto the plate.
+"""Lightning made from the hand (cuesync.elements): arcs struck from the fingertips, or a crackling ball of them
+hovering over an open palm, drawn frame by frame from the hand's track and lit onto the plate.
 
 - **Channels.** A bolt is a jagged line (recursive midpoint displacement: each midpoint pushed across its segment by a
   share of that segment's length, gently at the coarse levels so the channel runs on, sharply at the fine ones so it
   kinks) with forks that leave it more often towards its far end, each much dimmer and thinner, as a streamer branches
-  when it runs out. A finger's first stream is its main channel, by far the brightest: it comes out along the finger
-  (its first stretch on the finger's aim, the rest never far off it) and the others beside it are dimmer, thinner and
-  at most half as long streamers that leave well off its way out on either side and keep well round from it all
-  along, so a loud voice is one channel with branches, not a rope of equal wires; a streamer or a fork fades along its
-  length. No channel crosses another or itself, no fork runs back to the channel it leaves, and none runs alongside
-  another (each is drawn again until it keeps off those struck before it, or dropped): a closed loop is the most
-  obviously fake shape lightning can take, two wires side by side the next. Two fingers held together each strike a
-  main channel, turned apart so the two separate, their forks on their outer sides; the second strikes with the
-  first, kept well clear of the first's, turned further out each time it would not be (from fingers one behind the
-  other along their aim, it leaves past the first's tip, on the side away from the first's forks, bending out there
-  rather than turning at an elbow); the streamers are the first finger's.
-- **Strikes.** A channel is struck and then re-struck down the same path for 1-3 frames (real lightning's return
-  strokes), flashing or going dark from frame to frame, its streamers never brighter than it, before a new path is
-  found; over a middling voice two fingers' channels are kept 4 frames and flash on every one, the second finger's a
-  little dimmer (new paths on and off every frame over a dark wall flashed the room). While it lives, its root rides
-  the fingertip (or the palm) and its far end stays where it struck (carried by the camera on a handheld shot): a path
-  drawn anew every frame jumped about like static on a screen, and one drawn once and carried whole with the hand
-  swung its far end through the room. A new main channel leaves near its last aim, which sways slowly, so the streams
-  sweep rather than jump; its streamers are struck anew with it. A finger's aim is its own direction in the picture
-  where it is long and clear there, its vanishing point where it is short. A second finger strikes only on the frames
-  the picture shows it out beside the first (its tip past its middle joint, away from the palm, level with the first's
-  and on the silhouette's outline), never from a finger curled into the hand whatever the tracker's depth says of it.
-  The bolts go into the room behind the hand: a channel is drawn again rather than lie across the hand's matte, and
-  what of one still passes behind the hand away from its fingertip is hidden by it.
-- **The ball.** A light held over the palm, a ball of plasma: a volume of light, brightest and whitest in its middle
-  (a cool near-white far over white there, PLASMA_RGB), a pale cyan-blue towards its edge and falling off smoothly
-  with no outline, then a faint blue-violet haze of its light round it, the same over skin and wall. It rolls off to
-  white with its hue kept as far as its own light outshines what is behind it, never clipped channel by channel to a
-  flat pale aqua. It hides what is behind it only as much as it is dense, nearly all behind its middle and little at
-  its edge, where it is light added over the palm and the palm's lines show through, brightened; what shows through
-  its middle is scattered in it, so the wall in a gap between two fingers is no window through a glass marble. Soft
-  streaks run from its middle to its edge; filaments from its middle out to its skin, white-hot with a cyan-blue glow
-  (in 3D, turning slowly, mostly across the picture: one pointing at the camera is a short scribble, a knotted one is
-  drawn again), broken arcs crawling over its skin and arcs jumping from it to a fingertip, white-hot over the skin
-  they cross as over the ball. It hovers off the palm along the palm's normal, sized to sit over it.
-- **The voice.** The louder the voice, the more streams leave each finger, the further they reach and the thicker
-  they are; a hit strikes every stream afresh at once, a little further. Between strikes, and for a moment after the
-  voice stops, a crackle stays at a steady burning fingertip, and arcs crawl up a steady finger. The ball grows from a
-  point over about 5 frames while the voice holds, a hit flaring its middle, and shrinks when it stops, dense and
-  bright at any size; barely charged it has no body yet, only its filaments' crackle reaching past where its skin will
-  be.
-- **The look.** The channel itself is far over white (a phone clips it to white with a blue rim), the air round it
-  glows blue, then violet further out; only the brightest channels clip (CORE_GAMMA), so a fork stays a dimmer line
-  beside its channel. The channels are as soft as the plate round the hand (its focus and the phone's smoothing,
-  measured on each frame), and smeared with the finger where they leave it, as the plate's finger is, though never
-  so far that a channel comes away from its fingertip. A small bolt glows as hot as a strike's; a streamer or a fork
-  thins as well as fades along its length, a wedge rather than a wire. The glow of many channels piled up is held
-  under GLOW_CAP. The fingertip burns white-blue; the ball's middle is a white spark.
+  when it runs out. One main channel leaves each striking fingertip (two or three streams from one finger read as
+  parallel cables): it comes out along the finger (its first stretch on the finger's aim, the rest never far off it)
+  and thins from where it leaves to a fifth of that at its far end; a fork fades and thins along its length, a wedge
+  rather than a wire. No channel crosses another or itself, no fork runs back to the channel it leaves, and none runs
+  alongside another (each is drawn again until it keeps off those struck before it, or dropped): a closed loop is the
+  most obviously fake shape lightning can take, two wires side by side the next. Two fingers held together each
+  strike a main channel, turned well apart so the two separate, their forks on their outer sides; the second strikes
+  with the first, kept well clear of the first's, turned further out each time it would not be (from fingers one
+  behind the other along their aim, it leaves past the first's tip, bending out there rather than turning at an
+  elbow). A tap on the palm strikes from the index or the middle fingertip, never from the middle of the hand.
+- **Where it strikes.** A bolt goes somewhere: it ends on what the plate shows in its way inside the frame (where its
+  surfaces meet, a floor's line, a wall's corner, a tub's rim, off the hand), with a white-hot spot there and a splash
+  of short forks along the surface on its first frames, rather than running off the frame.
+- **Strikes.** A channel is struck and then re-struck down the same path for a frame at most (real lightning's
+  return strokes), flashing or going dark, before a new path is found: a new one every frame or two (held for 3-4,
+  the channels hung in the air). While it lives, its root rides the fingertip and its far end stays where it struck
+  (carried by the camera on a handheld shot): a path drawn anew every frame jumped about like static on a screen, and
+  one drawn once and carried whole with the hand swung its far end through the room. A new main channel leaves near
+  its last aim, which sways slowly, so the strikes sweep rather than jump. A finger's aim is its own direction in the
+  picture where it is long and clear there, its vanishing point where it is short. A second finger strikes only on
+  the frames the picture shows it out beside the first (its tip past its middle joint, away from the palm, level with
+  the first's and on the silhouette's outline), never from a finger curled into the hand whatever the tracker's depth
+  says of it. The bolts go into the room behind the hand: a channel is drawn again rather than lie across the hand's
+  matte, and whatever of one, or of the crackle, still passes over the hand past the fingertip's own spot is hidden
+  by it: only light falls on the skin.
+- **The ball.** A light held over the palm, a ball of plasma hovering well off it (up the picture, or along the palm's
+  normal as it shows) and wandering a little there: a volume of light, white-hot only in its middle (a cool
+  near-white far over white, PLASMA_RGB), a clear translucent cyan-blue round that, never blown out to white, falling
+  off smoothly with no outline of its own, then a faint cyan-blue haze of its light round it, breathing with the
+  voice, the same over skin and wall. It rolls off to white with its hue kept as far as its own light outshines what
+  is behind it, never clipped channel by channel to a flat pale aqua. It hides what is behind it as much as it is
+  dense, most of it behind its middle and little at its edge, where the palm's lines show through, brightened; what
+  shows through it is scattered in it, so the wall in a gap between two fingers is no window through a glass marble.
+  An irregular shell of jagged arcs crawls over its skin (in 3D, turning slowly: brightest where they run along its
+  outline, which they draw, dimmer across its face and behind it; a few on a sphere inside it), and 6-10 arcs jump
+  from it to the fingertips and the fingers' joints, struck anew every other frame, white-hot over the skin they cross
+  as over the ball, a spark where they land.
+- **The voice.** The louder the voice, the further a channel reaches, the thicker it leaves the finger and the more it
+  forks; a hit strikes every channel afresh at once, a little further. Between strikes, and for a moment after the
+  voice stops, a crackle of short arcs leaves a steady burning fingertip into the room. The ball grows from a point
+  over about 5 frames while the voice holds, a hit flaring its middle, and shrinks when it stops, dense and bright at
+  any size; barely charged it has no body yet, only its shell's crackle reaching past where its skin will be.
+- **The look.** The channel itself is far over white (a phone clips it to white with a narrow blue rim), the air round
+  it glows blue, then violet further out, faintly; only the brightest channels clip (CORE_GAMMA), so a fork stays a
+  dimmer line beside its channel. The channels are as soft as the plate round the hand (its focus and the phone's
+  smoothing, measured on each frame), and smeared with the finger where they leave it, as the plate's finger is,
+  though never so far that a channel comes away from its fingertip. A small bolt glows as hot as a strike's. The glow
+  of many channels piled up is held under GLOW_CAP. The fingertip burns white-blue; the ball's middle is a white spark.
 - **The light it throws** (cuesync.fx_light's physics): every lit pixel of the channels lights the hand close in front
   of it, the wall just behind it and the room further behind, shaded on the round hand, times each surface's own
   colour, so skin keeps its texture under it: the arcs' blue-violet on the hand, a cooler blue-white on the room,
-  divided by the room's own tint so it lands as the same blue on a tinted wall, and lifting the room by half a stop at
-  most (two fingers light it as one does). The ball's light is the cool near-white of its plasma, on the hand as on
-  the room, falling off with distance as the inverse square, softened by how far it hovers over the palm: the skin
-  next to it goes brighter and a little cooler, towards a pale cool pink, the fingers near it are lit, and their tips
-  far from it barely; the edges of the fingers facing it catch a rim of it. The large-area light does not strobe with
-  the channels (a photosensitivity limit: at most about 3 big changes a second): its strength holds the strokes' peak
-  while they strike and dies within a few frames of the last, and its shape is pooled over the last few frames'
-  channels; only the channels and their glow flicker frame to frame. On the hand it is capped (HAND_CAP), at the peak
-  of the burst so the cap does not hold it up as it dies. The camera exposes down while the lightning shines (as a
-  phone's does for a bright light in the picture: a flash for the arcs, never so far that the room they light goes
-  darker than the plate; settling once for the ball's phrases, held through the gaps between them, and coming back
-  once the ball has gone), so skin already at the top of red has room to take the light, and the plate's own
+  divided by the room's own tint so it lands as the same blue on a tinted wall (two fingers light it as one does).
+  And the lightning's own image, blurred wide (KEY), lights the plate and, through its matte, the hand, a cool white
+  with blue, held under a luminance (KEY_CAP): in a dark room the brightest thing in the frame lights the hand and
+  what is round it, flickering with the strikes. The ball's light is the cool near-white of its plasma, on the hand as
+  on the room, falling off with distance as the inverse square, softened by how far it hovers over the palm; it pools
+  softly on the palm under it, apart from the ball, and the edges of the fingers facing it catch a rim of it. The
+  large-area light does not strobe with the channels (a photosensitivity limit: at most about 3 big changes a second):
+  its strength holds the strokes' peak while they strike and dies within a few frames of the last, with a share of
+  their flicker, and its shape is pooled over the last few frames' channels. On the hand it is capped (HAND_CAP), at
+  the peak of the burst so the cap does not hold it up as it dies. The camera exposes down while the lightning shines
+  (as a phone's does for a bright light in the picture: a flash for the arcs, never so far that the room they light
+  goes darker than the plate; settling once for the ball's phrases, held through the gaps between them, and coming
+  back once the ball has gone), so skin already at the top of red has room to take the light, and the plate's own
   highlights are never dimmed by the roll-off to white.
 
 Everything is numpy and OpenCV; the random parts come from ``seed`` (the strikes, in one pass over the frames, then
@@ -76,7 +77,8 @@ each frame's own draws from the seed and its index), so the same inputs give the
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import NamedTuple
 
 import cv2
 import numpy as np
@@ -86,7 +88,7 @@ from .elements import FORMS, Timeline
 from .hand_track import REACH_OUT, _pointing, finger_reach
 from .transfer import gam, lin
 
-_STRIKES, _CRACKLE, _FRAME, _SPARK, _STREAK = 11, 12, 13, 14, 16  # mixed into each seed: each random part
+_STRIKES, _CRACKLE, _FRAME, _SPARK, _WANDER = 11, 12, 13, 14, 16  # mixed into each seed: each random part
 # its own stream
 
 # ---- the voice
@@ -98,64 +100,71 @@ CRACKLE_WIDTH, CRACKLE_INTEN = 1.6, 0.8  # a crackle arc's width (times the hand
 # bright arcs (four 1 px hairs at 0.45 could not be seen at phone size, and the tip glowed with no source)
 
 # ---- arcs from the fingertips
-ARC_REACH = (1.4, 5.0)  # hand sizes: how far a stream reaches, from the quietest voice to the loudest
-ARC_WIDTH = (1.3, 4.0)  # px for a hand HAND_PX across: the main channel's width from the quietest voice to the loudest
+ARC_REACH = (1.4, 5.0)  # hand sizes: how far a main channel reaches, from the quietest voice to the loudest (or as far
+# as it can within the frame: it strikes something in it, TARGET_*)
+ARC_WIDTH = (1.3, 4.0)  # px for a hand HAND_PX across: a main channel's width where it leaves the finger, from the
+# quietest voice to the loudest
+MAIN_TAPER = (0.22, 0.7)  # it thins to this share of that width at its far end, as this power of how far along it is
+# (thinned only to 0.47 of it, a loud channel 5 px wide all the way to the wall read as neon tubing)
 HAND_PX = 220.0  # widths are drawn for a hand this many px across (the dev takes') and scale with it, within WIDTH_K
 WIDTH_K = (0.6, 1.8)
-ARC_STREAMS = 3  # at most this many streams per finger (one for a quiet voice): the first is the main channel
-SIDE_ON = (0.3, 0.85)  # the voice's level over which a finger's second, and third, stream strikes: three only at the
-# voice's peak (from 0.75 on, two streamers bunched round the main channel's root on every loud frame)
-SIDE_INTEN, SIDE_WIDTH, SIDE_REACH = 0.35, 0.4, (0.3, 0.5)  # a streamer beside the main channel, against it: dimmer,
-# thinner and at most half as long, and re-struck no brighter than it (as bright, as thick and as long, three streams
-# braided into a rope with no main channel; at half as bright and thick, the streamers and their forks came close to
-# it; reaching 60-70 % of its length, they read as wires)
-SIDE_LIFE = 2  # frames a streamer's path is kept at most (struck anew with its main channel too: held as long, all
-# the streams froze together for three frames)
-SIDE_GAP = (26.0, 36.0)  # degrees a streamer leaves off its main channel's heading, the two on opposite sides (aimed
-# in a fan round the finger's aim, each swaying on its own, they came within a few degrees of the main channel and ran
-# beside it for half its reach)
-SIDE_APART = (20.0, 0.2)  # degrees, share: and seen from the fingertip, every point of it past this share of its
-# length lies at least this far round from the main channel at the same distance out, or it is drawn again (leaving 18
-# degrees off, one bent back and ran 100-150 px beside the main channel for its whole length, a faint twin)
 ARC_WANDER, ARC_WANDER_HZ = 5.0, (0.6, 1.7)  # degrees and Hz: the main channel's aim sways slowly (a new path anywhere
 # in the fan read as random flashes, not one storm)
 ARC_JITTER = 4.0  # degrees: each new main channel's own turn off its aim
-ARC_OFF = 12.0  # degrees: a main channel's heading is never further off its finger's aim than this (its split, sway
-# and jitter added up)
+ARC_OFF = 12.0  # degrees: a main channel's heading is never further off its finger's aim than this (its sway and
+# jitter added up), two fingers' each turned PAIR_SPLIT / 2 further, away from the other
 ARC_LEAD = 0.2  # of its reach: a main channel's first stretch runs along its finger's aim before it turns to where it
 # strikes, so it comes out of the finger however far its end strays
 LEAD_TURN = 30.0  # degrees: where that stretch turns more than this, the turn is spread over the lead's second half and
 # as far again past it, at most this much a piece (a second finger's channel led out past the first's tip turned at a
 # right angle there: an elbow)
-LIFE, LIFE_P = (1, 2, 3), (0.25, 0.45, 0.3)  # frames a path is kept, and how often each
+LIFE, LIFE_P = (1, 2), (0.45, 0.55)  # frames a path is kept, and how often each: struck anew every frame or two (kept
+# 1-3 frames, and 4 over a loud voice from two fingers, the same channels hung in the air between strokes)
 RESTROKE = (0.45, 0.5)  # a re-stroke flashes with this chance, plus this times the level; else the channel is dark
 HIT_REACH = 0.3  # a hit's strike reaches this much further at full size
-ROUGH, FORK = 0.2, (0.08, 0.1)  # a stream's jaggedness (share of a segment), its forking (at the quietest, more
-# when louder: dim, its forks branch a loud strike out without braiding it; 0.16 more at the loudest grew a thicket)
-ROOM_PAD, ROOM_SKIP, REDRAW = 1.5, 0.1, 4  # px at 1080, share of its length, times: a fork or streamer may not come
-# within this of another channel (its width and theirs apart) past this share of its own length from where it leaves,
-# drawn again up to this many times before it is dropped, as is a second finger's main channel; the first finger's is
-# drawn again as often, then kept (a fork crossing a streamer, or rejoining its own channel, closed a loop: the most
-# obviously fake shape lightning can take; two fingers in line along their aim struck two channels side by side)
+ROUGH, FORK = 0.2, (0.08, 0.14)  # a channel's jaggedness (share of a segment), its forking (at the quietest, more when
+# louder: a loud strike is one channel forking more, never more channels from one finger)
+ROOM_PAD, ROOM_SKIP, REDRAW = 1.5, 0.1, 4  # px at 1080, share of its length, times: a fork may not come within this of
+# another channel (its width and theirs apart) past this share of its own length from where it leaves, drawn again up to
+# this many times before it is dropped, as is a second finger's main channel; the first finger's is drawn again as
+# often, then kept (a fork crossing another channel, or rejoining its own, closed a loop: the most obviously fake shape
+# lightning can take; two fingers in line along their aim struck two channels side by side)
 ALONG = (0.12, 3.0, 0.25)  # hand sizes, widths, share: nor may it lie within the larger of the first two (its width and
 # theirs apart) of another channel for more than this share of its length (a fork ran 30 px beside its channel for
 # 150 px, two wires side by side)
 BRANCH, TAPER = (0.4, 0.6), (0.7, 1.5)  # a channel at most the first share as bright as the brightest drawn with it is
-# a branch (a streamer or a fork), from the second on not, faded between; a branch fades along its length to 1 - 0.7 of
-# itself at its end, as the 1.5th power of how far along it is (at one brightness end to end, a thin one read as wire)
-BRANCH_W = (1.5, 0.35)  # and thins from this many times its width where it leaves to this at its end (a main channel
-# from 1 to 0.4): a wedge, not a wire (thinned as a main channel is, a 1-2 px streamer stayed one width once blurred)
-FORK_INTEN, FORK_WIDTH = (0.15, 0.35), 0.45  # a fork's intensity and width against the channel it leaves (at 0.35-0.6
-# and 0.6 the forks clipped to the same white as their channel: a bundle of equal wires)
+# a branch (a fork), from the second on not, faded between; a branch fades along its length to 1 - 0.7 of itself at its
+# end, as the 1.5th power of how far along it is (at one brightness end to end, a thin one read as wire)
+BRANCH_W = (1.0, 0.3)  # and thins from this many times its width where it leaves to this at its end: a wedge, not a
+# wire (from 1.5 times, with FORK_WIDTH, a fork left a loud channel nearly as thick as it: a second tube)
+FORK_INTEN, FORK_WIDTH = (0.15, 0.35), 0.3  # a fork's intensity, and its width against the channel's where it leaves
+# it (at 0.35-0.6 and 0.6 the forks clipped to the same white as their channel: a bundle of equal wires)
 FORK_TURN = ((10.0, 35.0), (15.0, 50.0))  # degrees a fork turns off a main channel's heading, and off a fork's
 FORK_PULL = 0.3  # a main channel's fork is pulled this far back towards the channel's own course (turned 50 degrees
 # on top of the fan, the wander and the jitter, one crossed the shoes, half off the finger's aim)
 FORK_OUT = 0.1  # a fork ends at least this share of its length from the channel it leaves, and no nearer it than its
 # middle is, or it is drawn again: it runs out, never back (one curled back to end a few px from its channel, a closed
 # loop to the eye)
+TARGET_PAD = 0.04  # share of the picture's short side: a main channel strikes something in the frame, at least this
+# far inside its edges (run off the frame from a pointing finger, the bolts went nowhere)
+TARGET_NEAR, TARGET_SPREAD = 0.5, 8.0  # where it strikes: from this share of its reach out to all of it, within this
+# many degrees either side of its heading (never past ARC_OFF off its finger's aim), off the hand, preferring where the
+# plate's surfaces meet (EDGE_*: a floor's line, a wall's corner, a tub's rim) by TARGET_EDGE over the farthest
+TARGET_EDGE = 1.5
+EDGE_Q, EDGE_BLUR, EDGE_OFF = 4, 2.0, 0.05  # the plate's edges are read at 1 / EDGE_Q of its size, blurred EDGE_BLUR of
+# those px, and none within EDGE_OFF of its short side of the hand (its own outline is no surface to strike)
+IMPACT = (0.04, 1.5)  # (sigma in hand sizes, amplitude at a stroke's brightness): the white-hot spot where it strikes
+SPLASH = ((3, 6), (0.1, 0.3), (60.0, 150.0), 0.5, 0.25, 2)  # (count, length in hand sizes, degrees turned off the
+# way it came in, intensity against its stroke, width against its root's, frames): short forks splashing out of where
+# it strikes, along the surface and back off it, on its first 2 frames
 FINGER_NEAR = 0.6  # hand sizes: the tap names the fingertip within this of the emitter; a second finger beside it
-# (index and middle) may arc too when it is out straight there (REACH_OUT) and its tip within FINGER_PAIR of the first's
+# (index and middle) may arc too when it is out straight there (REACH_OUT) and its tip within FINGER_PAIR of the
+# first's. A tap further from every tip (the palm's) strikes from the index or the middle, whichever reaches further
+# along the aim: the arcs leave a fingertip, never the middle of the hand (from the palm, a bolt ran up the fingers and
+# a fork down the palm, drawn on the skin)
 FINGER_PAIR = 0.8
+TIP_OUT = 0.12  # hand sizes: from a fingertip the tap is not on, a channel leaves where the matte ends past its tip
+# landmark (which sits a little inside the finger's end), at most this far out along the finger
 PAIR_LONG, PAIR_BENT = 0.6, 0.5  # and it strikes on a frame only while the picture shows it out: its middle joint to
 # its tip at least this share of the first finger's, bent there by at most acos(this) (60 degrees), its tip further from
 # the palm's middle than that joint. MediaPipe's depth called a finger curled into a fist out straight (reach 1.5-1.8,
@@ -168,24 +177,21 @@ PAIR_EDGE = 0.06  # hand sizes: with a matte, its tip on it and the background n
 PAIR_HOLD = 3  # frames: the second finger starts or stops striking only once this many frames in a row say so (the
 # landmarks jitter about the bounds)
 ON_HAND = (0.2, 0.03)  # hand sizes, share: a channel lying on the hand's matte past this far from where it leaves for
-# more than this share of its length is drawn again (a fork, a streamer or a second finger's channel then dropped if it
-# still does; the first finger's main channel kept): the bolts are struck into the room behind the hand, never across
-# it (the matte runs past the fingertip it leaves, so its first stretch may lie on it)
-HIDE_NEAR = (0.45, 0.6)  # hand sizes from a burning fingertip: and further out than this (faded in from the first),
-# what of a channel still passes behind the hand is hidden by it, as much as the matte covers it; nearer, the tip's crackle,
-# the arcs crawling up the finger and the channels' roots stay on top (a second finger's channel struck from inside the
-# silhouette was drawn across the first finger)
-PAIR_SPLIT = 14.0  # degrees: two fingers' main channels leave this far apart, each turned away from the other (along
-# one aim from tips side by side, they ran together as one thick rope); the second finger strikes its main channel
-# only, the first PAIR_STREAMS streams at most (with three streams each, two fingers were a thicket of equal wires)
-PAIR_STREAMS = 2
+# more than this share of its length is drawn again (a fork or a second finger's channel then dropped if it still does;
+# the first finger's main channel kept): the bolts are struck into the room behind the hand, never across it (the
+# matte runs past the fingertip it leaves, so its first stretch may lie on it)
+HIDE_NEAR = (0.08, 0.16)  # hand sizes from a burning fingertip: and further out than this (faded in from the first),
+# whatever of the channels or the crackle passes over the hand is hidden by it, as much as the matte covers it; only
+# the tip's own spot and the channels' roots stay on top (left on top out to half a hand, a channel crossed the fingers
+# and ran down the palm like a drawing on the skin)
+PAIR_SPLIT = 28.0  # degrees: two fingers' main channels leave at least this far apart, each turned away from the
+# other (at 14, within ARC_OFF, two channels ran side by side from the two tips to the frame's edge: parallel cables)
 PAIR_CLEAR = 0.22  # hand sizes: the second finger's main channel keeps this much further off the first's channels, or
 # is not struck (from fingers one behind the other along their aim, it ran beside the first's: a rope of two; at 0.12
 # it ran 30-50 px beside it and past its tip)
-PAIR_RETRY = (0.0, 4.0, 7.0, 11.0, 15.0, 23.0)  # degrees: it is tried turned this much further outwards each time (7,
-# 11, 14, 18, 22, then 30 off the aim, past ARC_OFF), twice each, before it is not struck (dropped on its first
-# failure, fingers one behind the other struck one channel on most frames, the second finger only a jumper into the
-# first's tip, as if feeding its bolt)
+PAIR_RETRY = (0.0, 4.0, 7.0, 11.0, 15.0, 23.0)  # degrees: it is tried turned this much further outwards each time,
+# twice each, before it is not struck (dropped on its first failure, fingers one behind the other struck one channel on
+# most frames, the second finger only a jumper into the first's tip, as if feeding its bolt)
 PAIR_LEAD = 0.1  # hand sizes: its first stretch (ARC_LEAD) ends this far to its outer side of the aim, and leaves
 # turned out as far as it must to pass the first's tip PAIR_CLEAR off it, from a tip behind that one along the aim
 # (along the aim, it ran into the first's tip), or as far as it is tried turned, at most PAIR_PAST degrees
@@ -194,95 +200,109 @@ PAIR_LINED = 0.1  # hand sizes: tips closer than this to one line along the aim 
 # each strikes on is kept from the last strike (it flipped with the landmarks' jitter)
 JUMP_P = 0.25  # an arc jumps between the two tips with this chance a frame, only while both main channels strike (at
 # 0.6, with the second channel gone, the jumper read as the second finger feeding the first's bolt)
-PAIR_PEAK, PAIR_LIFE = 0.5, 4  # over this level two fingers' paths are kept this many frames and re-struck every
-# frame, not struck anew or left dark (new channels on and off every frame over a dark wall flashed the room 3 times a
-# second, the photosensitivity limit; from 0.85 on only, with the second finger striking as often as the first, a
-# voice between the two did)
+PAIR_PEAK, PAIR_LIFE = 0.5, 2  # over this level two fingers' paths are kept this many frames and re-struck on each,
+# never left dark (new channels on and off every frame over a dark wall flashed the room 3 times a second, the
+# photosensitivity limit; kept 4 frames, they hung in the air)
 PAIR_SECOND = 0.8  # the second finger's main channel strikes this bright against the first's: one still leads (two
 # equal channels at once doubled the white-hot core)
 POINT_LONG = (0.15, 0.3)  # hand sizes, the finger's middle joint to its tip in the picture: a finger shorter than the
 # first points at its vanishing point (cuesync.hand_track._pointing, in 3D), one longer than the second its own way in
 # the picture, blended between (pointing away but long and clear, it was bent towards the picture's middle: arcs
 # straight up from a finger pointing up and left)
+CRACKLE_FAN = 70.0  # degrees: the crackle's arcs leave the burning tip at most this far off the finger's aim, into the
+# room (at 110, some ran back over the finger)
 
 # ---- the ball over the palm
-BALL_R = (0.1, 0.42)  # hand sizes: its radius, from a point as the voice begins to one held long and loud, growing
+BALL_R = (0.12, 0.5)  # hand sizes: its radius, from a point as the voice begins to one held long and loud, growing
 # as the square root of its charge (its area as the charge), so it is soon a ball, and shrinking with it when the voice
-# drops. It sits over the palm rather than covers it (from 0.25, the forming ball was a big pale disc; at 0.55 a held
-# one covered the palm from the index's knuckle to the ring finger's, pasted over it)
+# drops (from 0.1 to 0.42, growing over 10 frames, three short sounds held it at a third of a hand across: a flare
+# stamped on the palm; at 0.55 a held one covered the palm, pasted over it)
 BALL_RISE = 0.2  # its growth (the square root of its charge, 0-1) rises at most this much a frame, its radius eased
 # along it (smoothstep): from a crackle to full size over about 5 frames (sized from the charge itself, which jumps at
 # the voice's onset, it was 60-65 % of its full size on its first frame: it popped rather than grew)
-FIL_REACH = 0.7  # radii: a young ball's filaments crackle this much further out than its body, drawn in to its skin
-# as it charges (a forming ball is a spark with a crackle round it, not a disc)
-BALL_LIFT = 0.3  # hand sizes: it hovers this far off the palm, along the palm's normal (at the palm's depth it sat
-# flat on it, a decal)
+FIL_REACH = 0.7  # radii: a young ball's shell arcs crackle this much further out than its body, drawn in to its skin as
+# it charges (a forming ball is a spark with a crackle round it, not a disc)
+BALL_LIFT, LIFT_PX = 0.5, (140.0, 180.0)  # hand sizes, px at 1080: it hovers this far off the palm along the palm's
+# normal, and its middle sits between the two px off the palm's point in the picture, up the picture where the normal
+# shows no way across it (on the palm's point, square on, it was a sticker on the skin)
+WANDER = (15.0, (3.1, 4.6))  # px at 1080, Hz: its middle wanders about this far round where it hovers, at these rates
+# (held dead still on its point, it was pasted on)
 BALL_ON, BALL_BRIDGE = (0.03, 0.015), 3  # it shows once the voice (its loudest over the last BALL_BRIDGE frames) or
 # its charge passes the first, and goes only when both are under the second: as a voice began softly, a frame's dip in
 # it, before the charge had built up, put the ball out and on again
 BALL_FADE = 3  # frames it fades in over
-BALL_GROW, BALL_SHRINK = 10.0, 3.0  # frames: it grows towards the voice's level this slowly, and shrinks this fast
+BALL_GROW, BALL_SHRINK = 6.0, 3.0  # frames: it grows towards the voice's level this slowly, and shrinks this fast
 # (at 5 a ball hung on, flickering, through the second's pause between two sounds)
-BALL_FILAMENTS = (5, 14)  # filaments from its middle to its skin, small to full grown
-BALL_FLAT = 0.5  # radii: a filament that reaches less far across the picture than this is not drawn (one pointing
-# at the camera, or away, is a short jagged curl in the middle)
-BALL_DEPTH = 0.45  # a filament leaves its middle at a random angle, its depth (towards or away from the camera)
-# scaled by this: mostly across the picture
-BALL_SKIN, BALL_GROUND = 4, 2  # arcs crawling over its skin, and arcs jumping from it to a fingertip or knuckle
-SKIN_OUTLINE, SKIN_ROUGH = 0.25, 0.4  # how often a skin arc runs along its outline, and how jagged it is; each draws
-# 3-5 of the 8 stretches of its great circle (half of them on the outline, whole and smooth, drew a circle round it)
-GROUND_P = (0.25, 0.45)  # a jumping arc strikes with this chance, plus this times the level (more often, and thicker,
-# they outshone the ball)
-BALL_ROUGH = 0.22  # its filaments' jaggedness (at 0.3 they tangled and sprawled over the palm: no longer a ball)
-KNOT_TURN, KNOT_STRAIGHT = 200.0, 0.45  # a filament drawn again when, cut into 12 equal pieces as seen, it turns more
-# than this many degrees one way over 5 of them, or its ends are under this share of its length apart: a tight squiggle
-# reads as a knot of wire, not a spark
-BALL_TURN = 0.05  # radians a frame: it turns slowly (its filaments' far ends move, but never jump)
+SHELL = (10, 18)  # arcs crawling over its skin, small to full grown: an irregular shell of electrical filaments, which
+# is what draws its outline (filaments from its middle out to its skin, and streaks of glow along them, were a radial
+# starburst: a lens flare)
+SHELL_OUTLINE, SHELL_ROUGH = 0.5, 0.35  # how often a shell arc runs along its outline, and how jagged it is (half of
+# them on the outline, whole and smooth, drew a circle round it)
+SHELL_SPAN = (50.0, 130.0)  # degrees of its great circle a shell arc runs over (longer, those on its outline joined
+# into a ring)
+SHELL_INNER = (0.3, (0.5, 0.85))  # share, radii: of them, this many crawl over a sphere this far in, seen through its
+# body, so its inside has a structure rather than a blank glow
+SHELL_INNER_INTEN, SHELL_BACK = 0.55, 0.4  # an inner arc's brightness, and that of a stretch behind its middle, against
+# one on its skin before it
+SHELL_FACE = 0.35  # and a stretch facing the camera against one along its outline, where the shell is seen edge on
+# and shows densest: the outline is what resolves it as a ball (all as bright, the arcs were scribbles over the palm)
+SHELL_FORK = 0.4  # a shell arc forks once with this chance
+LAND = (0.02, 0.35)  # (sigma in hand sizes, amplitude): the white-hot spot where a jumping arc lands on a finger
+KNOT_TURN, KNOT_STRAIGHT = 200.0, 0.45  # a shell arc is drawn again when, cut into 12 equal pieces as seen, it turns
+# more than this many degrees one way over 5 of them, or its ends are under this share of its length apart: seen edge
+# on, a stretch of great circle folds back on itself into a knot of wire, not a spark
+BALL_TURN = 0.05  # radians a frame: it turns slowly (its arcs' far ends move, but never jump)
 BALL_PULSE = 0.12  # a hit swells it by this share, gone over 3 frames
 BALL_FLARE = 1.0  # and on the frame it lands, its middle's spark flares by this share of the hit's size, its white-hot
 # glow by at most INNER_FLARE: the sound's sync, now that the ball grows rather than pops into being
-BALL_CORE, BALL_SPARK = 0.09, 2.4  # radii, and amplitude at the loudest: the spark at its middle, flickering and
+BALL_CORE, BALL_SPARK = 0.09, 2.0  # radii, and amplitude at the loudest: the spark at its middle, flickering and
 # flaring on a hit (at 0.05 and 1.2 the ball had no source; at 0.11 it was a flat white disc)
 PLASMA_RGB = np.array([0.75, 0.85, 1.0], np.float32)  # linear: the colour of its light, a cool near-white (lightning
 # and an electric arc glow at about 7000-10000 K): its white-hot middle, and the light it throws on the hand and the
 # room. Added to skin it brightens it and cools it a little, towards a pale cool pink (in a saturated blue, skin already
 # at the top of red could only take the blue, and was dyed fuchsia with no more light on it)
-BALL_HOT = (3.0, 0.2)  # (gain, sigma in radii): its middle, where the plasma is hottest and densest, glows this far
-# over white in PLASMA_RGB, falling off as a Gaussian of that sigma: white-hot out to about a third of its radius
-BODY = (0.75, 0.92)  # (gain, radii): the rest of it glows in BODY_RGB, as exp(-(r / that)^4) through it: nearly as
+BALL_HOT = (2.4, 0.13)  # (gain, sigma in radii): its middle, where the plasma is hottest and densest, glows this far
+# over white in PLASMA_RGB, falling off as a Gaussian of that sigma: white-hot out to about a fifth of its radius, a
+# core about 60 px across at full size on a phone (out to a third of it, at 3 and 0.2, the ball was blown out to white)
+BODY = (0.75, 0.97)  # (gain, radii): the rest of it glows in BODY_RGB, as exp(-(r / that)^4) through it: nearly as
 # bright out to two thirds of its radius, then falling off smoothly over its last third and a little past it, so it
-# has no outline (a sphere of even density, or one with a bright limb, read as a hard-edged disc pasted on the palm; one
-# whose glow ran out at a fixed radius had a crisp edge over the dark wall between the fingers). Under white, so its
-# filaments show white over it (over white, it was a formless pale cloud with them lost in it)
-BODY_RGB = np.array([0.3, 0.7, 1.0], np.float32)  # a cyan-blue: with what of the lit palm shows through it, a pale
-# cyan-blue. Green in it matters: added to pink skin, a blue with little green made lavender and mauve
-HALO = (0.3, 0.7)  # (gain, sigma in radii): and round it, in HALO_RGB, the faint haze of its light scattered in the air
+# has no outline of its own (its shell's arcs draw it). Under white, so it stays a cyan-blue with the palm showing
+# through it and its arcs show white over it (at 0.75 it rolled off to a pale white-cyan: blown out)
+BODY_RGB = np.array([0.12, 0.5, 1.0], np.float32)  # a cyan-blue. Green in it matters: added to pink skin, a blue with
+# little green made lavender and mauve
+HALO = (0.3, 0.8)  # (gain, sigma in radii): and round it, in HALO_RGB, the faint haze of its light scattered in the air
 # and the lens, a Gaussian of that sigma, the same light added over skin and wall alike (in the picture as shown, a band
 # of saturated blue over its limb read as a drawn ring)
-HALO_RGB = np.array([0.4, 0.38, 1.0], np.float32)  # a soft blue-violet
-BALL_TAU = (4.0, 0.45)  # (optical depth through its middle, sigma in radii): it hides what is behind it as much as it
-# is dense, as 1 - exp(-tau), tau falling off as a Gaussian of that sigma: nearly all of it behind its middle, 70 % at
-# 0.7 of its radius, 30 % at its radius; its outer part is light added over the palm, whose lines show through
-# brightened (dense out to its outline, the palm vanished under a flat disc; lighter in its middle, the lit palm behind
-# it washed its blue to pink-white)
-BODY_STREAKS = (6, 0.5, 0.035)  # (count, gain, width in radii): its glow is this much brighter along soft streaks from
-# its middle out to its edge, a plasma globe's (ridges where drifting waves crossed left dark round cells between them:
-# bubbles, a cracked marble)
-STREAK_TURN = 0.04  # radians a frame: each streak turns at most this fast
-SCATTER = 0.2  # radii: what shows through its body is blurred this much, as much as the body hides it (seen sharp
+HALO_VOICE = (0.4, 0.6)  # the haze glows this share of HALO, plus this share times the voice's envelope: it breathes
+# with the voice
+HALO_RGB = np.array([0.3, 0.8, 1.0], np.float32)  # a soft cyan-blue (in a blue-violet, over skin round a ball this big,
+# it went magenta)
+BALL_TAU = (3.5, 0.47)  # (optical depth through its middle, sigma in radii): it hides what is behind it as much as it
+# is dense, as 1 - exp(-tau), tau falling off as a Gaussian of that sigma: 86 % behind its middle, 40 % at 0.7 of its
+# radius, 15 % at its radius; the palm shows through it, scattered (at 4 its middle was an opaque disc)
+SCATTER = 0.35  # radii: what shows through its body is blurred this much, as much as the body hides it (seen sharp
 # through it, the wall in the gap between two fingers was a dark window across its top: a glass marble)
 BALL_FORMED = 0.08  # its charge (and level, as its body's glow is) at which it is as dense and bright as it gets:
 # almost at once, so a young ball is small and bright, not big and faint (at 0.25 a forming ball was a pale
-# pink-lavender disc, a soap bubble); under half of it there is no body yet, only its filaments' crackle (_dense)
-CONTACT = 0.025  # hand sizes: the spark where a filament meets the ball's skin, facing us
-TARGETS = (4, 8, 12, 16, 20, 5, 9, 13)  # the landmarks a grounding arc may jump to: fingertips and knuckles
+# pink-lavender disc, a soap bubble); under half of it there is no body yet, only its shell's crackle (_dense)
+GROUND = (6, 10)  # arcs jumping from its skin to the fingertips and the fingers' bases, from a quiet voice to the
+# loudest, each struck anew every GROUND_LIFE frames (two at most, now and then, read as stray sparks: the ball held
+# nothing)
+GROUND_LIFE = 2
+TARGETS = (4, 8, 12, 16, 20, 2, 5, 9, 13, 17, 6, 10, 14, 18)  # the landmarks a jumping arc goes to: the fingertips,
+# the fingers' bases and their middle joints (those clear of the ball: with it hovering over the knuckles, the
+# fingertips alone took every arc, two or three to each)
 INNER_FLARE = 0.5  # a hit's flare (BALL_FLARE) brightens its white-hot middle by at most this share (more, and the
 # light it throws washed the palm round it white)
-WRAP_PX, WRAP_GAIN, WRAP_REACH = 5.0, 4.0, 3.0  # px at 1080, gain at the loudest, radii: the fingers' edges facing the
-# ball, within about twice the first inside the hand's outline, catch its light (PLASMA_RGB), falling off as the
-# inverse square of their distance, within the last: a rim of light on the sides of the fingers next to it
+WRAP_PX, WRAP_GAIN, WRAP_REACH = 12.0, 12.0, 4.5  # px at 1080, gain at the loudest, radii: the fingers' edges facing
+# the ball, within about twice the first inside the hand's outline, catch its light (PLASMA_RGB), falling off as the
+# inverse square of their distance, within the last: the inner faces of the fingers round it lit (at 5 px, 4 and 3
+# radii, the fingers next to it went 145 -> 144)
 WRAP_BEHIND = 0.15  # radii: the edges behind its body take none of it, coming up over this much past its outline (a
 # finger's lit edge seen through the body was a bright seam across it)
+SPILL = (0.7, 0.25)  # (sigma in its radii, gain at the loudest): its light pools softly on the palm under it, on the
+# palm's point, apart from the ball hovering over it (lit only round the ball itself, the light read as the ball's own
+# edge on the skin: a sticker)
 
 # ---- the look (linear light)
 CORE_RGB = np.array([0.92, 0.96, 1.0], np.float32)  # the channel itself: white, the faintest blue
@@ -290,13 +310,13 @@ CORE_GAIN = 3.0  # the channel is far over white; the shoulder takes it to a cli
 CORE_GAMMA = 1.6  # the core's intensity is raised to this before CORE_GAIN, so only the brightest channels clip
 # (with the gain alone everything over a third went the same white: forks as bright as their channel)
 GLOWS = (  # (sigma in hand sizes, peak over a 1 px line at core 1, linear rgb): the air round the channel glows blue,
-    (0.008, 0.55, (0.25, 0.50, 1.00)),  # then violet further out (saturated: a paler blue over skin read pink-white)
-    (0.025, 0.22, (0.12, 0.30, 1.00)),
-    (0.08, 0.08, (0.12, 0.22, 1.00)),
-    (0.25, 0.03, (0.25, 0.15, 1.00)),
+    (0.008, 0.55, (0.25, 0.50, 1.00)),  # then violet further out (saturated: a paler blue over skin read pink-white);
+    (0.025, 0.15, (0.12, 0.30, 1.00)),  # the narrow blue rim kept, the broad halo round it a third under what it was
+    (0.08, 0.055, (0.12, 0.22, 1.00)),  # (at 0.22, 0.08 and 0.03, the white core sat in a 48 px blue tube: neon)
+    (0.25, 0.02, (0.25, 0.15, 1.00)),
 )
-GLOW_CAP = {"arc": 0.6, "ball": 1.6}  # linear luminance: the glow is held under this, softly. Arcs over a wall held
-# to 0.15 read as white paint; a ball held to 0.3 had no bloom and was dimmer than the palm round it
+GLOW_CAP = {"arc": 0.45, "ball": 1.6}  # linear luminance: the glow is held under this, softly. Arcs over a wall held
+# to 0.15 read as white paint, at 0.6 as neon; a ball held to 0.3 had no bloom and was dimmer than the palm round it
 BRIGHT_TONE = (0.85, 2.0)  # the ball's own light rolls off to white with each pixel's hue kept: its channels scaled
 # by the roll-off of its largest from the first on, and as far over white as that is, by the second's multiples, it
 # goes towards white (a share 1 - exp(-over / this)): white-hot in its middle, pale cyan-blue round that (each channel
@@ -316,14 +336,13 @@ SMEAR_MAX = 12.0  # px at 1080: the smear is never longer than this (as long as 
 # channel across the finger into a faint band, and the bolt began a finger's width off the tip)
 WELD, WELD_KEEP = (0.06, 0.1), 0.6  # hand sizes, and share: this close to the fingertip (fading out by the second) a
 # smeared channel is at least this much of its sharp self, so a stub always joins the bolt to the tip
-CRAWL_STILL = 15.0  # px at 1080: on a frame the fingertip moves further than this no arc crawls up the finger, crackles
-# out of its tip or jumps between two tips (smeared with it, an arc up the finger was a pale band across it, and those
-# at the tip smeared, broken hooks and combed dashes)
+CRAWL_STILL = 15.0  # px at 1080: on a frame the fingertip moves further than this no arc crackles out of its tip or
+# jumps between two tips (smeared with it, those at the tip were broken hooks and combed dashes)
 GLOW_FLOOR, GLOW_HOT = 0.6, (0.4, 0.6)  # an arc's glow is drawn from a channel at least this share of a loud main
 # channel's width once its intensity passes the second (faded in from the first): a small bolt on a quiet voice is
 # short but as hot as a strike's (with its glow from its own thin, dim line, it read as a drawn line)
 SPARK_RGB = np.array([0.86, 0.94, 1.0], np.float32)  # the burning fingertip and the ball's middle: white, a little cyan
-BALL_GLOW_RGB = np.array([0.35, 0.75, 1.0], np.float32)  # the glow round a ball's filaments and arcs: a cyan-blue,
+BALL_GLOW_RGB = np.array([0.4, 0.82, 1.0], np.float32)  # the glow round a ball's arcs: a cyan-blue,
 # blue over its body and the wall, a cool white over skin (in the arcs' blue-violet, added to skin already at the top
 # of red, they were magenta scratches on the fingers)
 HAZE_RGB = np.array([0.05, 0.35, 1.0], np.float32)  # the halo round a spark: cyan-blue (the violet-blue it was read
@@ -340,12 +359,25 @@ LIGHT_RGB = {form: tuple(np.array(rgb, np.float32) / float(np.array(rgb, np.floa
     # violet the olive wall went mauve and the white wall and the floor violet)
     ("ball", (tuple(PLASMA_RGB), tuple(PLASMA_RGB))))}  # its own cool near-white on both (PLASMA_RGB): the light of
 # the plasma, not of its blue haze
-LIGHT = {"arc": (0.2, 2.5, 5.0, 1.5), "ball": (0.3, 3.0, 5.0, 0.0)}  # (how far in front of the hand the channels
+LIGHT = {"arc": (0.2, 2.5, 5.0, 1.5), "ball": (0.3, 0.8, 5.0, 0.0)}  # (how far in front of the hand the channels
 # are, in hand sizes; gain on the hand; gain on the room; gain on the wall right behind them, ROOM_NEAR away). A thin
 # channel has no radius to stand off by; at fx_light's own HAND_DEPTH of it the palm under a ball went white. A ball
 # hovers about this far over the palm, and its light there falls off with distance d across the picture as
 # 1 / (d^2 + this^2) (fx_light.spread): the skin next to it a third brighter than in the plate under the camera's dip
 # for it, the fingers near it lit, their tips far from it barely
+KEY = {"arc": (200.0, 110.0, 0.35), "ball": (1.0, 1.5, 0.2)}  # (gain on the hand, on the room, flicker): and the
+# light of the lightning's own image, its luminance blurred KEY_SIGMA wide, falls on the plate and through the hand's
+# matte (times each surface's own colour, half shaded on the round hand), keeping this share of the strokes' flicker:
+# in a dark room the brightest thing in the frame lights the hand and what is round it, flickering with the strikes
+# (with the light close round the channels alone, held still, a palm in a dark bathroom went 94 -> 97 and the tub's
+# rim 37 -> 35 under a white bolt). The ball's light on the hand is mostly its own, close round it
+KEY_SIGMA = 0.28  # share of the picture's short side: how wide the image is blurred (300 px at 1080)
+KEY_RGB = {form: tuple(np.array(rgb, np.float32) / float(np.array(rgb, np.float32) @ fx._LUMA) for rgb in pair)
+           for form, pair in (("arc", ((0.62, 0.74, 1.0), (0.5, 0.66, 1.0))),  # its colour at luminance 1, (on the
+                              ("ball", ((0.62, 0.8, 1.0), (0.5, 0.7, 1.0))))}  # hand, on the room): a cool white
+# with blue, the hand's blue rising most
+KEY_CAP = (0.32, 0.12)  # linear luminance: it brightens the hand by at most the first and the room by the second,
+# softly (held only under twice its own colour, the walls of a lit hallway went white round two bolts)
 ROOM_NEAR = 1.0  # hand sizes: the wall the arcs strike is this far behind them (with the room's far light alone, a
 # lone bolt lit nothing next to it; at 0.5 the light on it jumped about with each new path)
 ROOM_CAST = 1.5  # the room's light is divided by the room's own colour (room_cast), each channel of which is held
@@ -358,7 +390,7 @@ LIGHT_HOLD, LIGHT_LETGO = 4, 0.55  # the light's strength holds the strokes' pea
 # each stroke, the room strobed at 12 Hz; held over 2 or 3, a "ka-ka-ka" still strobed it at 6), then lets go by this
 # share a frame (by 0.85, the hand and the room stayed lit half a second after the last channel: a glow with no
 # source)
-EXPOSURE = {"arc": (0.3, LIGHT_HOLD, 1.5, 2.0, LIGHT_HOLD), "ball": (0.5, 36, 4.0, 8.0, 8)}  # (stops, frames held,
+EXPOSURE = {"arc": (0.15, LIGHT_HOLD, 1.5, 2.0, LIGHT_HOLD), "ball": (0.5, 36, 4.0, 8.0, 8)}  # (stops, frames held,
 # frames rising, frames falling, frames gone): the camera exposes down this much for the lightning at its brightest (the
 # voice's level for the arcs, the ball's brightness), following the brightest it has been over the frames held, so skin
 # at the top of red has room to take the blue light; once the lightning has been gone the last frames, and is not back
@@ -371,7 +403,8 @@ EXPOSURE = {"arc": (0.3, LIGHT_HOLD, 1.5, 2.0, LIGHT_HOLD), "ball": (0.5, 36, 4.
 ARC_DIP_ROOM = 0.6  # the camera exposes down for the arcs by at most this share of the stops their light lifts the room
 # away from them (ROOM_FAR), so the room never goes darker than the plate while they strike (at the loudest, two
 # fingers over a lavender wall took it 0.12-0.17 stops darker: the lightning dimmed the room it lit)
-ROOM_FAR = 10  # percentile of the room's light over the frame: the room away from the channels
+ROOM_FAR = 2  # percentile of the room's light over the frame: the room away from the channels (at 10, with the
+# light pooled round where a bolt strikes, the corner furthest from it went a hair darker than the plate)
 EXPOSURE_OUT = 0.05  # the lightning this faint is out, for the camera (a breath between two phrases put a ball a few
 # px across on for three frames, and the room held dark through the gap)
 DIP_MIN = 0.005  # stops: less than this and the camera is as it was
@@ -450,7 +483,7 @@ def _loops(pts: np.ndarray, step: float = 4.0) -> bool:
 
 class _Room:
     """Where the channels struck on a frame lie (a mask of the frame, each drawn ROOM_PAD wider than it is), and how
-    far round them is beside them (ALONG: another mask, each drawn that much wider), so a new fork or streamer can be
+    far round them is beside them (ALONG: another mask, each drawn that much wider), so a new fork or splash can be
     kept off them and from running alongside them. ``along``: ALONG's distance in px for this frame's hand; ``hand``:
     this frame's matte (uint8) or None, and ``off_hand``: how far from where it leaves a channel may lie on it
     (ON_HAND)."""
@@ -532,6 +565,11 @@ def _course(p0: np.ndarray, k: np.ndarray, end: np.ndarray, rng: np.random.Gener
     return np.concatenate(pieces + [displace(base[-2], end, rng, rough, min_seg, curve=rng.normal(0, 0.07))])
 
 
+def _taper(u: float | np.ndarray) -> float | np.ndarray:
+    """A main channel's width ``u`` of the way along it, against its width where it leaves the finger (MAIN_TAPER)."""
+    return 1.0 - (1.0 - MAIN_TAPER[0]) * np.asarray(u, np.float64) ** MAIN_TAPER[1]
+
+
 def bolt_tree(p0, u, length: float, rng: np.random.Generator, width: float, rough: float = ROUGH,
               fork: float = FORK[0], min_seg: float = 3.0, inten: float = 1.0, depth: int = 0, max_depth: int = 2,
               out: list | None = None, room: _Room | None = None, drop: bool = True, lead=None,
@@ -576,7 +614,7 @@ def bolt_tree(p0, u, length: float, rng: np.random.Generator, width: float, roug
         v = _rot(_unit(pts[j] - pts[i]), (side or turn) * rng.uniform(*FORK_TURN[min(depth, 1)]))
         if depth == 0:
             v = _unit((1.0 - FORK_PULL) * v + FORK_PULL * u)
-        w_fork = width * FORK_WIDTH
+        w_fork = width * FORK_WIDTH * (_taper(along) if depth == 0 else 1.0)  # (as thick as its channel is there)
         bolt_tree(pts[i], v, (cum[-1] - cum[i]) * rng.uniform(0.25, 0.65), rng, w_fork, rough, fork, min_seg,
                   inten * rng.uniform(*FORK_INTEN), depth + 1, max_depth, out, room,
                   near=2.0 * (width + w_fork + 2.0 * room.pad) if room is not None else 0.0, ok=_leaves(pts))
@@ -618,10 +656,26 @@ def _carry(tree: list, a0: np.ndarray, b0: np.ndarray, a1: np.ndarray, b1: np.nd
     return [((p - a0) @ M + a1, w, i) for p, w, i in tree]
 
 
+def _splash(main: np.ndarray, rng: np.random.Generator, width: float, s: float) -> list:
+    """The short forks splashing out of where a main channel (points) strikes (SPLASH): [(points, width px,
+    intensity)], each turned well off the way it came in over its last tenth, along the surface it hit or back off it,
+    never on into it."""
+    count, length, turn, inten, wide, _ = SPLASH
+    p = main[:, :2]
+    come = _unit(p[-1] - p[max(0, len(p) - 1 - max(2, len(p) // 10))])
+    out = []
+    for _ in range(int(rng.integers(count[0], count[1] + 1))):
+        v = _rot(come, float(rng.choice([-1.0, 1.0])) * rng.uniform(*turn))
+        ln = s * rng.uniform(*length)
+        out.append((displace(p[-1], p[-1] + v * ln, rng, 1.3 * ROUGH, max(1.5, 0.006 * s), curve=rng.normal(0, 0.1)),
+                    width * wide, inten * rng.uniform(0.6, 1.0)))
+    return out
+
+
 @dataclass
 class _Path:
     """A channel kept for its life: struck on ``born`` with its root at ``a`` and its far end at ``b``; ``to``: the
-    landmark a grounding arc jumps to (-1: it didn't strike this time)."""
+    landmark a jumping arc goes to; ``splash``: the forks splashing out of where it strikes (_splash)."""
 
     born: int
     life: int
@@ -629,6 +683,7 @@ class _Path:
     b: np.ndarray
     tree: list
     to: int = -1
+    splash: list = field(default_factory=list)
 
 
 # ---- the hand ------------------------------------------------------------------------------------------------------
@@ -696,10 +751,12 @@ def _smooth(v: np.ndarray, k: int = 2) -> np.ndarray:
     return sum(wt * p[i: i + len(v)] for i, wt in enumerate(wts)) / wts.sum()
 
 
-def _fingers(hand: _Hand, tap: int) -> list[int]:
+def _fingers(hand: _Hand, tap: int, aim: float | None = None) -> list[int]:
     """The fingertip landmarks the arcs leave from: the one the emitter was carried onto at the tap (the nearest
-    within FINGER_NEAR hands of it), and the index or middle finger beside it when that one is out straight next to
-    it (two fingers together). [] with no landmarks, or a tap off the fingertips: the emitter alone."""
+    within FINGER_NEAR hands of it) or, with the tap further from every tip (on the palm), the index or the middle,
+    whichever reaches further along the aim (``aim``, degrees clockwise from up; the track's own direction without
+    one); and the index or middle finger beside it when that one is out straight next to it (two fingers together).
+    [] with no landmarks: the emitter alone."""
     if hand.lm is None:
         return []
     k = int(np.clip(tap, 0, len(hand.xy) - 1))
@@ -708,7 +765,8 @@ def _fingers(hand: _Hand, tap: int) -> list[int]:
     d = {f: float(np.linalg.norm(lm[f] - hand.xy[k])) for f in tips}
     first = min(d, key=d.get)
     if d[first] > FINGER_NEAR * s:
-        return []
+        u = hand.u[k] if aim is None else np.array([math.sin(math.radians(aim)), -math.cos(math.radians(aim))])
+        first = max((8, 12), key=lambda f: float((lm[f] - hand.xy[k]) @ u))
     pair = {8: 12, 12: 8}.get(first)
     if pair is not None and finger_reach(hand.lm3[k])[(pair - 8) // 4] > REACH_OUT and \
             np.linalg.norm(lm[pair] - lm[first]) < FINGER_PAIR * s:
@@ -771,6 +829,30 @@ def _pair_out(hand: _Hand, fingers: list[int], matte: np.ndarray | None = None) 
     return out
 
 
+def _tips(hand: _Hand, fingers: list[int], tap: int, matte: np.ndarray | None = None) -> np.ndarray | None:
+    """(len(fingers), n, 2): where each finger's channel leaves it on every frame. With the tap on the first one's
+    tip, the emitter (carried with the hand from where the performer tapped) and the other tip as far from it as the
+    landmarks are; else each fingertip landmark carried out along its last joint to where the ``matte`` (n, h, w uint8,
+    or None) ends past it (TIP_OUT at most), smoothed over a few frames. None with no fingers: the emitter alone."""
+    if not fingers:
+        return None
+    n = len(hand.xy)
+    k = int(np.clip(tap, 0, n - 1))
+    lm = hand.lm
+    if np.linalg.norm(lm[k, fingers[0]] - hand.xy[k]) <= FINGER_NEAR * hand.s[k]:
+        return np.stack([hand.xy + (lm[:, f] - lm[:, fingers[0]]) for f in fingers])
+    out = np.stack([lm[:, f] for f in fingers]).astype(np.float64)
+    if matte is not None:
+        for i, f in enumerate(fingers):
+            for t in range(n):
+                v = lm[t, f] - lm[t, f - 1]
+                ln = float(np.hypot(*v))
+                if ln > 1e-6:
+                    past = _past_tip(matte[t], lm[t, f], v / ln, float(hand.s[t]))
+                    out[i, t] += v / ln * float(np.clip(past or 0.0, 0.0, TIP_OUT)) * hand.s[t]
+    return np.stack([_smooth(o, 1) for o in out])
+
+
 def _aims(hand: _Hand, timeline: Timeline, finger: int | None, frame: tuple[int, int]) -> np.ndarray:
     """(n, 2) unit: which way the arcs leave on each frame. The studio's aim carried with the hand (the track's
     direction turned so it points the aim on the tap frame, which it already does when cuesync.bending.anchored turned
@@ -818,51 +900,74 @@ def _width_k(s: float) -> float:
     return float(np.clip(s / HAND_PX, *WIDTH_K))
 
 
-def _way_out(main: np.ndarray, root: np.ndarray, far: float) -> np.ndarray:
-    """Unit: which way the ``main`` channel (points) lies from ``root`` where it first gets ``far`` px out (its end, if
-    it never does)."""
-    rel = main[:, :2] - root
-    i = int(np.argmax(np.hypot(rel[:, 0], rel[:, 1]) >= far)) or len(rel) - 1
-    return _unit(rel[i])
+def surfaces(plate: np.ndarray, matte: np.ndarray | None = None) -> np.ndarray:
+    """(n, h / EDGE_Q, w / EDGE_Q) float32 in [0, 1]: where the plate's surfaces meet on each frame, which is what a
+    bolt strikes: its strongest coarse edges (the gradient of its luminance blurred EDGE_BLUR, over the frame's 99th
+    percentile: a floor's line, a wall's corner, a tub's rim), none within EDGE_OFF of the hand (``matte``, (n, h, w)
+    uint8, or None), whose own outline is no surface."""
+    n, h, w = plate.shape[:3]
+    hq, wq = max(1, h // EDGE_Q), max(1, w // EDGE_Q)
+    off = max(1, int(round(EDGE_OFF * min(h, w) / EDGE_Q)))
+    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * off + 1, 2 * off + 1))
+    out = np.zeros((n, hq, wq), np.float32)
+    for t in range(n):
+        g = cv2.resize(cv2.cvtColor(np.ascontiguousarray(plate[t]), cv2.COLOR_RGB2GRAY), (wq, hq),
+                       interpolation=cv2.INTER_AREA)
+        g = cv2.GaussianBlur(g.astype(np.float32), (0, 0), EDGE_BLUR)
+        e = np.hypot(cv2.Sobel(g, cv2.CV_32F, 1, 0), cv2.Sobel(g, cv2.CV_32F, 0, 1))
+        if matte is not None:
+            m = cv2.resize(matte[t], (wq, hq), interpolation=cv2.INTER_AREA) >= 64
+            e[cv2.dilate(m.astype(np.uint8), ker) > 0] = 0.0
+        top = float(np.percentile(e, 99))
+        if top > 1e-6:
+            out[t] = np.minimum(e / np.float32(top), 1.0)
+    return out
 
 
-def _course_of(pts: np.ndarray, pieces: int = 24) -> tuple[np.ndarray, np.ndarray]:
-    """A channel's course as the eye follows it: (its first two coordinates resampled to ``pieces`` equal lengths and
-    smoothed over a few of them, so its finest kinks drop out; how far along it each point is, as a share)."""
-    p = pts[:, :2]
-    cum = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(p, axis=0), axis=1))])
-    at = np.linspace(0.0, cum[-1], pieces + 1)
-    q = np.stack([np.interp(at, cum, p[:, 0]), np.interp(at, cum, p[:, 1])], 1)
-    for _ in range(2):
-        q[1:-1] = (q[:-2] + q[1:-1] + q[2:]) / 3.0
-    return q, at / max(cum[-1], 1e-9)
+def _target(root: np.ndarray, aim: np.ndarray, turn: float, reach: float, s: float, size: tuple[int, int],
+            edges: np.ndarray | None, matte: np.ndarray | None, rng: np.random.Generator,
+            most: float | None = ARC_OFF) -> np.ndarray:
+    """Where a main channel from ``root`` heading ``turn`` degrees off ``aim`` strikes (TARGET_*): of the points within
+    TARGET_SPREAD of that heading (and ``most`` degrees of the aim) from TARGET_NEAR of ``reach`` out to all of it,
+    those TARGET_PAD inside the frame (``size``: w, h) and off the hand (``matte``: this frame's, uint8, or None), the
+    one where the plate's surfaces meet (``edges``: this frame's, from surfaces) and the farthest, with a little
+    chance in it. With none of them there, the farthest point along the heading inside the frame, at least half a hand
+    out, or else its full reach (a fingertip at the frame's edge pointing out of it)."""
+    w, h = size
+    pad = TARGET_PAD * min(w, h)
+    ang = turn + np.linspace(-TARGET_SPREAD, TARGET_SPREAD, 13)
+    if most is not None:
+        ang = np.unique(np.clip(ang, -most, most))
+    dist = np.linspace(TARGET_NEAR, 1.0, 16) * reach
+    rad = np.radians(ang)[:, None]
+    way = np.stack([aim[0] * np.cos(rad) - aim[1] * np.sin(rad), aim[0] * np.sin(rad) + aim[1] * np.cos(rad)], -1)
+    p = (root + way * dist[None, :, None]).reshape(-1, 2)  # (as _rot does, for each angle; then each distance)
+    ok = (p[:, 0] >= pad) & (p[:, 0] <= w - 1 - pad) & (p[:, 1] >= pad) & (p[:, 1] <= h - 1 - pad)
+    xi, yi = np.clip(np.round(p[:, 0]).astype(int), 0, w - 1), np.clip(np.round(p[:, 1]).astype(int), 0, h - 1)
+    if matte is not None:
+        ok &= matte[yi, xi] < 128
+    if ok.any():
+        score = np.tile(dist / reach, len(ang)) + 0.25 * rng.random(len(p))
+        if edges is not None:
+            eh, ew = edges.shape
+            score += TARGET_EDGE * edges[np.minimum(yi // EDGE_Q, eh - 1), np.minimum(xi // EDGE_Q, ew - 1)]
+        return p[int(np.argmax(np.where(ok, score, -np.inf)))]
+    v = _rot(aim, turn)
+    span = [(((w, h)[k] - 1 - pad if v[k] > 0 else pad) - root[k]) / v[k] for k in (0, 1) if abs(v[k]) > 1e-9]
+    d = min(span, default=reach)
+    return root + v * (d if 0.5 * s <= d < reach else reach)
 
 
-def _apart(main: np.ndarray, root: np.ndarray):
-    """A test that a streamer from ``root`` keeps SIDE_APART round from the ``main`` channel (points) as seen from
-    ``root``: each point of its course (_course_of) past SIDE_APART's share of its length against the main channel's
-    course where it is as far out."""
-    rel = _course_of(main, 64)[0] - root
-    out = np.maximum.accumulate(np.hypot(rel[:, 0], rel[:, 1]))
-    ang = np.arctan2(rel[:, 1], rel[:, 0])
-
-    def ok(pts: np.ndarray) -> bool:
-        q, share = _course_of(pts)
-        q = q[share > SIDE_APART[1]] - root
-        at = np.minimum(np.searchsorted(out, np.hypot(q[:, 0], q[:, 1])), len(out) - 1)
-        off = (np.arctan2(q[:, 1], q[:, 0]) - ang[at] + np.pi) % (2 * np.pi) - np.pi
-        return float(np.degrees(np.abs(off)).min()) >= SIDE_APART[0]
-
-    return ok
-
-
-def arc_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
-               matte: np.ndarray | None = None) -> tuple[list[list], list[list]]:
+def arc_frames(hand: _Hand, timeline: Timeline, seed: int = 0, matte: np.ndarray | None = None,
+               plate: np.ndarray | None = None) -> tuple[list[list], list[list], list[list]]:
     """Per frame, the arcs from the fingertips: ([(points, width px, intensity)], [(x, y, sigma, amplitude)] the
-    burning fingertips the arcs leave from). Each finger's streams are struck, re-struck and let go as the module
-    docstring says; a second finger only on the frames the picture shows it out (_pair_out), its tip burning and
-    crackling only while it strikes. ``Timeline.camera`` carries a far end with the room on a handheld shot; the
-    hand's ``matte`` (n, h, w uint8, or None) keeps the channels off the hand (ON_HAND) and judges the second finger."""
+    burning fingertips the arcs leave from, [(x, y, sigma, amplitude)] the white-hot spots where they strike). One main
+    channel leaves each striking fingertip, struck, re-struck and let go as the module docstring says, into what the
+    ``plate`` ((n, h, w, 3) uint8, or None: the frame alone) shows in its way (surfaces, _target), splashing there for
+    its first frames; a second finger strikes only on the frames the picture shows it out (_pair_out), its tip burning
+    and crackling only while it strikes. ``Timeline.camera`` carries a far end with the room on a handheld shot; the
+    hand's ``matte`` ((n, h, w) uint8, or None) keeps the channels off the hand (ON_HAND), keeps them from striking it,
+    places a fingertip's root and judges the second finger."""
     from .bending import camera_between
 
     n = timeline.n
@@ -870,9 +975,11 @@ def arc_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
     crackle = np.zeros(n)
     for t in range(n):
         crackle[t] = max(L[t], crackle[t - 1] * CRACKLE_LEFT if t else 0.0)
-    fingers = _fingers(hand, timeline.tap_frame)
+    fingers = _fingers(hand, timeline.tap_frame, timeline.aim)
     both = _pair_out(hand, fingers, matte)
+    tips = _tips(hand, fingers, timeline.tap_frame, matte)
     aims = _aims(hand, timeline, fingers[0] if fingers else None, hand.size)
+    edges = None if plate is None else surfaces(plate, matte)
     hits = dict(zip(timeline.hits, timeline.sizes))
     step = np.hypot(*np.diff(hand.xy, axis=0).T) if n > 1 else np.zeros(0)  # px a frame, either side of each frame
     speed = np.maximum(np.r_[0.0, step], np.r_[step, 0.0]) if n > 1 else np.zeros(n)
@@ -881,154 +988,138 @@ def arc_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
     crawl_still = CRAWL_STILL * min(hand.size) / 1080.0
     rng = np.random.default_rng([seed & 0xFFFFFFFF, _STRIKES])
     sway = rng.uniform(0, 2 * np.pi, (max(1, len(fingers)), 2))
-    paths: dict[tuple[int, int], _Path] = {}
+    paths: dict[int, _Path] = {}  # each finger's main channel
     room = _Room(*hand.size, ROOM_PAD * min(hand.size) / 1080.0)
-    bolts, spots = [], []
+    bolts, spots, struck = [], [], []
     outer = 1  # two fingers: the side of the aim the second's tip is on, its channel turned that way, the first's
-    # channels the other
+    # the other
     for t in range(n):
         s, lv, pres = float(hand.s[t]), float(L[t]), float(hand.presence[t])
         if pres <= 0 or (lv <= 0 and crackle[t] < CRACKLE_MIN):
             paths.clear()
             bolts.append([])
             spots.append([])
+            struck.append([])
             continue
         kw = _width_k(s)
         out_now = fingers if both[t] else fingers[:1]
-        roots = [hand.xy[t]] if not fingers else \
-            [hand.xy[t] + (hand.lm[t, f] - hand.lm[t, fingers[0]]) for f in out_now]  # (the emitter rides the tip)
-        streams = 0 if lv <= 0 else 1 + sum(lv > x for x in SIDE_ON)
+        roots = [hand.xy[t]] if tips is None else [tips[i, t] for i in range(len(out_now))]
         pair = len(roots) > 1
         if not pair:  # (a second finger curled: its channel goes)
-            for j in range(ARC_STREAMS):
-                paths.pop((1, j), None)
+            paths.pop(1, None)
+        if lv <= 0:  # (the voice has stopped: the crackle at the tip alone)
+            paths.clear()
         peak = pair and lv > PAIR_PEAK
         hit = hits.get(t)
-        lit, out = 0.0, []
+        lit, out, at = 0.0, [], []
         across = _rot(aims[t], 90)
         if pair:  # (one tip behind the other along the aim: each keeps the side it struck on)
             lat = float((roots[1] - roots[0]) @ across)
             outer = (1 if lat > 0 else -1) if abs(lat) >= PAIR_LINED * s else outer
         room.along = ALONG[0] * s
         room.hand, room.off_hand = (None if matte is None else matte[t]), ON_HAND[0] * s
-        # which paths are struck anew: a finger's main channel when its life is over, on a hit or when the first
-        # finger's is, its streamers with it or when theirs is over. Then, in that order, each keeps off those before
-        # it (_Room): a new one as it is struck, a kept one where it is now (carried with the hand, it can come to
-        # cross another), or it goes; the first finger's main channel stays
-        anew: dict[tuple[int, int], bool] = {}
-        for fi in range(len(roots)):
-            allowed = min(streams, 1) if fi else min(streams, PAIR_STREAMS) if pair else streams
-            for j in range(ARC_STREAMS):
-                key, p = (fi, j), paths.get((fi, j))
-                if j >= allowed:
-                    paths.pop(key, None)
-                    continue
-                anew[key] = p is None or t - p.born >= p.life or hit is not None or bool(j and anew[(fi, 0)]) or \
-                    bool(fi and anew.get((0, 0)))  # (a second finger strikes with the first)
+        here = (None if edges is None else edges[t]), (None if matte is None else matte[t])
+        # which channels are struck anew: a finger's when its life is over, on a hit, or the second's when the first's
+        # is. Then, the first finger's first, each keeps off those before it (_Room): a new one as it is struck, a kept
+        # one where it is now (carried with the hand, it can come to cross the other), or it goes; the first stays
+        anew: dict[int, bool] = {}
+        for fi in range(len(roots) if lv > 0 else 0):
+            p = paths.get(fi)
+            anew[fi] = p is None or t - p.born >= p.life or hit is not None or bool(fi and anew[0])
         room.clear()
-        heading = [aims[t]] * len(roots)  # each finger's main channel's, root to far end, how far it reaches, how
-        main_flash, main_reach = [0.0] * len(roots), [0.0] * len(roots)  # bright it strikes and where it runs
-        main_pts: list[np.ndarray | None] = [None] * len(roots)
-        for fi, j in sorted(anew, key=lambda k: (k[1], k[0])):  # (the main channels first)
-            key, root = (fi, j), roots[fi]
+        flashes = [0.0] * len(roots)
+        for fi in sorted(anew):
+            root = roots[fi]
             away = (outer if fi else -outer) if pair else 0  # (which side of two fingers this one is on)
-            split = 0.5 * PAIR_SPLIT * away
-            if anew[key]:
+            if anew[fi]:
                 prng = np.random.default_rng(int(rng.integers(1 << 62)))
                 width = kw * (ARC_WIDTH[0] + (ARC_WIDTH[1] - ARC_WIDTH[0]) * lv)
                 fork = FORK[0] + FORK[1] * lv
-                if j == 0:  # the main channel, along the swaying aim, out of the finger along it
-                    reach = s * (ARC_REACH[0] + (ARC_REACH[1] - ARC_REACH[0]) * lv) * prng.uniform(0.8, 1.05)
-                    reach *= 1.0 + HIT_REACH * (hit or 0.0)
-                    sec = 2 * math.pi * t / fx.FPS
-                    wander = ARC_WANDER * (0.6 * math.sin(ARC_WANDER_HZ[0] * sec + sway[fi, 0])
-                                           + 0.4 * math.sin(ARC_WANDER_HZ[1] * sec + sway[fi, 1]))
-                    turn = float(np.clip(split + wander + prng.normal(0, ARC_JITTER), -ARC_OFF, ARC_OFF))
-                    if fi == 0:
-                        tree = bolt_tree(root, _rot(aims[t], turn), reach, prng, width, ROUGH, fork,
-                                         max(2.0, 0.008 * s), room=room, drop=False, lead=aims[t], near=0.15 * s,
-                                         side=away)  # (two fingers' forks leave on their outer sides)
-                    else:  # the second finger's: turned further out each time it would come near the first's, its
-                        # first stretch led out to its side, past the first's tip when it is behind that along the aim
-                        behind = float((roots[0] - root) @ aims[t])
-                        short = PAIR_CLEAR * s + 2.0 * width - float((root - roots[0]) @ across) * away
-                        past = math.degrees(math.atan2(max(short, 0.0), behind)) if behind > 0 else 0.0
-                        for more in PAIR_RETRY:
-                            tree = bolt_tree(root, _rot(aims[t], turn + away * more), reach, prng, width, ROUGH, fork,
-                                             max(2.0, 0.008 * s), PAIR_SECOND, room=room, near=0.15 * s, side=away,
-                                             lead=_rot(aims[t], away * min(PAIR_PAST, max(past, more))),
-                                             clear=PAIR_CLEAR * s, tries=2, lead_off=across * away * PAIR_LEAD * s)
-                            if tree:
-                                break
-                else:  # a streamer beside it, off the main channel's way out as far as it reaches, the two on opposite
-                    # sides (of two fingers, outwards), kept well round from it all along
-                    side = away if pair else 1 if j % 2 else -1
-                    ln = main_reach[fi] * prng.uniform(*SIDE_REACH)
-                    ref = heading[fi] if main_pts[fi] is None else _way_out(main_pts[fi], root, 0.6 * ln)
-                    tree = bolt_tree(root, _rot(ref, side * prng.uniform(*SIDE_GAP)), ln, prng, width * SIDE_WIDTH,
-                                     ROUGH, fork, max(2.0, 0.008 * s), SIDE_INTEN, room=room, near=0.15 * s, side=away,
-                                     ok=None if main_pts[fi] is None else _apart(main_pts[fi], root))
-                life = PAIR_LIFE if peak and j == 0 else int(rng.choice(LIFE, p=LIFE_P))
-                if not tree:  # (a streamer, or the second finger's channel, that could not keep off the others)
-                    paths.pop(key, None)
+                reach = s * (ARC_REACH[0] + (ARC_REACH[1] - ARC_REACH[0]) * lv) * prng.uniform(0.8, 1.05)
+                reach *= 1.0 + HIT_REACH * (hit or 0.0)
+                sec = 2 * math.pi * t / fx.FPS
+                wander = ARC_WANDER * (0.6 * math.sin(ARC_WANDER_HZ[0] * sec + sway[fi, 0])
+                                       + 0.4 * math.sin(ARC_WANDER_HZ[1] * sec + sway[fi, 1]))
+                split = 0.5 * PAIR_SPLIT * away
+                turn = float(np.clip(wander + prng.normal(0, ARC_JITTER), -ARC_OFF, ARC_OFF)) + split
+                if fi == 0:  # along the swaying aim, out of the finger along it, to what it strikes
+                    end = _target(root, aims[t], turn, reach, s, hand.size, *here, prng, most=ARC_OFF + abs(split))
+                    tree = bolt_tree(root, _unit(end - root), float(np.hypot(*(end - root))), prng, width, ROUGH, fork,
+                                     max(2.0, 0.008 * s), room=room, drop=False, lead=aims[t], near=0.15 * s,
+                                     side=away)  # (two fingers' forks leave on their outer sides)
+                else:  # the second finger's: turned further out each time it would come near the first's, its first
+                    # stretch led out to its side, past the first's tip when it is behind that along the aim
+                    behind = float((roots[0] - root) @ aims[t])
+                    short = PAIR_CLEAR * s + 2.0 * width - float((root - roots[0]) @ across) * away
+                    past = math.degrees(math.atan2(max(short, 0.0), behind)) if behind > 0 else 0.0
+                    for more in PAIR_RETRY:
+                        end = _target(root, aims[t], turn + away * more, reach, s, hand.size, *here, prng, most=None)
+                        tree = bolt_tree(root, _unit(end - root), float(np.hypot(*(end - root))), prng, width, ROUGH,
+                                         fork, max(2.0, 0.008 * s), PAIR_SECOND, room=room, near=0.15 * s, side=away,
+                                         lead=_rot(aims[t], away * min(PAIR_PAST, max(past, more))),
+                                         clear=PAIR_CLEAR * s, tries=2, lead_off=across * away * PAIR_LEAD * s)
+                        if tree:
+                            break
+                if not tree:  # (the second finger's channel could not keep off the first's)
+                    paths.pop(fi, None)
                     continue
-                p = paths[key] = _Path(t, min(life, SIDE_LIFE) if j else life, root.copy(), tree[0][0][-1].copy(),
-                                       tree)
+                splash = []
+                for q, wd, it in _splash(tree[0][0], prng, width, s):  # (each keeping off the others, as a fork)
+                    if room.free(q, wd, 2.0 * (width + wd + 2.0 * room.pad)):
+                        splash.append((q, wd, it))
+                        room.add(q, wd)
+                life = PAIR_LIFE if peak else int(rng.choice(LIFE, p=LIFE_P))
+                p = paths[fi] = _Path(t, life, root.copy(), tree[0][0][-1].copy(), tree, splash=splash)
                 drawn, end, flash = tree, p.b, 1.0  # a new path: its first, brightest stroke
             else:
-                p = paths[key]
+                p = paths[fi]
                 end = p.b
                 if timeline.camera is not None and t > p.born:  # the far end struck the room: it moves with it
                     end = (camera_between(timeline.camera, p.born, t) @ np.r_[p.b, 1.0])[:2]
                 drawn = _carry(p.tree, p.a, p.b, root, end)
-                second = fi and not j  # (the second finger's main channel, kept clear of the first's)
-                if key != (0, 0) and not all(room.free(q, wd + (PAIR_CLEAR * s if second and not i else 0.0),
-                                                       0.15 * s if i == 0 else 0.0,
-                                                       skip=0.0 if second and not i else ROOM_SKIP)
-                                             for i, (q, wd, _) in enumerate(drawn)):
-                    paths.pop(key)
+                if fi and not all(room.free(q, wd + (0.0 if i else PAIR_CLEAR * s), 0.0 if i else 0.15 * s,
+                                            skip=ROOM_SKIP if i else 0.0) for i, (q, wd, _) in enumerate(drawn)):
+                    paths.pop(fi)  # (the second finger's, carried with the hand, came to cross the first's)
                     continue
                 for q, wd, _ in drawn:
                     room.add(q, wd)
                 on = peak or rng.random() < RESTROKE[0] + RESTROKE[1] * lv
                 flash = float(rng.uniform(0.55, 0.9)) if on else float(rng.uniform(0.0, 0.1))
-            if j == 0:
-                heading[fi], main_flash[fi], main_reach[fi] = _unit(end - root), flash, float(np.hypot(*(end - root)))
-                main_pts[fi] = drawn[0][0]
-            else:  # (a streamer is no brighter than its main channel's stroke)
-                flash = min(flash, main_flash[fi])
+            if t - p.born < SPLASH[-1]:  # (it splashes where it strikes on its first frames)
+                drawn = drawn + _carry(p.splash, p.a, p.b, root, end)
+            flashes[fi] = flash
             gain = flash * (0.55 + 0.45 * lv) * pres
-            if gain > 0.02 or j == 0 and gain > 0:  # (a main channel gone dark still glows faintly)
+            if gain > 0:  # (a channel gone dark still glows faintly)
                 out += [(q, wd, it * gain) for q, wd, it in drawn]
+                xi, yi = int(round(end[0])), int(round(end[1]))
+                if matte is None or not (0 <= xi < hand.size[0] and 0 <= yi < hand.size[1]) or matte[t, yi, xi] < 128:
+                    at.append((float(end[0]), float(end[1]), IMPACT[0] * s, IMPACT[1] * gain))  # (one struck behind
+                    # the hand, with nothing else in its way, is hidden by it)
             lit = max(lit, gain)
-        # the crackle at the fingertips: small arcs out of the tip and crawling up the finger, and between two tips
-        # while both strike, struck every frame, while the finger is steady enough not to smear them into a band or
-        # a comb (smeared with the finger when drawn: layer); a second finger's tip burns only while its channel
-        # strikes (left burning when it could not keep clear, it was a white blob with no channel)
+        # the crackle at the fingertips: small arcs out of the tip into the room, and between two tips while both
+        # strike, struck every frame, while the finger is steady enough not to smear them into broken hooks (smeared
+        # with the finger when drawn: layer); a second finger's tip burns only while its channel strikes (left burning
+        # when it could not keep clear, it was a white blob with no channel)
         c = float(crackle[t])
         crng = np.random.default_rng([seed & 0xFFFFFFFF, _CRACKLE, t])
         sp = []
         for fi, root in enumerate(roots):
-            if fi and main_flash[fi] < 0.3:
+            if fi and flashes[fi] < 0.3:
                 continue
             if speed[t] <= crawl_still:
-                back = hand.lm[t, out_now[fi] - 2] if fingers else root - aims[t] * 0.5 * s  # its middle joint
                 for _ in range(1 + int(round(c))):
-                    tip = root + _rot(aims[t], crng.uniform(-110, 110)) * s * crng.uniform(0.08, 0.28)
+                    tip = root + _rot(aims[t], crng.uniform(-CRACKLE_FAN, CRACKLE_FAN)) * s * crng.uniform(0.08, 0.28)
                     out += _carry(_between(crng, CRACKLE_WIDTH * kw, CRACKLE_INTEN * (0.4 + 0.6 * c) *
                                            crng.uniform(0.6, 1.0) * pres, 0.35, 0.04),
                                   np.zeros(2), np.array([1.0, 0.0]), root, tip)
-                if crng.random() < 0.5 + 0.4 * c:
-                    a = back + crng.uniform(-0.12, 0.12, 2) * s
-                    out += _carry(_between(crng, 0.9 * kw, 0.4 * (0.4 + lit) * pres, 0.35, 0.03), np.zeros(2),
-                                  np.array([1.0, 0.0]), a, root)
-                if fi == 1 and min(main_flash) >= 0.5 and crng.random() < JUMP_P:  # two fingers: an arc jumps
-                    out += _carry(_between(crng, kw, 0.55 * (0.4 + lit) * pres, 0.4, 0.03), np.zeros(2),  # between
-                                  np.array([1.0, 0.0]), roots[0], root)  # their tips
+                if fi == 1 and min(flashes) >= 0.5 and crng.random() < JUMP_P:  # two fingers: an arc jumps between
+                    out += _carry(_between(crng, kw, 0.55 * (0.4 + lit) * pres, 0.4, 0.03), np.zeros(2),  # their tips
+                                  np.array([1.0, 0.0]), roots[0], root)
             sp.append((root[0], root[1], CORONA * s, max(CORONA_MIN * c, 0.15 * c + 0.4 * lit * (0.5 + lv)) * pres))
         bolts.append(out)
         spots.append(sp)
-    return bolts, spots
+        struck.append(at)
+    return bolts, spots, struck
 
 
 def knotted(pts: np.ndarray) -> bool:
@@ -1038,7 +1129,7 @@ def knotted(pts: np.ndarray) -> bool:
     p2 = pts[:, :2]
     cum = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(p2, axis=0), axis=1))])
     if cum[-1] < 1e-9:
-        return False  # (seen end on: not drawn, BALL_FLAT)
+        return True  # (seen end on: a point)
     at = np.linspace(0.0, cum[-1], 13)
     q = np.stack([np.interp(at, cum, p2[:, 0]), np.interp(at, cum, p2[:, 1])], 1)
     piece = np.diff(q, axis=0)
@@ -1049,64 +1140,83 @@ def knotted(pts: np.ndarray) -> bool:
     return bool(np.abs(np.convolve(turn, np.ones(5), "valid")).max() > KNOT_TURN)
 
 
-def _filament(rng: np.random.Generator) -> list:
-    """A ball's filament in the unit ball (3D, as seen: z towards the camera): from near its middle out to its skin,
-    mostly across the picture (BALL_DEPTH), forking there; each drawn again (a few times at most) while knotted."""
-    d = _unit(rng.normal(0, 1, 3) * (1.0, 1.0, BALL_DEPTH))
-    b = d * rng.uniform(0.92, 1.05)
-    a = rng.normal(0, 0.05, 3)
-
-    def untangled(start, end) -> np.ndarray:
-        for _ in range(6):
-            pts = displace(start, end, rng, BALL_ROUGH, 0.02)
-            if not knotted(pts):
-                break
-        return pts
-
-    tree = [(untangled(a, b), 1.0, 1.0)]
-    for _ in range(rng.integers(1, 3) if rng.random() < 0.7 else 0):
-        tree.append((untangled(b, _unit(d + rng.normal(0, 0.35, 3))), 0.6, 0.5))
+def _shell(rng: np.random.Generator) -> list:
+    """An arc crawling over the ball's skin (3D, the unit ball, as seen: z towards the camera): a jagged stretch of a
+    great circle SHELL_SPAN degrees long, SHELL_OUTLINE of them lying across the picture along its outline (which is
+    what draws its edge) and SHELL_INNER's share on a sphere inside it, forking once now and then (SHELL_FORK); drawn
+    again (a few times at most) while it is knotted as seen."""
+    outline = rng.random() < SHELL_OUTLINE
+    r = rng.uniform(*SHELL_INNER[1]) if rng.random() < SHELL_INNER[0] else rng.uniform(0.96, 1.08)
+    for _ in range(6):
+        nrm = _unit(np.array([0.0, 0.0, 1.0]) + rng.normal(0, 0.25, 3)) if outline else _unit(rng.normal(0, 1, 3))
+        e1 = _unit(np.cross(nrm, rng.normal(0, 1, 3)))
+        e2 = np.cross(nrm, e1)
+        phi = rng.uniform(0, 2 * np.pi) + np.radians(rng.uniform(*SHELL_SPAN)) * np.linspace(0, 1, 9)[:, None]
+        arc = (np.cos(phi) * e1 + np.sin(phi) * e2) * r
+        pts = np.concatenate([displace(arc[j], arc[j + 1], rng, SHELL_ROUGH, 0.02)[:-1] for j in range(8)] + [arc[-1:]])
+        if not knotted(pts):
+            break
+    tree = [(pts, 1.0, 1.0 if r > 1.0 else SHELL_INNER_INTEN)]
+    if rng.random() < SHELL_FORK:  # (a fork off it, along the skin)
+        a = pts[int(rng.integers(len(pts) // 4, 3 * len(pts) // 4))]
+        b = _unit(a + rng.normal(0, 0.45, 3)) * r
+        tree.append((displace(a, b, rng, SHELL_ROUGH, 0.02), 0.6, 0.5 * tree[0][2]))
     return tree
 
 
-def _skin(rng: np.random.Generator) -> list:
-    """An arc crawling over a ball's skin (3D, the unit ball, as seen: z towards the camera): a jagged, broken stretch
-    of great circle, 3-5 of its 8 pieces, a quarter of them along its outline, which is what draws its edge."""
-    a3, b3 = rng.normal(0, 1, (2, 3)) * ((1.0, 1.0, 0.25) if rng.random() < SKIN_OUTLINE else 1.0)
-    a3, b3 = _unit(a3), _unit(b3)
-    arc = _unit(np.stack([a3 * (1 - x) + b3 * x for x in np.linspace(0, 1, 9)])) * 1.02
-    k = int(rng.integers(3, 6))
-    j0 = int(rng.integers(0, 9 - k))
-    return [(np.concatenate([displace(arc[j], arc[j + 1], rng, SKIN_ROUGH, 0.02)[:-1] for j in range(j0, j0 + k)]
-                            + [arc[j0 + k: j0 + k + 1]]), 0.9, 0.55)]
-
-
 def _palm_lift(hand: _Hand) -> np.ndarray:
-    """(n, 2) per hand size: which way, and how far, the palm's normal leans across the picture (the normal of the
-    wrist and the index and little knuckles in MediaPipe's depth, the side facing the camera, as it projects): a ball
-    held over a palm seen from above sits further up the picture than the palm. Nothing for a palm seen square on, or
-    with no landmarks."""
+    """(n, 2) px: where the ball's middle sits off the palm's point in the picture: BALL_LIFT hands along the palm's
+    normal as it projects (the normal of the wrist and the index and little knuckles in MediaPipe's depth, the side
+    facing the camera), held between LIFT_PX's two lengths (px at 1080), and up the picture as far as the normal shows
+    no way across it (a palm seen square on, or no landmarks): a ball held over a palm seen from above sits further up
+    the picture than the palm, and one held before a palm facing the camera still clear of it."""
+    n = len(hand.xy)
+    up = np.array([0.0, -1.0])
+    k = min(hand.size) / 1080.0
     if hand.lm3 is None:
-        return np.zeros((len(hand.xy), 2))
+        return np.tile(up * LIFT_PX[0] * k, (n, 1))
     lm = hand.lm3
     nrm = _unit(np.cross(lm[:, 5] - lm[:, 0], lm[:, 17] - lm[:, 0]))
     nrm *= np.where(nrm[:, 2:] > 0, -1.0, 1.0)  # towards the camera (MediaPipe's depth grows away from it)
-    return _smooth(nrm[:, :2])
+    across = _smooth(nrm[:, :2])
+    lean = np.hypot(across[:, 0], across[:, 1])
+    sure = np.clip(lean / 0.3, 0.0, 1.0)[:, None]  # (a normal hardly across the picture shows no way)
+    way = _unit(sure * _unit(across) + (1.0 - sure) * up)
+    return way * np.clip(BALL_LIFT * lean * hand.s, LIFT_PX[0] * k, LIFT_PX[1] * k)[:, None]
 
 
-def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0) -> tuple[list[list], list[list], list[tuple | None]]:
-    """Per frame, the ball over the palm: ([(points, width px, intensity)], [(x, y, sigma, amplitude)] sparks,
-    (x, y, radius, level, charge, flicker) or None: its middle, BALL_LIFT off the palm; the voice's level now, the
-    charge it has built up, which grows and shrinks smoothly and makes its body dense, and how bright its middle burns,
-    flaring on a hit). It grows from a crackle to its size over about 5 frames (BALL_RISE). Filaments from its
-    middle out to its skin (in 3D, turning slowly, projected: those at the back dimmer, brightest where they meet the
-    skin, with a spark there), arcs crawling over its skin, and arcs jumping from it to a fingertip or knuckle (it is
-    held, not pasted on). Each is struck and re-struck for 1-3 frames as a channel is, in the ball's own frame, so it
-    rides the palm. It shows and goes on one gate (BALL_ON), fading in over BALL_FADE frames."""
+class Ball(NamedTuple):
+    """A frame's ball: its middle (x, y) and radius R, px; ``level``: the voice's level now (or its charge, if
+    higher), how bright it is; ``charge``: what the voice has built up, which grows and shrinks smoothly and makes its
+    body dense; ``flicker``: how bright its middle burns, flaring on a hit; ``glow``: the voice's envelope, which its
+    haze breathes with; (px, py): the point of the palm under it, where its light pools (None: nowhere)."""
+
+    x: float
+    y: float
+    R: float
+    level: float
+    charge: float
+    flicker: float
+    glow: float = 1.0
+    px: float | None = None
+    py: float | None = None
+
+
+def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0) -> tuple[list[list], list[list], list[Ball | None]]:
+    """Per frame, the ball over the palm: ([(points, width px, intensity)], [(x, y, sigma, amplitude)] sparks, its
+    Ball or None). It hovers off the palm (_palm_lift), wandering a little round there (WANDER), and grows from a
+    crackle to its size over about 5 frames (BALL_RISE). An irregular shell of arcs crawls over its skin and through
+    it (in 3D, turning slowly, projected: those behind its middle dimmer, seen through it), and arcs jump from it to
+    the fingertips and the fingers' bases, white-hot where they land (it is held, not pasted on). Each is struck and
+    re-struck as a channel is, in the ball's own frame, so it rides the palm; the jumping arcs are struck anew every
+    GROUND_LIFE frames. It shows and goes on one gate (BALL_ON), fading in over BALL_FADE frames."""
     n = timeline.n
     L = levels(timeline)
     charge = _follow(L, BALL_GROW, BALL_SHRINK)  # it grows while the voice holds, and shrinks when it stops
+    envelope = _follow(L, 1.0, 2.5)  # (the voice as heard: its haze breathes with it)
     lift = _palm_lift(hand)
+    drift = WANDER[0] * min(hand.size) / 1080.0
+    phase = np.random.default_rng([seed & 0xFFFFFFFF, _WANDER]).uniform(0, 2 * np.pi, 4)
     hits = dict(zip(timeline.hits, timeline.sizes))
     rng = np.random.default_rng([seed & 0xFFFFFFFF, _STRIKES])
     paths: dict[tuple[str, int], _Path] = {}
@@ -1114,14 +1224,15 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0) -> tuple[list[li
     shown, born = 0, False  # frames it has shown for, and whether its body has formed
     bolts, sparks, balls = [], [], []
 
-    def strike(key: tuple[str, int], make, t: int, lv: float, hit: float | None) -> tuple[_Path, float]:
-        """The path in ``key``'s slot on frame t, struck anew when its life is over (or on a hit), and how bright."""
+    def strike(key: tuple[str, int], make, t: int, lv: float, hit: float | None,
+               life: int | None = None) -> tuple[_Path, float]:
+        """The path in ``key``'s slot on frame t, struck anew when its life is over (``life`` frames, or LIFE's) or on
+        a hit, and how bright."""
         p = paths.get(key)
         if p is None or t - p.born >= p.life or hit is not None:
             prng = np.random.default_rng(int(rng.integers(1 << 62)))
-            to = int(prng.integers(len(TARGETS))) if prng.random() < GROUND_P[0] + GROUND_P[1] * lv else -1
-            p = paths[key] = _Path(t, int(rng.choice(LIFE, p=LIFE_P)), np.zeros(2), np.array([1.0, 0.0]),
-                                   make(prng), to)
+            p = paths[key] = _Path(t, life or int(rng.choice(LIFE, p=LIFE_P)), np.zeros(2), np.array([1.0, 0.0]),
+                                   make(prng), int(prng.integers(len(TARGETS))))
             return p, 1.0
         on = rng.random() < RESTROKE[0] + RESTROKE[1] * lv
         return p, float(rng.uniform(0.55, 0.9)) if on else float(rng.uniform(0.0, 0.1))
@@ -1140,51 +1251,61 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0) -> tuple[list[li
         shown += 1
         pres *= min(1.0, shown / BALL_FADE)
         kw = _width_k(s)
-        c = hand.xy[t] + lift[t] * BALL_LIFT * s
+        sec = 2 * math.pi * t / fx.FPS
+        (f0, f1), ph = WANDER[1], phase
+        sway = (0.6 * math.sin(f0 * sec + ph[0]) + 0.4 * math.sin(f1 * sec + ph[1]),
+                0.6 * math.sin(f1 * sec + ph[2]) + 0.4 * math.sin(f0 * sec + ph[3]))
+        c = hand.xy[t] + lift[t] + drift * np.array(sway)
         if born:  # (its body grows from its least size on the frame it forms, and shrinks with its charge, as fast)
             grown = min(math.sqrt(float(charge[t])), grown + BALL_RISE)
         born = born or _dense(lv * pres, float(charge[t]) * pres) > 0
         R = s * (BALL_R[0] + (BALL_R[1] - BALL_R[0]) * grown * grown * (3.0 - 2.0 * grown)) * (1.0 + pulse)
-        reach = 1.0 + FIL_REACH * (1.0 - grown)  # (its filaments' far ends, in radii)
+        reach = 1.0 + FIL_REACH * (1.0 - grown) ** 2  # (its shell's arcs, in radii)
         ang, tilt = BALL_TURN * t, 0.35
         turn = np.array([[1, 0, 0], [0, math.cos(tilt), -math.sin(tilt)], [0, math.sin(tilt), math.cos(tilt)]]) @ \
             np.array([[math.cos(ang), 0, math.sin(ang)], [0, 1, 0], [-math.sin(ang), 0, math.cos(ang)]])
         out, sp = [], []
-        K = int(round(BALL_FILAMENTS[0] + (BALL_FILAMENTS[1] - BALL_FILAMENTS[0]) * charge[t]))
 
-        def filament(prng: np.random.Generator) -> list:
-            """A filament struck as seen now, kept in the ball's own frame (it turns with it)."""
-            return [(q @ turn, w_, it) for q, w_, it in _filament(prng)]
+        def arc(prng: np.random.Generator) -> list:
+            """A shell arc struck as seen now, kept in the ball's own frame (it turns with it)."""
+            return [(q @ turn, w_, it) for q, w_, it in _shell(prng)]
 
-        for key, count, make, wd in (("fil", K, filament, 0.8 + 0.6 * lv), ("skin", BALL_SKIN, _skin, 1.0)):
-            for i in range(count):
-                p, flash = strike((key, i), make, t, lv, hit)
-                gain = flash * (0.4 + 0.6 * lv) * pres
-                if gain <= 0.02 or key == "fil" and np.hypot(*(p.tree[0][0][-1] @ turn.T)[:2]) < BALL_FLAT:
-                    continue
-                for q, w_, it in p.tree:
-                    q3 = q @ turn.T if key == "fil" else q  # (an arc on its skin lives too briefly to turn)
-                    front = 0.55 + 0.45 * float(np.clip(q3[-1, 2], -1, 1))  # those at the back dimmer
-                    q2 = c + R * (reach if key == "fil" else 1.0) * q3[:, :2]
-                    if key == "fil" and w_ == 1.0:  # dim inside (the middle is the spark's), brightest at the skin:
-                        k_ = int(0.45 * len(q2))  # a ball, not a white star of glows piled up in the middle
-                        out += [(q2[: k_ + 1], wd * kw * 0.7, 0.4 * gain * front), (q2[k_:], wd * kw, gain * front)]
-                        if q3[-1, 2] > 0.2:
-                            sp.append((q2[-1, 0], q2[-1, 1], CONTACT * s, 0.3 * gain * front))
-                    else:
-                        out.append((q2, w_ * wd * kw, it * gain * front))
-        for i in range(BALL_GROUND if hand.lm is not None else 0):  # grounded on the hand
-            p, flash = strike(("ground", i), lambda prng: _between(prng, 1.2, 0.75, 0.2, 0.01, 0.1), t, lv, hit)
-            tgt = None if p.to < 0 else hand.lm[t, TARGETS[p.to]]
-            if tgt is None or flash <= 0.05 or np.linalg.norm(tgt - c) < 1.2 * R:  # (not to a knuckle under the ball)
+        wd = (0.6 + 0.5 * lv) * kw
+        for i in range(int(round(SHELL[0] + (SHELL[1] - SHELL[0]) * charge[t]))):
+            p, flash = strike(("shell", i), arc, t, lv, hit)
+            gain = flash * (0.4 + 0.6 * lv) * pres
+            if gain <= 0.02:
                 continue
+            for q, w_, it in p.tree:
+                q3 = q @ turn.T
+                q2 = c + R * reach * q3[:, :2]
+                front = q3[:, 2] >= -0.1  # (its stretches behind its middle are seen through it: dimmer)
+                limb = 1.0 - np.abs(q3[:, 2]) / np.maximum(np.linalg.norm(q3, axis=1), 1e-9)  # (1 on its outline)
+                for run in np.split(np.arange(len(q2)), np.flatnonzero(np.diff(front.astype(np.int8))) + 1):
+                    idx = np.arange(run[0], min(run[-1] + 2, len(q2)))  # (each run on to where the next begins)
+                    if len(idx) >= 2:
+                        k_ = (SHELL_FACE + (1.0 - SHELL_FACE) * float(limb[idx].mean())) * \
+                            (1.0 if front[run[0]] else SHELL_BACK)
+                        out.append((q2[idx], w_ * wd, it * gain * k_))
+        reachable = [] if hand.lm is None else \
+            [k for k in TARGETS if np.linalg.norm(hand.lm[t, k] - c) >= 1.15 * R]  # (not to a knuckle under the ball)
+        first = None  # (the first arc's target: the others go to the ones after it, each to its own while they last)
+        for i in range(int(round(GROUND[0] + (GROUND[1] - GROUND[0]) * lv)) if hand.lm is not None else 0):
+            p, flash = strike(("ground", i), lambda prng: _between(prng, 1.2, 0.75, 0.2, 0.01, 0.1), t, lv, hit,
+                              GROUND_LIFE)
+            first = p.to if first is None else first
+            if flash <= 0.05 or not reachable:
+                continue
+            tgt = hand.lm[t, reachable[(i + first) % len(reachable)]]
             out += [(q, w_ * kw * (0.7 + 0.5 * lv), it * flash * pres) for q, w_, it in
                     _carry(p.tree, p.a, p.b, c + _unit(tgt - c) * R, tgt)]
+            sp.append((float(tgt[0]), float(tgt[1]), LAND[0] * s, LAND[1] * flash * pres))
         bolts.append(out)
         sparks.append(sp)
         flicker = float(np.random.default_rng([seed & 0xFFFFFFFF, _SPARK, t]).uniform(0.7, 1.0))
         flicker *= 1.0 + BALL_FLARE * (hit or 0.0)
-        balls.append((float(c[0]), float(c[1]), float(R), lv * pres, float(charge[t]) * pres, flicker))
+        balls.append(Ball(float(c[0]), float(c[1]), float(R), lv * pres, float(charge[t]) * pres, flicker,
+                          float(envelope[t]) * pres, float(hand.xy[t, 0]), float(hand.xy[t, 1])))
     return bolts, sparks, balls
 
 
@@ -1212,10 +1333,10 @@ def _box(bolts: list, spots: list, s: float, h: int, w: int) -> tuple[int, int, 
 def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0, frame: int = 0,
          floor: float = 0.0) -> np.ndarray:
     """The channels' core in ``box`` ((y0, y1, x0, x1) of the frame), float32 linear: each polyline drawn anti-aliased
-    at sub-pixel precision, thinning towards its end, in brighter and dimmer stretches, a branch (BRANCH) fading
-    (TAPER) and thinning (BRANCH_W) along it; where they cross, the brighter shows. (bh, bw, 2): the core, and what the
-    glow round it is drawn from, the same lines with a hot channel (GLOW_HOT) as if at least ``floor`` px wide
-    (GLOW_FLOOR)."""
+    at sub-pixel precision, in brighter and dimmer stretches, a main channel thinning towards its end (MAIN_TAPER), a
+    branch (BRANCH) fading (TAPER) and thinning (BRANCH_W) along it; where they cross, the brighter shows. (bh, bw,
+    2): the core, and what the glow round it is drawn from, the same lines with a hot channel (GLOW_HOT) as if at
+    least ``floor`` px wide (GLOW_FLOOR)."""
     y0, y1, x0, x1 = box
     core = np.zeros((y1 - y0, x1 - x0, 2), np.float32)
     tmp = np.zeros(core.shape[:2], np.uint8)
@@ -1235,14 +1356,14 @@ def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0, frame: int 
             continue
         sub = tmp[by0:by1, bx0:bx1]
         sub[:] = 0
-        chunks = 8
+        chunks = 10
         bead = rng.uniform(0.6, 1.0, chunks)
         for c in range(chunks):
             a, b = c * (len(p) - 1) // chunks, (c + 1) * (len(p) - 1) // chunks + 1
             if b - a < 2:
                 continue
             u = c / (chunks - 1)
-            wd = width * ((1.0 - 0.6 * c / chunks) * (1.0 - branch)
+            wd = width * (_taper((c + 0.5) / chunks) * (1.0 - branch)
                           + (BRANCH_W[0] + (BRANCH_W[1] - BRANCH_W[0]) * u) * branch)
             th = max(1, int(round(wd)))
             lv = int(np.clip(255 * bead[c] * min(1.0, wd / th) * (1.0 - fade * ((c + 0.5) / chunks) ** TAPER[1]), 30,
@@ -1335,33 +1456,16 @@ def _smear(core: np.ndarray, box: tuple, move: np.ndarray, around: list, s: floa
     return core
 
 
-def _streaks(dist: np.ndarray, theta: np.ndarray, seed: int, frame: int) -> np.ndarray:
-    """In [0, 1] at ``dist`` radii from the ball's middle and angle ``theta`` on ``frame``: BODY_STREAKS soft streaks
-    from round its white middle out to its edge, each bent and wavering, turning slowly its own way (STREAK_TURN)."""
-    count, _, width = BODY_STREAKS
-    rng = np.random.default_rng([seed & 0xFFFFFFFF, _STREAK])
-    at = rng.uniform(0, 2 * np.pi, count) + np.arange(count) * (2 * np.pi / count)
-    turn = rng.uniform(-STREAK_TURN, STREAK_TURN, count)
-    bend, phase = rng.uniform(-1.2, 1.2, count), rng.uniform(0, 2 * np.pi, count)
-    out = np.zeros_like(dist)
-    for a, tn, b, ph in zip(at, turn, bend, phase):
-        course = np.float32(a + tn * frame) + np.float32(b) * dist + \
-            np.float32(0.12) * np.sin(np.float32(7.0) * dist + np.float32(ph + 0.4 * frame))
-        off = (theta - course + np.float32(np.pi)) % np.float32(2 * np.pi) - np.float32(np.pi)
-        np.maximum(out, np.exp((off * dist / np.float32(width)) ** 2 * np.float32(-0.5)), out=out)
-    return out * np.clip((dist - np.float32(0.12)) / np.float32(0.25), 0.0, 1.0)
-
-
-def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: tuple, seed: int, frame: int) -> None:
-    """Adds the ball's body (over ``box``) to ``out``, in place: a volume of light, white-hot in PLASMA_RGB through its
-    middle (BALL_HOT), a pale cyan-blue glow out to where its density runs out (BODY), brighter along soft streaks
-    (_streaks), and the blue-violet haze of its light round it (HALO), with no outline; and to ``veil`` how much of
-    what is behind it it hides, only where it is dense (BALL_TAU). A young or fading ball (_dense) has as much less of
-    a body; a hit's flare brightens its middle by at most INNER_FLARE."""
-    x, y, R, lv, full, flick = ball
-    dense = _dense(lv, full)
+def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: Ball) -> None:
+    """Adds the ball's body (over ``box``) to ``out``, in place: a volume of light, white-hot in PLASMA_RGB in its
+    middle (BALL_HOT), a translucent cyan-blue glow out to where its density runs out (BODY), and the cyan-blue haze
+    of its light round it (HALO), breathing with the voice (HALO_VOICE), with no outline of its own (its shell's arcs
+    draw one); and to ``veil`` how much of what is behind it it hides, only where it is dense (BALL_TAU). A young or
+    fading ball (_dense) has as much less of a body; a hit's flare brightens its middle by at most INNER_FLARE."""
+    dense = _dense(ball.level, ball.charge)
     if dense <= 0:
         return
+    x, y, R = ball.x, ball.y, ball.R
     y0, _, x0, _ = box
     r = int(R * max(BODY[1], 3.5 * HALO[1])) + 2
     a0, a1 = max(0, int(x - x0) - r), min(veil.shape[1], int(x - x0) + r)
@@ -1370,13 +1474,12 @@ def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: tuple, seed: in
         return
     dx = np.arange(a0, a1, dtype=np.float32) - np.float32(x - x0)
     dy = np.arange(b0, b1, dtype=np.float32)[:, None] - np.float32(y - y0)
-    d = np.hypot(dx, dy) / np.float32(R)
-    d2 = d * d
-    hot = np.float32(BALL_HOT[0] * min(max(flick, 1.0), 1.0 + INNER_FLARE)) * \
+    d2 = (dx * dx + dy * dy) / np.float32(R * R)
+    hot = np.float32(BALL_HOT[0] * min(max(ball.flicker, 1.0), 1.0 + INNER_FLARE)) * \
         np.exp(d2 * np.float32(-0.5 / BALL_HOT[1] ** 2))
-    body = np.exp(-(d2 / np.float32(BODY[1] ** 2)) ** 2) * np.float32(BODY[0]) * \
-        (1.0 + np.float32(BODY_STREAKS[1]) * _streaks(d, np.arctan2(dy, dx), seed, frame))
-    halo = np.float32(HALO[0]) * np.exp(d2 * np.float32(-0.5 / HALO[1] ** 2))
+    body = np.exp(-(d2 / np.float32(BODY[1] ** 2)) ** 2) * np.float32(BODY[0])
+    halo = np.float32(HALO[0] * (HALO_VOICE[0] + HALO_VOICE[1] * ball.glow)) * \
+        np.exp(d2 * np.float32(-0.5 / HALO[1] ** 2))
     out[b0:b1, a0:a1] += np.float32(dense) * (hot[..., None] * PLASMA_RGB + body[..., None] * BODY_RGB +
                                               halo[..., None] * HALO_RGB)
     tau = np.float32(BALL_TAU[0]) * np.exp(d2 * np.float32(-0.5 / BALL_TAU[1] ** 2))
@@ -1389,17 +1492,17 @@ def _dense(lv: float, full: float) -> float:
     return float(np.clip(2.0 * (0.3 * lv + 0.7 * full) / BALL_FORMED - 1.0, 0.0, 1.0))
 
 
-def layer(bolts: list, spots: list, ball: tuple | None, s: float, box: tuple, cap: float, soft: float,
+def layer(bolts: list, spots: list, ball: Ball | None, s: float, box: tuple, cap: float, soft: float,
           move: np.ndarray, around: list, seed: int = 0, frame: int = 0, side: int = 1080,
           floor: float = 0.0, hide: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """Over ``box``: linear RGB (bh, bw, 3), the light added to the plate: the channels' white-hot core and the
-    blue-violet glow round them (a ball's filaments and arcs white-hot as an arc's, over skin and over its body alike,
-    in BALL_GLOW_RGB's glow), the burning spots (white, a blue halo) and the ball's middle and body (_sphere); and (bh, bw) how much of the plate
-    it hides: what is behind the ball's dense middle. The channels are smeared along ``move`` round ``around``
-    (_smear), hidden as much as ``hide`` (bh, bw: what of them passes behind the hand, HIDE_NEAR) says, and blurred
-    ``soft`` px (the plate's softness); only the brightest clip (CORE_GAMMA), and their glow, from the channels as
-    drawn (a hot one as if ``floor`` px wide: draw), is held under ``cap`` (GLOW_CAP). ``side``: the picture's short
-    side, which the px constants are given at 1080 of."""
+    blue-violet glow round them (a ball's arcs white-hot as an arc's, over skin and over its body alike, in
+    BALL_GLOW_RGB's glow), the white-hot spots (white, a blue halo) and the ball's middle and body (_sphere); and (bh,
+    bw) how much of the plate it hides: what is behind the ball's dense middle. The channels are smeared along
+    ``move`` round ``around`` (_smear), hidden as much as ``hide`` (bh, bw: what of them passes behind the hand,
+    HIDE_NEAR) says, and blurred ``soft`` px (the plate's softness); only the brightest clip (CORE_GAMMA), and their
+    glow, from the channels as drawn (a hot one as if ``floor`` px wide: draw), is held under ``cap`` (GLOW_CAP).
+    ``side``: the picture's short side, which the px constants are given at 1080 of."""
     k = side / 1080.0
     lines = _smear(draw(bolts, box, seed, frame, floor), box, move, around, s, SMEAR_MAX * k)
     if hide is not None:
@@ -1419,9 +1522,8 @@ def layer(bolts: list, spots: list, ball: tuple | None, s: float, box: tuple, ca
         _spot(spark, box, x, y, r, a)
     veil = np.zeros(core.shape, np.float32)
     if ball is not None:
-        x, y, R, lv, _, flick = ball
-        _spot(spark, box, x, y, BALL_CORE * R, BALL_SPARK * lv * flick)
-        _sphere(out, veil, box, ball, seed, frame)
+        _spot(spark, box, ball.x, ball.y, BALL_CORE * ball.R, BALL_SPARK * ball.level * ball.flicker)
+        _sphere(out, veil, box, ball)
     if spark.any():
         out += spark[..., None] * SPARK_RGB
         glow += (0.6 * _blur(spark, 0.12 * s))[..., None] * HAZE_RGB
@@ -1432,12 +1534,12 @@ def layer(bolts: list, spots: list, ball: tuple | None, s: float, box: tuple, ca
 
 # ---- the light -----------------------------------------------------------------------------------------------------
 
-def light_power(power: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def light_power(power: np.ndarray, flicker: float = LIGHT_FLICKER) -> tuple[np.ndarray, np.ndarray]:
     """(n,) the strength of the light the channels throw on the hand and the room: their own power (luminance summed)
     held at its peak over LIGHT_HOLD frames and let go by LIGHT_LETGO a frame once they stop, gone under LIGHT_GONE of
-    its burst's peak, with LIGHT_FLICKER of the strokes' own flicker kept; and (n,) that peak, the strongest it has
-    been since it was last gone. So it comes up on the first stroke and stays while they strike, instead of strobing
-    with them, and dies within a few frames of the last."""
+    its burst's peak, with ``flicker`` of the strokes' own flicker kept; and (n,) that peak, the strongest it has been
+    since it was last gone. So it comes up on the first stroke and stays while they strike, flickering with them
+    rather than strobing, and dies within a few frames of the last."""
     out, top = np.zeros_like(power), np.zeros_like(power)
     held = peak = 0.0
     for t in range(len(power)):
@@ -1446,7 +1548,7 @@ def light_power(power: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         if now <= 0 and held <= LIGHT_GONE * peak:
             held = 0.0
         peak = max(peak, held) if held > 0 else 0.0
-        out[t] = held * (1.0 - LIGHT_FLICKER * (1.0 - power[t] / held)) if held > 0 else 0.0
+        out[t] = held * (1.0 - flicker * (1.0 - power[t] / held)) if held > 0 else 0.0
         top[t] = peak
     return out, top
 
@@ -1514,14 +1616,14 @@ def _around(x: float, y: float, r: float, h: int, w: int) -> tuple[int, int, int
     return None if y1 <= y0 or x1 <= x0 else (y0, y1, x0, x1)
 
 
-def wrap_light(matte: np.ndarray, ball: tuple, side: int) -> tuple[tuple[int, int, int, int], np.ndarray] | None:
+def wrap_light(matte: np.ndarray, ball: Ball, side: int) -> tuple[tuple[int, int, int, int], np.ndarray] | None:
     """The ball's light on the edges of the hand that face it: (box, (bh, bw) light over it, to multiply its light's
     colour by) within WRAP_REACH radii of its middle and outside its body (WRAP_BEHIND), inside the matte (0-1 float)
     within about 2 WRAP_PX of its outline where the outline faces the ball, falling off as the inverse square of the
     distance; or None."""
-    x, y, R, _, full, _ = ball
+    x, y, R = ball.x, ball.y, ball.R
     box = _around(x, y, WRAP_REACH * R, *matte.shape)
-    if box is None or full <= 0:
+    if box is None or ball.charge <= 0:
         return None
     y0, y1, x0, x1 = box
     m = matte[y0:y1, x0:x1]
@@ -1535,18 +1637,53 @@ def wrap_light(matte: np.ndarray, ball: tuple, side: int) -> tuple[tuple[int, in
     facing = np.clip(-(gx * bx + gy * by) / ((np.hypot(gx, gy) + np.float32(1e-6)) * dist), 0.0, 1.0)
     band = m * np.clip(2.0 * (1.0 - e), 0.0, 1.0)
     behind = np.clip((dist / np.float32(R) - 1.0) / np.float32(WRAP_BEHIND), 0.0, 1.0)
-    return box, np.float32(WRAP_GAIN * full) * band * facing * behind * np.minimum(1.0, (np.float32(R) / dist) ** 2)
+    return box, np.float32(WRAP_GAIN * ball.charge) * band * facing * behind * \
+        np.minimum(1.0, (np.float32(R) / dist) ** 2)
+
+
+def spill_light(matte: np.ndarray, ball: Ball) -> tuple[tuple[int, int, int, int], np.ndarray] | None:
+    """The ball's light pooled on the palm under it (SPILL): (box, (bh, bw) light over it, to multiply its light's
+    colour by), a soft round of it SPILL's sigma of its radius about the palm's point, as bright as the ball is, on the
+    hand's matte (0-1 float) only; or None (no point of the palm under it)."""
+    if ball.px is None or ball.level <= 0:
+        return None
+    sig = SPILL[0] * ball.R
+    box = _around(ball.px, ball.py, 3.0 * sig, *matte.shape)
+    if box is None:
+        return None
+    y0, y1, x0, x1 = box
+    gx = np.exp(-0.5 * ((np.arange(x0, x1, dtype=np.float32) - np.float32(ball.px)) / np.float32(sig)) ** 2)
+    gy = np.exp(-0.5 * ((np.arange(y0, y1, dtype=np.float32) - np.float32(ball.py)) / np.float32(sig)) ** 2)
+    return box, np.float32(SPILL[1] * ball.level) * matte[y0:y1, x0:x1] * (gy[:, None] * gx[None, :])
 
 
 # ---- the shot ------------------------------------------------------------------------------------------------------
 
+def _keyed(alb: np.ndarray, light: np.ndarray, rgb: np.ndarray, cap: float) -> np.ndarray:
+    """(h, w, 3) linear: a ``light`` (h, w) of colour ``rgb`` on surfaces of colour ``alb`` (h, w, 3), its luminance
+    held under ``cap``, softly, each pixel's colour kept."""
+    lit = alb * light[..., None] * rgb
+    y = fx._lum(lit)
+    return lit * (_soft_cap(y, cap) / np.maximum(y, np.float32(1e-9)))[..., None]
+
+
+def _wide(x: np.ndarray, sigma: float) -> np.ndarray:
+    """``x`` (h, w) blurred by a Gaussian ``sigma`` px wide, done small (it is smooth), its light let go past the
+    frame's edge (none comes back in off it)."""
+    h, w = x.shape
+    q = max(1, int(sigma / 8))
+    small = cv2.resize(x, (max(1, w // q), max(1, h // q)), interpolation=cv2.INTER_AREA)
+    small = cv2.GaussianBlur(small, (0, 0), sigma / q, borderType=cv2.BORDER_CONSTANT)
+    return cv2.resize(small, (w, h), interpolation=cv2.INTER_LINEAR)
+
+
 def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Timeline, form: str, seed: int = 0,
            progress=None) -> np.ndarray:
     """The shot with lightning from the hand: uint8 RGB [T, H, W, 3] (cuesync.elements' contract). ``form``: "arc"
-    (bolts from the fingertip the emitter was carried onto, or two fingers together, along the aim) or "ball" (a
-    crackling ball over the palm where the emitter is). ``progress(stage, frac, msg)``, as cuesync.bending's, hears
-    how far it is. Frames with no lightning, no light on them and the camera's exposure as it was are the plate's own
-    bytes."""
+    (bolts from the fingertip the emitter was carried onto, or two fingers together, along the aim, into what the plate
+    shows there) or "ball" (a crackling ball hovering over the palm where the emitter is). ``progress(stage, frac,
+    msg)``, as cuesync.bending's, hears how far it is. Frames with no lightning, no light on them and the camera's
+    exposure as it was are the plate's own bytes."""
     from .bending import shoulder
 
     if form not in FORMS["lightning"]:
@@ -1560,15 +1697,18 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     say("lightning", 0.0, "Striking the lightning")
     hand = _hand(plate, track)
     if form == "arc":
-        bolts, spots = arc_frames(hand, timeline, seed, mask)
+        bolts, spots, struck = arc_frames(hand, timeline, seed, mask, plate)
         balls = [None] * n
         bright = levels(timeline) * hand.presence
     else:
         bolts, spots, balls = ball_frames(hand, timeline, seed)
-        bright = np.array([0.0 if b is None else b[3] for b in balls])
+        struck = [[] for _ in range(n)]
+        bright = np.array([0.0 if b is None else b.level for b in balls])
     dip = exposure_dip(bright, *EXPOSURE[form])  # the camera exposing down for the light, in stops
     depth, hand_gain, room_gain, near_gain = LIGHT[form]
     hand_rgb, room_rgb = LIGHT_RGB[form]
+    key_hand_gain, key_room_gain, key_flicker = KEY[form]
+    key_hand, key_room = KEY_RGB[form]
     two_colours = not np.array_equal(hand_rgb, room_rgb)
     side = min(h, w)
     floor = GLOW_FLOOR * ARC_WIDTH[1] if form == "arc" else 0.0  # (times the hand's width scale)
@@ -1577,8 +1717,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     picks = np.linspace(0, n - 1, 8).astype(int)
     some = np.stack([lin(plate[i][::2, ::2]) for i in picks])
     white, tint = fx.plate_white(some), fx.plate_tint(some)
-    room_rgb = room_rgb / room_cast(some, white, tint, None if mask is None else mask[picks, ::2, ::2])
-    room_rgb = (room_rgb / float(room_rgb @ fx._LUMA)).astype(np.float32)
+    cast = room_cast(some, white, tint, None if mask is None else mask[picks, ::2, ::2])
+    room_rgb, key_room = ((c / cast / float((c / cast) @ fx._LUMA)).astype(np.float32) for c in (room_rgb, key_room))
     room_cap = ROOM_CAP * white  # (a surface reads its albedo times the plate's white: brightened this much more)
     del some
     noise = fx.shadow_noise(plate)
@@ -1603,10 +1743,10 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
         """Frame t's lightning: (box, linear RGB layer over it, its power in plate px, what it hides of the plate), or
         None."""
         ball = balls[t]
-        box = _box(bolts[t], spots[t], hand.s[t], h, w)
+        glows = spots[t] + struck[t]  # (the burning tips, and the white-hot spots where the channels strike)
+        box = _box(bolts[t], glows, hand.s[t], h, w)
         if ball is not None:
-            x, y, R = ball[:3]
-            bb = _box([], [(x, y, R / 3.0, 1.0)], hand.s[t], h, w)  # (its body, out to R, and its glow)
+            bb = _box([], [(ball.x, ball.y, ball.R / 3.0, 1.0)], hand.s[t], h, w)  # (its body, out to R, and its glow)
             box = bb if box is None else \
                 (min(box[0], bb[0]), max(box[1], bb[1]), min(box[2], bb[2]), max(box[3], bb[3]))
         if box is None:
@@ -1615,7 +1755,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
         soft = float(np.clip(softness(plate[t], hand.xy[t], s), *soft_px))
         tips = [(x, y) for x, y, _, amp in spots[t] if amp > 0] if form == "arc" else []  # (a ball's strokes are
         # instant: only the crackle at a fingertip glows on while the shutter is open)
-        E, veil = layer(bolts[t], spots[t], ball, s, box, GLOW_CAP[form], soft, move[t], tips, seed, t, side,
+        E, veil = layer(bolts[t], glows, ball, s, box, GLOW_CAP[form], soft, move[t], tips, seed, t, side,
                         floor * _width_k(s), behind(t, box, s, [(x, y) for x, y, _, _ in spots[t]]))
         return box, E, float(fx._lum(E).sum(dtype=np.float64)), veil
 
@@ -1643,6 +1783,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                 last = small
             smalls.append(small)
         strength, peak = light_power(power[:b])  # (causal: frames already made don't change)
+        keyed, _ = light_power(power[:b], key_flicker)
         for t in range(a, b):
             pool = [(wt, smalls[t - k]) for k, wt in enumerate(LIGHT_POOL) if t - k >= 0 and smalls[t - k] is not None]
             if strength[t] <= 0:
@@ -1656,10 +1797,13 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
             near, wall, far = fx.spread(src * np.float32(1 / (FIELD_Q * FIELD_Q)),  # (per small px: the mean of the
                                         [max(depth * s_f, 1.0), ROOM_NEAR * s_f, fx.FAR * s_f])  # px it covers)
             # the hand's light at the burst's peak (where HAND_CAP holds it), scaled down with the burst after the cap,
-            # so the cap does not hold it up as the burst dies; the room's as strong as the light is now
+            # so the cap does not hold it up as the burst dies; the room's as strong as the light is now; and the key,
+            # the lightning's own image blurred wide, at the burst's peak (KEY_CAP), scaled after the cap to as strong
+            # as it is now with its strokes' flicker
             room = (far * np.float32(room_gain) + wall * np.float32(near_gain)) * np.float32(strength[t])
+            key = _wide(src, KEY_SIGMA * side / FIELD_Q) * np.float32(peak[t] / (FIELD_Q * FIELD_Q))
             fields[t] = (near * np.float32(hand_gain * peak[t]), np.float32(room_cap) * np.tanh(room / room_cap), src,
-                         np.float32(strength[t] / peak[t]))
+                         np.float32(strength[t] / peak[t]), key, np.float32(keyed[t] / peak[t]))
 
         def finish(i: int) -> None:
             t = a + i
@@ -1671,8 +1815,9 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
             P = P0.copy()
             m = None
             if fields[t] is not None:
-                near, light, src, k = fields[t]
+                near, light, src, k, key, k_key = fields[t]
                 light = cv2.resize(light, (w, h), interpolation=cv2.INTER_LINEAR)  # (the room's)
+                key = cv2.resize(key, (w, h), interpolation=cv2.INTER_LINEAR)
                 m = None if mask is None else mask[t]
                 if m is not None and not m[::4, ::4].any():
                     m = None
@@ -1683,19 +1828,25 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                     m = np.minimum(m, cv2.GaussianBlur(m, (0, 0), max(0.5, fx.MATTE_SOFT * side)))
                 alb = fx.albedo(P0, white, tint)
                 lit = light[..., None] * room_rgb
-                if m is not None:
-                    on_hand = cv2.resize(near, (w, h), interpolation=cv2.INTER_LINEAR) * \
-                        fx.hand_shading(m, src, float(hand.s[t]))
+                if m is None:
+                    P += _keyed(alb, key * np.float32(key_room_gain), key_room, KEY_CAP[1]) * k_key
+                else:
+                    shade = fx.hand_shading(m, src, float(hand.s[t]))
+                    on_hand = cv2.resize(near, (w, h), interpolation=cv2.INTER_LINEAR) * shade
                     on_hand = m * (_soft_cap(on_hand, HAND_CAP) * k)
                     if two_colours:  # (the room's light, where it falls on the hand, in the hand's colour)
                         on_hand += m * light
                         lit *= (1.0 - m)[..., None]
                     lit += on_hand[..., None] * hand_rgb
+                    P += (_keyed(alb, key * np.float32(key_room_gain), key_room, KEY_CAP[1]) * (1.0 - m)[..., None]
+                          + _keyed(alb, key * (0.5 + 0.5 * shade) * np.float32(key_hand_gain), key_hand, KEY_CAP[0])
+                          * m[..., None]) * k_key  # (each capped whole, then blended: capped in parts, the two
+                    # added up to a bright rim along the hand's outline)
                     if balls[t] is not None:
-                        wrap = wrap_light(m, balls[t], side)
-                        if wrap is not None:
-                            (y0, y1, x0, x1), wl = wrap
-                            lit[y0:y1, x0:x1] += wl[..., None] * hand_rgb
+                        for got_ in (wrap_light(m, balls[t], side), spill_light(m, balls[t])):
+                            if got_ is not None:
+                                (y0, y1, x0, x1), wl = got_
+                                lit[y0:y1, x0:x1] += wl[..., None] * hand_rgb
                 P += alb * lit
                 if form == "arc":  # (never so far down that the room away from the arcs goes darker than the plate)
                     stops = min(stops, ARC_DIP_ROOM * room_lift(P, P0, m))
@@ -1709,7 +1860,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                 if veil.any():  # (what shows through the ball's dense middle is scattered in it, and hidden)
                     for img in (P, P0):
                         sub = img[y0:y1, x0:x1]
-                        sub += (_blur(sub, SCATTER * balls[t][2]) - sub) * veil[..., None]
+                        sub += (_blur(sub, SCATTER * balls[t].R) - sub) * veil[..., None]
                         sub *= 1.0 - veil[..., None]
                 E = fx.grain(E[None], noise, seed=seed, frame0=t)[0]
                 if balls[t] is not None:  # (the ball's own light keeps its hue as it rolls off to white, as much
