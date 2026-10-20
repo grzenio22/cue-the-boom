@@ -440,15 +440,23 @@ def light_colour(fire_lin: np.ndarray) -> np.ndarray:
 
 def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray) -> np.ndarray:
     """``lit`` (the room ``P`` with the fireball's light on it, linear) with what the light adds to the room, off the
-    arm's matte ``m``, kept warm as the picture shows it: green rising at most LIGHT_WARM of red, blue of green."""
-    g0 = np.clip(P, 0.0, None) ** np.float32(1 / 2.2)
-    d = np.clip(lit, 0.0, None) ** np.float32(1 / 2.2) - g0
+    arm's matte ``m``, kept warm as the picture shows it (display values, after the shot's highlight shoulder,
+    bending.SHOULDER): green rising at most LIGHT_WARM of red, blue of green."""
+    from .bending import SHOULDER as S
+
+    def shown(x: np.ndarray) -> np.ndarray:
+        x = np.clip(x, 0.0, None)
+        return np.where(x > S, S + (1.0 - S) * np.tanh((x - S) / (1.0 - S)), x) ** np.float32(1 / 2.2)
+
+    g0 = shown(P)
+    d = shown(lit) - g0
     green = np.minimum(d[..., 1], LIGHT_WARM * np.maximum(d[..., 0], 0.0))
     blue = np.minimum(d[..., 2], LIGHT_WARM * np.maximum(green, 0.0))
     off = 1.0 - m
     d[..., 1] += off * (green - d[..., 1])
     d[..., 2] += off * (blue - d[..., 2])
-    return (g0 + d) ** np.float32(2.2)
+    y = np.clip(g0 + d, 0.0, 0.9999) ** np.float32(2.2)  # (and back from the shoulder)
+    return np.where(y > S, S + (1.0 - S) * np.arctanh(np.clip((y - S) / (1.0 - S), 0.0, 0.9999)), y).astype(np.float32)
 
 
 # ------------------------------------------------------------------ its outline
