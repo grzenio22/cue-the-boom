@@ -717,6 +717,25 @@ def test_same_inputs_give_the_same_bytes_and_silence_leaves_the_plate_alone():
     assert np.array_equal(L.render(plate, track, mask, voice(np.zeros(n)), "ball"), plate)
 
 
+def test_the_arcs_do_not_depend_on_the_balls_look(monkeypatch):
+    """The arcs are drawn and lit with none of the ball's look: with every constant of the ball's body, its light and
+    its tone set to something else, the arcs' frames are the same bytes (the ball can be reworked without touching
+    them)."""
+    n = 10
+    plate, track, mask = take(n, lambda t: (110 + 2 * t, 330))
+    tl = voice(np.r_[np.zeros(2), np.full(8, 0.9)], hits=[2])
+    before = L.render(plate, track, mask, tl, "arc", seed=4)
+    rgb = np.array([1.0, 0.1, 0.5], np.float32)
+    for name, value in (("PLASMA_RGB", rgb), ("BODY_RGB", rgb), ("HALO_RGB", rgb), ("BALL_GLOW_RGB", rgb),
+                        ("BALL_HOT", (9.0, 0.6)), ("BODY", (5.0, 0.5)), ("HALO", (2.0, 2.0)), ("BALL_TAU", (9.0, 1.0)),
+                        ("BODY_STREAKS", (3, 2.0, 0.2)), ("BRIGHT_TONE", (0.3, 0.5)), ("SCATTER", 1.0),
+                        ("WRAP_GAIN", 20.0)):
+        monkeypatch.setattr(L, name, value)
+    monkeypatch.setitem(L.LIGHT, "ball", (0.1, 20.0, 20.0, 5.0))
+    monkeypatch.setitem(L.LIGHT_RGB, "ball", (rgb, rgb))
+    assert np.array_equal(L.render(plate, track, mask, tl, "arc", seed=4), before)
+
+
 def test_a_stuttering_voice_flickers_the_arcs_but_not_the_room():
     """A voice that comes and goes six times a second ("ka-ka-ka"): every onset strikes afresh, the arcs flash and go
     dark with it, but the light they throw on the hand and the room changes at most 3 times a second."""
@@ -792,10 +811,9 @@ def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
     assert balls[31] is None or balls[31][2] < 0.7 * balls[27][2]
     assert L._dense(balls[30][3], balls[30][4]) == 1.0  # (shrinking, still dense)
     assert L._dense(0.05, 0.01) == 0.0
-    glow, out = np.zeros((600, 600, 3), np.float32), np.zeros((600, 600, 3), np.float32)
-    veil = np.zeros((600, 600), np.float32)
-    L._sphere(glow, out, veil, (0, 600, 0, 600), (300.0, 300.0, 40.0, 0.05, 0.01, 1.0), 2.5, 0, 0)  # (barely charged)
-    assert not glow.any() and not out.any() and not veil.any()
+    out, veil = np.zeros((600, 600, 3), np.float32), np.zeros((600, 600), np.float32)
+    L._sphere(out, veil, (0, 600, 0, 600), (300.0, 300.0, 40.0, 0.05, 0.01, 1.0), 0, 0)  # (barely charged)
+    assert not out.any() and not veil.any()
     c, lm = np.asarray(balls[4][:2]), np.asarray(track["landmarks"][4])[:, :2]
     own = [p for p, _, _ in bolts[4] if np.linalg.norm(lm - p[-1, :2], axis=1).min() > 1e-6]  # (none to the hand)
     assert max(np.linalg.norm(p[:, :2] - c, axis=1).max() for p in own) > 1.2 * balls[4][2]
@@ -803,9 +821,10 @@ def test_the_ball_grows_with_the_held_voice_and_shrinks_when_it_stops():
 
 def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines():
     """A palm already at the top of red in the picture: the ball is the brightest thing over it and reads blue, not a
-    white disc: its body well over the luminance of the palm round it, and never darker towards its outline than the
-    skin just outside it (a dark limb made it a glass marble); the palm just past its outline is lit and keeps its
-    lines; the camera exposes down for it, and the wall round it is lit blue against the room further off."""
+    white disc: its body well over the luminance of the palm round it, and never darker towards its edge than the skin
+    just outside it (a dark limb made it a glass marble). It hides the palm behind its dense middle, but its outer part
+    is light added over the palm, whose lines show through it; the palm just past its edge is lit and keeps its lines;
+    the camera exposes down for it, and the wall round it is lit, a cool white, against the room further off."""
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
@@ -831,14 +850,21 @@ def test_the_ball_is_a_blue_light_over_the_palm_that_keeps_its_lines():
     assert white[under].mean() < 0.1  # its white-hot middle and channels, not a white disc
     assert (o[under, 2] - o[under, 0]).mean() > (p[under, 2] - p[under, 0]).mean() + 40  # blue
     lines = (o - out_flat[t]).mean(-1), (p - flat[t]).mean(-1)  # the palm's lines, as they come through
-    round_it = (d > 1.15) & (d < 1.6) & on  # the palm just past its outline: lit, not veiled or milky
+
+    def kept(sel: np.ndarray) -> float:
+        return float(np.std(lines[0][sel]) / np.std(lines[1][sel]))
+
+    assert kept((d < 0.3) & on) < 0.2 and kept((d > 0.8) & (d < 1.0) & on) > 0.25  # (hidden behind its dense
+    # middle, showing through its outer part)
+    round_it = (d > 1.15) & (d < 1.6) & on  # the palm just past its edge: lit, not veiled or milky
     assert lum[round_it].mean() > (lin(plate[t]) @ LUMA)[round_it].mean()
-    assert np.std(lines[0][round_it]) / np.std(lines[1][round_it]) > 0.7
+    assert kept(round_it) > 0.7
     d *= R / s
     near, far = (d > 0.6) & (d < 1.0) & ~on, (d > 1.8) & ~on
     near, far = (o - p)[near], (o - p)[far]
     assert far.mean() < -5  # the camera exposed down for it...
-    assert (near[:, 2] - near[:, 0]).mean() > (far[:, 2] - far[:, 0]).mean() + 4  # ...and it lights the wall blue
+    assert near.mean() > far.mean() + 3  # ...and it lights the wall round it,
+    assert (near[:, 2] - near[:, 0]).mean() > (far[:, 2] - far[:, 0]).mean() + 2  # a cool white
 
 
 def hue(rgb) -> float:
@@ -851,13 +877,13 @@ def hue_gap(a: float, b: float) -> float:
     return abs((a - b + 180.0) % 360.0 - 180.0)
 
 
-def test_the_balls_body_is_white_in_its_middle_then_cyan_then_blue_not_a_clipped_disc():
+def test_the_balls_body_is_white_in_its_middle_then_pale_cyan_blue_not_a_clipped_disc():
     """The body rolls off to white with its hue kept: white-hot in its middle (saturation at most 0.1 within 0.15 of
-    its radius) and a saturated blue towards its limb (at least 0.35 at 0.7-0.85), at 0.15 of its radius at least 1.3
-    times as bright as at 0.75, with a cyan ring at its limb (hue 185-215), its colour the arcs' own blue (within 25
-    degrees of their glow's hue: in a greener blue it read aqua beside them). Each channel clipped on its own, it was a
-    flat pale-aqua disc at (205-215, 247-254, 253); under a glare, a pale glass sphere (saturation 0.17-0.25 at every
-    radius, its luma 0.86 to 0.70 from its middle out, a near-white lavender ring at its limb)."""
+    its radius), brightest there and dimmer out to its edge (at 0.15 of its radius at least 1.2 times as bright as at
+    0.5), and a pale cyan-blue round that, over the palm and over the wall alike (hue 200-225, saturation 0.12-0.45 at
+    0.4-0.7: neither white nor a saturated disc), its colour the arcs' own blue (within 25 degrees of their glow's hue:
+    in a greener blue it read aqua beside them). Each channel clipped on its own, it was a flat pale-aqua disc at
+    (205-215, 247-254, 253)."""
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
@@ -872,14 +898,16 @@ def test_the_balls_body_is_white_in_its_middle_then_cyan_then_blue_not_a_clipped
     def at(r: float) -> np.ndarray:
         return np.abs(d - r) < 0.05
 
-    assert lum[at(0.15)].mean() >= 1.3 * lum[at(0.75)].mean()
+    assert lum[at(0.15)].mean() >= 1.2 * lum[at(0.5)].mean()
     body = (d > 0.4) & (d < 0.85)
 
     def sat(sel: np.ndarray) -> float:
         return colorsys.rgb_to_hsv(*(o[sel].mean(0) / 255.0))[1]
 
-    assert sat(d < 0.15) <= 0.1 and sat((d > 0.7) & (d < 0.85)) >= 0.35  # (white in its middle, a blue round it)
-    assert 185.0 <= hue(o[np.abs(d - 0.95) < 0.03].mean(0)) <= 215.0  # (its ring cyan)
+    assert sat(d < 0.15) <= 0.1  # (white in its middle)
+    for part in (mask[t] > 0, mask[t] == 0):  # (pale cyan-blue round it, over skin as over the wall)
+        sel = (d > 0.4) & (d < 0.7) & part
+        assert 200.0 <= hue(o[sel].mean(0)) <= 225.0 and 0.12 <= sat(sel) <= 0.45
     assert ((o[body, 1] >= 250) & (o[body, 2] >= 250)).mean() < 0.1  # (not two channels clipped: pale aqua)
     line = np.stack([np.full(60, 50.0), np.linspace(10, 90, 60)], 1)
     E, _ = L.layer([(line, 4.0, 1.0)], [], None, 60.0, (0, 100, 0, 100), L.GLOW_CAP["arc"], 0.0, np.zeros(2), [])
@@ -887,9 +915,10 @@ def test_the_balls_body_is_white_in_its_middle_then_cyan_then_blue_not_a_clipped
     assert hue_gap(hue(o[body].mean(0)), hue(gam(np.ascontiguousarray(glow[None, None] / glow.max()))[0, 0])) < 25.0
 
 
-BALL_PROFILE = ((0.0, 246, 252, 255), (0.15, 224, 242, 255), (0.3, 191, 225, 255), (0.45, 177, 208, 255),
-                (0.6, 172, 202, 255), (0.75, 156, 194, 255), (0.9, 172, 214, 255))  # (radii, r, g, b): the ball's body
-# as shown, which web/lib/lightning.test.ts holds Try it live's body (its BODY_STOPS) to as well
+BALL_PROFILE = ((0.0, 253, 254, 255), (0.15, 248, 251, 255), (0.3, 230, 242, 255), (0.45, 211, 234, 255),
+                (0.6, 210, 233, 255), (0.75, 224, 234, 255), (0.9, 244, 234, 252))  # (radii, r, g, b): the ball's body
+# as shown, white in its middle, pale cyan-blue round that and the lit palm showing through its edge, which
+# web/lib/lightning.test.ts holds Try it live's body (its BODY_STOPS) to as well
 
 
 def test_the_balls_body_is_the_profile_the_live_preview_draws():
@@ -922,7 +951,8 @@ def test_the_hue_keeping_roll_off_keeps_a_little_over_exposed_blue_blue_and_take
 
 def test_a_gap_between_the_fingers_does_not_show_through_the_ball():
     """The wall in a gap between two fingers behind the ball's top is scattered in its glowing body: a soft shade at
-    most, not a sharp dark window through it (seen sharp, a glass marble)."""
+    most, not a sharp dark window through it (seen sharp, a glass marble). Its dense middle hides most of it; at 0.6 of
+    its radius, where it begins to be light added over what is behind it, about a quarter of the step shows, soft."""
     n, s = 12, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), texture=0.0)
@@ -936,7 +966,7 @@ def test_a_gap_between_the_fingers_does_not_show_through_the_ball():
     row = int(y - 0.6 * R)
     seen = (b - a)[row, int(x - 0.5 * R): int(x + 0.5 * R)]  # what the gap does to the ball, across it
     step = abs(float((lin(gap[t]) @ LUMA - lin(plate[t]) @ LUMA)[row, int(x)]))
-    assert np.abs(seen).max() < 0.2 * step and np.abs(np.diff(seen)).max() < 0.1 * step  # (seen sharp: 0.26, 0.22)
+    assert np.abs(seen).max() < 0.35 * step and np.abs(np.diff(seen)).max() < 0.1 * step  # (seen sharp: 0.26, 0.22)
 
 
 def test_the_ball_settles_the_exposure_once_for_a_phrase(monkeypatch):
@@ -975,12 +1005,15 @@ def test_the_camera_holds_through_a_gap_between_phrases_and_comes_back_after_a_l
     assert dip[110] < dip[64] - 0.2
 
 
-def test_the_balls_light_leaves_the_skin_round_it_lit_violet_not_veiled():
-    """Round the ball's outline (1.05-1.3 of its radius) a palm at the top of red is lit, not veiled: its texture and
-    the edges of the fingers at least 0.9 of the plate's, still saturated (at least 0.2), violet (hue 250-320) and at
-    least 1.3 times as bright as the plate exposed down, while an olive wall there goes blue (hue 200-250). (Taken
-    towards a cool white by the glare, the skin there kept saturation 0.12, texture 0.8 and edges 0.84: frosted
-    glass.)"""
+def test_the_balls_light_leaves_the_skin_round_it_brighter_and_a_little_cooler_not_dyed():
+    """Round the ball's edge (1.05-1.3 of its radius) a palm at the top of red takes its cool near-white light as
+    light: clearly brighter (at least 1.5 times the plate exposed down), its texture and the edges of the fingers at
+    least 0.9 of the plate's, and only a little cooler: a pale cool pink, its hue within 25 degrees of the plate's and
+    turned towards pink, no more saturated than the plate's and still skin (saturation at least 0.08). Its light falls
+    off with distance: the skin 2.6-3.4 radii out is lifted less than a third as much, by at most 1.35 times. An olive
+    wall round its edge takes the faint blue haze of its light (hue 200-260, saturation at most 0.25). (In a saturated
+    blue light, the skin there went fuchsia, hue 284-341, with hardly any more light on it: a dye; taken towards a cool
+    white by a glare, it kept saturation 0.12, texture 0.8 and edges 0.84: frosted glass.)"""
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148), wall=(110, 104, 90))
@@ -1007,55 +1040,79 @@ def test_the_balls_light_leaves_the_skin_round_it_lit_violet_not_veiled():
     assert edge.sum() > 20
     assert fine(g_o)[skin].std() >= 0.9 * fine(g_p)[skin].std()
     assert grad(g_o)[edge].mean() >= 0.9 * grad(g_p)[edge].mean()
+    lift = Y[skin].mean() / (P[skin].mean() * exposed)
+    assert lift >= 1.5
     h_skin, s_skin, _ = colorsys.rgb_to_hsv(*(o[skin].mean(0) / 255.0))
-    assert s_skin >= 0.2 and 250.0 <= 360.0 * h_skin <= 320.0
-    assert 200.0 <= hue(o[wall].mean(0)) <= 250.0
-    assert Y[skin].mean() >= 1.3 * P[skin].mean() * exposed
+    h_plate, s_plate, _ = colorsys.rgb_to_hsv(*(plate[t][skin].astype(np.float32).mean(0) / 255.0))
+    turn = (360.0 * (h_skin - h_plate) + 180.0) % 360.0 - 180.0
+    assert -25.0 <= turn <= 0.0 and 0.08 <= s_skin <= s_plate  # (a pale cool pink, never fuchsia)
+    tips = (d > 2.6) & (d < 3.4) & on
+    assert Y[tips].mean() / (P[tips].mean() * exposed) - 1.0 < (lift - 1.0) / 3.0
+    assert Y[tips].mean() / (P[tips].mean() * exposed) <= 1.35
+    assert 200.0 <= hue(o[wall].mean(0)) <= 260.0 and colorsys.rgb_to_hsv(*(o[wall].mean(0) / 255.0))[1] <= 0.25
 
 
-def test_the_balls_glare_is_a_narrow_band_of_blue_the_same_over_skin_and_wall():
-    """The lens's glare adds the same narrow band of blue over a palm and over an olive wall just past the ball's
-    outline (blue over green over red), never over its body and gone a third of a radius out (screened wide over the
-    picture, it washed the body and the fingers round it to one pale ice-blue)."""
-    frame = np.zeros((161, 161, 3), np.uint8)
-    frame[:, :80], frame[:, 80:] = (200, 140, 125), (110, 104, 90)  # a palm, an olive wall
-    lit = frame.copy()
-    L.glare(lit, (80.0, 80.0, 40.0, 1.0, 1.0, 1.0))
-    added = lit.astype(int) - frame
-    for r in (1.02, 1.1):
-        skin, wall = added[80, int(80 - r * 40)], added[80, int(80 + r * 40)]
-        assert np.abs(skin - wall).max() <= 1 and skin[2] > skin[1] > skin[0] >= 0 and skin[2] >= 10
-    assert added[80, int(80 + 1.05 * 40), 2] <= 255 * L.GLARE_RIM[0] + 1
-    assert not added[80, 80: int(80 + 0.85 * 40)].any()  # (its body)
-    assert not added[80, int(80 + 1.45 * 40):].any()
+def test_the_balls_body_is_a_volume_of_light_with_no_outline():
+    """The ball's body, as light added to the picture (the same over skin and wall): brightest in its middle and never
+    brighter further out, falling off smoothly with no outline (between rings 0.05 of its radius apart, past half its
+    radius, it drops by at most 15 % of its brightness at half its radius: a disc's edge drops all of it), a cool
+    near-white in its middle, a cyan-blue at 0.6 of its radius and a faint blue-violet haze at 1.6; and it hides what
+    is behind it only where it is dense: nearly all behind its middle, under a third at its radius, nothing past 1.5."""
+    out, veil = np.zeros((321, 321, 3), np.float32), np.zeros((321, 321), np.float32)
+    L._sphere(out, veil, (0, 321, 0, 321), (160.0, 160.0, 60.0, 1.0, 1.0, 1.0), 0, 0)
+    d = np.hypot(*(np.indices(veil.shape) - 160.0)) / 60.0
+    lum = out @ LUMA
+
+    def ring(img: np.ndarray, r: float) -> np.ndarray:
+        return np.median(img[np.abs(d - r) < 0.02], axis=0)
+
+    rs = np.arange(0.0, 2.5, 0.05)
+    profile = np.array([ring(lum, r) for r in rs])
+    assert np.all(np.diff(profile) <= 1e-6)
+    assert np.max(-np.diff(profile)[rs[1:] > 0.5]) <= 0.15 * ring(lum, 0.5)
+    middle, body, haze = ring(out, 0.0), ring(out, 0.6), ring(out, 1.6)
+    shown = L.hue_shoulder(middle)
+    assert middle.min() > 1.0 and shown.min() / shown.max() >= 0.85  # (far over white: white-hot)
+    assert body[2] > body[1] > body[0] and body[0] <= 0.5 * body[2]  # (cyan-blue)
+    assert haze[2] > haze[0] >= 0.9 * haze[1] and ring(lum, 1.6) < 0.03  # (blue-violet, faint)
+    assert ring(veil, 0.0) >= 0.9 and ring(veil, 1.0) <= 0.35 and ring(veil, 1.5) < 0.05
 
 
-def test_the_balls_arcs_over_the_skin_are_electric_blue_white():
-    """An arc jumping from the ball to a fingertip lies over the skin in blue-white: the brightest 40 of its pixels on
-    the skin more than 1.3 radii out have blue over green over red (red at most 10 levels over green) and a hue of
-    190-230 (added over skin at the top of red, it clipped red, left green behind and read as magenta-white scratches,
-    (245, 197, 245))."""
+def test_the_balls_arcs_over_the_skin_are_white_hot_not_magenta():
+    """An arc jumping from the ball to a fingertip is white-hot over the skin, as over the ball: the brightest 40 of
+    its pixels on the skin more than 1.3 radii out are white (every channel at least 235, green at most 12 levels under
+    red, blue at most 5 under green), and the glow beside it 2-3 px off its core is a cool white on skin, its hue within
+    15 degrees of the plate's there (added over skin at the top of red in a blue or violet glow, it clipped red, left
+    green behind and read as magenta-white scratches, (245, 197, 245))."""
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0, 4, 8])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
     out = L.render(plate, track, mask, tl, "ball", seed=0)
     hand = L._hand(plate, track)
     bolts, _, balls = L.ball_frames(hand, tl, 0)
-    picked = []
+    picked, glow, under = [], [], []
+    yy, xx = np.indices((H, W))
     for t in range(n):
         if balls[t] is None:
             continue
         x, y, R = balls[t][:3]
+        core = np.zeros((H, W), np.uint8)
         for p, _, _ in bolts[t]:
             if np.linalg.norm(hand.lm[t] - p[-1, :2], axis=1).min() > 1e-6:
                 continue  # (not an arc to a fingertip or knuckle)
             q = np.unique(np.round(p[:, :2]).astype(int), axis=0)
             keep = (np.hypot(q[:, 0] - x, q[:, 1] - y) > 1.3 * R) & (mask[t][q[:, 1], q[:, 0]] > 0)
             picked += [out[t][b, a] for a, b in q[keep]]
+            cv2.polylines(core, [np.round(p[:, :2]).astype(np.int32).reshape(-1, 1, 2)], False, 1, 1)
+        beside = cv2.dilate(core, np.ones((7, 7), np.uint8)) & ~cv2.dilate(core, np.ones((3, 3), np.uint8))
+        sel = (beside > 0) & (mask[t] > 0) & (np.hypot(xx - x, yy - y) > 1.3 * R)
+        glow += list(out[t][sel])
+        under += list(plate[t][sel])
     picked = np.array(picked, float)
-    assert len(picked) >= 100
+    assert len(picked) >= 100 and len(glow) >= 100
     top = picked[np.argsort(picked @ LUMA)[-40:]].mean(0)
-    assert top[2] >= top[1] >= top[0] - 10 and 190.0 <= hue(top) <= 230.0
+    assert top.min() >= 235 and top[1] >= top[0] - 12 and top[2] >= top[1] - 5
+    assert hue_gap(hue(np.mean(glow, 0)), hue(np.mean(under, 0))) <= 15.0
 
 
 def test_the_balls_light_wraps_the_edges_of_the_fingers_facing_it():

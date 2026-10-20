@@ -482,9 +482,10 @@ const FINGERS = [[2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17
 
 export const ROOM_RGB = "120, 150, 255"; // the arcs' light on the room: a cool blue (in the hand's violet, a tinted
 export const HAND_RGB = "185, 160, 255"; // wall went mauve); on the hand lavender, blue-violet on skin
-export const BALL_ROOM_RGB = "77, 107, 255"; // the ball's: on the room the arcs' cooler blue; on the hand a deep blue,
-export const BALL_HAND_RGB = "5, 25, 255"; // which skin at the top of red takes as violet (cuesync.lightning's
-// LIGHT_RGB; in its own cyan-blue, the palm round it went white-pink)
+export const BALL_ROOM_RGB = "110, 116, 128"; // the ball's, on the room and the hand alike: the cool near-white of its
+export const BALL_HAND_RGB = BALL_ROOM_RGB; // plasma (cuesync.lightning's PLASMA_RGB) at half strength, which brightens
+// skin and cools it a little (in a deep blue, skin already at the top of red took only the blue, and was dyed fuchsia;
+// at full strength, screened, the palm round it went white)
 
 /** The light on the room and the hand, screened over the picture: round ``at`` (the bolts or the ball) on the room,
  * weaker out to the frame's edge; on the hand (its 21 landmarks ``lm``, px: the palm and each finger as thick as a
@@ -549,9 +550,12 @@ export const BALL_FILAMENTS = [5, 9]; // filaments from its middle to its skin, 
 // (all reaching the same radius, a dozen made evenly spaced sun-ray spikes)
 const BALL_DEPTH = 0.45, BALL_FLAT = 0.5; // one that reaches less than this many radii across the picture is struck
 // again (pointing at the camera, it is a short scribble in the middle)
-const NEAR_LIGHT = [1.0, 0.3]; // its light on what is close round it, at its limb, falling off past it over this many
-// radii (cuesync.lightning's NEAR_LIGHT): violet on skin, a cool blue on the wall
-const GLARE_RIM: [number, string] = [0.12, "38, 77, 255"]; // the lens's narrow band of its blue just over its limb
+const NEAR_LIGHT = [0.6, 0.73, 3.5]; // its light on what is close round it: this strong at its edge, falling off
+// with distance d (radii) as (1 + h^2) / (d^2 + h^2), h how high it hovers over the palm (radii), the softened inverse
+// square of cuesync.lightning's, gone by the last: the skin next to it brighter, the fingertips far from it barely
+const HALO: [number, number, string] = [0.25, 0.7, "170, 166, 255"]; // the faint blue-violet haze of its light round
+// it, added over skin and wall alike: at most this, falling off as a Gaussian of this sigma (radii; cuesync.lightning's
+// HALO)
 
 /** The ball's state between frames; each filament's ``aim`` is how far towards the camera its far end is (-1 to 1:
  * those at the back are dimmer). */
@@ -610,39 +614,44 @@ export function ballRadius(b: Ball, scale: number): number {
   return scale * (BALL_R[0] + (BALL_R[1] - BALL_R[0]) * g * g * (3 - 2 * g)) * (1 + b.pulse);
 }
 
-/** The body's colour from its middle to its outline, as gradient stops [offset, r, g, b, alpha]: the shot's ball as
- * shown (cuesync.lightning, the median of each ring at full charge: test_lightning's BALL_PROFILE), white-hot in its
- * middle, cyan round that, a saturated blue towards its limb with a cyan ring at it, dense enough to hide the palm
- * behind it, and its outline feathered over its last 3 % (a few px) rather than cut. */
+/** The body's colour from its middle out, as gradient stops [radii, r, g, b, alpha]: the shot's ball as shown
+ * (cuesync.lightning, the median of each ring at full charge: test_lightning's BALL_PROFILE), white-hot in its middle
+ * and a pale cyan-blue round that, the lit palm showing through towards its edge; dense in its middle, light over the
+ * palm towards its edge (so the palm shows through it there), and gone a little past its radius with no outline. */
 export const BODY_STOPS: [number, number, number, number, number][] = [
-  [0, 246, 252, 255, 1], [0.15, 224, 242, 255, 1], [0.3, 191, 225, 255, 1], [0.45, 177, 208, 255, 1],
-  [0.6, 172, 202, 255, 1], [0.75, 156, 194, 255, 1], [0.9, 172, 214, 255, 1], [0.95, 182, 224, 255, 0.98],
-  [0.97, 176, 218, 255, 0.85], [1, 160, 205, 255, 0],
+  [0, 253, 254, 255, 1], [0.15, 248, 251, 255, 1], [0.3, 230, 242, 255, 1], [0.45, 211, 234, 255, 1],
+  [0.6, 210, 233, 255, 0.97], [0.75, 224, 234, 255, 0.88], [0.9, 244, 234, 252, 0.65], [1, 240, 228, 250, 0.35],
+  [1.15, 236, 222, 248, 0],
 ];
 
-/** Draws the ball at ``c`` for a hand ``scale`` px across: its body (once formed, BODY_STOPS), the lens's narrow band
- * of blue just over its limb (GLARE_RIM), its filaments white over it (dim inside, brightest at its skin, those at
- * the back dimmer) and its white-hot middle. ``px``: a pixel at 1080 lines. */
+/** Draws the ball at ``c`` for a hand ``scale`` px across: its body (once formed, BODY_STOPS), the faint blue-violet
+ * haze of its light round it (HALO), its filaments white over it (dim inside, brightest at its skin, those at the back
+ * dimmer) and its white-hot middle. ``px``: a pixel at 1080 lines. */
 export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: number, px: number) {
   const R = ballRadius(b, scale);
   const body = b.born ? dense(b.level, b.charge) : 0;
   ctx.save();
   if (body > 0) {
-    const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], R);
-    for (const [at, r, gg, bb, a] of BODY_STOPS) g.addColorStop(at, `rgba(${r}, ${gg}, ${bb}, ${a * body})`);
+    const reach = BODY_STOPS[BODY_STOPS.length - 1][0] * R;
+    const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], reach);
+    for (const [at, r, gg, bb, a] of BODY_STOPS) {
+      g.addColorStop((at * R) / reach, `rgba(${r}, ${gg}, ${bb}, ${a * body})`);
+    }
     ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(c[0], c[1], R, 0, 2 * Math.PI);
+    ctx.arc(c[0], c[1], reach, 0, 2 * Math.PI);
     ctx.fill();
-    const rim = ctx.createRadialGradient(c[0], c[1], 0.9 * R, c[0], c[1], 1.4 * R); // (Gaussian-ish: 0.05 R inside,
-    const [k, rgb] = GLARE_RIM; // 0.12 R outside)
-    for (const [at, a] of [[0, 0], [0.12, 0.3], [0.2, 1], [0.44, 0.6], [0.68, 0.14], [1, 0]]) {
-      rim.addColorStop(at, `rgba(${rgb}, ${k * a * body})`);
+    const [k, sigma, rgb] = HALO;
+    const far = 3.5 * sigma * R;
+    const haze = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], far);
+    for (let i = 0; i <= 8; i++) { // (a Gaussian, in nine stops out to 3.5 sigma, from its edge out: added over its
+      const d = (3.5 * sigma * i) / 8; // body in the picture as shown, it washed it white)
+      haze.addColorStop(i / 8, `rgba(${rgb}, ${d < 0.85 ? 0 : k * body * Math.exp((-0.5 * d * d) / (sigma * sigma))})`);
     }
     ctx.globalCompositeOperation = "lighter";
-    ctx.fillStyle = rim;
-    ctx.fillRect(c[0] - 1.4 * R, c[1] - 1.4 * R, 2.8 * R, 2.8 * R);
+    ctx.fillStyle = haze;
+    ctx.fillRect(c[0] - far, c[1] - far, 2 * far, 2 * far);
   }
   const turn = b.turn, cs = Math.cos(turn), sn = Math.sin(turn);
   const place = (p: P2): P2 => [c[0] + R * (p[0] * cs - p[1] * sn), c[1] + R * (p[0] * sn + p[1] * cs)];
@@ -664,33 +673,35 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: n
   // white-hot round it already: wider, it was a white star the filaments ran into like rays)
 }
 
-/** The ball's light on what is close round it (NEAR_LIGHT), screened under it: a cool blue on the room and a deep blue
- * on the hand (its 21 landmarks ``lm``, px, or null), which skin at the top of red takes as violet, keeping its lines,
- * strongest at its limb and gone two radii out; as strong as its body is dense. */
+/** The ball's light on what is close round it (NEAR_LIGHT), screened under it: the cool near-white of its plasma on
+ * the room and on the hand (its 21 landmarks ``lm``, px, or null), which brightens skin and cools it a little, keeping
+ * its lines; strongest at its edge and falling off as the softened inverse square of the distance, so the fingertips
+ * far from it are barely lit; as strong as its body is dense. */
 export function drawBallLight(ctx: CanvasRenderingContext2D, b: Ball, c: P2, scale: number, lm: P2[] | null,
   w: number, h: number) {
   const body = b.born ? dense(b.level, b.charge) : 0;
   if (body <= 0) return;
   const R = ballRadius(b, scale);
-  const [k, sigma] = NEAR_LIGHT;
+  const [k, hover, reach] = NEAR_LIGHT;
   const falloff = (fill: CanvasGradient, rgb: string, gain: number) => {
-    for (let i = 0; i <= 6; i++) { // (a Gaussian past its limb, in seven stops out to 3 sigma)
-      const d = (3 * sigma * i) / 6;
-      fill.addColorStop(i / 6, `rgba(${rgb}, ${gain * k * body * Math.exp((-0.5 * d * d) / (sigma * sigma))})`);
+    for (let i = 0; i <= 8; i++) { // (from its edge out to ``reach`` radii, faded out over the last one)
+      const d = 1 + ((reach - 1) * i) / 8, fade = Math.min(1, reach - d);
+      const a = (gain * k * body * (1 + hover * hover)) / (d * d + hover * hover);
+      fill.addColorStop(i / 8, `rgba(${rgb}, ${a * fade * fade * (3 - 2 * fade)})`);
     }
   };
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  const room = ctx.createRadialGradient(c[0], c[1], R, c[0], c[1], (1 + 3 * sigma) * R);
-  falloff(room, BALL_ROOM_RGB, 0.5);
+  const room = ctx.createRadialGradient(c[0], c[1], R, c[0], c[1], reach * R);
+  falloff(room, BALL_ROOM_RGB, 0.4);
   ctx.fillStyle = room;
-  ctx.fillRect(c[0] - 2 * R, c[1] - 2 * R, 4 * R, 4 * R);
+  ctx.fillRect(c[0] - reach * R, c[1] - reach * R, 2 * reach * R, 2 * reach * R);
   const mask = lm ? handLayer(ctx, "ball-hand", lm, scale) : null;
   if (mask) {
-    const hand = mask.createRadialGradient(c[0], c[1], R, c[0], c[1], (1 + 3 * sigma) * R);
-    falloff(hand, BALL_HAND_RGB, 0.85);
+    const hand = mask.createRadialGradient(c[0], c[1], R, c[0], c[1], reach * R);
+    falloff(hand, BALL_HAND_RGB, 0.7);
     mask.fillStyle = hand;
-    mask.fillRect(c[0] - 2 * R, c[1] - 2 * R, 4 * R, 4 * R);
+    mask.fillRect(c[0] - reach * R, c[1] - reach * R, 2 * reach * R, 2 * reach * R);
     ctx.drawImage(mask.canvas, 0, 0, w, h);
   }
   ctx.restore();

@@ -187,7 +187,7 @@ describe("the ball", () => {
     expect(Math.max(...young.fils.map((f) => Math.hypot(...f.ch!.pts[f.ch!.pts.length - 1])))).toBeGreaterThan(1.2);
   });
 
-  it("is the shot's ball by radius: white-hot in its middle, a saturated blue to a cyan limb, its outline feathered", () => {
+  it("is the shot's ball by radius: white-hot in its middle, pale cyan-blue round it, light over the palm at its edge", () => {
     const at = (r: number) => { // (the body's colour at r radii, as its gradient draws it)
       const k = BODY_STOPS.findIndex(([o]) => o >= r);
       const [o1, ...c1] = BODY_STOPS[k], [o0, ...c0] = BODY_STOPS[Math.max(0, k - 1)];
@@ -197,9 +197,14 @@ describe("the ball", () => {
     BALL_PROFILE.forEach(([r, ...rgb]) => at(r).slice(0, 3).forEach((v, i) => expect(Math.abs(v - rgb[i])).toBeLessThanOrEqual(8)));
     const sat = ([r, g, b]: number[]) => (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
     expect(sat(at(0))).toBeLessThan(0.1); // (white in its middle)
-    expect(sat(at(0.75))).toBeGreaterThanOrEqual(0.35); // (a saturated blue towards its limb, not a pale glass sphere)
-    expect(Math.min(...BODY_STOPS.filter(([o]) => o <= 0.95).map(([, , , , a]) => a))).toBeGreaterThan(0.95);
-    expect(BODY_STOPS[BODY_STOPS.length - 1][4]).toBe(0); // (feathered, not a hard-edged disc)
+    expect(sat(at(0.5))).toBeGreaterThanOrEqual(0.12); // (a pale cyan-blue round it, neither white nor a saturated disc)
+    expect(sat(at(0.5))).toBeLessThanOrEqual(0.45);
+    const alpha = (r: number) => at(r)[3];
+    expect(Math.min(...[0, 0.15, 0.3, 0.45, 0.6].map(alpha))).toBeGreaterThan(0.95); // (dense in its middle,
+    expect(alpha(1)).toBeLessThanOrEqual(0.5); // light over the palm at its edge,
+    const [last] = BODY_STOPS[BODY_STOPS.length - 1];
+    expect(last).toBeGreaterThan(1.05); // and gone a little past its radius: no outline)
+    expect(BODY_STOPS[BODY_STOPS.length - 1][4]).toBe(0);
     const ctx = fakeCtx(); // (and it draws its filaments over the body, the brightest at its skin)
     const balls = run();
     drawBall(ctx as unknown as CanvasRenderingContext2D, balls[20]!, [200, 200], 100, 0.66);
@@ -232,8 +237,8 @@ describe("the ball", () => {
  * ball over the synthetic palm at full charge at 1080x1920 (test_lightning.py's BALL_PROFILE, which holds the shot to
  * the same numbers): the live preview's body is held within 8 levels of it. */
 const BALL_PROFILE: [number, number, number, number][] = [
-  [0, 246, 252, 255], [0.15, 224, 242, 255], [0.3, 191, 225, 255], [0.45, 177, 208, 255], [0.6, 172, 202, 255],
-  [0.75, 156, 194, 255], [0.9, 172, 214, 255],
+  [0, 253, 254, 255], [0.15, 248, 251, 255], [0.3, 230, 242, 255], [0.45, 211, 234, 255], [0.6, 210, 233, 255],
+  [0.75, 224, 234, 255], [0.9, 244, 234, 252],
 ];
 
 /** A canvas context that only counts what is drawn (jsdom has no canvas). */
