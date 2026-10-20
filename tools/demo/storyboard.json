@@ -1,6 +1,6 @@
 {
-  "version": 12,
-  "duration": 120.0,
+  "version": 13,
+  "duration": 116.5,
   "beats": [
     {
       "id": "cold_open",
@@ -72,14 +72,14 @@
     {
       "id": "performance_turns",
       "type": "turns",
-      "dur": 10.5,
+      "dur": 10.0,
       "audio_gain": 4.5,
       "subline": "Listen to each complete performance",
       "panels": [
         {
           "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
-          "start": 0,
-          "dur": 3.5,
+          "start": 0.5,
+          "dur": 3,
           "crop": [
             0,
             0.18,
@@ -90,101 +90,11 @@
           "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom.wav",
           "pops": [
             [
-              2.67,
+              2.17,
               "BOOM"
             ]
-          ]
-        },
-        {
-          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
-          "start": 0,
-          "dur": 3.5,
-          "crop": [
-            0,
-            0.18,
-            1,
-            0.96
           ],
-          "label": "pf · pf · BOOM",
-          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom.wav",
-          "pops": [
-            [
-              1.21,
-              "pf"
-            ],
-            [
-              1.58,
-              "pf"
-            ],
-            [
-              2.67,
-              "BOOM"
-            ]
-          ]
-        },
-        {
-          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
-          "start": 0,
-          "dur": 3.5,
-          "crop": [
-            0,
-            0.18,
-            1,
-            0.96
-          ],
-          "label": "pf pf pf PF",
-          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4.wav",
-          "pops": [
-            [
-              1.04,
-              "pf"
-            ],
-            [
-              1.58,
-              "pf"
-            ],
-            [
-              2.04,
-              "pf"
-            ],
-            [
-              2.5,
-              "PF"
-            ]
-          ]
-        }
-      ],
-      "headline": "1 LTX generation · 3 performances · 0 additional AI generations",
-      "element_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
-      "element_at": 2.92,
-      "stamp": "Same hand footage + one LTX-2.5 element · author's recorded pf and BOOM"
-    },
-    {
-      "id": "comparison_together",
-      "type": "compare",
-      "dur": 3.5,
-      "audio": "mix",
-      "audio_gain": 4.5,
-      "subline": "All three together · the same generated element",
-      "panels": [
-        {
-          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
-          "start": 0,
-          "dur": 3.5,
-          "crop": [
-            0,
-            0.18,
-            1,
-            0.96
-          ],
-          "label": "BOOM",
-          "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom.wav",
-          "pops": [
-            [
-              2.67,
-              "BOOM"
-            ]
-          ]
+          "audio_from": 0.5
         },
         {
           "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
@@ -357,8 +267,8 @@
     {
       "id": "comfy_model",
       "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v12\\cards\\comfy_model.png",
-      "dur": 6.0,
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\comfy_model.png",
+      "dur": 2.5,
       "zoom": 1,
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\ltx12.wav",
       "vo_at": 0.5,
@@ -373,13 +283,20 @@
       ]
     },
     {
-      "id": "comfy_output",
+      "id": "comfy_lora",
       "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v12\\cards\\comfy_output.png",
-      "dur": 4.0,
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\comfy_lora.png",
+      "dur": 2.5,
+      "zoom": 1
+    },
+    {
+      "id": "comfy_sampler",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\comfy_sampler.png",
+      "dur": 2.5,
       "zoom": 1,
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\sdk12.wav",
-      "vo_at": 0.7,
+      "vo_at": 1.7,
       "vo_gain": 1.3,
       "vo_text": "The app sends this workflow to ComfyUI through the Comfy Python SDK.",
       "vo_captions": [
@@ -389,6 +306,13 @@
           "The app sends this workflow to ComfyUI through the Comfy Python SDK."
         ]
       ]
+    },
+    {
+      "id": "comfy_output",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\comfy_output.png",
+      "dur": 2.5,
+      "zoom": 1
     },
     {
       "id": "workflow_fire",
@@ -708,8 +632,8 @@
       "id": "result",
       "type": "clip",
       "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio_result.mp4",
-      "start": 0,
-      "dur": 3.5,
+      "start": 2.5,
+      "dur": 4.0,
       "fill": true,
       "portrait_backdrop": true,
       "crop": [
@@ -718,14 +642,30 @@
         1,
         0.84
       ],
-      "chip": "The finished shot · included LTX effect",
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio_say_own.wav",
+      "audio_from": 5.272875,
+      "audio_gain": 4,
+      "audio_replace": true,
+      "author_voice": true,
+      "hold_tail": true,
+      "hold_reason": "Bright finished fire held for three seconds after the complete recorded BOOM",
+      "wave": true,
+      "pops": [
+        [
+          0.2916666666666667,
+          "BOOM"
+        ]
+      ],
+      "pop_x": 1.1,
+      "pop_y": 0.45,
+      "chip": "The finished shot",
       "stamp": "Recorded Studio · author's clip + voice · included LTX effect · GPU offline"
     },
     {
       "id": "innovation",
       "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v12\\cards\\pipeline.png",
-      "dur": 14.625,
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_overview.png",
+      "dur": 4.0,
       "zoom": 1,
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\new12.wav",
       "vo_at": 0.1,
@@ -753,6 +693,66 @@
           "without another AI generation."
         ]
       ]
+    },
+    {
+      "id": "innovation_asset",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_asset.png",
+      "dur": 4.833333333333333,
+      "zoom": 1
+    },
+    {
+      "id": "innovation_voice",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_voice.png",
+      "dur": 1.125,
+      "zoom": 1
+    },
+    {
+      "id": "innovation_result",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_result.png",
+      "dur": 1.1666666666666667,
+      "zoom": 1
+    },
+    {
+      "id": "innovation_hits",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
+      "start": 0,
+      "dur": 3.5,
+      "fill": true,
+      "portrait_backdrop": true,
+      "crop": [
+        0,
+        0.18,
+        1,
+        0.96
+      ],
+      "wave": true,
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom.wav",
+      "audio_gain": 4.5,
+      "audio_replace": true,
+      "author_voice": true,
+      "pops": [
+        [
+          1.21,
+          "pf"
+        ],
+        [
+          1.58,
+          "pf"
+        ],
+        [
+          2.67,
+          "BOOM"
+        ]
+      ],
+      "pop_x": 1.1,
+      "pop_y": 0.55,
+      "headline": "One LTX render. Two sizes.",
+      "subline": "Quiet pf → small. Loud BOOM → big.",
+      "stamp": "Same hand footage + stored LTX fire · author's recorded voice · no additional generation"
     },
     {
       "id": "try",
@@ -802,115 +802,140 @@
     {
       "id": "performance_turns",
       "start": 18.0,
-      "end": 28.5
-    },
-    {
-      "id": "comparison_together",
-      "start": 28.5,
-      "end": 32.0
+      "end": 28.0
     },
     {
       "id": "small_and_big",
-      "start": 32.0,
-      "end": 36.0
+      "start": 28.0,
+      "end": 32.0
     },
     {
       "id": "comfy_model",
-      "start": 36.0,
-      "end": 42.0
+      "start": 32.0,
+      "end": 34.5
+    },
+    {
+      "id": "comfy_lora",
+      "start": 34.5,
+      "end": 37.0
+    },
+    {
+      "id": "comfy_sampler",
+      "start": 37.0,
+      "end": 39.5
     },
     {
       "id": "comfy_output",
-      "start": 42.0,
-      "end": 46.0
+      "start": 39.5,
+      "end": 42.0
     },
     {
       "id": "workflow_fire",
-      "start": 46.0,
-      "end": 48.0
+      "start": 42.0,
+      "end": 44.0
     },
     {
       "id": "how",
-      "start": 48.0,
-      "end": 54.0
+      "start": 44.0,
+      "end": 50.0
     },
     {
       "id": "light",
-      "start": 54.0,
-      "end": 57.0
+      "start": 50.0,
+      "end": 53.0
     },
     {
       "id": "walk",
-      "start": 57.0,
-      "end": 60.25
+      "start": 53.0,
+      "end": 56.25
     },
     {
       "id": "flamethrower",
+      "start": 56.25,
+      "end": 58.25
+    },
+    {
+      "id": "lightning_point",
+      "start": 58.25,
+      "end": 60.25
+    },
+    {
+      "id": "water",
       "start": 60.25,
       "end": 62.25
     },
     {
-      "id": "lightning_point",
-      "start": 62.25,
-      "end": 64.25
-    },
-    {
-      "id": "water",
-      "start": 64.25,
-      "end": 66.25
-    },
-    {
       "id": "lanterns",
-      "start": 66.25,
-      "end": 72.75
+      "start": 62.25,
+      "end": 68.75
     },
     {
       "id": "dino",
-      "start": 72.75,
-      "end": 76.125
+      "start": 68.75,
+      "end": 72.125
     },
     {
       "id": "upload",
+      "start": 72.125,
+      "end": 76.125
+    },
+    {
+      "id": "tap",
       "start": 76.125,
       "end": 80.125
     },
     {
-      "id": "tap",
-      "start": 80.125,
-      "end": 84.125
-    },
-    {
       "id": "perform",
-      "start": 84.125,
-      "end": 89.125
+      "start": 80.125,
+      "end": 85.125
     },
     {
       "id": "make",
-      "start": 89.125,
-      "end": 91.625
+      "start": 85.125,
+      "end": 87.625
     },
     {
       "id": "result",
-      "start": 91.625,
-      "end": 95.125
+      "start": 87.625,
+      "end": 91.625
     },
     {
       "id": "innovation",
-      "start": 95.125,
-      "end": 109.75
+      "start": 91.625,
+      "end": 95.625
+    },
+    {
+      "id": "innovation_asset",
+      "start": 95.625,
+      "end": 100.458333
+    },
+    {
+      "id": "innovation_voice",
+      "start": 100.458333,
+      "end": 101.583333
+    },
+    {
+      "id": "innovation_result",
+      "start": 101.583333,
+      "end": 102.75
+    },
+    {
+      "id": "innovation_hits",
+      "start": 102.75,
+      "end": 106.25
     },
     {
       "id": "try",
-      "start": 109.75,
-      "end": 115.5
+      "start": 106.25,
+      "end": 112.0
     },
     {
       "id": "credits",
-      "start": 115.5,
-      "end": 120.0
+      "start": 112.0,
+      "end": 116.5
     }
   ],
   "provenance": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\manifest.json",
-  "narration": "vo12/provenance.json",
+  "narration": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\provenance.json",
   "source_policy": "Read-only v11 clips reused; no new AI generations or footage rebuilds"
 }

@@ -27,7 +27,7 @@ from cuesync.media import read_audio  # noqa: E402
 from build_demo import BG, DUCK, FG, FPS, H, SR, W, caption_overlay, font  # noqa: E402
 
 
-RUN = Path("D:/openHiggsfield/runs/demo_v12")
+RUN = Path("D:/openHiggsfield/runs/demo_v13")
 
 
 def db(value: float) -> float:
@@ -213,6 +213,8 @@ def source_bounds_check(schedule: list[dict]) -> tuple[list[dict], list[str]]:
         if available is not None and start + duration > available + 1 / FPS:
             if hold:
                 row["classification"] = "designed_tail_hold" if media == "video" else "designed_silent_tail"
+                row["tail_duration"] = round(start + duration - available, 6)
+                row["reason"] = entry["beat"].get("hold_reason", "Designed source tail")
             else:
                 issues.append(f"{media.title()} source ends before selected window: {entry['id']} "
                               f"({start+duration:.3f}s > {available:.3f}s)")
@@ -223,7 +225,10 @@ def source_bounds_check(schedule: list[dict]) -> tuple[list[dict], list[str]]:
         kind = b["type"]
         if kind == "clip":
             speed = float(b.get("speed", 1))
-            check(b["src"], float(b.get("start", 0)), duration * speed, entry, "video", entry["id"] == "cold_open")
+            if b.get("hold_tail") and not b.get("hold_reason"):
+                issues.append(f"Source hold lacks an editorial reason: {entry['id']}")
+            check(b["src"], float(b.get("start", 0)), duration * speed, entry, "video",
+                  entry["id"] == "cold_open" or bool(b.get("hold_tail") and b.get("hold_reason")))
             if b.get("audio_src"):
                 check(b["audio_src"], float(b.get("audio_from", 0)),
                       max(0, duration - float(b.get("audio_at", 0))), entry, "audio", entry["id"] == "cold_open")
@@ -269,6 +274,13 @@ def planned_hold(entry: dict, start: float, end: float) -> str | None:
         return "Designed title or still card"
     if entry["id"] == "cold_open" and start >= entry["start"] + 5.20:
         return "Designed clean final frame, after the explosion has cleared"
+    if b.get("hold_tail") and b.get("hold_reason"):
+        with av.open(str(b["src"])) as container:
+            stream = container.streams.video[0]
+            duration = float(stream.duration * stream.time_base)
+        hold_at = entry["start"] + (duration - float(b.get("start", 0))) / float(b.get("speed", 1))
+        if start >= hold_at - 1 / FPS - .001:
+            return b["hold_reason"]
     return None
 
 
@@ -473,7 +485,7 @@ def author_voice_check(schedule: list[dict], narration: list[dict], audio: np.nd
     rows = []
     for entry in schedule:
         b, name = entry["beat"], entry["id"]
-        if not (name in {"cold_open", "perform", "small_and_big"} or b["type"] in {"turns", "compare"}
+        if not (b.get("author_voice") or name in {"cold_open", "perform", "small_and_big"} or b["type"] in {"turns", "compare"}
                 or name.startswith("performance_") or name.startswith("comparison_")):
             continue
         n = round((entry["end"] - entry["start"]) * SR)
@@ -519,7 +531,7 @@ def author_voice_check(schedule: list[dict], narration: list[dict], audio: np.nd
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--video", type=Path, default=RUN / "demo_v12.mp4")
+    parser.add_argument("--video", type=Path, default=RUN / "demo_v13.mp4")
     parser.add_argument("--storyboard", type=Path, default=Path(__file__).with_name("storyboard.json"))
     parser.add_argument("--output", type=Path, help="Defaults to the video's directory")
     parser.add_argument("--metadata-only", action="store_true", help="Check the storyboard and narration before rendering")
