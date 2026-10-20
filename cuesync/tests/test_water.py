@@ -180,13 +180,16 @@ def test_a_thrown_orb_flies_into_the_room_and_bursts_on_its_wall_where_the_water
     sag = np.array([q.sag for q in sheets])
     assert sag[0] == 0.0 and sag[-1] == 1.0 and np.all(np.diff(sag) >= 0)  # the patch's lower edge runs down...
     assert sheets[-1].runs and all(math.sin(a) > 0.2 for a, _, _ in sheets[-1].runs)  # ... in runs along its bottom
-    fingers = sheets[-1].fingers
+    fingers = sheets[water.FINGER_DRAIN[0]].fingers  # at their longest
     lengths = np.array([ln for _, ln, _, _ in fingers])
     down = np.array([math.sin(a) > -0.3 for a, *_ in fingers])
-    assert len(fingers) >= water.WALL_FINGERS[0] and (lengths[down] >= 0.25).sum() >= 4  # fingers long enough to see,
+    assert len(fingers) >= water.WALL_FINGERS[0] and (lengths[down] >= 0.25).sum() >= 2  # jets long enough to see,
     # down and out sideways (most too short to see, the splash was a disc)...
-    assert all(ln <= water.FINGER_UP + 1e-9 for a, ln, _, _ in fingers if -math.sin(a) > 0.99)  # ... none far up
+    assert lengths.max() > 2.0 * lengths.min()  # ... of different lengths (alike, a starburst)...
+    assert all(ln <= water.FINGER_UP + 1e-9 for a, ln, _, _ in fingers if -math.sin(a) > 0.99)  # ... none far up...
     assert all(water.FINGER_BEAD[0] <= bd <= water.FINGER_BEAD[1] for *_, bd in fingers)  # ... each ending in a bead
+    assert all(ln <= water.FINGER_DRAIN[1] + 1e-6 for _, ln, _, _ in sheets[-1].fingers)  # ... and drained into it, so
+    # no one finger is left long on the stain (a trunk)
     beads = [[it for it in sc[j].film if isinstance(it, water.Bead)] for j in range(k, n)]
     rb = np.array([b.r for b in beads[3]])
     assert len(rb) > 10 and rb.max() > 2.5 * np.percentile(rb, 10)  # drops of many sizes lie on the wall round it
@@ -221,6 +224,16 @@ def test_the_water_on_the_wall_darkens_it_and_its_drops_glint_but_none_of_it_is_
     sagged = sheet._replace(fingers=(), sag=1.0, runs=((0.5 * math.pi, 0.1, 0.2),))  # a run down from its bottom
     out = water.frame(0, plate[0], None, water.Scene(film=[sagged]), _hand_at(0.0), room, noise, 0.0, 0).astype(int)
     assert out[98, 64].mean() < out[98, 54].mean() - 3  # its lower edge sags into it
+
+
+def test_the_burst_on_the_wall_froths_out_along_its_jets_not_evenly_round():
+    plate = np.full((1, H, W, 3), 120, np.uint8)
+    room, noise = water.Room(plate), water.Noise(0)
+    jets = ((0.5 * math.pi, 0.8, 0.08, 1.4), (0.5 * math.pi + 0.5, 0.5, 0.06, 1.4))  # both down
+    sheet = water.Sheet(64.0, 70.0, 25.0, jets, ((2, 0.0, 0.0),), 6.0, 1.0, 1.0, 0.5, froth=0.8)
+    out = water.frame(0, plate[0], None, water.Scene(film=[sheet]), _hand_at(0.0), room, noise, 0.0, 0).astype(int)
+    down, up = out[88:94, 62:67].mean(), out[46:52, 62:67].mean()
+    assert down > up + 5  # white out along its jets, not all round (a starburst)
 
 
 def test_an_orb_thrown_out_of_the_picture_does_not_burst_in_the_air():
@@ -312,7 +325,7 @@ def test_the_whip_is_a_stream_round_the_hand_sized_to_it():
     xy = np.array([[q.x, q.y] for q in b])
     reach = np.hypot(*(xy - track["xy"][30]).T)
     assert len(b) > 30 and 0.8 * S < reach.max() < 2.0 * S  # out round the hand, about a hand from it
-    assert max(q.r for q in b) < 0.2 * S  # a stream, not a ball
+    assert max(q.r for q in b) < 0.25 * S  # a stream, not a ball (flared a little where it rises out of its pool)
 
 
 def test_the_whip_thins_to_beads_at_its_tail_and_sheds_drops_when_it_lashes():
@@ -337,7 +350,8 @@ def test_the_whip_rises_churning_out_of_a_smooth_pool_that_wets_the_palm():
     p = np.array(track["xy"][30])
     assert main.r > 1.2 * water.WHIP_R[0] * S and main.flat <= 0.25  # a wide, low dome...
     assert len(parts) == water.WHIP_POOL_PARTS[0] and all(
-        b.flat == main.flat and b.r < main.r and np.hypot(b.x - main.x, b.y - main.y) < main.r for b in parts)  # ...
+        b.flat == main.flat and b.r < main.r and np.hypot(b.x - main.x, b.y - main.y) < 1.2 * main.r
+        for b in parts)  # ...
     # an irregular puddle, flat pools run into it...
     assert main.foam < 0.2  # ... smooth (frothing all over, crumpled cellophane)...
     assert np.hypot(main.x - p[0], main.y - p[1]) < 0.2 * S  # ... on the palm (no ball over it: a test tube)
@@ -352,6 +366,39 @@ def test_the_whip_rises_churning_out_of_a_smooth_pool_that_wets_the_palm():
     assert sc[30].wet  # the palm round it wet
     arc = [b.stream[0] for b in tube]
     assert len(arc) > 20 and np.all(np.diff(arc) > 0)  # the stream knows where along itself each part is
+
+
+def test_the_pool_moves_with_the_palm_and_does_not_turn():
+    n = 30
+    track = track_of(n, xy=lambda t: (30.0 + 2.0 * t, 130.0))
+    _, sc = scenes("whip", voice(n, hum=(2, 29), hits=()), track)
+    pool = [b for b in sc[20].blobs if b.flat < 1.0 and not b.stream]
+    assert pool and all(abs(b.vx - 2.0) < 1e-6 and b.vy == 0.0 and b.spin == 0.0 for b in pool)  # (still, while
+    # the palm moved under it, or turning, the patterns its flow carries were wound into rings: a whorl)
+
+
+def test_the_stream_fades_where_it_hangs_off_the_hand_but_not_while_it_lashes():
+    n = 40
+    track = track_of(n)
+    _, sc = scenes("whip", voice(n, hum=(2, 39), hits=((30, 1.0),)), track)
+    p = np.array(track["xy"][25])
+    tube = [b for b in sc[25].blobs if b.stream and b.w < 1.0]
+    off = [b.seen for b in tube if np.hypot(b.x - p[0], b.y - p[1]) > water.OFF_HAND[1][1] * S]
+    on = [b.seen for b in tube if np.hypot(b.x - p[0], b.y - p[1]) < water.OFF_HAND[1][0] * S]
+    assert off and on and max(off) < 0.5 and min(on) == 1.0  # off the hand, faint (a handle, a bangle)...
+    lash = [b.seen for b in sc[32].blobs if b.stream and b.w < 1.0]
+    assert min(lash) > 0.9  # ... flung out, whole
+
+
+def test_the_wet_skin_round_the_stream_does_not_flicker():
+    n = 60
+    plate, track = wall(n), track_of(n)
+    matte = matte_of(track)
+    out = water.render(plate, track, matte, voice(n, hum=(2, 59), hits=()), "whip", seed=1)
+    d = (out[20:58].astype(float) - plate[20:58]).mean(-1)
+    every_other = np.abs((d * np.where(np.arange(len(d)) % 2 == 0, 1.0, -1.0)[:, None, None]).mean(0))
+    assert every_other[matte[0] > 0].mean() < 0.4  # no swing from frame to frame over the hand (wetted on every
+    # other frame, its skin buzzed: 0.52 levels here)
 
 
 def test_the_streams_bulges_are_irregular_not_ribs():
@@ -476,11 +523,11 @@ def test_a_drifting_orb_shows_no_screen_door_hatch():
     assert pattern((2.3, 1.4)) < 1.3 * pattern(())  # no finer regular pattern than the same orb still shows
 
 
-def test_a_lash_tears_into_streaks_of_their_own_lengths_and_sweeps_a_sheet():
-    w, d = 120, 90.0  # a strip of water flung down across its length
+def test_a_lash_tears_into_streams_of_their_own_lengths_and_sweeps_a_sheet():
+    w, d = 240, 90.0  # a strip of water flung down across its length
     C, A = np.full((30, w, 3), 0.3, np.float32), np.ones((30, w), np.float32)
-    own = np.zeros((30, w, 5), np.float32)
-    own[..., 0], own[..., 2], own[..., 3] = 0.5, 1.0, 2.0  # its own light, its sheet and the shift that gives the plate
+    own = np.zeros((30, w, 4), np.float32)
+    own[..., 0], own[..., 2], own[..., 3] = 0.5, 1.0, 6.0  # its own light, its sheet, and that times its thickness
     mx, my = np.zeros((30, w), np.float32), np.full((30, w), d, np.float32)
 
     def ends(rag):  # how far down the frame each column of its smear reaches, and the sheet it sweeps
@@ -491,10 +538,40 @@ def test_a_lash_tears_into_streaks_of_their_own_lengths_and_sweeps_a_sheet():
 
     alike, _ = ends(None)
     torn, sheet = ends(np.ones((30, w), np.float32))
-    assert np.ptp(alike) <= 1  # moving alike, its streaks end in a line...
-    assert np.std(torn) > 0.03 * d and len(set(torn.tolist())) > 8  # ... torn, each its own length (a comb)
-    assert sheet is not None and np.percentile(sheet[..., 0], 90) > 0.6  # and it sweeps a sheet that shifts the plate
-    assert np.abs(sheet[..., 1:]).max() <= water.SHEET[1]
+    assert np.ptp(alike) <= 1  # moving alike, its streams end in a line...
+    assert np.std(torn) > 0.03 * d  # ... torn, each its own length...
+    assert np.abs(np.diff(torn)).mean() < 0.15 * np.std(torn)  # ... neighbours alike: a ragged curve (each streak its
+    # own length, a row of teeth)
+    on = sheet[..., 0] > 0.5
+    assert sheet is not None and on.mean() > 0.5  # and it sweeps a sheet, as thick as the water that passed
+    assert abs(np.median(sheet[..., 1][on]) - 6.0) < 0.1
+
+
+def test_the_sheet_a_lash_sweeps_bends_what_is_behind_it_and_catches_the_light_along_its_edges():
+    sheet = np.zeros((120, 120, 2), np.float32)
+    sheet[20:100, 20:100] = (0.85, 8.0)
+    layer = water.Layer((40, 160, 40, 160), np.zeros((120, 120, 3), np.float32), np.zeros((120, 120), np.float32),
+                        np.zeros((120, 120), np.float32), np.zeros((120, 120), np.float32),
+                        np.zeros((120, 120), np.float32), sheet)
+    matte = np.zeros((200, 200), np.uint8)
+    matte[:, 100:] = 255  # the hand behind its right half
+    room = water.Room(np.full((1, 200, 200, 3), 160, np.uint8))
+
+    def change(plate):
+        P = lin(plate)
+        Q = P.copy()
+        water._sheet(Q, layer, matte, room, water.Noise(0), 0)
+        return np.abs(Q - P).max(-1)
+
+    dark = change(np.full((200, 200, 3), 20, np.uint8))
+    assert dark[:40].max() == 0 and dark[:, :40].max() == 0  # nothing off it
+    assert dark[62:140, 60:64].mean() > 3.0 * dark[90:110, 76:84].mean()  # its edges catch the light, its body clear
+    assert dark[62:140, 136:140].mean() < 0.6 * dark[62:140, 60:64].mean()  # over the hand less: the skin keeps its
+    # colour
+    barred = np.full((200, 200, 3), 20, np.uint8)
+    barred[:, ::8] = 200
+    bent = change(barred)
+    assert bent[62:140, 62:72].mean() > 3.0 * dark[62:140, 62:72].mean()  # and it bends what is behind it
 
 
 def test_the_held_orbs_highlight_is_a_window_that_holds_its_shape():
@@ -600,10 +677,12 @@ def test_the_light_the_orb_focuses_wobbles_with_it_in_the_net_its_moving_surface
 
     plate = wall(1)
     noise = water.Noise(0)
-    fld = water.Field([water.Blob(80.0, 80.0, 0.0, R)], H, W)
-    layer = water.shade(fld, water.Scene(), 0, _hand_at(-2.0 * S), water.Room(plate), noise,
-                        water._pyramid(lin(plate[0])), None, 0.0, 0)
-    rays = [water._rays(layer, 80.0, 80.0, R, dh, L, noise, k, S) for k in (0, 1)]
+    rays = []
+    for k, ph in ((0, 0.0), (1, 0.6)):  # its wobble turning from frame to frame
+        fld = water.Field([water.Blob(80.0, 80.0, 0.0, R, modes=((3, 0.03, ph),))], H, W)
+        layer = water.shade(fld, water.Scene(), k, _hand_at(-2.0 * S, 2), water.Room(np.repeat(plate, 2, 0)), noise,
+                            water._pyramid(lin(plate[0])), None, 0.0, 0)
+        rays.append(water._rays(layer, 80.0, 80.0, R, dh, L, noise, k, S))
     nets = [water._spot(80, 80, q, 0, 0, 80.0, 80.0, R, dh, L, (), r)[1] for r in rays]
     assert nets[0].shape == (80 * q, 80 * q)  # at the picture's px
     c = nets[0][full(core)]
