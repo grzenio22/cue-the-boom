@@ -171,25 +171,40 @@ def test_a_thrown_orb_flies_into_the_room_and_bursts_on_its_wall_where_the_water
     r = np.array([q.r for q in sheets])
     assert r[0] > 1.2 * ball[-1].r and np.all(np.diff(r) >= 0) and r[8] > 1.25 * r[0]  # it lands squashed and
     # spreads over the wall...
+    assert r[0] < 0.7 * r[2] and r[1] > 0.8 * r[2]  # ... growing over its first frames, not there whole in one
+    fa = -0.5 * math.pi  # thrown up: it lies drawn out up and down, its middle moving on up
+    stretch = [(a, ph) for l, a, ph in sheets[-1].wobble if l == 2]
+    assert stretch and stretch[0][0] >= 0.15 and math.cos(stretch[0][1] - 2.0 * fa) > 0.99
+    assert sheets[-1].y < sheets[0].y - 0.05 * r[-1]
     look, wet = np.array([q.look for q in sheets]), np.array([q.wet for q in sheets])
     assert look[0] == 1.0 and look[-1] == 0.0 and np.abs(np.diff(look)).max() < 0.4  # ... draining over frames...
     assert np.all(np.diff(wet) >= 0) and 0.0 < wet[0] <= 0.5 and wet[-1] == 1.0  # ... into the wet patch it leaves
     froth = np.array([q.froth for q in sheets])
-    assert sheets[0].dome == 1.0 and froth[0] > 0.4  # it lands as a churned body...
-    assert froth[1] <= 0.3 * froth[0] and froth[2] == 0.0  # ... whose froth is gone in two frames (a milky fog)
+    assert sheets[0].dome == 1.0 and 0.0 < froth[0] <= 0.35  # it lands flashing white for a moment...
+    assert froth[1] <= 0.3 * froth[0] and froth[2] == 0.0  # ... gone in two frames (a milky core, a cotton ball)
     sag = np.array([q.sag for q in sheets])
     assert sag[0] == 0.0 and sag[-1] == 1.0 and np.all(np.diff(sag) >= 0)  # the patch's lower edge runs down...
     assert sheets[-1].runs and all(math.sin(a) > 0.2 for a, _, _ in sheets[-1].runs)  # ... in runs along its bottom
     fingers = sheets[water.FINGER_DRAIN[0]].fingers  # at their longest
     lengths = np.array([ln for _, ln, _, _ in fingers])
-    down = np.array([math.sin(a) > -0.3 for a, *_ in fingers])
-    assert len(fingers) >= water.WALL_FINGERS[0] and (lengths[down] >= 0.25).sum() >= 2  # jets long enough to see,
-    # down and out sideways (most too short to see, the splash was a disc)...
-    assert lengths.max() > 2.0 * lengths.min()  # ... of different lengths (alike, a starburst)...
-    assert all(ln <= water.FINGER_UP + 1e-9 for a, ln, _, _ in fingers if -math.sin(a) > 0.99)  # ... none far up...
+    along = np.array([math.cos(a - fa) for a, *_ in fingers])
+    assert len(fingers) >= water.WALL_FINGERS[0] and along.mean() > 0.3  # tongues flung out round it, mostly the way
+    # it was thrown (mostly down whatever the throw, a jellyfish's legs)...
+    assert along[np.argmax(lengths)] > 0.5 and lengths.max() > 2.0 * lengths.min()  # ... the longest that way, of
+    # different lengths (alike, a starburst)...
+    across = np.abs(along) < 0.3
+    assert np.all(lengths[across] <= 0.5 * lengths.max())  # ... short across it (long out to the sides, arms)...
     assert all(water.FINGER_BEAD[0] <= bd <= water.FINGER_BEAD[1] for *_, bd in fingers)  # ... each ending in a bead
     assert all(ln <= water.FINGER_DRAIN[1] + 1e-6 for _, ln, _, _ in sheets[-1].fingers)  # ... and drained into it, so
     # no one finger is left long on the stain (a trunk)
+    trails = [[it for it in sc[j].film if isinstance(it, water.Trail)] for j in range(k, n)]
+    assert not any(trails[:water.WALL_DRIPS[4]])  # nothing runs down it in the first frames (legs one frame on)...
+    ball_r = sheets[-1].r / (water.WALL_SPREAD[1] * (1.0 + water.WALL_SOAK[0]))
+    drips = [[t for t in ts if t.r > 0.11 * ball_r] for ts in trails]
+    first = [next(j for j, ts in enumerate(drips) if len(ts) > i) for i in range(len(drips[-1]))]
+    assert len(first) >= 2 and np.diff(first).min() >= water.WALL_DRIPS[5][0] - 1  # ... then drips, one after another
+    runs = sorted(t.y1 - t.y0 for t in drips[-1])
+    assert np.diff(runs).min() > 1.0  # ... each its own length (all at once, as long, a row of legs)
     beads = [[it for it in sc[j].film if isinstance(it, water.Bead)] for j in range(k, n)]
     rb = np.array([b.r for b in beads[3]])
     assert len(rb) > 10 and rb.max() > 2.5 * np.percentile(rb, 10)  # drops of many sizes lie on the wall round it
@@ -384,8 +399,10 @@ def test_the_stream_fades_where_it_hangs_off_the_hand_but_not_while_it_lashes():
     p = np.array(track["xy"][25])
     tube = [b for b in sc[25].blobs if b.stream and b.w < 1.0]
     off = [b.seen for b in tube if np.hypot(b.x - p[0], b.y - p[1]) > water.OFF_HAND[1][1] * S]
-    on = [b.seen for b in tube if np.hypot(b.x - p[0], b.y - p[1]) < water.OFF_HAND[1][0] * S]
+    on = [b.seen for b in tube if np.hypot(b.x - p[0], b.y - p[1]) < water.OFF_HAND[1][0] * S and b.z > 0.0]
+    behind = [b.seen for b in tube if b.z < -1.5 * b.r]  # (the palm's plane is at depth 0)
     assert off and on and max(off) < 0.5 and min(on) == 1.0  # off the hand, faint (a handle, a bangle)...
+    assert behind and max(behind) < 0.5  # ... and swung round behind it (seen beside it, a ring round the fingers)...
     lash = [b.seen for b in sc[32].blobs if b.stream and b.w < 1.0]
     assert min(lash) > 0.9  # ... flung out, whole
 
