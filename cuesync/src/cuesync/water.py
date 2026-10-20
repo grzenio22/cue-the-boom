@@ -424,9 +424,10 @@ WHIP_POOL_PARTS = (3, (0.45, 0.8), (0.45, 0.7), 0.12)  # an irregular puddle: th
 WHIP_FLARE = (0.35, 0.1)  # the stream flares out this much wider where it leaves the pool, narrowing over this share
 # of its length
 WHIP_WET = 1.3  # the palm round the pool is wet this far out (of the pool's radius)
-WHIP_TRAIL = (0.15, 4, 2, 0.03, 1.5, 0.05, 0.7)  # where the stream lies on the palm it wets the skin round it: how
+WHIP_TRAIL = (0.15, 4, 1, 0.03, 1.5, 0.05, 0.7)  # where the stream lies on the palm it wets the skin round it: how
 # much darker at first, drying over this many frames (left for a second where the stream had swirled past, a string of
-# dark spots), marked every this many frames at points this far apart along it (hand sizes: further apart, beads),
+# dark spots), marked every this many frames (every other one, the palm flickered frame to frame) at points this far
+# apart along it (hand sizes: further apart, beads),
 # wet this many of its radii out and this many hand sizes besides, feathered over this share of that (a clear stream
 # with nothing round it on the skin was a glass snake)
 WHIP_LIFT = 0.06  # hand sizes it starts over the palm
