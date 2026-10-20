@@ -391,6 +391,7 @@ def composite_frame(
     occluder: np.ndarray | None = None,
     lift: bool = False,
     light_matte: np.ndarray | None = None,
+    thin_soot: bool = False,
 ) -> np.ndarray:
     """Composite one element frame (already at plate size) onto one plate frame.
 
@@ -399,6 +400,8 @@ def composite_frame(
     ``fire_energy_ref`` normalises the light the fire casts (the element's brightest fire frame).
     ``ambient``: the room light (ambient_map); ``env_rgb`` (a flat colour) stands in when it is missing.
     ``lift``: a sustained flame going out (g_fire < 1) lifts off its base instead of dimming in place.
+    ``thin_soot``: its thin smoke is soot too, darkening what is behind it (by default thin smoke scatters light on,
+    which round a black cloud drew a pale halo on the wall).
     Only the element's bounding box plus a margin is processed for the element itself; the light pool may
     reach further.
     """
@@ -512,6 +515,8 @@ def composite_frame(
     thin_col = amb + key * c
     key_d = key * min(1.0, (smoke_albedo / 0.85) ** 1.5)  # soot shows little of the render's light-grey smoke
     dense_col = (1.0 - key_d) * smoke_albedo * amb * shade[..., None] + key_d * c
+    if thin_soot:
+        thin_col = dense_col
     smoke_col = thin_col + dens * (dense_col - thin_col)
     smoke_col = smoke_col + inside * (c - smoke_col)
     emit = emit + smoke_col * asm[..., None]

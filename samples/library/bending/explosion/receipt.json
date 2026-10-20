@@ -1,11 +1,22 @@
 {
  "cuesync": "0.1.0",
  "mode": "made-ahead",
- "effect": {"id": "explosion", "made": "explosion", "fluid": "fire", "behaviour": "burst"},
+ "effect": {
+  "id": "explosion",
+  "made": "explosion",
+  "fluid": "fire",
+  "behaviour": "burst"
+ },
  "render": {
-  "prompt": "ainvfxfluid, fireball explosion rolling into thick black smoke, isolated on a pure black background",
-  "model": "LTX-2.5 22B distilled (int8) + AInVFX/ainvfx-fluid IC-LoRA",
-  "size": [576, 1024],
+  "prompt": "ainvfxfluid, a huge fireball explosion, a white-hot flash bursting into a rolling ball of orange flame that turns into thick black smoke billowing upwards and slowly drifting, glowing embers inside the smoke, isolated on a pure black background",
+  "model": "LTX-2.5 22B (int8) + AInVFX/ainvfx-fluid IC-LoRA",
+  "size": [
+   1920,
+   1088
+  ],
+  "seed": 2,
+  "seconds": 83.5,
+  "guide": "a painted explosion: the blast at frame 17, its rolling ball, soot round its rim, a dark cloud with embers, rising and drifting",
   "note": "the fireball the explosion plays (cuesync.explosion measures its blast and radius on the render itself)"
  }
 }

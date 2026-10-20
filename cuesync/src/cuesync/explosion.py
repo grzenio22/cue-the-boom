@@ -34,13 +34,19 @@ FORMS = ("fist", "palm")  # a punch throws it ahead of the fist along the forear
 
 SIZE = 2.0  # the fireball's radius at its fullest, hand sizes (a "pf" plays it at HIT_SIZE's smallest)...
 MOST = 0.40  # ...and at most this share of the frame's short side
+CLOUD_MOST = 0.75  # its smoke at its widest (swollen) reaches at most this share of the short side from the blast
+# (a render's cloud grows to twice its ball and more: sized by its ball alone it buried the whole picture)
 THROW = (0.8, 2.5, 0.12)  # hands ahead of the fist it goes off: the strike's peak speed (px a second) over the hand times
 # the third, between the first two (a harder punch throws it further); without a measured strike, 1 hand
 PALM_THROW = 0.6  # a thrust palm's blast goes off this far past the palm's middle
 EDGE = 0.10  # it goes off at least this share of the frame inside its edges
+EDGE_FADE = 0.08  # share of the render's short side over which its own frame edges fade out
+BLAST_SHARE = 0.01  # the render's blast is its first frame lit over this share of its most lit frame's area
 GROW_FRAMES, BURST_SPEED = 8, 2.0  # the render's first frames of growth play this much faster (a blast is quick)
-SWELL, RISE = (0.35, 10.0), 0.5  # after its burst the ball swells by this share and lifts this many hands, both
+SWELL, RISE = (0.15, 10.0), 0.5  # after its burst the ball swells by this share and lifts this many hands, both
 # over about SWELL[1] frames (the render's ball hung where it went off; its smoke then rises on its own)
+CLEAR = (40, 45)  # frames after the blast its smoke starts to clear, and how long it takes, thinnest first (a
+# room-filling soot that never cleared held a flat dark sheet over the room to the end of the shot)
 
 CORE = {0: 1.0, 1: 0.5, 2: 0.15}  # the white-hot core's strength on the strike frame and after
 FLASH = {0: 0.45, 1: 0.25, 2: 0.1, 3: 0.03, 4: -0.05}  # exposure, stops: the flash, and the iris overshooting after
@@ -56,6 +62,10 @@ GRADE = 0.6  # how far the fire's colour goes onto a camera's fire colours for i
 DEFOCUS_PX = 1.2  # px at 1080: the blast is further away than the fist the phone focused on
 SOOT_ALBEDO = 0.25  # its smoke is black: it takes this share of the room's light
 SOOT_FILL = 0.13  # display level (black taken off) the cloud's darkest folds are raised to inside its silhouette
+BILLOW = (0.55, 1.5, 0.4)  # the render's own light and shade on its billows, put back on the filled cloud: its
+# smoke's luma over their median to this power, in [lo, hi] (a dim cloud filled to one grey read as a flat dark disc;
+# clipped hard, its folds read as a camouflage print)
+BILLOW_IN = 0.02  # share of the short side: kept this far inside the cloud's outline (its thin rim is the room's)
 SOOT_CLOSE = 0.03  # share of the short side: gaps narrower than this inside the cloud are closed before it is filled
 PARAMS = dataclasses.replace(  # composite.composite_frame's for a fireball rolling into black smoke (its light is ours)
     C.CompositeParams(), light_gain=0.0, fire_gain=0.75, shading_lo=0.5, shading_hi=1.35, interior_blur_frac=0.04,
@@ -107,7 +117,8 @@ def render_blast(element: np.ndarray, floor: int) -> tuple[int, np.ndarray, floa
     measured, so any render of a fireball can play (its blast is not always where its guide put it)."""
     lit = element[:, ::4, ::4].max(-1).astype(np.int16) > floor + 24
     counts = lit.reshape(len(element), -1).sum(1)
-    on = np.nonzero(counts >= 4)[0]
+    # (a spark held where the blast will be before it goes off is not the blast: a render can hold one for frames)
+    on = np.nonzero(counts >= max(4, BLAST_SHARE * counts.max()))[0]
     if on.size == 0:
         raise ValueError("the explosion's render shows no blast")
     k = int(on[0])
@@ -115,6 +126,34 @@ def render_blast(element: np.ndarray, floor: int) -> tuple[int, np.ndarray, floa
     centre = np.array([4.0 * xs.mean(), 4.0 * ys.mean()])
     r8 = 4.0 * math.sqrt(float(counts[min(k + GROW_FRAMES, len(element) - 1)]) / math.pi)
     return k, centre, max(r8, 8.0)
+
+
+def render_reach(element: np.ndarray, floor: int, centre: np.ndarray, start: int) -> float:
+    """How far from ``centre`` the render's fire and smoke reach at their widest from frame ``start`` on (px; the
+    98th percentile of its lit pixels' distances, so a stray wisp does not count)."""
+    h, w = element.shape[1:3]
+    yy, xx = np.mgrid[:h:4, :w:4]
+    d = np.hypot(xx - centre[0], yy - centre[1])
+    reach = 0.0
+    for t in range(start, len(element), 4):
+        lit = element[t, ::4, ::4].max(-1).astype(np.int16) > floor + 6
+        if lit.sum() > 20:
+            reach = max(reach, float(np.percentile(d[lit], 98)))
+    return reach
+
+
+def soot_shading_ref(element: np.ndarray, floor: int, start: int) -> float:
+    """The median linear luma of the render's smoke (not its fire) from frame ``start`` on: its billows are lit and
+    shadowed round this. (composite.smoke_shading_ref measures only smoke the render draws bright, and a black cloud
+    is dim all through: its every billow sat at the bottom of the shading's range, a flat dark disc.)"""
+    vals = []
+    for f in element[start::max(1, (len(element) - start) // 12), ::4, ::4]:
+        e = C._black_floor_f(f, floor)
+        y = e @ C._LUMA
+        m = (y > 0.04) & (C.fire_weight_map(e, PARAMS, f.shape[1], True) < 0.1)
+        if m.sum() > 50:
+            vals.append(C._lin(e[m]) @ C._LUMA)
+    return float(np.median(np.concatenate(vals))) if vals else 0.25
 
 
 def room_point(cam, k0: int, t: int, p) -> np.ndarray:
@@ -247,16 +286,16 @@ class Particles:
 
 
 # ------------------------------------------------------------------ the render, made ready
-def fill_soot(E8: np.ndarray, floor: int, box) -> np.ndarray:
+def fill_soot(E8: np.ndarray, floor: int, box) -> tuple[np.ndarray, np.ndarray | None]:
     """The render with its cloud's darkest folds read as dense soot, not holes: over black the self-shadowed underside
     of a black cloud renders black, and composited it let the wall through as pale patches. Inside the cloud's filled
-    silhouette nothing is darker than SOOT_FILL; the silhouette's edge stays soft."""
+    silhouette nothing is darker than SOOT_FILL; the silhouette's edge stays soft. Also the silhouette (over ``box``)."""
     y0, y1, x0, x1 = box
     part = E8[y0:y1, x0:x1]
     y = part.max(-1).astype(np.float32) - floor
     body = float(np.percentile(y[y > 4], 90)) if (y > 4).sum() > 100 else 0.0
     if body <= 0:
-        return E8
+        return E8, None
     lit = (y > max(10.0, 0.3 * body)).astype(np.uint8)  # the cloud's body, not the render's faint haze round it
     k = max(3, int(SOOT_CLOSE * min(E8.shape[:2])) | 1)
     closed = cv2.morphologyEx(lit, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
@@ -269,7 +308,18 @@ def fill_soot(E8: np.ndarray, floor: int, box) -> np.ndarray:
     lift = np.maximum(0.85 * around, floor + SOOT_FILL * (255 - floor)) * sil[..., None]  # round it: billows kept
     out = E8.copy()
     out[y0:y1, x0:x1] = np.maximum(part.astype(np.float32), lift).astype(np.uint8)
-    return out
+    return out, sil
+
+
+def soot_billows(E8: np.ndarray, floor: int, box, ref: float) -> np.ndarray:
+    """Over ``box``: the render's own shading of its smoke (before fill_soot) as a factor less one, round ``ref`` (its
+    smoke's median linear luma) in BILLOW's range; nothing where it is fire."""
+    y0, y1, x0, x1 = box
+    e = C._black_floor_f(E8[y0:y1, x0:x1], floor)
+    yl = cv2.GaussianBlur((C._lin(e) @ C._LUMA).astype(np.float32), (0, 0), 1.0)
+    shade = np.clip((yl / max(ref, 1e-4)) ** BILLOW[2], BILLOW[0], BILLOW[1])
+    fire = np.clip(C.fire_weight_map(e, PARAMS, E8.shape[1], True), 0.0, 1.0)
+    return ((shade - 1.0) * (1.0 - fire)).astype(np.float32)
 
 
 def radial_blur(E8: np.ndarray, centre, amount: float, steps: int = 7) -> np.ndarray:
@@ -350,11 +400,19 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
     cam = timeline.camera
     el = library_element() if element is None else element
     floor = C.estimate_black_level(el)
+    from .bending import border_fade
+
+    # the render's own frame edges fade out (its smoke rising past the top of the render drew a straight cut across
+    # the room once carried there)
+    edge = border_fade(el.shape[1], el.shape[2], EDGE_FADE)[..., None]
+    el = (floor + (el.astype(np.float32) - floor) * edge).clip(0, 255).astype(np.uint8)
     e_ign, el_centre, el_r8 = render_blast(el, floor)
     R = min(SIZE * s * size, MOST * side)
-    k_el = R / el_r8
+    k_el = min(R / el_r8, CLOUD_MOST * side / max(render_reach(el, floor, el_centre, e_ign) * (1 + SWELL[0]), 1.0))
+    R = k_el * el_r8
     smoke_ref = C.smoke_reference_luma(el, PARAMS, floor, True)
     shading_ref = C.smoke_shading_ref(el, PARAMS, floor, True, smoke_ref)
+    billow_ref = soot_shading_ref(el, floor, e_ign + 3 * GROW_FRAMES)
     env_rgb = C.environment_colour(plate[0], el, floor, PARAMS)
     amb = C.ambient_map(plate[k0], PARAMS)
     plate_key = float((plate[k0, ::8, ::8].astype(np.float32) / 255.0 @ C._LUMA).mean())
@@ -393,7 +451,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         m = np.minimum(m, cv2.GaussianBlur(m, (0, 0), 1.5))
         o_t = room_point(cam, k0, t, origin)
         E8 = element_on(t)
-        box = None
+        box = billow = None
         if E8 is not None:
             E8 = radial_blur(E8, o_t, GROW_BLUR.get(since, 0.0))
             E8 = cv2.GaussianBlur(E8, (0, 0), DEFOCUS_PX * side / 1080)
@@ -401,7 +459,14 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             if ys_.size:
                 box = (max(0, 4 * ys_.min() - 24), min(h, 4 * ys_.max() + 24), max(0, 4 * xs_.min() - 24),
                        min(w, 4 * xs_.max() + 24))
-                E8 = fill_soot(E8, floor, box)
+                billow = soot_billows(E8, floor, box, billow_ref)
+                E8, sil = fill_soot(E8, floor, box)
+                if sil is not None:
+                    r_in = max(3, int(BILLOW_IN * side) | 1)
+                    inner = cv2.erode(sil, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_in, r_in)))
+                    billow = billow * cv2.GaussianBlur(inner, (0, 0), r_in / 2)
+                else:
+                    billow = None
         # the blast's light on the room and the arm: from the render's fire, and the white-hot core on its first frames
         fire_small = None
         if E8 is not None:
@@ -428,10 +493,16 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             comp = C.composite_frame(gam(P), E8, PARAMS, holdout_row=None, emission=tuple(o_t), fire_energy_ref=None,
                                      plate_key=plate_key, grain_sigma=1.5, black_floor=floor, fire_effect=True,
                                      dense_smoke=True, smoke_ref=smoke_ref, env_rgb=env_rgb, seed=seed + t,
-                                     ambient=amb, shading_ref=shading_ref, smoke_albedo=SOOT_ALBEDO)
+                                     ambient=amb, shading_ref=shading_ref, smoke_albedo=SOOT_ALBEDO,
+                                     g_smoke=1.0 - _ease((since - CLEAR[0]) / CLEAR[1]), thin_soot=True)
             Q = lin(comp)
             if box is not None:
                 Q = fire_grade(Q, E8, floor, box)
+            if billow is not None:  # (as the smoke clears, its billows go with it)
+                y0, y1, x0, x1 = box
+                lit = Q[y0:y1, x0:x1] * (1.0 + (1.0 - _ease((since - CLEAR[0]) / CLEAR[1])) * billow)[..., None]
+                Q[y0:y1, x0:x1] = np.minimum(lit, np.maximum(Q[y0:y1, x0:x1], P[y0:y1, x0:x1]))  # (soot is never
+                # lit brighter than the room behind it)
             P = Q * (1 - m[..., None]) + P * m[..., None]
             if since >= 1:  # the hot air round and above the fireball shimmers
                 hot = np.clip(fx._lum(lin(cv2.resize(E8, (w // 4, h // 4), interpolation=cv2.INTER_AREA))) * 4.0, 0, 1)
@@ -474,6 +545,11 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             Mz = cv2.getRotationMatrix2D((float(o_t[0]), float(o_t[1])), 0.0, 1.0 + z)
             out[t] = cv2.warpAffine(out[t], Mz, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
     return out
+
+
+def _ease(u: float) -> float:
+    u = min(1.0, max(0.0, u))
+    return u * u * (3 - 2 * u)
 
 
 def _between(cam, a: int, b: int) -> np.ndarray:

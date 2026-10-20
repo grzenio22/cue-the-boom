@@ -34,8 +34,10 @@ def test_the_renders_blast_is_measured_not_assumed():
         yy, xx = np.mgrid[:120, :160]
         el[k][(xx - 100) ** 2 + (yy - 40) ** 2 <= r * r] = 220
     k, centre, r8 = X.render_blast(el, 5)
-    assert k == 11 and np.allclose(centre, (100, 40), atol=4)  # (frame 10: a speck too small to count)
+    assert k == 12 and np.allclose(centre, (100, 40), atol=4)  # (frames 10, 11: specks too small to count)
     assert abs(r8 - (2 + 3 * (k + X.GROW_FRAMES - 10))) < 4  # its radius GROW_FRAMES after it shows
+    el[:10, 36:44, 96:104] = 240  # a spark the render holds where the blast will be, before it goes off
+    assert X.render_blast(el, 5)[0] == k  # (measured from it, the ball played at 8 times its size)
 
 
 def test_an_explosion_goes_off_on_its_hit_and_not_before():
