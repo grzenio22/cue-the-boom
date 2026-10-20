@@ -77,11 +77,166 @@ def test_a_stationary_final_hit_does_not_send_water_up_the_wall():
     assert any(len(s.blobs) > 30 for s in sc[44:56])  # the cue still makes a local splash
 
 
+def test_a_stationary_final_hit_keeps_a_spreading_sheet_on_the_palm_over_several_frames():
+    n, release = 130, 44
+    hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
+    consecutive = longest = 0
+    for k in range(release, release + 30):
+        on_palm = [b for b in sc[k].blobs if not b.free and b.flat < 0.5 and b.r > 0.2 * S
+                   and np.linalg.norm(np.array([b.x, b.y]) - hand.p[k]) < 0.35 * S]
+        consecutive = consecutive + 1 if on_palm else 0
+        longest = max(longest, consecutive)
+    assert longest >= 10  # the volume spreads and drains visibly instead of disappearing after one splash frame
+
+
+def test_a_stationary_final_hit_slumps_the_body_before_it_becomes_a_flat_sheet():
+    n, release = 100, 44
+    hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
+    body = []
+    for k in range(release, release + 8):
+        connected = [b for b in sc[k].blobs if not b.free and b.r > 0.2 * S]
+        if connected:
+            b = max(connected, key=lambda b: b.r * b.flat)
+            height = hand.p[k, 1] - b.y + b.r * np.linalg.norm(np.reshape(b.shape, (2, 2))[1])
+            body.append((height, b.r * b.flat))
+    assert len(body) >= 6  # several connected intermediate shapes bridge the sphere to the palm sheet
+    heights, thickness = np.asarray(body).T
+    assert np.count_nonzero(np.abs(np.diff(heights)) > 0.015 * S) >= 3
+    assert heights[-1] < heights[0] - 0.15 * S and thickness[-1] < 0.55 * thickness[0]
+
+
+def test_airborne_palm_spray_does_not_follow_a_later_hand_translation():
+    n, release = 90, 44
+    jump = release + 8
+    tl = voice(n, hum=(4, 40), hits=((release, 1.0),))
+    stationary = track_of(n)
+    moving = track_of(n, xy=lambda k: (64.0 + (S if k >= jump else 0.0), 130.0))
+    _, a = scenes("orb", tl, stationary)
+    _, b = scenes("orb", tl, moving)
+
+    def airborne(sc):
+        return sorted([drop for drop in sc[jump].blobs if drop.free and drop.flat == 1.0
+                       and 0.024 * S <= drop.r <= 0.041 * S], key=lambda drop: drop.r)
+
+    before, after = airborne(a), airborne(b)
+    assert before and len(before) == len(after)
+    assert np.allclose([drop.x for drop in before], [drop.x for drop in after], atol=1e-6)
+
+
+def test_a_quiet_final_hit_sends_palm_spray_less_high_than_a_strong_hit():
+    n, release = 90, 44
+    track = track_of(n)
+    heights = []
+    for strength in (0.2, 1.0):
+        tl = voice(n, hum=(4, 40), hits=((release, strength),))
+        hand, sc = scenes("orb", tl, track)
+        assert water.orb_plan(tl, track).release == release
+        spray = [b for b in sc[release + 12].blobs if b.free and b.flat == 1.0
+                 and 0.024 * S <= b.r <= 0.041 * S]
+        assert spray
+        heights.append(max(hand.p[release + 12, 1] - b.y for b in spray))
+    assert heights[0] + 0.04 * S < heights[1] < 2.0 * heights[0]
+
+
+def test_the_held_orb_continuously_grows_attached_lobes_and_releases_small_drops():
+    n = 100
+    _, sc = scenes("orb", voice(n, hum=(4, 90), hits=()), track_of(n))
+    lobed, detached = [], []
+    for k in range(20, 70):
+        orb = max(sc[k].blobs, key=lambda b: b.r)
+        beyond = lambda b: math.hypot(b.x - orb.x, b.y - orb.y)
+        fld = water.Field(sc[k].blobs, H, W)
+        y0, y1, x0, x1 = fld.box
+        yy, xx = np.mgrid[y0:y1, x0:x1]
+        connected = fld.f - fld.fm > water.TAU
+        lobed.append(bool(np.any(connected & (np.hypot(xx - orb.x, yy - orb.y) > 1.18 * orb.r))))
+        detached.append(any(b.free and b.r < 0.4 * orb.r and beyond(b) > 1.1 * orb.r for b in sc[k].blobs))
+    assert sum(lobed) >= 25  # outward moving volumes change the boundary throughout the hold, beyond rounded wobble
+    assert sum(detached) >= 4  # necks release water into separate falling drops
+
+
+def test_a_broad_attached_fold_keeps_the_optical_depth_of_the_connected_water():
+    n, k = 80, 23
+    _, sc = scenes("orb", voice(n, hum=(4, 78), hits=()), track_of(n), seed=1)
+    orb = max(sc[k].blobs, key=lambda b: b.r)
+    fld = water.Field(sc[k].blobs, H, W)
+    y0, y1, x0, x1 = fld.box
+    yy, xx = np.mgrid[y0:y1, x0:x1]
+    outer = ((fld.f - fld.fm > water.TAU) & (fld.fm < 0.05)
+             & (np.hypot(xx - orb.x, yy - orb.y) > 1.1 * orb.r))
+    assert outer.any()
+    optical_radius = np.sqrt(fld.s2[outer]) / water.SIG_K
+    assert np.median(optical_radius) > 0.5 * orb.r  # the flowing boundary shares the connected body's optical depth
+
+
+def test_the_local_collapse_wets_the_palm_progressively_then_the_palm_dries():
+    n, release = 140, 44
+    _, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
+    wet = np.array([max((w[5] for w in s.wet if w[2] > 0.2 * S), default=0.0) for s in sc])
+    assert wet[:release].max() == 0.0  # occasional drips do not count as the broad wet palm
+    peak = release + int(np.argmax(wet[release:release + 30]))
+    assert peak >= release + 4 and wet[peak] > 2.0 * wet[release + 1]
+    assert wet[release + 75] < 0.4 * wet[peak]  # a brief glistening palm visibly dries after the water runs away
+
+
+def test_a_cue_on_the_first_frame_can_release_water_without_a_prior_held_pose():
+    n = 3
+    tl, track = voice(n, hum=(0, 1), hits=((0, 1.0),)), track_of(n)
+    _, sc = scenes("orb", tl, track)
+    assert water.orb_plan(tl, track).release == 0
+    assert len(sc) == n and all(s.blobs for s in sc)
+
+
+def test_a_wet_skin_coat_alone_glints_only_inside_the_hand_and_loses_gloss_as_it_dries():
+    plate, track = wall(1), track_of(1)
+    matte = matte_of(track)[0]
+    p = np.asarray(track["xy"])
+    room = water.Room(plate)
+    normal = water._unit(room.key(0, p[0]) + np.array([0.0, 0.0, 1.0]))
+    hand = water.Hand(p, normal[None], np.array([[0.0, -1.0, 0.0]]), np.array([S]),
+                      np.zeros((1, 3)), None)
+
+    def draw(wet):
+        return water.frame(0, plate[0], matte, water.Scene(coat=(*p[0], 0.7 * S, wet, 0.3)), hand, room,
+                           water.Noise(4), 0.0, 4)
+
+    full, drying = draw(1.0), draw(0.15)
+    delta = full.astype(float) - plate[0]
+    assert np.count_nonzero(delta.max(-1) > 1) > 20  # a skin film catches a visible, uneven reflection of the key
+    assert np.std(delta[matte > 0]) > 0.1 * delta[matte > 0].mean()
+    assert np.array_equal(full[matte == 0], plate[0][matte == 0])
+    assert np.array_equal(full, draw(1.0))
+    assert 0.0 < (drying.astype(float) - plate[0]).sum() < 0.4 * delta.sum()
+
+
+def test_the_post_collapse_palm_reflects_the_light_beyond_plain_wet_skin():
+    n, release = 120, 44
+    track, plate = track_of(n), wall(n)
+    matte = matte_of(track)
+    room = water.Room(plate)
+    normal = water._unit(room.key(0, track["xy"][0]) + np.array([0.0, 0.0, 1.0]))
+    hand = water.Hand(np.asarray(track["xy"]), np.repeat(normal[None], n, 0),
+                      np.tile([0.0, -1.0, 0.0], (n, 1)), np.full(n, S), np.zeros((n, 3)), None)
+    tl = voice(n, hum=(4, 40), hits=((release, 1.0),))
+    sc = water.orb_scenes(tl, track, hand, (H, W), 4, None)
+    responses = []
+    for k in (release + 23, release + 60):
+        assert sc[k].coat is not None
+        plain = water.Scene(wet=sc[k].wet, band=sc[k].band)
+        glossy = water.Scene(wet=sc[k].wet, band=sc[k].band, coat=sc[k].coat)
+        a, b = [water.frame(k, plate[k], matte[k], scene, hand, room, water.Noise(4), 0.0, 4)
+                for scene in (plain, glossy)]
+        delta = b.astype(float) - a
+        assert np.array_equal(b[matte[k] == 0], plate[k][matte[k] == 0])
+        responses.append(delta.sum())
+    assert responses[0] > 20 and 0.0 <= responses[1] < 0.4 * responses[0]
+
+
 def test_settled_palm_beads_drain_and_shrink_instead_of_freezing_as_glitter():
     n = 130
     track = track_of(n)
     _, sc = scenes("orb", voice(n, hum=(4, 40), hits=((44, 1.0),)), track)
-    beads = lambda k: [b for b in sc[k].blobs if b.flat < 1.0 and b.r < 0.08 * S]
+    beads = lambda k: [b for b in sc[k].blobs if b.free and b.flat < 1.0 and b.r < 0.08 * S]
     early, late = beads(60), beads(100)
     assert early and late and len(early) == len(late)
     assert all(b.glint <= 0.4 for b in early)
@@ -92,7 +247,11 @@ def test_settled_palm_beads_drain_and_shrink_instead_of_freezing_as_glitter():
 def test_the_flat_splash_is_on_the_palm_not_at_the_spheres_centre():
     n = 70
     hand, sc = scenes("orb", voice(n, hum=(4, 30), hits=()), track_of(n))
-    flat = [(k, b) for k in range(36, 50) for b in sc[k].blobs if b.flat < 0.5 and b.r > 0.3 * S]
+    flat = []
+    for k in range(36, 50):
+        sheets = [b for b in sc[k].blobs if not b.free and b.flat < 0.15 and b.r > 0.3 * S]
+        if sheets:
+            flat.append((k, max(sheets, key=lambda b: b.r)))  # the central sheet; its tongues run beyond the palm
     assert flat
     assert all(np.linalg.norm(np.array([b.x, b.y]) - hand.p[k]) < 0.15 * S for k, b in flat)
 
@@ -414,7 +573,7 @@ def test_a_thrown_orb_stays_clear_smeared_along_its_flight_and_trails_drops():
 
 def test_the_palm_where_the_orb_sat_is_left_wet_with_drops_on_it():
     n = 70
-    track = track_of(n)
+    track = thrust_track(n)
     hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((40, 1.0),), aim=90.0), track)
     p = np.array(track["xy"][50])
     wet = [w for w in sc[50].wet if w[5] > 0.5 * water.PALM_WET[0]]
@@ -868,6 +1027,14 @@ def test_the_orb_lights_the_palm_under_it():
     off_orb = np.hypot(xx - x, yy - y) > 1.3 * r
     assert (on & off_orb).sum() > 50  # its focus and shade on the palm, outside the orb itself
     wall_far = (matte[k] == 0) & (np.hypot(xx - x, yy - y) > 2.0 * r)
+    for b in sc[k].blobs:
+        if b.free:
+            box = water.Field([b], H, W).box
+            if box is not None:
+                y0, y1, x0, x1 = box
+                pad = 3 + int(math.ceil(math.hypot(*b.move))) if b.move else 3
+                wall_far[max(0, y0 - pad):min(H, y1 + pad), max(0, x0 - pad):min(W, x1 + pad)] = False
+    # Detached water has its own image footprint; the orb's light still belongs only on the palm.
     assert np.array_equal(out[k][wall_far], plate[k][wall_far])  # and none on the wall off it
 
 
