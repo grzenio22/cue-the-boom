@@ -3,6 +3,14 @@
 The [README](README.md) is the short version. This is the long one: the pipeline step by step, the hand, the timing
 evaluation, setting the helpers up by hand, and the other routes (into the scene, element mode, ComfyUI).
 
+## Generation and performance
+
+Generation makes a stored element; performance gives it a new timeline. Near the top of the studio, **One render. Three performances.** uses `hand_palm__boom__fire_burst` and its two replays, `hand_palm__pfpfboom__again` and `hand_palm__pfx4__again`, in `samples/made_ahead/bending/`. The author's palm footage and one LTX-2.5 fire element stay the same. The three cues are their recorded **BOOM**, **pf, pf, BOOM** and **pf pf pf PF**.
+
+Both replay receipts name the base shot and record the same element SHA-256, `no_new_render: true` and `no_gpu: true`. The new voice determines the hit frames, size and held duration; tracking, masking, compositing and light run on the CPU. This is the separation described in demo v13: the generated effect becomes a reusable instrument.
+
+For hand effects, LTX-2.5 with ainvfx-fluid generates the fire and the explosion's fireball once over black. [`runner.py`](cuesync/src/cuesync/runner.py) loads the API workflow JSON, constructs the Comfy Python SDK workflow and sends it to the self-hosted Comfy API with `client.run`. Lightning, water and air are procedural CPU effects. The explosion reuses an LTX fireball; its blast, light, smoke compositing and dissipation are handled on the CPU.
+
 ## The pipeline
 
 ![How it was made](media/how-it-was-made.jpg)
@@ -57,7 +65,7 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
 
 ### Lightning, water, air and an explosion
 
-These four are made on the CPU, frame by frame, from the plate, the hand's track and matte, and the voice's timeline: each hit, how loud it is, and where the voice holds. None of them renders anything. Each module follows one contract ([`elements.py`](cuesync/src/cuesync/elements.py): `render(plate, track, mask, timeline, form, seed)`). A shot is deterministic per seed. At 1080x1920, lightning, water and air take under a second a frame and the explosion about 1.5 s. The noise picks two of them by itself ([`bending.bending_effect`](cuesync/src/cuesync/bending.py)):
+These four are composited on the CPU, frame by frame, from the plate, the hand's track and matte, and the voice's timeline: each hit, how loud it is, and where the voice holds. Lightning, water and air are entirely procedural. The explosion uses a stored LTX-2.5 fireball, with procedural blast, light and smoke handling; none of these CPU stages calls ComfyUI or generates a new model output. Each module follows one contract ([`elements.py`](cuesync/src/cuesync/elements.py): `render(plate, track, mask, timeline, form, seed)`). A shot is deterministic per seed. At 1080x1920, lightning, water and air take under a second a frame and the explosion about 1.5 s. The noise picks two of them by itself ([`bending.bending_effect`](cuesync/src/cuesync/bending.py)):
 - a voiced buzz, whose energy above 4 kHz makes up more than a third, is lightning;
 - a BOOM held unbroken for 0.4 s or more with a fist or a palm strike is an explosion.
 
@@ -80,6 +88,10 @@ The other two are picked in the studio. Each gets its own Foley ([`sfx_synth.py`
   - the camera's knock and zoom punch.
 
 The live preview draws lightning in the browser ([`lightning.ts`](web/lib/lightning.ts)); the other three are made only in the shot.
+
+The shipped gallery has five beyond-fire shots: `hand_fist__boooom__explosion`, `hand_point__zzzzz__lightning`, `hand_palm__zzzzz__lightning`, `hand_palm__zzzzz__lightning_ball` and `hand_open__shhhhh__water_orb`. Each uses the author's phone footage with a synthetic preset noise. Air is selectable in the studio but has no gallery shot.
+
+[`tools/demo/elements_card.py`](tools/demo/elements_card.py) makes the README's image from those directories' `final.mp4` files. It uses zero-based frames **46, 56, 49, 60 and 30**, respectively, selected around the receipts' hits and holds. The explosion is past hit 35; both lightning forms are within their held cues; the water orb is shown during hold 2–54, before its final hit at 43. The script only crops and resizes the frames, then adds cue labels. With PyAV and Pillow installed, run `python tools/demo/elements_card.py` from the repository root. It resolves sample paths relative to the script's location.
 
 **The path a judge's laptop takes, on nineteen phone takes.** Nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library.
 - Every one of the nineteen made a shot, in 32 to 100 s each on a desktop CPU.
@@ -204,6 +216,41 @@ cuesync retime --shot samples/made_ahead/scene/jackolantern_kitchen__ka-boom__fi
 
 **Element mode** (Advanced in the studio, `cuesync shot --instant`) is the no-GPU route for a scene: an effect rendered ahead of time, alone on black, composited onto the untouched plate in linear light ([`composite.py`](cuesync/src/cuesync/composite.py)). The object stays in front through a GrabCut matte ([`matte.py`](cuesync/src/cuesync/matte.py)), or SAM 2.1 in the ComfyUI node.
 
+## Models and licences
+
+The app uses open weights, self-hosted, with no partner nodes or closed APIs:
+
+- **LTX-2.5** 22B (int8), its video and audio VAEs, and its **Gemma 4 12B** text encoder (Lightricks; LTX-2.x Community License, Gemma terms).
+- **ainvfx-fluid** IC-LoRA (AInVFX, Adrien Toupet; LTX-2.x Community License).
+- **MediaPipe** gesture recognizer, hand landmarker and selfie segmenter (Google; Apache-2.0). The browser live preview also uses the landmarker.
+- **RTMPose**-m hand (OpenMMLab; Apache-2.0).
+- **SAM 2.1**-small (Meta; Apache-2.0).
+- Optional: LTX-2.5 IC-LoRA **Alpha-Gen** (Lightricks), a smoke-matte fallback.
+
+The demo's narration uses **Kokoro-82M** (Apache-2.0), a synthetic voice, separate from the app and from the author's performed cues. The studio's **pf, pf, BOOM** and **pf pf pf PF** samples are the author's recordings; the other preset noises are synthetic. [Model files, versions and revisions](build/model-files.md).
+
+## With a GPU
+
+Your own renders, for your hand's pose or into the scene, need ComfyUI with LTX-2.5 22B (int8) and ainvfx-fluid ([models](build/model-files.md); gated LTX-2.5 access on Hugging Face). A render fits a 32 GB card (about 3 minutes); on a rented RTX PRO 6000 (96 GB) it takes about a minute.
+
+- **Your own GPU:** run ComfyUI with this repository and ComfyUI-LTXVideo in `custom_nodes/` ([installation below](#in-comfyui)), run comfy-api-proxy in front of it, and point `COMFY_BASE_URL` at the proxy.
+- **A rented GPU:** [`infra/pod/`](infra/pod/README.md) creates, sets up and terminates a disposable Runpod pod (it needs `RUNPOD_API_KEY` and `HF_TOKEN`; the models live on a network volume, about 120 GB). A watchdog terminates the pod when it is idle.
+
+```bash
+python infra/pod/podctl.py volume create
+python infra/pod/podctl.py up
+python infra/pod/podctl.py setup
+python infra/pod/podctl.py sync
+python infra/pod/podctl.py tunnel
+```
+
+The first command runs once; run `tunnel` in another terminal. Then, with `COMFY_BASE_URL=http://127.0.0.1:8189` set:
+
+```bash
+pip install "./cuesync[server,comfy]"
+cuesync studio
+```
+
 ## In ComfyUI
 
 [`workflows/cue_the_boom_scene.json`](workflows/cue_the_boom_scene.json) (drag it onto the canvas) is the whole scene shot as one workflow: your cue and your plate go in, the finished shot comes out. [`cue_the_boom_scene.api.json`](workflows/cue_the_boom_scene.api.json) is the same graph for the API, and [`fluid_element.api.json`](workflows/fluid_element.api.json) renders a hand's element over black.
@@ -220,7 +267,7 @@ To try it on a sample, copy `samples/voices/fwoooom.wav` to `ComfyUI/input/voice
 
 ## Prior work
 
-What we found nobody else doing is the loop:
+The contribution is separating generation from performance in this loop:
 1. A performed or in-clip sound becomes a hit frame and a growth curve.
 2. It is painted into an IC-LoRA control in the format the LoRA was trained on, and rendered by LTX-2.5.
 3. The render's actual onset is measured and moved onto the cue, with the error written down.
