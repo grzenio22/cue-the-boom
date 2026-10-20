@@ -59,6 +59,20 @@
    "effect": "air_blast",
    "gesture": "rhythm",
    "hand": true
+  },
+  "pf-pf-boom-author.wav": {
+   "title": "pf, pf, BOOM",
+   "effect": "fire_burst",
+   "gesture": "rhythm",
+   "hand": true,
+   "note": "the author's own voice, cut from their pf and BOOM with the room tone of the hand take"
+  },
+  "pf-x4-author.wav": {
+   "title": "pf pf pf PF",
+   "effect": "fire_burst",
+   "gesture": "rhythm",
+   "hand": true,
+   "note": "the author's own voice, cut from their pf and BOOM with the room tone of the hand take"
   }
  },
  "plates": {

@@ -1,5 +1,6 @@
 import Gallery from "@/components/Gallery";
 import Hook from "@/components/Hook";
+import Again from "@/components/Again";
 import Studio from "@/components/Studio";
 
 export default function Home() {
@@ -9,6 +10,7 @@ export default function Home() {
       <h1>Cue the Boom</h1>
       <p className="lede">Film your hand. Make the noise. Throw fire, lightning, water and air.</p>
       <Hook />
+      <Again />
       <p className="muted">
         Tap your palm or your fingertips and make the noise: hum to charge an ember, <em>BOOM</em> to throw the fireball,
         a long <em>fffff</em> from pointed fingers for a flamethrower that whips through the air when you swing. The fire is
@@ -19,7 +21,7 @@ export default function Home() {
         Or tap or draw anything in your shot (<em>pf.</em>, <em>KA-BOOM</em>, <em>fwoooOOOM</em>, <em>hissss</em>, a snap in
         the clip, or press and hold) and it is rendered into the scene, timed and sized by your cue.
       </p>
-      <Studio />
+      <div id="studio" className="studio-anchor"><Studio /></div>
       <Gallery />
       <p className="muted" style={{ marginTop: 32 }}>
         Fire, smoke and steam by LTX-2.5 (Lightricks) and the ainvfx-fluid IC-LoRA (AInVFX), on ComfyUI through the Comfy
