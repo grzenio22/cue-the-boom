@@ -329,6 +329,22 @@ def test_blurred_skin_repairs_the_matte_without_filling_the_gaps_between_fingers
     assert m[25:90, 41:48].max() < 0.01
 
 
+def test_warm_wall_in_the_matte_feather_does_not_become_a_jagged_arm_fringe():
+    plate = np.full((240, 240, 3), (153, 120, 86), np.uint8)
+    plate[20:220, 80:160] = (235, 168, 151)
+    # Phone chroma blocks on a warm wall overlap skin in red-minus-green, but the
+    # wall remains yellow and the skin keeps blue. A feathered matte includes both.
+    plate[20:220:4, 72:80] = (157, 120, 86)
+    mask = np.zeros((240, 240), np.float32)
+    mask[20:220, 80:160] = 1.0
+    import cv2
+
+    masks = (255 * cv2.GaussianBlur(mask, (0, 0), 4)).astype(np.uint8)[None]
+    m = X.hand_coverage(plate, masks, 0)
+    assert m[40:200, 72:77].max() < 0.01
+    assert m[40:200, 84:156].min() > 0.99
+
+
 def test_rear_fire_soot_and_distortion_cannot_replace_the_current_skin(monkeypatch):
     monkeypatch.setattr(X, "KNOCK_PX", 0.0)
     monkeypatch.setattr(X, "ZOOM", 0.0)
@@ -432,3 +448,98 @@ def test_the_fireball_rolls_up_lights_the_room_while_it_burns_and_not_once_it_is
         return float((dark[t] * rows).sum() / dark[t].sum())
 
     assert middle(56) < middle(41) - 2 < middle(26) - 4  # its smoke rises, and keeps rising
+
+
+def test_late_smoke_has_translucent_edges_depth_and_no_pale_switch_box():
+    room = np.full((200, 280, 3), 0.3, np.float32)
+    room[65:105, 170:240] = 0.8
+    yy, xx = np.mgrid[:200, :280]
+    d = np.hypot((xx - 140) / 1.3, yy - 100)
+    silhouette = np.clip((85 - d) / 12, 0, 1).astype(np.float32)
+    source = np.full(room.shape, 4, np.uint8)
+    folds = 40 + 22 * np.sin(xx / 16) * np.cos(yy / 13)
+    source[:] = (4 + silhouette * folds)[..., None]
+    ambient = np.full_like(room, 0.3)
+    volume = X.SmokeVolume(200, 280, 280, seed=2)
+    q = volume.draw(room, source, silhouette, 4, ambient, 45, 40, 1.0, (0, 200, 0, 280))
+    shown_q, shown_p = shown(q).mean(-1), shown(room).mean(-1)
+    core = (d < 55) & (xx < 165)
+    assert shown_q[core].std() > 7  # internal billows survive optical overlap
+    edge = (d > 70) & (d < 82)
+    transmission = (shown_q / shown_p)[edge]
+    assert ((transmission > 0.55) & (transmission < 0.95)).mean() > 0.3
+    # A switch embedded in a broad thin lobe loses its rectangular lead over its surrounding wall.
+    smoked_contrast = shown_q[80, 200] - shown_q[110, 200]
+    assert smoked_contrast < 0.45 * (shown_p[80, 200] - shown_p[110, 200])
+    assert np.array_equal(q[d > 100], room[d > 100])
+    assert np.array_equal(q, X.SmokeVolume(200, 280, 280, seed=2).draw(
+        room, source, silhouette, 4, ambient, 45, 40, 1.0, (0, 200, 0, 280)))
+
+
+def test_smoke_lighting_cools_with_the_room_and_the_last_wisps_disappear():
+    room = np.full((120, 160, 3), 0.3, np.float32)
+    source = np.full((120, 160, 3), 4, np.uint8)
+    source[20:100, 30:130] = 55
+    silhouette = np.zeros((120, 160), np.float32)
+    silhouette[20:100, 30:130] = 1
+    volume = X.SmokeVolume(120, 160, 160, seed=1)
+    cold = np.full_like(room, 0.3)
+    warm = cold + np.array([0.25, 0.07, 0.0], np.float32)
+    args = (room, source, silhouette, 4)
+    cool = volume.draw(*args, cold, 40, 20, 1.0, (0, 120, 0, 160))
+    hot = volume.draw(*args, warm, 40, 20, 1.0, (0, 120, 0, 160))
+    assert (hot[40:80, 60:100] - cool[40:80, 60:100]).mean() > 0.01
+    clear = volume.draw(*args, cold, 80, 40, 0.0, (0, 120, 0, 160))
+    assert np.array_equal(clear, room)
+
+
+def test_thin_interior_smoke_keeps_its_billows_as_the_perimeter_dissolves():
+    room = np.full((120, 160, 3), 0.3, np.float32)
+    yy, xx = np.mgrid[:120, :160]
+    silhouette = np.zeros((120, 160), np.float32)
+    silhouette[10:110, 10:150] = 1
+    erosion = silhouette * 0.3
+    waves = np.sin(xx / 6) * np.cos(yy / 7)
+    source = (4 + silhouette * (50 + 25 * waves))[..., None].repeat(3, -1).astype(np.uint8)
+    inverse = (4 + silhouette * (50 - 25 * waves))[..., None].repeat(3, -1).astype(np.uint8)
+    volume = X.SmokeVolume(120, 160, 160, seed=3)
+    args = (4, room, 40, 20, 1.0, (0, 120, 0, 160), erosion)
+    a = volume.draw(room, source, silhouette, *args)
+    b = volume.draw(room, inverse, silhouette, *args)
+    # Thin smoke still has lit ridges and shadowed folds; transparency must not flatten it to one grey.
+    assert np.abs(shown(a[30:90, 40:120]) - shown(b[30:90, 40:120])).mean() > 0.5
+
+
+def test_translucent_smoke_keeps_the_phones_fine_sensor_noise():
+    import cv2
+    rng = np.random.default_rng(300)
+    display = (0.6 + rng.standard_normal((300, 300, 1)).astype(np.float32) * (0.35 / 255)).repeat(3, -1)
+    room = display ** np.float32(2.2)
+    source = np.full((300, 300, 3), 55, np.uint8)
+    sil = np.ones((300, 300), np.float32)
+    volume = X.SmokeVolume(300, 300, 300, seed=1)
+    q = volume.draw(room, source, sil, 4, np.full_like(room, 0.3), 40, 20, 1.0,
+                    (0, 300, 0, 300), sil * 0.3)
+
+    def fine_sigma(image):
+        g = shown(image)
+        residual = (g - cv2.GaussianBlur(g, (0, 0), 0.8))[30:270, 30:270]
+        return float(1.4826 * np.median(np.abs(residual - np.median(residual))))
+
+    assert 0.9 < fine_sigma(q) / fine_sigma(room) < 1.2
+
+
+def test_self_shadowed_folds_keep_optical_depth_when_the_light_is_gone():
+    room = np.full((160, 200, 3), 0.3, np.float32)
+    yy, xx = np.mgrid[:160, :200]
+    sil = np.ones((160, 200), np.float32)
+    wave = 25 * np.sin(xx / 9) * np.cos(yy / 11)
+    source = (55 + wave)[..., None].repeat(3, -1).astype(np.uint8)
+    inverse = (55 - wave)[..., None].repeat(3, -1).astype(np.uint8)
+    volume = X.SmokeVolume(160, 200, 200, seed=3)
+    args = (4, np.zeros_like(room), 40, 20, 1.0, (0, 160, 0, 200))
+    a = volume.draw(room, source, sil, *args)
+    b = volume.draw(room, inverse, sil, *args)
+    # Shadowed smoke has more path through soot; switching its fold structure must change transmitted background
+    # even without scattered illumination. Colour shading alone would produce identical grey transmission.
+    assert np.abs(shown(a[30:130, 30:170]) - shown(b[30:130, 30:170])).mean() > 1.0
