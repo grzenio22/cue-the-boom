@@ -1,5 +1,7 @@
 """Element bending: which element a hand's gesture and the sound ask for, and when it goes off (cuesync.bending)."""
 
+import numpy as np
+
 from cuesync.bending import bending_effect, gesture_at, snap_launch
 
 
@@ -66,3 +68,36 @@ def test_a_voiced_buzz_is_heard_as_one():
     h = heard(analyze(x, sr), x, sr)
     assert h["kind"] == "buzz", h
     assert h["longest_s"] > 1.0
+
+
+def test_a_sample_noise_lands_on_the_sample_hands_strike(tmp_path, make_wav):
+    """Started with the clip, a sample BOOM went off long before the punch it was for: it is placed with its first
+    sound on the hand's marked frame, earlier only as far as it takes to end in the clip (a held noise letting go)."""
+    from cuesync.bending import SAMPLE_TAIL_S, sample_noise_offset
+
+    sr = 48000
+    rng = np.random.default_rng(0)
+    hit = np.zeros(int(1.5 * sr), np.float32)
+    hit[int(0.2 * sr): int(0.35 * sr)] = 0.8 * rng.standard_normal(int(0.15 * sr))  # one burst at 0.2 s
+    held = 0.5 * rng.standard_normal(int(2.2 * sr)).astype(np.float32)
+    held[int(2.0 * sr):] = 0  # held from the start for 2 s
+    on_hit = sample_noise_offset(make_wav(tmp_path, hit, sr), 3.5, 48)
+    assert abs(on_hit + 0.2 - 48 / 24) < 0.06  # its burst on frame 48
+    on_held = sample_noise_offset(make_wav(tmp_path, held, sr), 3.5, 48)
+    assert on_held + 2.0 <= 3.5 - SAMPLE_TAIL_S + 0.06 and on_held < 48 / 24  # let go inside the clip
+
+
+def test_a_sample_hands_track_is_moved_onto_the_elements_point():
+    """A sample hand followed for its fireball's palm, given lightning: its point moves onto the fingertips (read off
+    its landmarks), and where a frame has none it moves as its nearest frame's did."""
+    from cuesync.bending import track_for
+
+    lm = [[100.0 + 10 * (i % 5), 400.0 - 15 * i, 0.0] for i in range(21)]  # a hand pointing up the picture
+    t = {"version": 1, "W": 1080, "H": 1920, "emitter": "palm", "hand": "right", "xy": [[120.0, 300.0]] * 3,
+         "dir": [[0.0, 1.0]] * 3, "landmarks": [lm, None, lm]}
+    moved = track_for(t, "two_finger")
+    tips = (np.array(lm[8][:2]) + np.array(lm[12][:2])) / 2
+    assert moved["emitter"] == "two_finger" and np.linalg.norm(np.array(moved["xy"][0]) - tips) < 40
+    assert moved["dir"][0][1] < 0  # along the fingers, up the picture, no longer down out of the palm
+    assert np.allclose(moved["xy"][1], moved["xy"][0], atol=1e-6)  # (no landmarks: moved as its neighbour was)
+    assert track_for(t, "palm") is t

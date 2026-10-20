@@ -1,6 +1,7 @@
 """The web app's API end to end, with a stand-in renderer (no GPU)."""
 
 import json
+import shutil
 import time
 from pathlib import Path
 
@@ -717,7 +718,7 @@ def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_p
     (samples / "voices").mkdir()
     plate = make_video(samples / "plates", n=72, fps=24, w=256, h=128, color_fn=lambda i: (40, 35, 30))
     plate = plate.rename(samples / "plates" / "hand.mp4")
-    (samples / "samples.json").write_text(json.dumps({"voices": {}, "plates": {"hand.mp4": {
+    (samples / "samples.json").write_text(json.dumps({"voices": {"boom.wav": {}}, "plates": {"hand.mp4": {
         "title": "Your hand", "point": [0.4, 0.6], "hand": {"frame": 10}}}}))
     shot = samples / "made_ahead" / "bending" / "hand__boom"
     shot.mkdir(parents=True)
@@ -746,6 +747,13 @@ def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_p
     done = wait(client, s["id"])
     assert done["status"] == "done", done.get("error")
     assert done["receipt"]["bending"]["performed_again"]["no_new_render"] and done["mode"] == "replay"
+    shutil.copy(voice, samples / "voices" / "boom.wav")  # an element made here, on the sample hand with a sample noise
+    s = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "boom.wav",
+                                       "effect": "air_blast", "x": "0.4", "y": "0.6"})
+    assert s.status_code == 200, s.text  # (its made-ahead lookup once asked for a definition it has none of)
+    done = wait(client, s.json()["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["effect"]["id"] == "air_blast" and done["receipt"]["effect"]["made"] == "air"
     with open(voice, "rb") as v:  # a hand clip of your own still needs the GPU
         with open(plate, "rb") as p:
             assert client.post("/api/jobs", files={"voice": ("v.wav", v, "audio/wav"), "plate": ("p.mp4", p, "video/mp4")},

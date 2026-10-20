@@ -1999,15 +1999,67 @@ def carry(spec, renderer, out_dir: Path, track: Path, mask: Path | None, progres
                              aim=spec.direction, instant=lib is not None, picked=picked)
 
 
+def track_for(track: dict, emitter: str) -> dict:
+    """``track``, a hand followed for one point on it (its "emitter"), moved onto ``emitter``: read again off its
+    landmarks where it has them (hand_track.emitter_points), and elsewhere moved as the nearest such frame's point
+    moved. (A sample hand followed for its fireball's palm struck a fingertip's lightning out of the palm, down the
+    arm.)"""
+    from .hand_track import emitter_points
+
+    lms = track.get("landmarks") or []
+    have = np.array([i for i, lm in enumerate(lms) if lm])
+    if track.get("emitter") == emitter or have.size == 0:
+        return track
+    sign = -1.0 if track.get("hand") == "left" else 1.0
+    xy, d = np.asarray(track["xy"], np.float64), np.asarray(track["dir"], np.float64)
+    new_xy, new_d = xy.copy(), d.copy()
+    for i in have:
+        p, u, _ = emitter_points(np.asarray(lms[i], np.float64), emitter, sign, frame=(track["W"], track["H"]))
+        new_xy[i], new_d[i] = p, u
+    for i in range(len(xy)):
+        if i >= len(lms) or not lms[i]:
+            j = int(have[np.argmin(np.abs(have - i))])
+            new_xy[i], new_d[i] = xy[i] + (new_xy[j] - xy[j]), new_d[j]
+    return {**track, "xy": new_xy.round(2).tolist(), "dir": new_d.round(4).tolist(), "emitter": emitter}
+
+
+SAMPLE_TAIL_S = 0.4  # a sample noise's last sound lands at least this long before its clip's end...
+SAMPLE_HELD_S = 1.2  # ...and a noise held this long lets go there too
+
+
+def sample_noise_offset(voice: Path, plate_s: float, frame: int) -> float:
+    """Where a sample noise starts on a hand's clip (s): its first sound on ``frame``, the frame the hand was marked
+    on (the strike the take was filmed for), moved earlier as far as it takes for its last sound to land in the clip,
+    and a held noise (a sound over SAMPLE_HELD_S) to let go there too; a hit's tail may run off the end. (Started with
+    the clip, a BOOM went off long before the punch it was for.)"""
+    from .audio import analyze
+    from .media import read_audio
+    from .pipeline import FPS, SR
+
+    cue = analyze(read_audio(voice, SR), SR, fps=FPS)
+    spans = cue.intervals()
+    held = max([b_ - a_ for a_, b_ in spans] or [0]) / FPS >= SAMPLE_HELD_S
+    end = max(cue.onsets_s[-1], max(b_ for _, b_ in spans) / FPS if held else 0.0)
+    return float(max(0.0, min(frame / FPS - cue.onsets_s[0], plate_s - SAMPLE_TAIL_S - end)))
+
+
 def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
     """Perform a finished bending shot again with a new take (``spec``): its element on the same hand take, no new
-    render; a shot that was itself performed again plays its first render."""
+    render; a shot that was itself performed again plays its first render. An element made here (MADE) is made anew on
+    that take's own track and matte (a sample hand's, shipped with it: no tracker needed)."""
     src_dir = Path(src_dir)
     b = json.loads((src_dir / "receipt.json").read_text())["bending"]
     first = Path(b["performed_again"]["from"]) if b.get("performed_again") else \
         Path(b["instant"]["library"]) if b.get("instant") else src_dir
     here = lambda name, was: str(first / name) if (first / name).exists() else was  # noqa: E731  (a shot made ahead
     # travels with its own track and matte)
+    if spec.effect in MADE:  # (followed for its fire's point on the hand: moved onto this element's)
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        track = Path(out_dir) / "hand_track.json"
+        track.write_text(json.dumps(track_for(load_track(Path(here("hand_track.json", b["track"]))),
+                                              EMITTER_OF.get(spec.effect, "palm"))))
+        return make_bending_shot(spec, None, out_dir, track, here("hand_mask.npz", b["mask"]), progress,
+                                 tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)
     return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),
                              progress, element_from=first, tap_frame=spec.extra.get("tap_frame"),
                              aim=spec.direction if spec.direction is not None else b.get("aim"),

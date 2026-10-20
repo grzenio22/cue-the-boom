@@ -21,12 +21,16 @@ SHOT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "eleme
 def effect_signature(effect: str, subject: str | None = None, direction: float | None = None) -> str:
     """A short hash of an effect's definition as it applies to a shot of ``subject`` aimed ``direction`` (its
     scene variants resolved, a flame taken as burning): a shot made with an older version of it is not that shot,
-    but words added for other subjects (a hand) don't retire a jack-o'-lantern's."""
+    but words added for other subjects (a hand) don't retire a jack-o'-lantern's. An element made rather than rendered
+    (lightning, water, air, an explosion: cuesync.bending.MADE) has no definition: its signature is "made"."""
     import hashlib
     from dataclasses import asdict
 
+    from .bending import MADE
     from .effects import load_effect
 
+    if effect in MADE:
+        return "made"
     eff = load_effect(effect)
     d = eff.to_json()
     if eff.scene is not None:
@@ -82,6 +86,8 @@ def sample_pairs(samples_dir: Path, mode: str = "render") -> list[dict]:
             continue
         for voice, vm in meta.get("voices", {}).items():
             effect = vm.get("effect")
+            if vm.get("hand"):  # a noise for an element made from a hand: no render to make ahead
+                continue
             if effect and effect in pm.get("effects", [effect]) and (samples_dir / "voices" / voice).exists():
                 pairs.append({"plate": plate, "voice": voice, "effect": effect, "point": tuple(pm["point"]),
                               "title": f"{vm.get('title', voice)} · {pm.get('title', plate)}"})
