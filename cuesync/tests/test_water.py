@@ -108,7 +108,7 @@ def test_a_stationary_final_hit_empties_the_raised_body_before_its_sheet_drains(
 def test_a_sploosh_keeps_a_visible_connected_ribbon_from_the_raised_water_to_the_palm():
     n, release = 85, 44
     hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
-    for k in range(release + 3, release + 12):
+    for k in range(release + 3, release + 8):
         fld = water.Field(sc[k].blobs, H, W)
         y0, _, x0, _ = fld.box
         attached = (fld.f - fld.fm > water.TAU).astype(np.uint8)
@@ -117,10 +117,22 @@ def test_a_sploosh_keeps_a_visible_connected_ribbon_from_the_raised_water_to_the
         palm_label = labels[py, px]
         assert palm_label != 0
         connected = labels == palm_label
-        # This corridor must survive phone scaling; isolated drops and a low flat sheet cannot stand in for pouring.
-        first, last = int(round(py - 0.55 * S)), int(round(py - 0.05 * S))
+        # The whole path from the descending reservoir to the skin must survive phone scaling until it flattens.
+        first, last = int(round(sc[k].held[1] - y0)), int(round(py - 0.05 * S))
         widths = connected[first:last + 1].sum(axis=1)
         assert len(widths) == last - first + 1 and widths.min() >= 0.075 * S, k - release
+
+
+def test_the_receiving_mass_flattens_while_its_liquid_front_still_crosses_the_palm():
+    n, release = 85, 44
+    hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
+    k = release + 11
+    x, y, z, _, _ = sc[k].held
+    skin = float(hand.depth(k, hand.p[k, 0:1], hand.p[k, 1:2])[0])
+    above = np.dot(np.array([x, y, z]) - np.r_[hand.p[k], skin], hand.nrm[k])
+    assert above < 0.10 * S  # the reservoir becomes a film rather than retaining a raised glass stem
+    early, late = sc[k].coat[2], sc[release + 22].coat[2]
+    assert early < 0.42 * S and late > early + 0.10 * S
 
 
 def test_the_pouring_reservoir_reaches_the_palms_depth_at_its_foot():
@@ -274,7 +286,7 @@ def test_the_post_collapse_palm_reflects_the_light_beyond_plain_wet_skin():
     responses = []
     for k in (release + 23, release + 60):
         assert sc[k].coat is not None
-        plain = water.Scene(wet=sc[k].wet, band=sc[k].band)
+        plain = water.Scene(wet=sc[k].wet, band=sc[k].band, coat=(*sc[k].coat[:3], 0.0, 0.0))
         glossy = water.Scene(wet=sc[k].wet, band=sc[k].band, coat=sc[k].coat)
         a, b = [water.frame(k, plate[k], matte[k], scene, hand, room, water.Noise(4), 0.0, 4)
                 for scene in (plain, glossy)]
@@ -297,7 +309,7 @@ def test_an_oblique_palm_keeps_broken_wet_highlights_for_a_second_after_the_shee
     palm = np.hypot(xx - 64, yy - 130) < 0.5 * S
     for k in (release + 26, release + 38, release + 50):
         assert sc[k].coat is not None
-        plain = water.Scene(wet=sc[k].wet, band=sc[k].band)
+        plain = water.Scene(wet=sc[k].wet, band=sc[k].band, coat=(*sc[k].coat[:3], 0.0, 0.0))
         glossy = water.Scene(wet=sc[k].wet, band=sc[k].band, coat=sc[k].coat)
         a, b = [water.frame(k, plate[k], matte[k], scene, hand, room, water.Noise(4), 0.0, 4)
                 for scene in (plain, glossy)]
@@ -319,6 +331,61 @@ def test_settled_palm_beads_drain_and_shrink_instead_of_freezing_as_glitter():
     assert all(b.glint <= 0.4 for b in early)
     assert sum(b.r for b in late) < 0.85 * sum(b.r for b in early)
     assert max(b.y - a.y for a, b in zip(early, late)) > 0.03 * S
+
+
+def test_a_drained_film_catches_sharp_light_along_the_existing_skin_creases():
+    size = 256
+    yy, xx = np.mgrid[:size, :size].astype(np.float32)
+    distance = yy - (128.0 + 0.16 * (xx - 128.0))
+    skin = np.full((size, size, 3), [186, 117, 101], np.float32)
+    skin *= (1.0 - 0.18 * np.exp(-(distance / 1.5) ** 2))[..., None]
+    plate = np.uint8(skin)[None]
+    room = water.Room(plate)
+    normal = water._unit(room.key(0, (128.0, 128.0)) + np.array([0.0, 0.0, 1.0]))
+    hand = water.Hand(np.array([[128.0, 128.0]]), normal[None], np.array([[0.0, -1.0, 0.0]]),
+                      np.array([100.0]), np.zeros((1, 3)), None)
+    out = water.frame(0, plate[0], np.full((size, size), 255, np.uint8),
+                      water.Scene(coat=(128.0, 128.0, 68.0, 1.0, 0.0)), hand, room, water.Noise(4), 0.0, 4)
+    added = np.maximum(out.astype(float) - plate[0], 0).mean(-1)
+    center = (np.abs(xx - 128) < 40) & (np.abs(yy - 128) < 28)
+    banks = center & (np.abs(distance) > 1) & (np.abs(distance) < 4)
+    flat = center & (np.abs(distance) > 10)
+    assert added[banks].mean() > 2.0 * added[flat].mean()
+    assert np.mean(added[flat] > 8) < 0.15  # wet skin retains clear skin between its narrow reflections
+
+
+def test_a_spreading_palm_film_has_an_advancing_broken_liquid_edge():
+    size = 256
+    plate = np.full((1, size, size, 3), [186, 117, 101], np.uint8)
+    room = water.Room(plate)
+    hand = water.Hand(np.array([[128.0, 128.0]]), np.array([[0.0, -0.45, 0.89]]),
+                      np.array([[0.0, -1.0, 0.0]]), np.array([100.0]), np.zeros((1, 3)), None)
+    yy, xx = np.mgrid[:size, :size]
+    peaks = []
+    for radius in (36.0, 65.0):
+        out = water.frame(0, plate[0], np.full((size, size), 255, np.uint8),
+                          water.Scene(coat=(128.0, 128.0, radius, 1.0, 1.0)), hand, room,
+                          water.Noise(4), 0.0, 4)
+        added = np.maximum(out.astype(float) - plate[0], 0).mean(-1)
+        radial = np.hypot(xx - 128, (yy - 128) / 0.8)
+        boundary = (radial > 0.78 * radius) & (radial < 1.12 * radius)
+        assert added[boundary].max() > 10
+        assert added[boundary].sum() > 0.30 * added.sum()
+        peaks.append(np.average(radial[boundary], weights=added[boundary] + 1e-6))
+        assert np.array_equal(out[radial > 1.15 * radius], plate[0][radial > 1.15 * radius])
+    assert peaks[1] > peaks[0] + 20  # the reflection travels with the wet front rather than lighting one fixed patch
+
+
+def test_a_sideways_palm_keeps_the_whole_moving_film_boundary():
+    plate = np.full((1, 256, 256, 3), [186, 117, 101], np.uint8)
+    hand = water.Hand(np.array([[128.0, 128.0]]), np.array([[-0.8, 0.0, 0.6]]),
+                      np.array([[0.0, -1.0, 0.0]]), np.array([100.0]), np.zeros((1, 3)), None)
+    out = water.frame(0, plate[0], np.full((256, 256), 255, np.uint8),
+                      water.Scene(coat=(128.0, 128.0, 60.0, 1.0, 1.0)), hand, water.Room(plate),
+                      water.Noise(4), 0.0, 4)
+    delta = np.abs(out.astype(float) - plate[0])
+    assert np.count_nonzero(delta[190:196] > 1) > 20  # a rotated lobe extends past the unrotated radius
+    assert not delta[210:].any()
 
 
 def test_the_flat_splash_is_on_the_palm_not_at_the_spheres_centre():
@@ -1287,6 +1354,21 @@ def test_the_water_stays_only_on_a_plain_wall():
 
 
 # ---- the held orb ---------------------------------------------------------------------------------------------------
+
+def test_the_held_orbs_rim_leaves_clear_gaps_instead_of_a_broad_white_collar():
+    plate = np.full((1, 256, 256, 3), 90, np.uint8)
+    plate[:, :20] = 255  # one light over a plain, dark room makes the rim's width readable
+    hand, room, noise = _big_hand(), water.Room(plate), water.Noise(0)
+    r = 72.0
+    sc = water.Scene([water.Blob(128.0, 140.0, 0.0, r)], held=(128.0, 140.0, 0.0, r, 1.0))
+    out = lin(water.frame(0, plate[0], None, sc, hand, room, noise, 0.0, 0)).mean(-1)
+    angles = np.linspace(-0.5 * math.pi - 0.75, -0.5 * math.pi + 0.75, 80)
+    broad = np.array([np.mean([out[int(140 + r * f * math.sin(a)), int(128 + r * f * math.cos(a))]
+                              for f in np.linspace(0.92, 0.96, 4)]) for a in angles])
+    outer = [out[int(140 + 0.985 * r * math.sin(a)), int(128 + 0.985 * r * math.cos(a))] for a in angles]
+    assert np.mean(broad > 0.22) < 1.0 / 3.0  # most of the inner lip stays clear between the short grazing arcs
+    assert max(outer) > 0.25  # a few grazing facets still catch the light; the rim has not simply disappeared
+
 
 def test_the_held_orb_ripples_sparkles_wobbles_and_carries_its_air_round_a_loop():
     n = 60
