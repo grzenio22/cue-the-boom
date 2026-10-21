@@ -131,8 +131,9 @@ def test_the_receiving_mass_flattens_while_its_liquid_front_still_crosses_the_pa
     skin = float(hand.depth(k, hand.p[k, 0:1], hand.p[k, 1:2])[0])
     above = np.dot(np.array([x, y, z]) - np.r_[hand.p[k], skin], hand.nrm[k])
     assert above < 0.10 * S  # the reservoir becomes a film rather than retaining a raised glass stem
-    early, late = sc[k].coat[2], sc[release + 22].coat[2]
+    early, late = sc[release + 6].coat[2], sc[release + 10].coat[2]
     assert early < 0.42 * S and late > early + 0.10 * S
+    assert late > 0.55 * S  # the broad receiving sheet arrives before the raised mass vanishes
 
 
 def test_the_scene_spreads_its_main_wet_front_across_the_palm_in_three_to_six_exposures():
@@ -165,13 +166,13 @@ def test_the_pouring_reservoir_reaches_the_palms_depth_at_its_foot():
 
 
 def test_a_runoff_root_follows_palm_depth_while_its_airborne_bead_keeps_its_birth_depth():
-    n, release, k = 85, 44, 56
+    n, release, k = 85, 44, 74
     track = track_of(n)
     tl = voice(n, hum=(4, 40), hits=((release, 1.0),))
     hands = [water.hand_of(track, n) for _ in range(2)]
-    hands[1].plane[release + 11:, 2] += S
+    hands[1].plane[release + 20:, 2] += S
     sc = [water.orb_scenes(tl, track, hand, (H, W), 4, None) for hand in hands]
-    root = hands[0].p[k] + np.array([-0.27, -0.48]) * S
+    root = hands[0].p[k] + np.array([-0.53, 0.05]) * S
     roots, beads = [], []
     for sequence in sc:
         streams = [b for b in sequence[k].blobs if b.stream]
@@ -341,7 +342,7 @@ def test_settled_palm_beads_drain_and_shrink_instead_of_freezing_as_glitter():
     track = track_of(n)
     _, sc = scenes("orb", voice(n, hum=(4, 40), hits=((44, 1.0),)), track)
     beads = lambda k: [b for b in sc[k].blobs if b.free and b.flat < 1.0 and b.r < 0.08 * S]
-    early, late = beads(60), beads(100)
+    early, late = beads(80), beads(110)
     assert early and late and len(early) == len(late)
     assert all(b.glint <= 0.4 for b in early)
     assert sum(b.r for b in late) < 0.85 * sum(b.r for b in early)
@@ -441,6 +442,46 @@ def test_the_spreading_rim_stays_connected_at_phone_size_over_five_exposures():
                                  weights=added[on_rim]))
     assert np.all(np.diff(travel) > 1.0)  # the connected reflection visibly crosses fresh palm skin each exposure
     assert travel[-1] - travel[0] > 10.0
+
+
+def test_the_impact_sheet_has_a_broad_visible_body_inside_its_rim_at_phone_size():
+    added, plate, out = _phone_palm_film(112.0, 1.0, creased=True, normal=(-0.05, -0.79, 0.61))
+    yy, xx = np.mgrid[:128, :128]
+    interior = np.hypot(xx - 64, (yy - 64) / 0.8) < 25.0
+    # A bright perimeter with empty skin inside still reads as disappearance rather than a landed volume.
+    visible = (added > 6.0) & interior
+    assert visible.sum() > 0.35 * interior.sum()
+    _, _, stats, _ = cv2.connectedComponentsWithStats(visible.astype(np.uint8), connectivity=8)
+    assert stats[1:, cv2.CC_STAT_AREA].max(initial=0) > 0.25 * interior.sum()
+    assert np.max(out.astype(float) - plate) < 90
+
+
+def test_three_edge_streams_stay_fed_by_the_sheet_before_the_final_glints():
+    n, release = 100, 44
+    hand, sequence = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
+    # These are the first finger web and the two palm sides in the landmark-free fixture.
+    lips = np.array([[-0.27, -0.48], [-0.53, 0.05], [0.48, 0.20]]) * S
+    for age in (21, 23, 25):
+        sc = sequence[release + age]
+        streams = [b for b in sc.blobs if b.stream and b.r >= 0.018 * S]
+        for lip in lips:
+            root = hand.p[release + age] + lip
+            fed = [b for b in streams if np.linalg.norm(np.array(b[:2]) - root) < 0.05 * S]
+            assert fed, (age, lip)
+        assert sc.coat is not None and sc.coat[4] > 0.15
+
+
+def test_a_draining_tongue_remains_visible_through_the_rim_to_the_measured_exit():
+    plate = np.full((1, 384, 384, 3), [186, 117, 101], np.uint8)
+    hand = water.Hand(np.array([[192.0, 192.0]]), np.array([[0.0, -0.45, 0.89]]),
+                      np.array([[0.0, -1.0, 0.0]]), np.array([180.0]), np.zeros((1, 3)), None)
+    out = water.frame(0, plate[0], np.full((384, 384), 255, np.uint8),
+                      water.Scene(coat=(192.0, 192.0, 100.0, 1.0, 0.7, ((1.5, 0.0),))),
+                      hand, water.Room(plate), water.Noise(4), 0.0, 4)
+    added = (out.astype(float) - plate[0]).mean(-1)
+    # A measured side exit may lie beyond the central sheet. It still needs a visible, uninterrupted feed.
+    assert np.all(added[180:205, 265:337].max(axis=0) > 5.0)
+    assert not np.any(out[:, 365:] != plate[0, :, 365:])
 
 
 def test_a_drained_film_consolidates_reflections_along_curved_skin_creases_at_phone_size():
