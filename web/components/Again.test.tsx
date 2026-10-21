@@ -66,6 +66,21 @@ describe("Again", () => {
     expect(videos().every((v) => running.has(v) && v.muted)).toBe(true);
   });
 
+  it("clears the hearing status when pausing the second performance", async () => {
+    await show();
+    await act(async () => { button("Hear them one by one").click(); });
+    await act(async () => { videos()[0].dispatchEvent(new Event("ended")); });
+    expect(videos().map((v) => running.has(v))).toEqual([false, true, false]);
+    expect(host.querySelector(".again-status")?.textContent).toBe("Hearing performance 2 of 3: pf, pf, BOOM");
+
+    await act(async () => { button("Pause").click(); });
+
+    expect(running.size).toBe(0);
+    expect(host.querySelector(".again-status")?.textContent).toBe("Paused.");
+    expect([...host.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Play together", "Hear them one by one"]);
+    expect(host.querySelector(".again-current")).toBeNull();
+  });
+
   it("says so when the performances are missing", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [shot(0)] } as Response);
     await show();

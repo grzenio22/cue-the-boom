@@ -52,7 +52,7 @@ export default function Again() {
     return () => clearInterval(id);
   }, [playing, listening]);
 
-  const pause = () => { media().forEach((v) => v.pause()); setPlaying(false); };
+  const pause = () => { media().forEach((v) => v.pause()); setListening(null); setPlaying(false); };
 
   const hear = (i: number) => { // one performance with its sound, the others still
     setListening(i);
