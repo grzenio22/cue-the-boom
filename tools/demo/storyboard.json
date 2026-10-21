@@ -1,6 +1,6 @@
 {
-  "version": 13,
-  "duration": 116.5,
+  "version": 14,
+  "duration": 113.375,
   "beats": [
     {
       "id": "cold_open",
@@ -663,57 +663,74 @@
     },
     {
       "id": "innovation",
-      "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_overview.png",
-      "dur": 4.0,
-      "zoom": 1,
-      "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\new12.wav",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
+      "start": 0.0,
+      "dur": 1.0,
+      "fill": true,
+      "source_gain": 0,
+      "vo": "D:\\openHiggsfield\\runs\\demo_v14\\vo14\\new12.wav",
       "vo_at": 0.1,
       "vo_gain": 1.3,
       "vo_text": "My contribution is separating generation from performance: one LTX effect from ComfyUI becomes a reusable instrument. Your voice controls when it hits and how big it plays, without another AI generation.",
       "vo_captions": [
         [
           0.0,
-          3.89375,
+          3.0419921875,
           "My contribution is separating generation from performance:"
         ],
         [
-          3.89375,
-          8.70625,
+          3.0419921875,
+          6.8017578125,
           "one LTX effect from ComfyUI becomes a reusable instrument."
         ],
         [
-          8.70625,
-          11.825,
+          6.8017578125,
+          9.23828125,
           "Your voice controls when it hits and how big it plays,"
         ],
         [
-          11.825,
-          14.4,
+          9.23828125,
+          11.25,
           "without another AI generation."
         ]
       ]
     },
     {
       "id": "innovation_asset",
-      "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_asset.png",
-      "dur": 4.833333333333333,
-      "zoom": 1
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
+      "start": 1.0,
+      "dur": 2.0,
+      "fill": true,
+      "source_gain": 0
+    },
+    {
+      "id": "innovation_track",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
+      "start": 3.0,
+      "dur": 1.5,
+      "fill": true,
+      "source_gain": 0
     },
     {
       "id": "innovation_voice",
-      "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_voice.png",
-      "dur": 1.125,
-      "zoom": 1
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
+      "start": 4.5,
+      "dur": 1.0,
+      "fill": true,
+      "source_gain": 0
     },
     {
       "id": "innovation_result",
-      "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v13\\cards\\pipeline_result.png",
-      "dur": 1.1666666666666667,
-      "zoom": 1
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
+      "start": 5.5,
+      "dur": 2.5,
+      "fill": true,
+      "source_gain": 0
     },
     {
       "id": "innovation_hits",
@@ -902,37 +919,42 @@
     {
       "id": "innovation",
       "start": 91.625,
-      "end": 95.625
+      "end": 92.625
     },
     {
       "id": "innovation_asset",
-      "start": 95.625,
-      "end": 100.458333
+      "start": 92.625,
+      "end": 94.625
+    },
+    {
+      "id": "innovation_track",
+      "start": 94.625,
+      "end": 96.125
     },
     {
       "id": "innovation_voice",
-      "start": 100.458333,
-      "end": 101.583333
+      "start": 96.125,
+      "end": 97.125
     },
     {
       "id": "innovation_result",
-      "start": 101.583333,
-      "end": 102.75
+      "start": 97.125,
+      "end": 99.625
     },
     {
       "id": "innovation_hits",
-      "start": 102.75,
-      "end": 106.25
+      "start": 99.625,
+      "end": 103.125
     },
     {
       "id": "try",
-      "start": 106.25,
-      "end": 112.0
+      "start": 103.125,
+      "end": 108.875
     },
     {
       "id": "credits",
-      "start": 112.0,
-      "end": 116.5
+      "start": 108.875,
+      "end": 113.375
     }
   ],
   "provenance": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\manifest.json",
