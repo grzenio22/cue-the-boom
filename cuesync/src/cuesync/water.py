@@ -1033,8 +1033,8 @@ class Scene:
     # stream lies, a band through those points
     film: list = field(default_factory=list)  # the water on the room's wall where the orb burst on it: a Sheet, Trails
     # and Beads (_wall), drawn on the plate behind the water in the air (_film)
-    coat: tuple | None = None  # (x, y, radius, wetness, flowing): the palm's thin, rippled water coat after a spill;
-    # its advancing edge and broken reflections follow the skin's relief
+    coat: tuple | None = None  # (x, y, radius, wetness, flowing[, exits]): the palm's rippled receiving sheet;
+    # optional exits are silhouette-measured offsets in film radii, shared with its airborne runoff roots
 
 
 class Sheet(NamedTuple):
@@ -3387,21 +3387,21 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
     n = len(scenes)
     contact, slump, drain, dry = COLLAPSE
     pace = 0.65 + 0.35 * float(np.clip(strength, 0.0, 1.0))
-    # Three routes reach the webs between fingers; two more drain over the palm's sides.
+    # A finger web and two palm sides receive the sheet; each exit is measured against the hand silhouette.
     if hand.off is not None:
         lm = hand.off[release, :, :2]
         routes = [0.5 * (lm[a] + lm[b]) + 0.35 * (0.5 * (lm[a + 1] + lm[b + 1])
                                                                - 0.5 * (lm[a] + lm[b])) - p0
-                  for a, b in ((5, 9), (9, 13), (13, 17))]
+                  for a, b in ((5, 9),)]
     else:
-        routes = [np.array([dx, -0.48]) * s0 for dx in (-0.27, 0.0, 0.27)]
+        routes = [np.array([-0.27, -0.48]) * s0]
     routes += [np.array([-0.53, 0.05]) * s0, np.array([0.48, 0.20]) * s0]
     edges = []
     for route in routes:
         d = route / max(np.linalg.norm(route), 1e-6)
         reach = max(float(np.linalg.norm(route)), 0.4 * s0)
         if mask is not None:
-            distances = np.linspace(0.12 * s0, max(reach, 0.9 * s0), 64)
+            distances = np.linspace(0.12 * s0, max(reach, 1.2 * s0), 96)
             pts = p0 + distances[:, None] * d
             xx = np.clip(np.rint(pts[:, 0]).astype(int), 0, mask.shape[2] - 1)
             yy = np.clip(np.rint(pts[:, 1]).astype(int), 0, mask.shape[1] - 1)
@@ -3409,23 +3409,16 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
             if off.size:
                 reach = float(distances[max(0, off[0] - 1)])
         edges.append(d * reach / s0)
+    exits = edges
     bead_offsets = rng.uniform((-0.30, -0.20), (0.30, 0.20), (5, 2))
-    angle = math.atan2(float(hand.nrm[release, 1]), float(hand.nrm[release, 0])) + 0.5 * math.pi
-    for j, (theta, length, _, bend) in enumerate(PALM_CHANNELS):
-        # The first three persistent beads receive the draining channels, rather than appearing as isolated glitter.
-        along = length - 0.18
-        across = bend * math.sin(3.0 * along)
-        u, v = along * math.cos(theta) - across * math.sin(theta), along * math.sin(theta) + across * math.cos(theta)
-        bead_offsets[j] = 1.436 * R / s0 * np.array([u * math.cos(angle) - 0.8 * v * math.sin(angle),
-                                                   u * math.sin(angle) + 0.8 * v * math.cos(angle)])
+    bead_offsets[:3] = np.asarray(exits) * 0.78
     bead_sizes = rng.uniform(0.018, 0.030, 5)
     inherited = scenes[release - 1].blobs[0].folds if release and scenes[release - 1].blobs else ()
     # Unequal launch times and arcs keep the spray away from a circular crown or an even dotted ring.
     spray = [(int(rng.integers(contact, contact + 5)), float(rng.uniform(12.0, 18.0)),
               rng.uniform((-0.22, -0.18), (0.22, 0.08)), rng.uniform(-0.035, 0.035),
               float(rng.uniform(0.014, 0.029)), float(rng.uniform(0.38, 0.78))) for _ in range(8)]
-    runoff = [(9 + j * 2, edge, float(rng.uniform(0.022, 0.030))) for j, edge in enumerate(edges[:3])]
-    runoff += [(10 + j * 5, edge, float(rng.uniform(0.035, 0.048))) for j, edge in enumerate(edges[-2:])]
+    runoff = [(14 + j * 2, edge, float(rng.uniform(0.045, 0.058))) for j, edge in enumerate(exits)]
     births = {}
     for born in {item[0] for item in spray + runoff}:
         kb = min(n - 1, release + born)
@@ -3509,8 +3502,8 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 ang = 1.4 + j * 2.0
                 sc.trains.append((at[0], at[1], rr, math.cos(ang), math.sin(ang), 0.1,
                                   0.035 * (1.0 - fall), 0.8 * rr, age * 0.22 * rr))
-        # A small receiving sheet establishes contact before its front crosses the palm in six exposures.
-        spread = 0.20 * float(_ss(contact - 1, 8, age)) + 0.80 * float(_ss(8, 13, age))
+        # Contact grows into a broad sheet while the upper reservoir is still flattening; hold it before draining.
+        spread = 0.20 * float(_ss(contact - 1, 5, age)) + 0.80 * float(_ss(3, 9, age))
         remaining = 1.0 - float(_ss(15, drain, age))
         if contact - 1 <= age < drain:
             rr = R * ratio * (0.38 + 0.75 * spread)
@@ -3518,7 +3511,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                                  modes=((3, 0.08, 0.3 + 0.12 * age), (5, 0.035, 1.3 - 0.08 * age)),
                                  flat=(0.045 - 0.025 * spread) * remaining,
                                  w=TAU + (1.0 - TAU) * remaining, foam=0.018 * remaining))
-            for j, edge in enumerate(edges):
+            for j, edge in enumerate(exits):
                 front = float(_ss(contact + j * 0.35, 11 + j * 0.5, age))
                 tip = p + s * edge * front
                 u = np.linspace(0.12, 1.0, 8)
@@ -3529,10 +3522,9 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
                 width = (0.085 - 0.055 * u) * s * remaining * front
                 if width.max() >= 0.5 and arc[-1] > 1.0:
-                    # Two side tongues retain a little depth as they cross different palm edges; the finger-web
-                    # film is thinner. Their rounded tube reflections would turn the runoff into rigid glass rods.
+                    # The receiving tongues stay shallow; the shared skin film supplies their broad reflections.
                     stream = _stream(pts, np.zeros_like(pts), width, np.zeros(8), np.zeros((8, 2)), arc,
-                                     np.full(8, 0.12 if j >= 3 else 0.035))
+                                     np.full(8, 0.035))
                     sc.blobs += [b._replace(stream=()) for b in stream]
         wet = spread * (1.0 - float(_ss(25, dry, age)))
         if wet > 0.001:
@@ -3540,18 +3532,20 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
             wet_radius = R * ratio * (0.336 + 1.10 * spread * spread)
             sc.wet.append((p[0], p[1], wet_radius, 0.8 * wet_radius,
                            across, 0.14 * wet, 2.7, 0.0, 0.25))
-            sc.coat = (p[0], p[1], wet_radius, wet, 1.0 - float(_ss(14, 34, age)))
-            for j, edge in enumerate(edges):
+            sc.coat = (p[0], p[1], wet_radius, wet, 1.0 - float(_ss(17, 36, age)),
+                       tuple(tuple(edge * s / wet_radius) for edge in exits))
+            for edge in exits:
                 points = p + np.linspace(0.2, 1.0, 8)[:, None] * edge * s
                 sc.band.append((points, np.linspace(0.055, 0.025, 8) * s, 0.16 * wet))
-        if age >= 13:
+        if age >= 28:
             for j, (off, rb) in enumerate(zip(bead_offsets, bead_sizes)):
-                left = max(0.0, 1.0 - (age - 13) / (72 + 3 * j))
+                left = max(0.0, 1.0 - (age - 28) / (57 + 3 * j))
                 if left > 0:
-                    xy = p + s * (off + np.array([0.015, 0.11]) * float(_ss(13, 62, age)))
+                    xy = p + s * (off + np.array([0.015, 0.11]) * float(_ss(28, 62, age)))
                     z = float(hand.depth(k, xy[0:1], xy[1:2])[0])
                     sc.blobs.append(Blob(xy[0], xy[1], z + rb * s * 0.45, rb * s * math.sqrt(left),
-                                         free=True, flat=0.59, glint=(0.10 + 0.20 * remaining) * left))
+                                         free=True, flat=0.59,
+                                         glint=(0.10 + 0.20 * remaining) * left * float(_ss(24, 36, age))))
         for (born, life, off, vx, rb, height), (kl, land_xy, on_skin) in zip(spray, landings):
             tau = age - born
             if not 0 <= tau <= life + (3 if on_skin else 18):
@@ -3572,18 +3566,24 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                                  0.12 * (1.0 - (tau - life) / 4.0)))
         for born, edge, rb in runoff:
             tau = age - born
-            if not 0 <= tau < 17:
+            if not 0 <= tau < 23:
                 continue
             outward = _unit(edge) * rb * 1.3
-            relative = edge + outward + np.array([0.006 * tau * np.sign(edge[0]), 0.0035 * tau * tau])
+            # The fed stream lengthens more slowly than a free drop, keeping its broad root visibly attached.
+            fed_age = min(tau, 14)
+            free_age = max(0, tau - 14)
+            fed_fall = 0.018 * fed_age + 0.002 * fed_age ** 2 + 0.074 * free_age + 0.007 * free_age ** 2
+            relative = edge + outward + np.array([0.004 * tau * np.sign(edge[0]), fed_fall])
             xy, velocity, sb, kb = airborne(born, tau, relative,
-                                           np.array([0.006 * np.sign(edge[0]), 0.007 * tau]), k)
+                                           np.array([0.004 * np.sign(edge[0]),
+                                                     0.018 + 0.004 * fed_age + 0.014 * max(0, tau - 14)]), k)
             lip = hand.p[kb] + sb * edge
             z = float(hand.depth(kb, lip[0:1], lip[1:2])[0]) + 0.04 * sb
-            radius = rb * sb * min(1.0, (17 - tau) / 4.0)
-            shp, move = _moving(radius, velocity, 1.0 + min(1.5, tau * 0.12), SHUTTER)
-            sc.blobs.append(Blob(xy[0], xy[1], z, radius, shp, *velocity, free=True, move=move, glint=0.5))
-            if tau < 8:
+            if tau >= 15:
+                radius = rb * sb * min(1.0, (23 - tau) / 7.0)
+                shp, move = _moving(radius, velocity, 1.0 + min(1.5, tau * 0.12), SHUTTER)
+                sc.blobs.append(Blob(xy[0], xy[1], z, radius, shp, *velocity, free=True, move=move, glint=0.5))
+            if tau < 15:
                 # Water still feeds the falling bead from the lip before the thinning connection pinches apart.
                 root = p + s * edge
                 u = np.linspace(0.0, 1.0, 18)
@@ -3591,10 +3591,11 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 pts = np.c_[root + (xy - root)[None] * u[:, None], root_z + (z - root_z) * u]
                 pts[:, 0] += 0.008 * s * np.sin(u * math.pi) * math.sin(age * 0.4)
                 arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts[:, :2], axis=0), axis=1))]
-                widths = np.maximum(0.6, rb * s * (0.6 + 0.4 * u) * (1.0 - tau / 9.0))
+                widths = rb * s * (0.85 - 0.32 * np.sin(math.pi * u) + 0.15 * u)
+                widths *= 1.0 - 0.80 * float(_ss(9, 15, tau))
                 vel = np.tile(np.r_[velocity, 0.0], (len(u), 1))
-                sc.blobs += _stream(pts, vel, widths, np.zeros(len(u)), vel[:, :2], arc,
-                                    np.full(len(u), 0.65))
+                sc.blobs += _stream(pts, vel, widths, np.full(len(u), 0.035), vel[:, :2], arc,
+                                    0.60 + 0.25 * u)
 
 
 def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], seed: int,
@@ -4640,13 +4641,15 @@ def _palm_radius(u: np.ndarray, v: np.ndarray, phase: float = 2.7) -> np.ndarray
 
 def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room: Room, noise: Noise,
                 k: int, skin: np.ndarray) -> list[tuple]:
-    """A spreading skin film with a connected lit meniscus, a directional sheen and three tapered fold reflections.
-    Relief comes from the original RGB ``skin``; the wet boundary cannot invent a reflective crease of its own."""
-    x, y, r, wet, flowing = coat
+    """Keep one shallow, rimmed volume visible on the palm before it drains into three connected exit channels.
+    The sheet and its exits share surface relief and refraction; late glints follow the original skin creases."""
+    x, y, r, wet, flowing = coat[:5]
     H, W = P.shape[:2]
     s = float(hand.s[k])
-    y0, y1 = max(0, int(y - 1.32 * r)), min(H, int(y + 1.32 * r) + 2)
-    x0, x1 = max(0, int(x - 1.32 * r)), min(W, int(x + 1.32 * r) + 2)
+    exits = coat[5] if len(coat) > 5 else ()
+    reach = max(1.32, max((math.hypot(*exit_) + 0.20 for exit_ in exits), default=0.0))
+    y0, y1 = max(0, int(y - reach * r)), min(H, int(y + reach * r) + 2)
+    x0, x1 = max(0, int(x - reach * r)), min(W, int(x + reach * r) + 2)
     if min(y1 - y0, x1 - x0) < 3:
         return []
     yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
@@ -4658,24 +4661,31 @@ def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room:
     angle = math.atan2(float(hand.nrm[k, 1]), float(hand.nrm[k, 0])) + 0.5 * math.pi
     u, v = dx * math.cos(angle) + dy * math.sin(angle), (-dx * math.sin(angle) + dy * math.cos(angle)) / 0.8
     radius = _palm_radius(u, v)
-    sheet = float(_ss(0.55, 0.90, flowing))
-    draining = float(_ss(0.02, 0.20, flowing) * (1.0 - _ss(0.70, 0.95, flowing)))
+    sheet = float(_ss(0.28, 0.82, flowing))
+    draining = float(_ss(0.02, 0.20, flowing) * (0.35 + 0.65 * (1.0 - _ss(0.45, 0.98, flowing))))
     # One shallow volume first covers the skin, then separates into unequal draining channels. Only their curved
     # surfaces reflect: no painted white paths, and the palm's original texture remains under the water.
     channels = np.zeros_like(xx)
-    for theta, length, width, bend in PALM_CHANNELS:
+    if exits:
+        routes = []
+        for j, (ex, ey) in enumerate(exits):
+            eu, ev = ex * math.cos(angle) + ey * math.sin(angle), (-ex * math.sin(angle) + ey * math.cos(angle)) / 0.8
+            routes.append((math.atan2(ev, eu), math.hypot(eu, ev) + 0.07, 0.16 - 0.020 * j, 0.035 * (-1) ** j))
+    else:
+        routes = PALM_CHANNELS
+    for theta, length, width, bend in routes:
         along = u * math.cos(theta) + v * math.sin(theta)
         across = -u * math.sin(theta) + v * math.cos(theta) - bend * np.sin(3.0 * along)
-        taper = _ss(-0.12, 0.12, along) * _ss(length, length - 0.20, along)
-        taper *= 0.35 + 0.65 * _ss(-0.20, 0.50, np.sin(8.0 * along + 2.0 * theta))
-        if theta > 2.0:
-            taper *= 1.0 - _ss(0.26, 0.34, along) * (1.0 - _ss(0.48, 0.55, along))
+        taper = _ss(-0.12, 0.12, along) * _ss(length, length - 0.08, along)
+        taper *= 0.75 + 0.25 * np.sin(8.0 * along + 2.0 * theta)
         channels += np.exp(-(across / (width * (1.0 - 0.45 * np.clip(along, 0.0, 1.0)))) ** 2) * taper
     height = s * ((0.0005 + 0.007 * sheet) * ripple + 0.0002 * fine
-                  + 0.009 * draining * channels)
+                  + 0.024 * sheet * _ss(1.04, 0.55, radius) + 0.018 * draining * channels)
     gy, gx = np.gradient(cv2.GaussianBlur(height.astype(np.float32), (0, 0), max(0.6, 0.0015 * s)))
     patch = P[y0:y1, x0:x1]
-    coverage = wet ** 1.3 * _ss(1.025, 0.96, radius) * matte[y0:y1, x0:x1].astype(np.float32) / 255.0
+    footprint = _ss(1.025, 0.96, radius)
+    coverage = (wet ** 1.3 * np.maximum(footprint, _ss(0.04, 0.45, channels) * float(_ss(0.01, 0.15, draining)))
+                * matte[y0:y1, x0:x1].astype(np.float32) / 255.0)
     # A shallow sheet displaces the real palm folds by a few capture pixels. This survives phone reduction as
     # liquid thickness while preserving the skin's detail and the matte's silhouette.
     bend_x = np.clip(-24.0 * gx, -6.0, 6.0)
@@ -4730,7 +4740,7 @@ def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room:
     crease = cv2.warpAffine(joined, shift, (joined.shape[1], joined.shape[0]), flags=cv2.INTER_LINEAR)
     half = _unit(L + np.array([0.0, 0.0, 1.0]))
     ndh = np.clip((nx * half[0] + ny * half[1] + nz * half[2]) / norm, 0.0, 1.0)
-    envelope = wet ** 1.3 * _ss(1.025, 0.96, radius) * matte[y0:y1, x0:x1].astype(np.float32) / 255.0
+    envelope = coverage
     # The whole wet surface mirrors the same light. The sharper lobe is confined to long, light-facing fold banks.
     reflection = _ss(-0.65, 0.50, ripple)
     broad_norm = np.sqrt(nx_base * nx_base + ny_base * ny_base + nz * nz)
@@ -4744,17 +4754,19 @@ def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room:
     sharp *= np.isin(labels, bright)
     sharp = 3.0 * cv2.GaussianBlur(sharp, (0, 0), max(0.7, 0.010 * s))
     shoulder = 0.10 * ndh ** 45 * crease * bank_facing
-    specular = (0.28 * broad ** 70 * _ss(1.0, 0.50, radius) + shoulder + 6.0 * sharp) * (0.75 + 0.25 * reflection)
-    liquid = (sheet * (0.025 + 0.050 * reflection) * broad ** 12
-              + draining * channels * (0.38 + 0.45 * reflection) * ndh ** 6)
-    specular += liquid * _ss(1.0, 0.75, radius)
+    glints = 1.0 - 0.90 * float(_ss(0.05, 0.50, flowing))
+    specular = (0.28 * broad ** 70 * _ss(1.0, 0.50, radius) + glints * (shoulder + 6.0 * sharp)) * (0.75 + 0.25 * reflection)
+    liquid = (sheet * (0.10 + 0.12 * reflection) * broad ** 5 * _ss(1.0, 0.75, radius)
+              + draining * channels * (0.45 + 0.45 * reflection) * (0.15 + 0.85 * ndh ** 4))
+    specular += liquid
     # A connected light-facing meniscus survives phone reduction, then drains into the measured crease banks.
     Lxy = max(math.hypot(float(L[0]), float(L[1])), 1e-6)
     facing = (dx * L[0] + dy * L[1] / 0.8) / np.maximum(np.hypot(dx, dy / 0.8) * Lxy, 1e-5)
-    edge = np.exp(-((radius - 0.965) * r / max(1.2, 0.014 * s)) ** 2)
+    edge = np.exp(-((radius - 0.965) * r / max(1.2, 0.022 * s)) ** 2)
     theta = np.arctan2(v, u)
-    arcs = _ss(0.05, 0.75, np.cos(3.0 * theta + 0.6) + 0.3 * np.cos(5.0 * theta + 2.0))
-    specular += 1.20 * sheet * edge * _ss(-0.25, 0.65, facing) * arcs * (0.65 + 0.35 * reflection)
+    arcs = 0.35 + 0.65 * _ss(0.05, 0.75, np.cos(3.0 * theta + 0.6) + 0.3 * np.cos(5.0 * theta + 2.0))
+    specular += (1.20 * sheet * edge * (0.16 + 0.84 * _ss(-0.25, 0.65, facing)) * arcs
+                 * (0.65 + 0.35 * reflection) * (1.0 - 0.85 * draining * np.clip(channels, 0.0, 1.0)))
     specular = 0.32 * (1.0 - np.exp(-specular / 0.32)) * envelope
     contact_edge = np.exp(-((radius - 0.990) * r / max(0.9, 0.007 * s)) ** 2)
     thickness = (sheet * 0.06 * np.exp(-((radius - 0.91) / 0.07) ** 2)
