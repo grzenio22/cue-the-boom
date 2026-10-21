@@ -46,8 +46,9 @@ def portrait(frame: np.ndarray) -> Image.Image:
     return im.crop((x, y, x + PANEL_WIDTH, y + PANEL_HEIGHT))
 
 
-def recap(root: Path, run: Path) -> Path:
-    original = Image.open(root / "runs/demo_v13/cards/pipeline_overview.png").convert("RGB")
+def recap(root: Path, run: Path, *, stages=STAGES, duration=DURATION,
+          source_card: Path | None = None) -> Path:
+    original = Image.open(source_card or root / "runs/demo_v13/cards/pipeline_overview.png").convert("RGB")
     if original.size != (W, H):
         raise ValueError(f"Unexpected recap card size: {original.size}")
     neutral = original.copy()
@@ -56,7 +57,7 @@ def recap(root: Path, run: Path) -> Path:
     border(draw, 2, LINE, 3)
     title(draw, 2, FG)
     # Keep the original 2.4--3.3 s source window, slowed over the shorter recap.
-    source = Clip(str(root / "runs/demo_v11/clips/how_raw.mp4"), 2.4, DURATION, speed=.9 / DURATION)
+    source = Clip(str(root / "runs/demo_v11/clips/how_raw.mp4"), 2.4, duration, speed=.9 / duration)
     path = run / "cards/pipeline_motion.mp4"
     path.parent.mkdir(parents=True, exist_ok=True)
     with av.open(str(path), "w") as container:
@@ -66,7 +67,7 @@ def recap(root: Path, run: Path) -> Path:
         cc = stream.codec_context
         cc.colorspace, cc.color_primaries, cc.color_trc, cc.color_range = 1, 1, 1, 1
         index = 0
-        for _, count, selected in STAGES:
+        for _, count, selected in stages:
             for _ in range(count):
                 image = original.copy() if selected is None else neutral.copy()
                 image.paste(portrait(source.frame(index)), (PANEL_LEFTS[2], PANEL_TOP))
@@ -87,8 +88,8 @@ def recap(root: Path, run: Path) -> Path:
                 index += 1
         for packet in stream.encode():
             container.mux(packet)
-    if index != round(DURATION * FPS):
-        raise ValueError(f"Recap has {index} frames instead of {round(DURATION * FPS)}")
+    if index != round(duration * FPS):
+        raise ValueError(f"Recap has {index} frames instead of {round(duration * FPS)}")
     return path
 
 

@@ -581,6 +581,31 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
 DUCK = 0.3  # the beat's own sound under narration
 
 
+def fill_quiet(audio: np.ndarray, room: np.ndarray, target_dbfs: float = -45,
+               threshold_dbfs: float = -50) -> np.ndarray:
+    """Fade recorded room tone into quiet gaps; retain audible samples exactly.
+
+    The gate uses 10 ms RMS windows and 150 ms fades within each quiet region.
+    This is opt-in per storyboard, after narration mixing, so existing edits
+    keep their original soundtrack unless they request a room-tone floor.
+    """
+    hop = SR // 100
+    padded = np.pad(audio, (0, (-audio.size) % hop))
+    rms = np.sqrt(np.mean(padded.reshape(-1, hop) ** 2, axis=1))
+    quiet = np.repeat(rms < 10 ** (threshold_dbfs / 20), hop)[:audio.size]
+    positions = np.arange(audio.size)
+    previous = np.maximum.accumulate(np.where(~quiet, positions, -1))
+    following = np.minimum.accumulate(np.where(~quiet, positions, audio.size)[::-1])[::-1]
+    weight = np.minimum(np.minimum(positions-previous, following-positions) / (.15*SR), 1).astype(np.float32)
+    room = np.asarray(room, np.float32)
+    room = room - np.mean(room)
+    level = float(np.sqrt(np.mean(room ** 2)))
+    if level < 1e-8:
+        raise ValueError("Room-tone source is silent")
+    bed = np.resize(room, audio.size) * (10 ** (target_dbfs / 20) / level)
+    return (audio + bed * weight).astype(np.float32)
+
+
 def narration_captions(beats: list[dict]) -> list[tuple[float, float, str]]:
     """Schedule complete lines or explicit spoken phrases, even when their sound continues across a cut."""
     captions, elapsed = [], 0.0
@@ -619,8 +644,9 @@ def build(storyboard: Path, out: Path) -> float:
 
     from av.video.reformatter import ColorRange, Colorspace
 
-    beats = json.loads(Path(storyboard).read_text(encoding="utf-8"))
-    beats = beats["beats"] if isinstance(beats, dict) else beats
+    board = json.loads(Path(storyboard).read_text(encoding="utf-8"))
+    room_tone = board.get("room_tone") if isinstance(board, dict) else None
+    beats = board["beats"] if isinstance(board, dict) else board
     captions = narration_captions(beats)
     n_frames, all_audio, carry = 0, [], np.zeros(0, np.float32)
     with av.open(str(out), "w") as container:
@@ -651,7 +677,12 @@ def build(storyboard: Path, out: Path) -> float:
             container.mux(packet)
         if carry.size:
             print(f"the last narration runs {carry.size / SR:.2f} s past the end: cut", flush=True)
-        samples = np.clip(np.concatenate(all_audio), -1.0, 1.0).astype(np.float32)
+        samples = np.concatenate(all_audio).astype(np.float32)
+        if room_tone:
+            samples = fill_quiet(samples, read_audio(room_tone["src"], SR),
+                                 float(room_tone.get("target_dbfs", -45)),
+                                 float(room_tone.get("threshold_dbfs", -50)))
+        samples = np.clip(samples, -1.0, 1.0)
         for start in range(0, samples.size, 1024):
             af = av.AudioFrame.from_ndarray(np.ascontiguousarray(samples[start:start + 1024].reshape(1, -1)), format="fltp", layout="mono")
             af.sample_rate, af.pts = SR, start

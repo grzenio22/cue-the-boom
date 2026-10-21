@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "duration": 113.375,
   "beats": [
     {
@@ -7,7 +7,7 @@
       "type": "clip",
       "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\explosion_palm\\composite.mp4",
       "start": 0,
-      "dur": 8.0,
+      "dur": 7.083333333333333,
       "fill": true,
       "portrait_backdrop": true,
       "pops": [
@@ -67,7 +67,11 @@
       "portrait_backdrop": true,
       "headline": "Cue the Boom",
       "subline": "Your voice performs the effect.",
-      "stamp": "The same fire, carried on the hand · slow motion"
+      "stamp": "The same fire, carried on the hand · slow motion",
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\intro_finished.wav",
+      "audio_from": 0,
+      "audio_gain": 0.8,
+      "audio_replace": true
     },
     {
       "id": "performance_turns",
@@ -315,6 +319,15 @@
       "zoom": 1
     },
     {
+      "id": "comfy_cuesync",
+      "type": "image",
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\comfy_cuesync.png",
+      "dur": 3.0,
+      "zoom": 1,
+      "node_caption": "Turns a sound into the guide the LTX render follows.",
+      "node_evidence": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\comfy_cuesync_evidence.json"
+    },
+    {
       "id": "workflow_fire",
       "type": "clip",
       "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
@@ -330,7 +343,11 @@
       "fill": true,
       "portrait_backdrop": true,
       "chip": "The generated LTX fire",
-      "stamp": "The same stored output · slow motion"
+      "stamp": "The same stored output · slow motion",
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\workflow_fire.wav",
+      "audio_from": 0,
+      "audio_gain": 0.8,
+      "audio_replace": true
     },
     {
       "id": "how",
@@ -362,7 +379,10 @@
           3.725,
           "Track the hand. Mask it, and add the firelight."
         ]
-      ]
+      ],
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\how.wav",
+      "audio_from": 0,
+      "audio_gain": 0.8
     },
     {
       "id": "light",
@@ -379,7 +399,10 @@
       "dur": 3.0,
       "speed": 0.3,
       "audio": 1,
-      "stamp": "The same tracked hand and LTX element · slow motion to show the light"
+      "stamp": "The same tracked hand and LTX element · slow motion to show the light",
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\light.wav",
+      "audio_from": 0,
+      "audio_gain": 0.8
     },
     {
       "id": "walk",
@@ -429,8 +452,8 @@
     {
       "id": "water",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\water_orb\\composite.mp4",
-      "start": 0.25,
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\lightning_dark\\composite.mp4",
+      "start": 1.5,
       "dur": 2.0,
       "fill": true,
       "portrait_backdrop": true,
@@ -664,71 +687,66 @@
     {
       "id": "innovation",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
       "start": 0.0,
-      "dur": 1.0,
+      "dur": 0.75,
       "fill": true,
       "source_gain": 0,
-      "vo": "D:\\openHiggsfield\\runs\\demo_v14\\vo14\\new12.wav",
+      "vo": "D:\\openHiggsfield\\runs\\demo_v15\\vo15\\contribution15.wav",
       "vo_at": 0.1,
       "vo_gain": 1.3,
-      "vo_text": "My contribution is separating generation from performance: one LTX effect from ComfyUI becomes a reusable instrument. Your voice controls when it hits and how big it plays, without another AI generation.",
+      "vo_text": "My contribution: separating generation from performance. Your voice plays one LTX instrument, without regenerating.",
       "vo_captions": [
         [
           0.0,
-          3.0419921875,
-          "My contribution is separating generation from performance:"
+          4.44375,
+          "My contribution: separating generation from performance."
         ],
         [
-          3.0419921875,
-          6.8017578125,
-          "one LTX effect from ComfyUI becomes a reusable instrument."
+          4.44375,
+          7.2875,
+          "Your voice plays one LTX instrument,"
         ],
         [
-          6.8017578125,
-          9.23828125,
-          "Your voice controls when it hits and how big it plays,"
-        ],
-        [
-          9.23828125,
-          11.25,
-          "without another AI generation."
+          7.2875,
+          9.15,
+          "without regenerating."
         ]
       ]
     },
     {
       "id": "innovation_asset",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
-      "start": 1.0,
-      "dur": 2.0,
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
+      "start": 0.75,
+      "dur": 1.4583333333333333,
       "fill": true,
       "source_gain": 0
     },
     {
       "id": "innovation_track",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
-      "start": 3.0,
-      "dur": 1.5,
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
+      "start": 2.2083333333333335,
+      "dur": 1.125,
       "fill": true,
       "source_gain": 0
     },
     {
       "id": "innovation_voice",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
-      "start": 4.5,
-      "dur": 1.0,
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
+      "start": 3.3333333333333335,
+      "dur": 0.75,
       "fill": true,
       "source_gain": 0
     },
     {
       "id": "innovation_result",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v14\\cards\\pipeline_motion.mp4",
-      "start": 5.5,
-      "dur": 2.5,
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
+      "start": 4.083333333333333,
+      "dur": 1.8333333333333333,
       "fill": true,
       "source_gain": 0
     },
@@ -804,141 +822,146 @@
     {
       "id": "cold_open",
       "start": 0.0,
-      "end": 8.0
+      "end": 7.083333333333333
     },
     {
       "id": "intro_raw",
-      "start": 8.0,
-      "end": 12.0
+      "start": 7.083333333333333,
+      "end": 11.083333333333334
     },
     {
       "id": "intro_finished",
-      "start": 12.0,
-      "end": 18.0
+      "start": 11.083333333333334,
+      "end": 17.083333333333332
     },
     {
       "id": "performance_turns",
-      "start": 18.0,
-      "end": 28.0
+      "start": 17.083333333333332,
+      "end": 27.083333333333332
     },
     {
       "id": "small_and_big",
-      "start": 28.0,
-      "end": 32.0
+      "start": 27.083333333333332,
+      "end": 31.083333333333332
     },
     {
       "id": "comfy_model",
-      "start": 32.0,
-      "end": 34.5
+      "start": 31.083333333333332,
+      "end": 33.583333333333336
     },
     {
       "id": "comfy_lora",
-      "start": 34.5,
-      "end": 37.0
+      "start": 33.583333333333336,
+      "end": 36.083333333333336
     },
     {
       "id": "comfy_sampler",
-      "start": 37.0,
-      "end": 39.5
+      "start": 36.083333333333336,
+      "end": 38.583333333333336
     },
     {
       "id": "comfy_output",
-      "start": 39.5,
-      "end": 42.0
+      "start": 38.583333333333336,
+      "end": 41.083333333333336
+    },
+    {
+      "id": "comfy_cuesync",
+      "start": 41.083333333333336,
+      "end": 44.083333333333336
     },
     {
       "id": "workflow_fire",
-      "start": 42.0,
-      "end": 44.0
+      "start": 44.083333333333336,
+      "end": 46.083333333333336
     },
     {
       "id": "how",
-      "start": 44.0,
-      "end": 50.0
+      "start": 46.083333333333336,
+      "end": 52.083333333333336
     },
     {
       "id": "light",
-      "start": 50.0,
-      "end": 53.0
+      "start": 52.083333333333336,
+      "end": 55.083333333333336
     },
     {
       "id": "walk",
-      "start": 53.0,
-      "end": 56.25
+      "start": 55.083333333333336,
+      "end": 58.333333333333336
     },
     {
       "id": "flamethrower",
-      "start": 56.25,
-      "end": 58.25
+      "start": 58.333333333333336,
+      "end": 60.333333333333336
     },
     {
       "id": "lightning_point",
-      "start": 58.25,
-      "end": 60.25
+      "start": 60.333333333333336,
+      "end": 62.333333333333336
     },
     {
       "id": "water",
-      "start": 60.25,
-      "end": 62.25
+      "start": 62.333333333333336,
+      "end": 64.33333333333333
     },
     {
       "id": "lanterns",
-      "start": 62.25,
-      "end": 68.75
+      "start": 64.33333333333333,
+      "end": 70.83333333333333
     },
     {
       "id": "dino",
-      "start": 68.75,
-      "end": 72.125
+      "start": 70.83333333333333,
+      "end": 74.20833333333333
     },
     {
       "id": "upload",
-      "start": 72.125,
-      "end": 76.125
+      "start": 74.20833333333333,
+      "end": 78.20833333333333
     },
     {
       "id": "tap",
-      "start": 76.125,
-      "end": 80.125
+      "start": 78.20833333333333,
+      "end": 82.20833333333333
     },
     {
       "id": "perform",
-      "start": 80.125,
-      "end": 85.125
+      "start": 82.20833333333333,
+      "end": 87.20833333333333
     },
     {
       "id": "make",
-      "start": 85.125,
-      "end": 87.625
+      "start": 87.20833333333333,
+      "end": 89.70833333333333
     },
     {
       "id": "result",
-      "start": 87.625,
-      "end": 91.625
+      "start": 89.70833333333333,
+      "end": 93.70833333333333
     },
     {
       "id": "innovation",
-      "start": 91.625,
-      "end": 92.625
+      "start": 93.70833333333333,
+      "end": 94.45833333333333
     },
     {
       "id": "innovation_asset",
-      "start": 92.625,
-      "end": 94.625
+      "start": 94.45833333333333,
+      "end": 95.91666666666667
     },
     {
       "id": "innovation_track",
-      "start": 94.625,
-      "end": 96.125
+      "start": 95.91666666666667,
+      "end": 97.04166666666667
     },
     {
       "id": "innovation_voice",
-      "start": 96.125,
-      "end": 97.125
+      "start": 97.04166666666667,
+      "end": 97.79166666666667
     },
     {
       "id": "innovation_result",
-      "start": 97.125,
+      "start": 97.79166666666667,
       "end": 99.625
     },
     {
@@ -958,6 +981,13 @@
     }
   ],
   "provenance": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\manifest.json",
-  "narration": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\provenance.json",
-  "source_policy": "Read-only v11 clips reused; no new AI generations or footage rebuilds"
+  "narration": "D:\\openHiggsfield\\runs\\demo_v15\\vo15\\provenance.json",
+  "source_policy": "Every v11 clip rebuilt from the current checkout; no new model renders; narration at normal tempo",
+  "baseline": "D:\\openHiggsfield\\runs\\demo_v14\\storyboard.json",
+  "room_tone": {
+    "src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\room_tone.wav",
+    "target_dbfs": -45,
+    "threshold_dbfs": -50
+  },
+  "edit_timing": "D:\\openHiggsfield\\runs\\demo_v15\\edit_timing.json"
 }

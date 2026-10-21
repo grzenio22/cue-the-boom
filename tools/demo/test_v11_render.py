@@ -14,7 +14,7 @@ from cuesync.media import write_video
 class RenderChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.work = Path("D:/openHiggsfield_tmp/sol7/demo/render_checks")
+        cls.work = Path("D:/openHiggsfield_tmp/sol12/demo/render_checks")
         cls.work.mkdir(parents=True, exist_ok=True)
         cls.panels = []
         for k, colour in enumerate(((180, 0, 0), (0, 180, 0), (0, 0, 180))):
@@ -102,6 +102,19 @@ class RenderChecks(unittest.TestCase):
         during = caption_overlay(base.copy(), 0.6, [(0.5, 1.5, "A quiet puff plays small.")])
         self.assertTrue(np.array_equal(np.asarray(before), np.asarray(base)))
         self.assertFalse(np.array_equal(np.asarray(during), np.asarray(base)))
+
+    def test_room_tone_fills_a_silent_gap_without_changing_audible_sound(self):
+        fill_quiet = getattr(build_demo, "fill_quiet", None)
+        self.assertIsNotNone(fill_quiet, "Silent stretches need a measured room-tone bed")
+        rate = 48000
+        original = np.concatenate([np.full(rate, .1), np.zeros(2 * rate), np.full(rate, .1)]).astype(np.float32)
+        room = np.random.default_rng(15).normal(0, 1, rate // 2).astype(np.float32)
+        mixed = fill_quiet(original, room)
+        np.testing.assert_array_equal(mixed[:rate], original[:rate])
+        np.testing.assert_array_equal(mixed[3 * rate:], original[3 * rate:])
+        center_rms = float(np.sqrt(np.mean(mixed[round(1.2*rate):round(2.8*rate)] ** 2)))
+        self.assertAlmostEqual(20 * np.log10(center_rms), -45, delta=.3)
+        self.assertEqual(mixed.size, original.size)
 
 
 if __name__ == "__main__":
