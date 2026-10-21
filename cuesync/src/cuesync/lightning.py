@@ -1705,15 +1705,111 @@ class _Filament(tuple):
 
     A near channel can share the phone's defocus without being extinguished as if it lay behind the whole sphere.
     ``end_fade`` lets its ends recede while retaining a bright foreground middle, independently of resolution.
+    A ``streamer`` escapes the limb and tapers into the air; its endpoint also supplies local reflected skin light.
     """
 
     def __new__(cls, points: np.ndarray, width: float, intensity: float, softness: float, depth: float | None = None,
-                end_fade: float = 0.0):
+                end_fade: float = 0.0, streamer: bool = False):
         item = super().__new__(cls, (points, width, intensity))
         item.softness = softness
         item.depth = float(softness > 0) if depth is None else depth
         item.end_fade = end_fade
+        item.streamer = streamer
         return item
+
+
+def _sphere_current(angle: float, tilt: float, start: float, end: float, count: int, seed: int) -> np.ndarray:
+    """A kinked partial great circle on one unit sphere, with z toward the camera.
+
+    Its inclined plane supplies the broad projected bow. Small tangent offsets retain electrical steps without
+    moving the current onto a different sphere; fixed receding endpoints keep the shared envelope readable.
+    """
+    a = np.array([math.cos(angle), math.sin(angle), 0.0])
+    b = np.array([-math.sin(angle) * math.sin(tilt), math.cos(angle) * math.sin(tilt), math.cos(tilt)])
+    phi = np.linspace(start, end, count)
+    q = np.sin(phi)[:, None] * a + np.cos(phi)[:, None] * b
+    rng = np.random.default_rng([seed & 0xFFFFFFFF, _PLASMA])
+    along = np.linspace(0, 1, count)
+    kink = np.interp(along, np.linspace(0, 1, 15), rng.normal(0, .027, 15))
+    kink += rng.normal(0, .006, count)
+    kink *= np.sin(np.pi * along) ** .5
+    q += kink[:, None] * np.cross(a, b)
+    return q / np.linalg.norm(q, axis=1, keepdims=True)
+
+
+def _ball_streamers(c: np.ndarray, R: float, landmarks: np.ndarray | None, seed: int, frame: int,
+                    matte: np.ndarray | None = None) -> list[np.ndarray]:
+    """Up to three short escapes from the limb, aimed toward nearby fingers while ending in the air.
+
+    A separate random stream preserves the existing grounding strikes. Sampling finger segments outside the limb
+    avoids aiming at a hidden knuckle, and the short free escapes keep the charge's outline open between contacts.
+    The observed uint8 ``matte`` stops the entire route before a finger, including one crossing a free escape.
+    """
+    rng = np.random.default_rng([seed & 0xFFFFFFFF, _PLASMA, _SPARK, frame // 2])
+    sec = 2 * math.pi * frame / fx.FPS
+    roots = np.concatenate([
+        _sphere_current(.08 + .035 * math.sin(sec * .7), .42, -1.28, 1.28, 61, seed + frame // 2)[[4, -5], :2],
+        _sphere_current(-.88 + .035 * math.cos(sec * .9), -.25, -1.48, 1.48, 61,
+                        seed + frame // 2 + 32452843)[[4, -5], :2]])
+    root_angles = np.arctan2(roots[:, 1], roots[:, 0])
+    targets = []
+    if landmarks is not None:
+        for tip in TIPS:
+            start = tip - 2 if tip == 4 else tip - 3
+            for j in range(start, tip):
+                points = np.linspace(landmarks[j], landmarks[j + 1], 9)[:, :2]
+                dist = np.linalg.norm(points - c, axis=1) / R
+                for point, radius in zip(points, dist):
+                    if 1.1 <= radius <= 1.65:
+                        targets.append((float(radius), math.atan2(point[1] - c[1], point[0] - c[0])))
+    aims = []
+    for radius, angle in sorted(targets):
+        if all(abs(math.atan2(math.sin(angle - other), math.cos(angle - other))) > .75 for other, _ in aims):
+            aims.append((angle, min(.34, max(.16, radius - 1 - .05))))
+        if len(aims) == 2:
+            break
+    count = 2 + int((seed + frame // 6) % 4 == 0)
+    for angle in (-.94, .25, 2.3, 3.0, -1.7, 1.2):
+        angle += .12 * math.sin(frame / fx.FPS * 1.3 + seed)
+        aims.append((angle, float(rng.uniform(.18, .32))))
+    paths, emitted = [], []
+    for angle, extent in aims:
+        if any(abs(math.atan2(math.sin(angle - other), math.cos(angle - other))) < .75 for other in emitted):
+            continue
+        delta = np.abs(np.arctan2(np.sin(root_angles - angle), np.cos(root_angles - angle)))
+        root = roots[np.argmin(delta)]
+        if delta.min() > .55:
+            continue
+        axis = np.array([math.cos(angle), math.sin(angle)])
+        across = np.array([-axis[1], axis[0]])
+        # Anchor the escape to the actual near current; a bright arbitrary limb root becomes a detached firefly.
+        knots = np.array([[root @ axis, root @ across], [1.0, .025], [1 + .58 * extent, -.03], [1 + extent, 0]])
+        knots[1:-1, 1] += rng.normal(0, .018, 2)
+        q = np.concatenate([displace(a, b, rng, .12, .018)[:-1] for a, b in zip(knots[:-1], knots[1:])]
+                           + [knots[-1:]])
+        p = c + R * (q[:, :1] * axis + q[:, 1:] * across)
+        if matte is not None:
+            length = np.r_[0., np.cumsum(np.linalg.norm(np.diff(p, axis=0), axis=1))]
+            at = np.linspace(0, length[-1], max(2, int(math.ceil(length[-1] / .7)) + 1))
+            sampled = np.c_[np.interp(at, length, p[:, 0]), np.interp(at, length, p[:, 1])]
+            xi, yi = np.rint(sampled).astype(int).T
+            h, w = matte.shape
+            inside = (xi >= 0) & (xi < w) & (yi >= 0) & (yi < h)
+            on = np.zeros(len(sampled), bool)
+            on[inside] = matte[yi[inside], xi[inside]] > 16
+            if on.any():
+                stop = at[np.flatnonzero(on)[0]] - max(1., .03 * R)
+                if stop <= 0:
+                    continue
+                end = np.array([np.interp(stop, length, p[:, 0]), np.interp(stop, length, p[:, 1])])
+                p = np.vstack([p[length < stop], end])
+                if np.linalg.norm(end - c) < 1.08 * R:
+                    continue
+        paths.append(p)
+        emitted.append(angle)
+        if len(paths) == count:
+            break
+    return paths
 
 
 def finger_cover(hand: _Hand, t: int, matte: np.ndarray | None, box: tuple) -> np.ndarray:
@@ -1954,7 +2050,7 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
         leading = set(np.argsort(scores)[-2:].tolist())
         for slot, (p, flash) in enumerate(shells):
             gain = flash * (0.4 + 0.6 * lv) * pres * dying
-            gain *= 0.18 if slot in leading else 0.08
+            gain *= 0.24 if slot in leading else 0.09
             if gain <= 0.02:
                 continue
             for q, w_, it in p.tree:
@@ -1978,7 +2074,7 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
                         depth = float(q3[run, 2].mean())
                         k_ = 1.35 + 0.6 * max(0.0, depth) if front[run[0]] else SHELL_BACK
                         if np.linalg.norm(q3[run], axis=1).mean() > 0.9:
-                            k_ *= 0.55  # a weak interrupted outer skin cannot enclose the bright interior paths
+                            k_ *= 0.35  # a weak interrupted outer skin cannot enclose the bright interior paths
                         soft = (1.3 if front[run[0]] else 1.8 + 1.4 * max(0.0, -depth)) * k
                         optical_depth = .35 if front[run[0]] else 1.0
                         if not front[run[0]] and cover is not None:
@@ -1993,17 +2089,12 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
                         else:
                             out.append(_Filament(points, w_ * wd, it * gain * k_, soft, optical_depth))
         if born and dying > 0 and shells:
-            # A near channel crosses a complete chord of the charge. Its changing kinks follow the same sphere;
-            # random short shell paths alone cannot establish volume at phone size.
+            # Inclined front currents bow around one sphere and recede together at its limb. Their electrical
+            # kinks cannot replace the broad surface curvature that establishes depth at phone size.
             prng = np.random.default_rng([seed & 0xFFFFFFFF, _PLASMA, t // 2])
-            u = np.linspace(-0.86, 0.86, 45)
-            anchors = np.array([-.28, -.20, .11, -.05, .19, .09, .25, .08])
-            anchors += prng.normal(0, .035, len(anchors))
-            v = np.interp(u, [-.86, -.64, -.38, -.06, .20, .46, .70, .86], anchors)
-            v += 0.045 * math.sin(sec * 1.7)
-            v += prng.normal(0, 0.025, len(u))
-            p = c + R * np.c_[u, v]
-            out.append(_Filament(p, 0.95 * wd, 1.1 * (0.4 + 0.6 * lv) * pres * dying, 0.0))
+            q = _sphere_current(.08 + .035 * math.sin(sec * .7), .42, -1.28, 1.28, 61, seed + t // 2)
+            p = c + R * q[:, :2]
+            out.append(_Filament(p, 0.95 * wd, 1.1 * (0.4 + 0.6 * lv) * pres * dying, 0.0, 0, .65))
 
             def visible_filament(points, width, gain, soft, depth=None):
                 """Fingers hide the lower near return as well as the far limbs; no arc is painted across skin."""
@@ -2023,29 +2114,26 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
                                    + [knots[-1:]])
             visible_filament(c + R * lower, .55 * wd, .36 * (0.4 + 0.6 * lv) * pres * dying, 1.4 * k, .20)
 
-            # A second near current cuts obliquely through the upper interior. The dimmer deep continuation
-            # crosses behind it, so the bright lower chord cannot read as the rim of an empty ring.
-            knots = np.array([[-.45, .62], [-.38, .37], [-.25, .15], [-.08, .03],
-                              [.05, -.18], [.30, -.23], [.36, -.35], [.60, -.48]])
-            knots += prng.normal(0, .022, knots.shape)
-            knots += (.035 * math.sin(sec * 1.1), .035 * math.cos(sec * .9))
-            near = np.concatenate([displace(a, b, prng, .18, .025)[:-1] for a, b in zip(knots[:-1], knots[1:])]
-                                  + [knots[-1:]])
-            out.append(_Filament(c + R * near, .78 * wd, .88 * (0.4 + 0.6 * lv) * pres * dying, .65 * k, 0, .75))
+            q = _sphere_current(-.88 + .035 * math.cos(sec * .9), -.25, -1.48, 1.48, 61, seed + t // 2 + 32452843)
+            out.append(_Filament(c + R * q[:, :2], .78 * wd, .88 * (0.4 + 0.6 * lv) * pres * dying, .65 * k, 0, .75))
             far = np.array([[-.63, -.38], [-.38, -.18], [-.18, -.04], [.06, .15], [.28, .40], [.50, .53]])
             far += prng.normal(0, .035, far.shape)
             far = np.concatenate([displace(a, b, prng, .22, .025)[:-1] for a, b in zip(far[:-1], far[1:])]
                                  + [far[-1:]])
-            visible_filament(c + R * far, .85 * wd, .9 * (0.4 + .6 * lv) * pres * dying, 2.5 * k, .25)
+            visible_filament(c + R * far, .85 * wd, .45 * (0.4 + .6 * lv) * pres * dying, 2.5 * k, .85)
 
             # Interrupted rear limbs continue below the equator; their defocus and low current separate them
             # from the single resolved front crossing. Fingers still hide the far side of the sphere.
-            for a, b in ((-2.60, -1.95), (-1.40, -.78), (.22, .92), (1.65, 2.40)):
+            for a, b in ((-2.60, -2.30), (-1.10, -.78), (.50, .80), (1.85, 2.15)):
                 theta = np.linspace(a, b, 19) + 0.08 * math.sin(sec * 0.7)
                 radius = 0.94 + prng.normal(0, 0.035, len(theta))
                 p = c + R * np.c_[radius * np.cos(theta), radius * np.sin(theta)]
-                gain = (.24 if b < 0 else .30) * (0.4 + 0.6 * lv) * pres * dying
+                gain = (.12 if b < 0 else .15) * (0.4 + 0.6 * lv) * pres * dying
                 visible_filament(p, 0.62 * wd, gain, 4.0 * k)
+            for p in _ball_streamers(c, R, None if hand.lm is None else hand.lm[t], seed, t,
+                                     None if matte is None else matte[t]):
+                out.append(_Filament(p, .80 * wd, .92 * (0.4 + .6 * lv) * pres * dying, .45 * k,
+                                     0, streamer=True))
         # the arcs to the fingertips, once it has a body (GROUND): each side of it strikes on its own every
         # GROUND_GAP frames, never on the frame the other does but on a hit (when both strike, at least one arc
         # each), throwing as many arcs as GROUND draws, as many fewer as it is smaller, to the fingertips on its side
@@ -2164,7 +2252,7 @@ def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0,
         pts, width, inten = channel
         if len(pts) < 2 or inten <= 0:
             continue
-        branch = 0.0 if isinstance(channel, _Filament) else \
+        branch = (1.0 if channel.streamer else 0.0) if isinstance(channel, _Filament) else \
             float(np.clip((BRANCH[1] - inten / top) / (BRANCH[1] - BRANCH[0]), 0.0, 1.0))
         fade = TAPER[0] * branch
         p = pts[:, :2] - (x0, y0)
@@ -2509,8 +2597,8 @@ def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: Ball, seed: int
         support = _blur(channels[b0:b1, a0:a1], max(0.5, 0.13 * R))
         support = np.clip(support / max(float(support.max()), 0.01), 0, 1) ** 0.7
         # Ionised pockets gather around the actual discharge instead of forming a separate smooth luminous dome.
-        hot *= 0.15 + 0.85 * support
-        body *= 0.15 + 0.85 * support
+        hot *= 0.5 + 0.5 * support
+        body *= 0.4 + 0.6 * support
     halo = np.float32(HALO[0] * (HALO_VOICE[0] + HALO_VOICE[1] * ball.glow)) * \
         np.exp(d2 * np.float32(-0.5 / HALO[1] ** 2))
     haze_edge = np.clip((HALO_EDGE[1] * HALO[1] - np.sqrt(d2)) / ((HALO_EDGE[1] - HALO_EDGE[0]) * HALO[1]), 0.0, 1.0)
@@ -2992,6 +3080,23 @@ def spill_light(matte: np.ndarray, ball: Ball) -> tuple[tuple[int, int, int, int
     return box, np.float32(SPILL[1] * ball.level) * matte[y0:y1, x0:x1] * (gy[:, None] * gx[None, :]) * behind
 
 
+def streamer_light(matte: np.ndarray, ball: Ball, channels: list) -> tuple[tuple[int, int, int, int], np.ndarray] | None:
+    """Local reflected light from escaping tips, clipped to photographed skin without adding contact beads.
+
+    The falloff follows each actual escaping channel, so a finger brightens next to its discharge and the distant
+    palm and wrist retain the existing ball lighting. ``matte`` is the observed float coverage, in [0, 1].
+    """
+    streamers = [c for c in channels if getattr(c, "streamer", False)]
+    box = _around(ball.x, ball.y, 1.9 * ball.R, *matte.shape)
+    if not streamers or box is None:
+        return None
+    y0, y1, x0, x1 = box
+    light = np.zeros((y1 - y0, x1 - x0), np.float32)
+    for p, _, intensity in streamers:
+        _spot(light, box, *p[-1], max(1.0, .14 * ball.R), 1.2 * intensity)
+    return box, light * matte[y0:y1, x0:x1]
+
+
 # ---- the shot ------------------------------------------------------------------------------------------------------
 
 def _cool(o: np.ndarray, q: np.ndarray, mm: np.ndarray, share: float = SKIN_COOL[1]) -> np.ndarray:
@@ -3370,7 +3475,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                 # fingers facing it and the palm under it, in the hand's colour
                 got_ = ball_light(balls[t], side, h, w)
                 lights = [] if m is None else [g_ for g_ in (wrap_light(m, balls[t], side), spill_light(m, balls[t]),
-                                                             fill_light(m, balls[t])) if g_ is not None]
+                                                             fill_light(m, balls[t]),
+                                                             streamer_light(m, balls[t], bolts[t])) if g_ is not None]
                 if got_ is not None:
                     lit_box, on_hand, on_room = got_
                     y0, y1, x0, x1 = lit_box
