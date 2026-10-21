@@ -13,7 +13,7 @@ and exact CueSync node-pack close-up:
 
 The baseline is runs/demo_v14/storyboard.json (113.375 s). Keep every original
 beat and dictionary, apart from: pay for the three-second node insert with
-recap/opening-tail holds; restore the slow-motion shots' own slowed Foley;
+recap/opening-tail holds; restore the slow-motion shots' own slowed Foley, ringing out on the BOOM's own echo;
 replace water with the freshly remade dark-bathroom palm lightning; shorten
 and re-voice the contribution at normal Kokoro-82M tempo. The moving recap
 retains its five highlights and the complete 3.5-second quiet/loud reprise.
