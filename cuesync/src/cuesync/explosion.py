@@ -153,8 +153,10 @@ EXPOSE = (2.3, 1.6, 0.3)  # the fire's brightness as a phone exposed for the roo
 # they went black, a charred ball)
 BALL = (0.5, 2.5, 2.0)  # the burning ball: where the render is fire (weight over the first), holes filled, shrunk this
 # many px at 1080 and feathered over this many (its colour and its alpha end on one contour)
-FLAME_EDGE = (48.0, 80.0, 1.4)  # px at 1080: irregular translucent flame paths across at most this depth, displaced by
+FLAME_EDGE = (100.0, 140.0, 2.4)  # px at 1080: irregular translucent flame paths across at most this depth, displaced by
 # this much turbulent motion, with this lens softness. Only the margin changes; a filled hot contour read as a cutout.
+FIRE_RESOLVE = (3.0, 18.0, 0.22)  # px at 1080: suppress unresolved fine texture, then mix this share of broader
+# flame brightness into it. The phone keeps the large billows but cannot resolve the source's crisp, dark filigree.
 LIMB = (8.0, 4.0, 14.0, 0.8, 0.08)  # its limb's folds filled up to the fire round them (blurred this many px at 1080),
 # fully to this many px at 1080 in from its edge, none past the second, its darkest folds there lifted to about this
 # (RAMP: yellow-orange, as bright as the wall it lights), smoothly over this (a light's limb is never darker than the
@@ -1173,7 +1175,7 @@ class Fire:
     smoke and relights it as soot), frame by frame over the element's box: its brightness exposed as a phone exposed
     for the room shows it (EXPOSE, on RAMP), its highlights spread by the lens (BLOOM). While it burns (BURN) the ball
     keeps an opaque core (BALL) with translucent turbulent margins (FLAME_EDGE), its limb never darker than the wall
-    round it (LIMB, WALL_CAP), nothing round it but the wall it lights; the source billows keep their texture. As
+    round it (LIMB, WALL_CAP), nothing round it but the wall it lights; broad billows keep the phone's resolution. As
     it dies it stays one body of dimming fire over its own brown-black soot (BODY), its embers drawn
     over the soot round them (never ringed darker) and glowing into it (EMBER_GLOW), and its soot takes the render's own
     billows (SOOT_BANDS)."""
@@ -1185,18 +1187,18 @@ class Fire:
         self.edge_field = 0.7 * _field(rng, 128, 128, 7.0, 16.0) + 0.3 * _field(rng, 128, 128, 0.9, 2.0)
 
     def fringe(self, alpha, inner, mid, radius, since, strength):
-        """Thin the hot boundary into advecting paths, over at most 18% of its radius so small blasts keep a core."""
+        """Thin substantial boundary sections into advecting paths, keeping the inner 73% of the radius opaque."""
         yy, xx = np.mgrid[:alpha.shape[0], :alpha.shape[1]].astype(np.float32)
         scale = min(4.0 * self.px, radius / 60.0)
-        reach = min(FLAME_EDGE[0] * self.px, 0.18 * radius)
+        reach = min(FLAME_EDGE[0] * self.px, 0.27 * radius)
         mx = (xx - mid[0] + 0.7 * since * self.px) / scale
         my = (yy - mid[1] + 1.6 * since * self.px) / scale
         noise = cv2.remap(self.edge_field, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
-        depth = inner + np.float32(min(FLAME_EDGE[1] * self.px, 0.36 * radius)) * (noise - 0.5)
+        depth = inner + np.float32(min(FLAME_EDGE[1] * self.px, 0.55 * radius)) * (noise - 0.5)
         paths = C._smoothstep(-4.0 * self.px, 0.5 * reach, depth)
         paths *= C._smoothstep(0.18, 0.70, noise)
         paths *= C._smoothstep(-4.0 * self.px, 2.0 * self.px, inner)
-        margin = 1.0 - C._smoothstep(0.25 * reach, reach, inner)
+        margin = 1.0 - C._smoothstep(0.10 * reach, reach, inner)
         return alpha + np.float32(strength) * margin * (paths - alpha)
 
     def material(self, wf: np.ndarray, box, centre, burn: float, cloud: np.ndarray | None = None) -> np.ndarray:
@@ -1336,11 +1338,13 @@ class Fire:
             hue = np.array([1.0, 0.32, 0.08], np.float32)
             q += (np.float32(0.65 * dying) * heat * soot)[..., None] * (lq[..., None] * (hue / (hue @ C._LUMA)) - q)
         inside, fire, own = np.zeros_like(W), W, np.zeros_like(W)
-        fringe = float(C._smoothstep(3.0, 7.0, since) * C._smoothstep(0.5, 0.95, burn))
+        # The broad ball stays hot while its illumination is already falling. Keep the phone treatment through
+        # that phase; releasing at half burn abruptly restored crisp texture and a filled cooling contour.
+        fringe = float(C._smoothstep(3.0, 7.0, since) * C._smoothstep(0.05, 0.35, burn))
         if ball is not None:
             A, inner, mid, radius = ball
             glare_alpha = A
-            margin_depth = min(FLAME_EDGE[0] * self.px, 0.18 * radius)
+            margin_depth = min(FLAME_EDGE[0] * self.px, 0.27 * radius)
             if fringe > 0:
                 A = self.fringe(A, inner, mid, radius, since, fringe)
             if burn > 0:
@@ -1365,10 +1369,21 @@ class Fire:
         # as it dies, its smoke and the dim edges of its fire taken down the fire's colours (red-brown folds), over
         # its soot: the ball's own brown-black, or the soot round it (its embers glow in it, never ringed darker)
         F = ramp_lin(u if dying <= 0 else u * (1.0 - np.float32(dying * (1.0 - BODY_SOOT[2])) * (1.0 - W)))
+        source_F = F
+        if ball is not None and fringe > 0:
+            # Normalize over the original flame support so unresolved dark detail softens without drawing wall
+            # colour into the core. Keep the unfiltered source for lens scatter and all scene illumination.
+            def resolved(sigma):
+                blur = lambda a: cv2.GaussianBlur(a, (0, 0), max(0.25, sigma * self.px))
+                return blur(u * glare_alpha) / np.maximum(blur(glare_alpha), 1e-4)
+
+            fine, broad = (resolved(sigma) for sigma in FIRE_RESOLVE[:2])
+            phone_u = fine + np.float32(FIRE_RESOLVE[2]) * (broad - fine)
+            phone_u *= 1.0 - np.float32(dying * (1.0 - BODY_SOOT[2])) * (1.0 - W)
+            F = F + np.float32(fringe) * (ramp_lin(phone_u) - F)
         emit = fire[..., None] * F
         if ball is not None and fringe > 0:
-            # Blur opacity and emitted light together, confined to the boundary, so the lens cannot draw a second
-            # coloured contour or soften the photographic folds in the core.
+            # Blur opacity and emitted light together so the lens cannot draw a second coloured contour.
             margin = np.float32(fringe) * (1.0 - C._smoothstep(0.0, margin_depth, inner))
             sigma = max(0.25, FLAME_EDGE[2] * self.px)
             fire += margin * (cv2.GaussianBlur(fire, (0, 0), sigma) - fire)
@@ -1379,16 +1394,16 @@ class Fire:
             under = self.soot(q[at], room[at], W[at], own[at])
             out[at] += (np.float32(dying) * fire[at])[..., None] * under
         if ball is not None and fringe > 0:
-            # The fire replaces the plate's sensor texture at its boundary. Reintroduce that robust display-noise
-            # level in linear light; wall edges are excluded by the median and never copied into the flame.
+            # Opaque fire also replaces the plate's sensor texture. Restore the lost noise variance across its
+            # core and tongues in linear light; the median excludes room edges rather than copying them.
             display = np.maximum(room, 0.0) ** np.float32(1 / 2.2)
             residual = display - cv2.GaussianBlur(display, (0, 0), max(0.5, 0.7 * self.px))
             grain = float(np.clip(1.4826 * np.median(np.abs(residual)), 0.35 / 255, 1.5 / 255))
             noise = np.random.default_rng([self.seed, 193, int(since)]).standard_normal(fire.shape).astype(np.float32)
-            weight = fringe * (1.0 - C._smoothstep(4.0 * self.px, margin_depth + 4.0 * self.px, inner)) * np.sqrt(fire)
+            weight = fringe * np.sqrt(np.maximum(fire * (2.0 - fire), 0.0))
             out += (2.2 * grain * weight * noise)[..., None] * np.maximum(out, 1e-5) ** np.float32(1 - 1 / 2.2)
             # Retain the source's lens scatter while its directly resolved margin becomes translucent.
-            glare = np.maximum(fire, np.float32(fringe) * glare_alpha)[..., None] * F
+            glare = np.maximum(fire, np.float32(fringe) * glare_alpha)[..., None] * source_F
         else:
             glare = emit
         Q[y0:y1, x0:x1] = out + self.glow(glare, burn, inside)

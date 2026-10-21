@@ -2,6 +2,7 @@
 plate with a made-up render: the blast lights the frame on its strike and leaves the plate untouched before it."""
 
 import numpy as np
+import pytest
 
 from cuesync import explosion as X
 from cuesync.elements import Timeline
@@ -315,6 +316,8 @@ def test_the_flame_contour_has_no_added_opaque_spikes():
 
 
 def test_live_flame_has_unequal_translucent_margins_and_an_opaque_core():
+    import cv2
+
     E, d = disc(600, 600, 220, (255, 160, 40))
     wf = fire_weight(E)
     results = []
@@ -333,6 +336,51 @@ def test_live_flame_has_unequal_translucent_margins_and_an_opaque_core():
     assert transmission[(d > 208) & (d < 209)].std() > 0.04  # unequal paths even at the same depth
     assert transmission[(d > 183) & (d < 193)].mean() > 0.1  # breakup survives phone-size downsampling
     assert np.abs(transmission[d < 160]).max() < 0.01
+    phone = cv2.resize(transmission, (200, 200), interpolation=cv2.INTER_AREA)
+    angles = np.linspace(0, 2 * np.pi, 180, endpoint=False)
+    sections = phone[(100 + 60 * np.sin(angles)).round().astype(int),
+                     (100 + 60 * np.cos(angles)).round().astype(int)]
+    # Deep, substantial channels must remain transparent at phone size, with denser tongues between them.
+    assert (sections > 0.2).mean() > 0.2
+    assert (sections < 0.05).mean() > 0.15
+
+
+@pytest.mark.parametrize("burn", [1.0, 0.35])
+def test_live_fire_resolves_broad_billows_without_resolving_source_microtexture(burn):
+    import cv2
+
+    E, d = disc(300, 300, 110, (220, 140, 40))
+    yy, xx = np.mgrid[:300, :300]
+    broad = 0.12 * np.sin(xx / 22)
+    fine = 0.16 * (2 * ((xx // 3 + yy // 3) % 2) - 1)
+    E[d < 110] = np.clip(np.array([220, 140, 40]) * (1 + broad + fine)[d < 110, None], 0, 255)
+    wf = fire_weight(E)
+    room = np.full(E.shape, 0.35, np.float32)
+    q = room.copy()
+    fire = X.Fire(1080)
+    fire.layer(q, room, E, wf, (0, 300, 0, 300), 4, burn, 1.0, 10, fire.ball(wf, burn))
+    grey = shown(q).mean(-1)
+    low = cv2.GaussianBlur(grey, (0, 0), 8)
+    core = d < 65
+    assert (grey - low)[core].std() < 2.0
+    assert np.corrcoef(low[core], broad[core])[0, 1] > 0.9
+    assert low[core].std() > 2.0
+
+
+def test_opaque_live_fire_restores_the_plates_sensor_texture():
+    import cv2
+
+    E, d = disc(300, 300, 110, (220, 140, 40))
+    wf = fire_weight(E)
+    rng = np.random.default_rng(300)
+    display = (0.6 + rng.standard_normal((300, 300, 1)).astype(np.float32) * (0.7 / 255)).repeat(3, -1)
+    room = display ** np.float32(2.2)
+    q = room.copy()
+    fire = X.Fire(1080, seed=3)
+    fire.layer(q, room, E, wf, (0, 300, 0, 300), 4, 1.0, 0.0, 10, fire.ball(wf))
+    grey = shown(q).mean(-1)
+    residual = grey - cv2.GaussianBlur(grey, (0, 0), 0.8)
+    assert 0.3 < residual[d < 55].std() < 1.0
 
 
 def test_blurred_skin_repairs_the_matte_without_filling_the_gaps_between_fingers():
