@@ -89,6 +89,18 @@ def test_ball_haze_has_no_visible_edge_at_the_cropped_layer_boundary(monkeypatch
     assert np.abs(np.diff(out[240, 10:65].astype(float), axis=0)).max() <= 3
 
 
+def test_ball_above_the_frame_keeps_its_visible_channel_glow(monkeypatch):
+    """A grounding filament remains visible when the sphere and its halo lie entirely above the frame."""
+    plate, track, mask = take(1, lambda t: (135, -5), 80, emitter="palm",
+                              wall=(30, 30, 30), palm=(80, 60, 50), texture=0)
+    ball = L.Ball(135, -100, 20, 1, 1, 1)
+    channel = (np.array([(135., -100.), (135., 60.)]), 2., 1.)
+    monkeypatch.setattr(L, "ball_frames", lambda *args: ([[channel]], [[]], [ball]))
+    out = L.render(plate, track, mask, voice([.9]), "ball", seed=1)
+    assert out.shape == plate.shape and out.dtype == plate.dtype
+    assert out[0, 20:40, 135, 2].max() > 200
+
+
 def test_ball_revision_contact_light_follows_the_finger_surface():
     """A finger's landing light is a narrow pad response along its axis rather than a circular white bead."""
     emission, _ = L.layer([], [(50, 50, 1.6, 2.5, 0.3)], None, 220, (0, 101, 0, 101),

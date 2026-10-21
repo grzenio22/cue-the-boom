@@ -65,6 +65,17 @@ def scenes(form: str, tl: Timeline, track: dict, seed: int = 0):
     return hand, fn(tl, track, hand, (H, W), seed, None)
 
 
+@pytest.mark.parametrize("seed", [0, 4])
+def test_a_stationary_hit_during_gathering_spills_the_orb_without_losing_its_shape(seed):
+    n, release = 24, 1
+    tl, track = voice(n, hum=(0, 1), hits=((release, 1.0),)), track_of(n)
+    assert water.orb_plan(tl, track).release == release
+    _, sc = scenes("orb", tl, track, seed)
+    assert any(drop.free for drop in sc[0].blobs)  # gathering drops coexist with the orb's saved deformation
+    assert any(s.coat is not None for s in sc[release:])
+    assert any(not drop.free and drop.r > 0.2 * S for s in sc[release:] for drop in s.blobs)
+
+
 
 
 def test_a_stationary_final_hit_does_not_send_water_up_the_wall():
@@ -583,6 +594,61 @@ def test_a_distant_flat_splash_is_visible_away_from_the_hand():
 
 
 # ---- the contract ---------------------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("form", ["orb", "whip"])
+def test_render_keeps_the_plate_unchanged_before_the_tracked_hand_arrives(form):
+    n, first = 32, 20
+    plate, track = wall(n), track_of(n)
+    matte = matte_of(track)
+    matte[:first] = 0
+    plate[matte > 0] = (240, 200, 160)
+    track["src"][:first] = ["hold"] * first
+    out = water.render(plate, track, matte, voice(n, hum=(0, n), hits=()), form, seed=4)
+    assert np.array_equal(out[:first], plate[:first])
+    assert not np.array_equal(out[first + 3], plate[first + 3])
+
+
+@pytest.mark.parametrize("form", ["orb", "whip"])
+def test_render_fades_away_after_the_tracked_hand_leaves(form):
+    n, lost = 32, 24
+    plate, track = wall(n), track_of(n)
+    matte = matte_of(track)
+    matte[lost:] = 0
+    plate[matte > 0] = (240, 200, 160)
+    track["src"][lost:] = ["lost"] * (n - lost)
+    out = water.render(plate, track, matte, voice(n, hum=(0, n), hits=()), form, seed=4)
+    assert not np.array_equal(out[lost - 1], plate[lost - 1])
+    assert not np.array_equal(out[lost], plate[lost])
+    assert np.array_equal(out[lost + 3:], plate[lost + 3:])
+
+
+def test_hand_presence_distinguishes_a_still_tracker_gap_from_an_absent_hand():
+    n = 12
+    track = track_of(n)
+    track["src"] = ["hold", "hold", "mp", "lost", "lost", "lost", "lost", "lost", "mp", "mp", "mp", "mp"]
+    plate = np.full((n, H, W, 3), 40, np.uint8)
+    plate[2:4] = 160
+    plate[8:] = 160
+    hand = water.hand_of(track, n, plate)
+    assert hand.presence.tolist() == [0.0, 0.0, 1.0, 1.0, 0.75, 0.5, 0.25, 0.0, 1.0, 1.0, 1.0, 1.0]
+
+
+@pytest.mark.parametrize("track_frames", [4, 12])
+def test_hand_presence_keeps_clamped_tracks_usable_for_a_different_length_plate(track_frames):
+    n = 8
+    assert np.array_equal(water.hand_presence(track_of(track_frames), n, wall(n)), np.ones(n))
+
+
+@pytest.mark.parametrize("form", ["orb", "whip"])
+def test_render_keeps_still_hand_tracker_gaps_identical_to_an_observed_hand(form):
+    n = 24
+    plate, track = wall(n), track_of(n)
+    matte, tl = matte_of(track), voice(n, hum=(0, n), hits=())
+    observed = water.render(plate, track, matte, tl, form, seed=4)
+    track["src"][:10] = ["hold"] * 10
+    track["src"][16:] = ["lost"] * (n - 16)
+    assert np.array_equal(water.render(plate, track, matte, tl, form, seed=4), observed)
+
 
 @pytest.mark.parametrize("form", ["orb", "whip"])
 def test_render_keeps_the_contract_and_the_same_inputs_give_the_same_bytes(form):

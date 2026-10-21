@@ -3251,8 +3251,9 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
         box = _box(bolts[t], spots[t] + flashes, hand.s[t], h, w)
         if ball is not None:
             bb = _around(ball.x, ball.y, max(BODY[1], HALO_EDGE[2] * HALO[1]) * ball.R + 4, h, w)
-            box = bb if box is None else \
-                (min(box[0], bb[0]), max(box[1], bb[1]), min(box[2], bb[2]), max(box[3], bb[3]))
+            if bb is not None:
+                box = bb if box is None else \
+                    (min(box[0], bb[0]), max(box[1], bb[1]), min(box[2], bb[2]), max(box[3], bb[3]))
         if box is None:
             return None
         s = float(hand.s[t])
