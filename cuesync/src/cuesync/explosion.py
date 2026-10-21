@@ -234,18 +234,23 @@ SPARKS, EMBERS = 55, 45  # sparse hot debris; a dense simultaneous spray drew ra
 
 
 # ------------------------------------------------------------------ where it goes off, and the render's own blast
-def blast_point(track: dict, k: int, form: str = "fist") -> tuple[np.ndarray, np.ndarray, float]:
+def blast_point(track: dict, k: int, form: str = "fist", aim: float | None = None
+                ) -> tuple[np.ndarray, np.ndarray, float]:
     """(point px, aim, hand size) on the strike frame ``k``. A fist: its leading landmark pushed THROW hands further
     along the forearm (wrist to middle knuckle); a palm: its middle pushed PALM_THROW. Without landmarks, the track's
-    emitter and direction."""
+    emitter and direction. The studio's arrow overrides the hand's direction."""
     s = float(track["scale"][k])
     lm = (track.get("landmarks") or [None] * (k + 1))[k]
+    arrow = None
+    if aim is not None:
+        a = math.radians(aim)
+        arrow = np.array([math.sin(a), -math.cos(a)])
     if lm is None:
         p = np.asarray(track["xy"][k], np.float64)
-        aim = np.asarray(track["dir"][k], np.float64)
+        aim = np.asarray(track["dir"][k], np.float64) if arrow is None else arrow
         return p + (PALM_THROW if form == "palm" else 1.0) * s * aim, aim / max(np.hypot(*aim), 1e-6), s
     lm = np.asarray(lm, np.float64)[:, :2]
-    aim = lm[9] - lm[0]
+    aim = lm[9] - lm[0] if arrow is None else arrow
     aim /= max(float(np.hypot(*aim)), 1e-6)
     if form == "palm":
         return lm[[0, 5, 9, 13, 17]].mean(0) + PALM_THROW * s * aim, aim, s
@@ -1514,7 +1519,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         return plate.copy()
     hero = int(np.argmax(timeline.sizes))
     k0, size = int(np.clip(timeline.hits[hero], 0, n - 1)), float(timeline.sizes[hero])
-    origin, aim, s = blast_point(track, k0, "palm" if form == "palm" else "fist")
+    origin, aim, s = blast_point(track, k0, "palm" if form == "palm" else "fist", timeline.aim)
     origin = inside(origin, w, h)
     cam = timeline.camera
     el = library_element() if element is None else element

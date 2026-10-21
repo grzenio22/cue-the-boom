@@ -786,6 +786,136 @@ def test_a_sample_hand_plays_your_take_on_its_element_with_the_gpu_offline(tmp_p
                                data={"mode": "bending", "effect": "auto", "x": "0.4", "y": "0.6"}).status_code in (400, 503)
 
 
+@pytest.fixture
+def sample_hand(tmp_path, make_video, make_wav):
+    from cuesync.bending import make_bending_shot
+    from cuesync.pipeline import ShotSpec
+    from cuesync.precompute import cache_key
+
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    plate = make_video(samples / "plates", n=72, fps=24, w=256, h=128, color_fn=lambda i: (40, 35, 30))
+    plate = plate.rename(samples / "plates" / "hand.mp4")
+    voice = samples / "voices" / "pf.wav"
+    shutil.copyfile(make_voice(tmp_path, make_wav), voice)
+    (samples / "samples.json").write_text(json.dumps({"voices": {"pf.wav": {}}, "plates": {"hand.mp4": {
+        "point": [0.4, 0.6], "hand": {"frame": 10, "strike": 36}}}}))
+    shot = samples / "made_ahead" / "bending" / "hand__pf"
+    shot.mkdir(parents=True)
+    track = {"version": 1, "fps": 24, "W": 256, "H": 128, "emitter": "palm", "hand": "right",
+             "xy": [[102.4, 76.8]] * 72, "dir": [[0.0, -1.0]] * 72, "scale": [20.0] * 72,
+             "conf": [1.0] * 72, "src": ["mp"] * 72, "speed": [0.0] * 72, "landmarks": [None] * 72,
+             "gesture": ["Open_Palm"] * 72, "events": []}
+    (shot / "hand_track.json").write_text(json.dumps(track))
+    make_bending_shot(ShotSpec(plate=plate, voice=voice, effect="fire_burst", point=(0.4, 0.6), offset_s=0.25,
+                               plate_size=(256, 128), max_plate_s=3.0), FakeElementRenderer(), shot,
+                      shot / "hand_track.json", tap_frame=10)
+    key = cache_key("bending", "hand.mp4", "pf.wav", "fire_burst", (0.4, 0.6))
+    (shot.parent / "index.json").write_text(json.dumps({key: {"dir": shot.name, "title": "Your hand",
+        "plate": "hand.mp4", "voice": "pf.wav", "effect": "fire_burst", "mode": "bending", "seed": 1,
+        "tap_frame": 10}}))
+    return samples
+
+
+def hand_client(samples, jobs, renderer=None):
+    return TestClient(create_app(renderer, jobs, samples_dir=samples, precomputed=samples / "made_ahead",
+                                 shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
+
+
+def test_a_cached_sample_hand_can_be_performed_again_on_its_strike(sample_hand, tmp_path):
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "fire_burst", "x": "0.4", "y": "0.6"}).json()
+    assert first["cached"] and first["status"] == "done"
+    again = client.post(f"/api/jobs/{first['id']}/replay", data={"voice_sample": "pf.wav"}).json()
+    done = wait(client, again["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["bending"]["tap_frame"] == 10
+    assert done["receipt"]["bending"]["k_launch"] == 36
+
+
+def test_a_samples_authored_aim_does_not_prevent_its_default_cache_hit(sample_hand, tmp_path):
+    receipt = next((sample_hand / "made_ahead").rglob("receipt.json"))
+    rc = json.loads(receipt.read_text())
+    rc["bending"]["aim"] = 0.0
+    receipt.write_text(json.dumps(rc))
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "fire_burst", "x": "0.4", "y": "0.6"}).json()
+    assert first["cached"] and first["status"] == "done"
+
+
+def test_a_sample_voice_replay_keeps_the_first_shots_strike(sample_hand, tmp_path):
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "auto", "x": "0.4", "y": "0.6", "offset_s": "0.5"}).json()
+    done = wait(client, first["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["bending"]["k_launch"] == 36
+    again = client.post(f"/api/jobs/{first['id']}/replay", data={"voice_sample": "pf.wav"}).json()
+    twice = wait(client, again["id"])
+    assert twice["status"] == "done", twice.get("error")
+    assert twice["receipt"]["bending"]["k_launch"] == 36
+    assert abs(twice["receipt"]["inputs"]["offset_s"] - done["receipt"]["inputs"]["offset_s"]) < 1 / 24
+
+
+def test_a_sample_noise_uses_the_strike_instead_of_the_tap_frame(sample_hand, tmp_path):
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "auto", "x": "0.4", "y": "0.6"}).json()
+    done = wait(client, first["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["bending"]["k_launch"] == 36
+    assert done["receipt"]["bending"]["tap_frame"] == 10
+
+
+def test_a_hold_replay_uses_its_holds_when_a_sample_voice_is_also_sent(sample_hand, tmp_path):
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "fire_burst", "x": "0.4", "y": "0.6"}).json()
+    again = client.post(f"/api/jobs/{first['id']}/replay", data={"cue": "hold", "holds": "[[1.5, 1.7]]",
+                                                               "voice_sample": "pf.wav"}).json()
+    done = wait(client, again["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["bending"]["k_launch"] == 36
+
+
+def test_a_sample_hand_uses_its_shipped_track_when_only_the_gpu_is_ready(sample_hand, tmp_path):
+    renderer = FakeElementRenderer()
+    client = hand_client(sample_hand, tmp_path / "jobs", renderer)
+    assert "bending" not in client.get("/api/health").json()["modes"]
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "auto", "x": "0.4", "y": "0.6"}).json()
+    assert first["mode"] == "replay"
+    done = wait(client, first["id"])
+    assert done["status"] == "done", done.get("error")
+    assert not renderer.prompts
+
+
+@pytest.mark.parametrize("changes", [{"frame": "30"}, {"direction": "90"}])
+def test_a_custom_hand_frame_or_aim_does_not_use_the_sample_cache(sample_hand, tmp_path, changes):
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "fire_burst", "x": "0.4", "y": "0.6", **changes}).json()
+    assert not first["cached"]
+    done = wait(client, first["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["bending"]["tap_frame"] == int(changes.get("frame", 10))
+    assert done["receipt"]["bending"]["aim"] == (90.0 if "direction" in changes else None)
+
+
+def test_a_sample_hand_keeps_a_new_tap_point_and_frame(sample_hand, tmp_path):
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "fire_burst", "x": "0.45", "y": "0.35", "frame": "30",
+                                            "direction": "90"}).json()
+    done = wait(client, first["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["inputs"]["point"] == [0.45, 0.35]
+    assert done["receipt"]["bending"]["tap_frame"] == 30
+
+
 def test_your_own_hand_with_no_gpu_gets_an_element_rendered_ahead(tmp_path, make_video, make_wav, monkeypatch):
     import cuesync.bending as bending
     from cuesync.bending import make_bending_shot

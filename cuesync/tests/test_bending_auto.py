@@ -1,6 +1,12 @@
 """Element bending: which element a hand's gesture and the sound ask for, and when it goes off (cuesync.bending)."""
 
+import json
+import time
+from pathlib import Path
+from types import SimpleNamespace
+
 import numpy as np
+import pytest
 
 from cuesync.bending import bending_effect, gesture_at, snap_launch
 
@@ -104,3 +110,107 @@ def test_a_sample_hands_track_is_moved_onto_the_elements_point():
     assert moved["dir"][0][1] < 0  # along the fingers, up the picture, no longer down out of the palm
     assert np.allclose(moved["xy"][1], moved["xy"][0], atol=1e-6)  # (no landmarks: moved as its neighbour was)
     assert track_for(t, "palm") is t
+
+
+@pytest.mark.parametrize("name", ["pf-pf-ka-boom.wav", "pf-pf-boom-author.wav", "pf-x4-author.wav",
+                                 "zzzzz-tsst.wav", "hoo-hoo-HOO.wav", "ka-boom.wav"])
+@pytest.mark.parametrize("frame", [68, 83])
+def test_a_sample_noises_loudest_hit_lands_on_the_strike(name, frame):
+    from cuesync.audio import analyze
+    from cuesync.bending import SAMPLE_TAIL_S, sample_noise_offset
+    from cuesync.media import read_audio
+    from cuesync.pipeline import FPS, SR
+
+    voice = Path("samples/voices") / name
+    offset = sample_noise_offset(voice, 3.5, frame)
+    cue = analyze(read_audio(voice, SR), SR, offset_s=offset, fps=FPS)
+    assert abs(cue.hero_onset_s - min(frame / FPS, 3.5 - SAMPLE_TAIL_S)) < 1 / FPS
+    assert 0 <= cue.hero_onset_s <= 3.5 - SAMPLE_TAIL_S
+
+
+@pytest.mark.parametrize("sample", [True, False])
+def test_a_made_sample_keeps_its_elements_emitter_and_a_custom_tap(tmp_path, monkeypatch, sample):
+    import cuesync.bending as bending
+    from cuesync.pipeline import ShotSpec
+
+    src = tmp_path / "src"
+    src.mkdir()
+    lm = [[100.0 + 10 * (i % 5), 400.0 - 15 * i, 0.0] for i in range(21)]
+    tr = {"version": 1, "W": 1080, "H": 1920, "emitter": "two_finger", "hand": "right",
+          "xy": [[120.0, 300.0]] * 3, "dir": [[0.0, -1.0]] * 3, "scale": [100.0] * 3,
+          "landmarks": [lm] * 3}
+    (src / "hand_track.json").write_text(json.dumps(tr))
+    (src / "receipt.json").write_text(json.dumps({"bending": {"track": "hand_track.json", "mask": None}}))
+    got = {}
+
+    def made(spec, renderer, out, track, mask, progress, **kw):
+        got["track"] = bending.anchored(bending.load_track(track), kw["tap_frame"],
+                                        (spec.point[0] * tr["W"], spec.point[1] * tr["H"]))
+
+    monkeypatch.setattr(bending, "make_bending_shot", made)
+    spec = ShotSpec(plate=tmp_path / "p.mp4", voice=None, effect="water_orb", point=(0.2, 0.3),
+                    extra={"tap_frame": 1, "sample_emitter": sample})
+    bending.bending_again(src, spec, tmp_path / "again")
+    point = np.asarray(got["track"]["xy"][1])
+    if sample:
+        from cuesync.hand_track import emitter_points
+
+        palm, _, _ = emitter_points(np.asarray(lm), "palm", 1.0, frame=(1080, 1920))
+        assert np.linalg.norm(point - palm) < 1
+    else:
+        assert point == pytest.approx([216.0, 576.0])
+
+
+@pytest.mark.parametrize("effect", ["water_orb", "fire_burst"])
+def test_performing_again_uses_the_prepared_hand_without_changing_the_element(tmp_path, monkeypatch, effect):
+    import cuesync.bending as bending
+    from cuesync.pipeline import ShotSpec
+
+    src, reuse = tmp_path / "src", tmp_path / "prep"
+    src.mkdir()
+    reuse.mkdir()
+    (src / "receipt.json").write_text(json.dumps({"bending": {"track": "hand_track.json", "mask": None}}))
+    for folder, x in ((src, 10.0), (reuse, 80.0)):
+        (folder / "hand_track.json").write_text(json.dumps({"version": 1, "W": 100, "H": 100, "emitter": "palm",
+                                                            "xy": [[x, 50.0]], "dir": [[0.0, -1.0]]}))
+        (folder / "hand_mask.npz").write_bytes(b"mask")
+    got = {}
+
+    def made(spec, renderer, out, track, mask, progress, **kw):
+        got.update(track=bending.load_track(track), mask=mask, **kw)
+
+    monkeypatch.setattr(bending, "make_bending_shot", made)
+    spec = ShotSpec(plate=tmp_path / "p.mp4", voice=None, effect=effect, point=(0.8, 0.5),
+                    extra={"tap_frame": 0, "reuse": str(reuse)})
+    bending.bending_again(src, spec, tmp_path / "again")
+    assert got["track"]["xy"][0] == [80.0, 50.0]
+    assert Path(got["mask"]) == reuse / "hand_mask.npz"
+    if effect == "fire_burst":
+        assert got["element_from"] == src
+
+
+def test_an_explosions_foley_only_fires_on_its_visible_hero(tmp_path, monkeypatch):
+    import cuesync.bending as bending
+    from cuesync import explosion, media
+    from cuesync.pipeline import FPS, SR, ShotSpec
+
+    n = 72
+    plate = np.full((n, 32, 32, 3), 30, np.uint8)
+    track = {"xy": [[16.0, 16.0]] * n, "dir": [[0.0, -1.0]] * n, "scale": [8.0] * n}
+    cue = SimpleNamespace(intervals=lambda: [], voice_end_frame=70)
+    c = SimpleNamespace(samples=np.zeros(3 * SR, np.float32), cue=cue, offset_s=0.0, source="voice")
+    spec = ShotSpec(plate=tmp_path / "p.mp4", voice=None, effect="explosion", point=(0.5, 0.5))
+    out = tmp_path / "shot"
+    out.mkdir()
+    audio = []
+    monkeypatch.setattr(explosion, "render", lambda plate, *a, **k: plate)
+    monkeypatch.setattr(media, "write_video", lambda path, frames, **kw: audio.append(kw["audio"]))
+    snaps = [{"frame": f} for f in (10, 24, 50)]
+    env = np.zeros(n)
+    env[10:16], env[24:30], env[50:58] = 0.65, 0.7, 1.0
+    bending.made_shot(spec, out, "explosion", plate, track, None, c, env, snaps,
+                      [(0.65, 0.6), (0.7, 0.7), (1.0, 1.0)], 50, 12, None, None, None, None, False,
+                      "track.json", None, lambda *a: None, time.perf_counter())
+    spf = SR // FPS
+    assert np.max(np.abs(audio[0][:50 * spf])) < 1e-6
+    assert np.sqrt(np.mean(audio[0][50 * spf:54 * spf] ** 2)) > 0.05

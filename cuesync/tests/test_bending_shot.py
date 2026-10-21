@@ -404,7 +404,10 @@ def test_before_the_strike_the_build_up_stays_on_the_hand_under_a_panning_camera
         assert abs(np.argwhere(out[..., 0] > 0.3)[:, 1].mean() - 60) < 2
 
 
-def test_a_hum_charges_the_strike_and_launches_nothing(tmp_path, make_video, make_wav):
+@pytest.mark.parametrize("ember_only", [False, True])
+def test_a_hum_charges_the_strike_and_launches_nothing(tmp_path, make_video, make_wav, monkeypatch, ember_only):
+    import cuesync.bending as bending
+
     w, h, n = 256, 128, 72
     plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (30, 28, 26))
     sr = 48000
@@ -420,6 +423,19 @@ def test_a_hum_charges_the_strike_and_launches_nothing(tmp_path, make_video, mak
     track_path.write_text(json.dumps(tr))
     spec = ShotSpec(plate=plate, voice=voice, effect="fire_burst", point=(100 / w, 90 / h), mode="scene",
                     plate_size=(w, h), max_plate_s=3.0)
+    energy = []
+    room_behind = bending.room_behind
+
+    def isolate_ember(source, *args, **kwargs):
+        return np.zeros_like(source) if "since" in kwargs else np.full_like(source, 0.1)
+
+    def measure(element, plate):
+        energy.append(float(element.max()))
+        return room_behind(element, plate)
+
+    if ember_only:
+        monkeypatch.setattr(bending, "warp_element", isolate_ember)
+        monkeypatch.setattr(bending, "room_behind", measure)
     res = make_bending_shot(spec, GuideAsElement(), tmp_path / "charge", track_path)
     b = res.receipt["bending"]
     assert b["charge"] and abs(b["charge"]["from"] - 14) <= 3 and abs(b["charge"]["release"] - 38) <= 3
@@ -427,6 +443,9 @@ def test_a_hum_charges_the_strike_and_launches_nothing(tmp_path, make_video, mak
     out = read_video(res.composite).frames.astype(int)
     near = lambda f: out[f, 70:100, 85:115].mean()  # noqa: E731  (round the palm)
     assert near(30) > near(8) + 3  # charging: the ember lights the palm before the strike
+    if ember_only:
+        a, r = b["charge"]["from"], b["charge"]["release"]
+        assert energy[r + 2 - a] < energy[r - a] * 0.5  # its last glow fades as the strike takes over
 
 
 def test_a_tracker_still_being_installed_is_not_ready(tmp_path, monkeypatch):

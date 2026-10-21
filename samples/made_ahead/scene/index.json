@@ -29,7 +29,7 @@
   "seed": 1,
   "drawn": false
  },
- "scene|toy_desk.mp4|fwoooom.wav|fire_breath@829e0743|0.38,0.48|1|-90": {
+ "scene|toy_desk.mp4|fwoooom.wav|fire_breath@b29693ae|0.38,0.48|1|-90": {
   "dir": "toy_desk__fwoooom__fire_breath",
   "title": "fwoooOOOM · Toy dinosaur, night",
   "plate": "toy_desk.mp4",
@@ -89,7 +89,7 @@
   "seed": 1,
   "drawn": false
  },
- "scene|toy_desk.mp4|pf-pf-ka-boom.wav|fire_breath@829e0743|0.38,0.48|1|-90": {
+ "scene|toy_desk.mp4|pf-pf-ka-boom.wav|fire_breath@b29693ae|0.38,0.48|1|-90": {
   "dir": "toy_desk__pf-pf-ka-boom__fire_breath",
   "title": "pf, pf, KA-BOOM · Toy dinosaur, night",
   "plate": "toy_desk.mp4",
@@ -231,7 +231,7 @@
   "real": true,
   "rank": 10
  },
- "scene|s2_lit_jack_o_lanterns_and_a_ghost_figure_on_a_tabl.mp4|real_voice_lanterns_call.wav|fire_burst@a735a743|0.42,0.72|1": {
+ "scene|s2_lit_jack_o_lanterns_and_a_ghost_figure_on_a_tabl.mp4|real_voice_lanterns_call.wav|fire_burst@d2b3bd0d|0.42,0.72|1": {
   "dir": "real_voice_lanterns_call",
   "title": "pf, pf, BOOM in two people's voices · each hit at its own lantern (real footage)",
   "plate": "s2_lit_jack_o_lanterns_and_a_ghost_figure_on_a_tabl.mp4",
