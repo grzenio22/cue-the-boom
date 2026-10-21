@@ -8,7 +8,7 @@ export default function Home() {
     <main>
       <p className="muted">Open Source Higgsfield · open weights · LTX-2.5 + ComfyUI</p>
       <h1>Cue the Boom</h1>
-      <p className="lede">Film your hand. Make the noise. Throw fire, lightning, water and air.</p>
+      <p className="lede">Film your hand. Make the noise. Throw fire, lightning and water.</p>
       <Hook />
       <Again />
       <p className="muted">
