@@ -135,6 +135,20 @@ def test_the_receiving_mass_flattens_while_its_liquid_front_still_crosses_the_pa
     assert early < 0.42 * S and late > early + 0.10 * S
 
 
+def test_the_scene_spreads_its_main_wet_front_across_the_palm_in_three_to_six_exposures():
+    n, release = 100, 44
+    hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
+    samples = [(k, sc[k].coat[2] / hand.s[k]) for k in range(release + 2, release + 26)
+               if sc[k].coat is not None]
+    frames, radii = np.asarray(samples).T
+    gain = radii[-1] - radii[0]
+    assert gain > 0.10  # the timed reflection must travel across fresh skin, rather than remain a fixed spot
+    early = frames[np.flatnonzero(radii >= radii[0] + 0.20 * gain)[0]]
+    late = frames[np.flatnonzero(radii >= radii[0] + 0.80 * gain)[0]]
+    # Exclude first contact and the last draining fringe: the main spreading sheet reads over several exposures.
+    assert 3 <= late - early + 1 <= 6
+
+
 def test_the_pouring_reservoir_reaches_the_palms_depth_at_its_foot():
     n, release = 85, 44
     hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))
@@ -341,7 +355,8 @@ def test_a_drained_film_catches_sharp_light_along_the_existing_skin_creases():
     skin *= (1.0 - 0.18 * np.exp(-(distance / 1.5) ** 2))[..., None]
     plate = np.uint8(skin)[None]
     room = water.Room(plate)
-    normal = water._unit(room.key(0, (128.0, 128.0)) + np.array([0.0, 0.0, 1.0]))
+    # The lower crease bank turns into the light while the smooth palm faces slightly away from its mirror peak.
+    normal = np.array([0.0, -0.45, 0.89])
     hand = water.Hand(np.array([[128.0, 128.0]]), normal[None], np.array([[0.0, -1.0, 0.0]]),
                       np.array([100.0]), np.zeros((1, 3)), None)
     out = water.frame(0, plate[0], np.full((size, size), 255, np.uint8),
@@ -368,12 +383,95 @@ def test_a_spreading_palm_film_has_an_advancing_broken_liquid_edge():
                           water.Noise(4), 0.0, 4)
         added = np.maximum(out.astype(float) - plate[0], 0).mean(-1)
         radial = np.hypot(xx - 128, (yy - 128) / 0.8)
-        boundary = (radial > 0.78 * radius) & (radial < 1.12 * radius)
+        boundary = (radial > 0.72 * radius) & (radial < 1.30 * radius)
         assert added[boundary].max() > 10
         assert added[boundary].sum() > 0.30 * added.sum()
         peaks.append(np.average(radial[boundary], weights=added[boundary] + 1e-6))
-        assert np.array_equal(out[radial > 1.15 * radius], plate[0][radial > 1.15 * radius])
+        # The irregular front may reach beyond the mean radius, but it remains a local palm film.
+        assert np.array_equal(out[radial > 1.32 * radius], plate[0][radial > 1.32 * radius])
     assert peaks[1] > peaks[0] + 20  # the reflection travels with the wet front rather than lighting one fixed patch
+
+
+def _phone_palm_film(radius: float, flowing: float, creased: bool = False):
+    """A smooth palm crop at capture resolution, then reduced by three as in the phone gallery."""
+    size, center, scale = 384, 192.0, 180.0
+    yy, xx = np.mgrid[:size, :size].astype(np.float32)
+    dx = xx - center
+    skin = np.full((size, size, 3), [186, 117, 101], np.float32)
+    if creased:
+        first = yy - (center + 0.14 * dx + 0.0018 * dx * dx)
+        second = yy - (center - 20.0 - 0.25 * dx + 0.0008 * dx * dx)
+        skin *= (1.0 - 0.18 * np.exp(-(first / 2.3) ** 2)
+                 - 0.12 * np.exp(-(second / 2.2) ** 2))[..., None]
+    plate = skin.astype(np.uint8)[None]
+    room = water.Room(plate)
+    normal = np.array([0.0, -0.45, 0.89])
+    hand = water.Hand(np.array([[center, center]]), normal[None], np.array([[0.0, -1.0, 0.0]]),
+                      np.array([scale]), np.zeros((1, 3)), None)
+    out = water.frame(0, plate[0], np.full((size, size), 255, np.uint8),
+                      water.Scene(coat=(center, center, radius, 1.0, flowing)), hand, room,
+                      water.Noise(4), 0.0, 4)
+    added = np.maximum(out.astype(np.float32) - plate[0], 0.0).mean(-1)
+    return cv2.resize(added, (128, 128), interpolation=cv2.INTER_AREA), plate[0], out
+
+
+def _phone_reflections(added: np.ndarray):
+    """Resolve glints bright enough to survive a small phone image, ignoring isolated subpixel sparks."""
+    _, labels, stats, _ = cv2.connectedComponentsWithStats(np.uint8(added > 5.0), connectivity=8)
+    components = [j for j in range(1, len(stats)) if stats[j, cv2.CC_STAT_AREA] >= 2]
+    return labels, stats, components
+
+
+def test_the_spreading_rim_stays_connected_at_phone_size_over_five_exposures():
+    radii = (64.0, 76.0, 88.0, 100.0, 112.0)
+    travel = []
+    yy, xx = np.mgrid[:128, :128]
+    for radius in radii:
+        added, _, _ = _phone_palm_film(radius, 1.0)
+        labels, stats, components = _phone_reflections(added)
+        assert components, radius
+        largest = max(components, key=lambda j: stats[j, cv2.CC_STAT_AREA])
+        w, h = stats[largest, cv2.CC_STAT_WIDTH:cv2.CC_STAT_HEIGHT + 1]
+        # A narrow but continuous arc reads as the edge of a sheet, unlike a necklace of flashing dots.
+        assert np.hypot(w - 1, h - 1) > 0.65 * radius / 3.0, radius
+        on_rim = labels == largest
+        travel.append(np.average(np.hypot(xx[on_rim] - 64, (yy[on_rim] - 64) / 0.8),
+                                 weights=added[on_rim]))
+    assert np.all(np.diff(travel) > 1.0)  # the connected reflection visibly crosses fresh palm skin each exposure
+    assert travel[-1] - travel[0] > 10.0
+
+
+def test_a_drained_film_consolidates_reflections_along_curved_skin_creases_at_phone_size():
+    radius = 100.0
+    added, plate, out = _phone_palm_film(radius, 0.0, creased=True)
+    _, stats, components = _phone_reflections(added)
+    assert 1 <= len(components) <= 4  # two broad palm folds catch a few connected glints, rather than glitter
+    spans = [np.hypot(stats[j, cv2.CC_STAT_WIDTH] - 1, stats[j, cv2.CC_STAT_HEIGHT] - 1)
+             for j in components]
+    assert max(spans) > 0.35 * radius / 3.0
+    yy, xx = np.mgrid[:384, :384]
+    center = np.hypot(xx - 192, yy - 192) < 0.65 * radius
+    assert np.corrcoef(plate[center].ravel(), out[center].ravel())[0, 1] > 0.9
+    assert np.max(out.astype(float) - plate) < 90  # clear skin stays visible through its wet reflection
+
+
+def test_a_resolved_wet_skin_footprint_has_a_visibly_irregular_boundary():
+    skin = lin(np.full((256, 256, 3), [186, 117, 101], np.uint8))
+    wet = skin.copy()
+    water._wet(wet, [(128.0, 128.0, 68.0, 54.4, 0.0, 0.14, 2.7, 0.0, 0.15)],
+               np.full((256, 256), 255, np.uint8), np.ones(3), np.array([0.0, -1.0]), sheen=False)
+    darkened = (skin - wet).mean(-1) > 0.07 * skin.mean(-1)
+    reach = []
+    for angle in np.linspace(-math.pi, math.pi, 180, endpoint=False):
+        distances = np.linspace(0.5, 1.35, 200)
+        xx = np.rint(128.0 + 68.0 * distances * math.cos(angle)).astype(int)
+        yy = np.rint(128.0 + 54.4 * distances * math.sin(angle)).astype(int)
+        wet_samples = distances[darkened[yy, xx]]
+        assert wet_samples.size
+        reach.append(wet_samples.max())
+    # Remove the palm's elliptical foreshortening before measuring an uneven spreading front.
+    assert np.percentile(reach, 95) - np.percentile(reach, 5) > 0.22
+    assert np.std(reach) > 0.07
 
 
 def test_a_sideways_palm_keeps_the_whole_moving_film_boundary():
