@@ -1403,6 +1403,21 @@ def _refract(ix, iy, iz, nx, ny, nz, eta):
     return (eta * ix + a * nx, eta * iy + a * ny, eta * iz + a * nz), k
 
 
+def _exit_surface(tx, ty, tz, X, Y, front_height, back_height, x0, y0):
+    """Intersect an internal ray with the far height surface. A front-thickness step overshoots a curved back,
+    stretching the fingers into pointed lobes; a bounded search retains their silhouette through the liquid."""
+    lo = np.zeros_like(front_height)
+    hi = (front_height + float(back_height.max()) + 1.0) / np.maximum(-tz, 0.1)
+    for _ in range(9):
+        path = 0.5 * (lo + hi)
+        back = _remap(back_height, X + tx * path - x0, Y + ty * path - y0)
+        inside = front_height + tz * path + back > 0.0
+        lo = np.where(inside, path, lo)
+        hi = np.where(inside, hi, path)
+    path = 0.5 * (lo + hi)
+    return path, X + tx * path, Y + ty * path
+
+
 def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, pyr: list, matte: np.ndarray | None,
           code: float, seed: int, falling: bool = False) -> Layer | None:
     """The water of ``fld`` as seen on frame ``k``: traced through to the plate (``pyr``, the frame's pyramid) and the
@@ -1493,6 +1508,14 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     descent = fld.zc[crop] - sc.ribbon[0].z if falling else 0.0
     hb = cv2.GaussianBlur(h2 + descent, (0, 0), 0.8)
     gy, gx = np.gradient(hb)
+    if matte is not None and float(th.min()) < 0.5:
+        # A shallow receiving sheet lies on the tilted palm. Its surface normal must include that plane;
+        # a screen-parallel film misses the room light and vanishes as soon as the raised body drains.
+        yy, xx = np.mgrid[by0:by0 + h2.shape[0], bx0:bx0 + h2.shape[1]].astype(np.float32)
+        on_palm = (_ss(0.5, 0.8, 1.0 - th) * matte[by0:by0 + h2.shape[0], bx0:bx0 + h2.shape[1]] / 255.0
+                   * _ss(0.5 * s, 0.1 * s, np.abs(fld.zc[crop] - hand.depth(k, xx, yy, fingers=False))))
+        gx += on_palm * hand.plane[k, 0]
+        gy += on_palm * hand.plane[k, 1]
     gx, gy = np.clip(gx, -6, 6), np.clip(gy, -6, 6)
     hxx = cv2.GaussianBlur(np.gradient(gx, axis=1), (0, 0), 1.5)
     hyy = cv2.GaussianBlur(np.gradient(gy, axis=0), (0, 0), 1.5)
@@ -1507,6 +1530,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         # the fingers seen through its body follow the broad flowing surface rather than many small glass facets.
         lens_height = (sig[crop] * np.float32(math.sqrt(2.0 * LN_TAU)) * th
                        * np.clip(broad[crop] / np.float32(LN_TAU), 0.0, None) ** (1.0 - 0.5 * th))
+        lens_height *= 0.65  # the held and pouring lenses share depth, without folding finger roots into a pink cap
         back_y, back_x = np.gradient(cv2.GaussianBlur(lens_height, (0, 0), max(1.0, 0.025 * s)))
         back_x, back_y = np.clip(back_x, -6, 6), np.clip(back_y, -6, 6)
     nd = np.sqrt(back_x * back_x + back_y * back_y + 1.0)
@@ -1550,6 +1574,9 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     (tx, ty, tz), _ = _refract(0.0, 0.0, -1.0, -gxr / nr, -gyr / nr, 1.0 / nr, 1.0 / eta)
     path = 2.0 * h / np.maximum(-tz, 0.25)
     ex, ey = X + tx * path, Y + ty * path
+    if held_liquid:
+        path, ex, ey = _exit_surface(tx, ty, tz, X, Y, lens_height[iy, ix], lens_height, bx0, by0)
+    exit_path = path.copy() if held_liquid else None
     bx = _remap(dnx, ex - bx0, ey - by0)
     byy = _remap(dny, ex - bx0, ey - by0)
     bz = _remap(dnz, ex - bx0, ey - by0)
@@ -1600,16 +1627,61 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     if float(pool.max()) > 0.0:  # a puddle bends what is under it POOL_BEND px at most (bent 10 px, a gel lens)
         lim = np.minimum(1.0, POOL_BEND / np.maximum(np.hypot(tanx, tany) * np.maximum(dfar, dn), 1e-3))
         tanx, tany = tanx * (1.0 - pool * (1.0 - lim)), tany * (1.0 - pool * (1.0 - lim))
+    near_valid = 1.0
+    if held_liquid and matte is not None:
+        # Intersect the outgoing ray with the tilted hand, rather than borrowing the depth at its entry pixel.
+        # The latter projects fingers that lie in front of the exit as a broad inverted pink cap.
+        a, b, _ = hand.plane[k]
+        exit_z = zc + lens_height[iy, ix] + tz * exit_path
+        separation = exit_z - hand.depth(k, ex, ey)
+        tilt = 1.0 + a * tanx + b * tany
+        near_valid = np.maximum(pool, ((separation > 0.0) & (tilt > 0.1)).astype(np.float32))
+        # The extended palm plane is only a local depth estimate: its steep tilt otherwise sends a ray onto the
+        # wrist and magnifies it into a pink cap. Keep the near hand close to the back of the held liquid lens.
+        hand_distance = np.clip(separation / np.maximum(tilt, 0.1), NEAR[0] * s, 0.18 * s).astype(np.float32)
+        dn = dn * pool + hand_distance * (1.0 - pool)
     hxx_, hxy_, hyy_ = hxx[iy, ix] * calm, hxy[iy, ix] * calm, hyy[iy, ix] * calm
     qx, qy = ex + tanx * dn, ey + tany * dn
+    if held_liquid and matte is not None:
+        # During contact the hand can meet the ray inside the water, before its back surface. Trace that internal
+        # segment to the skin instead of showing a wall-coloured hole through the receiving palm.
+        a, b, _ = hand.plane[k]
+        entry_z = zc + lens_height[iy, ix]
+        denominator = -tz + a * tx + b * ty
+        internal_path = (entry_z - hand.depth(k, X, Y)) / np.maximum(denominator, 0.1)
+        hx, hy = X + tx * internal_path, Y + ty * internal_path
+        inside = ((internal_path > 0.0) & (internal_path < exit_path) & (denominator > 0.1)).astype(np.float32)
+        inside *= _remap(matte, hx, hy).astype(np.float32) / 255.0
+        qx += inside * (hx - qx)
+        qy += inside * (hy - qy)
+        near_valid = np.maximum(near_valid, inside)
     sig_n = np.maximum(_footprint(dn, hxx_, hxy_, hyy_), _spread(qx, qy, iy, ix, a_.shape)) + BASE_BLUR * R
     sig_n *= 1.0 - 0.30 * big
+    if held_liquid:
+        # The ray map supplies its own antialiasing footprint. A curvature-only defocus estimate diverges near a
+        # focus and turns recognisable fingers into a broad pink veil.
+        sig_n = _spread(qx, qy, iy, ix, a_.shape) + np.maximum(0.65, 0.004 * R)
     near = np.stack([_lod(pyr, c, qx, qy, sig_n) for c in range(3)], -1)
-    disp = dfar * np.float32((ETA[0] - 1) / (eta - 1)), dfar, dfar * np.float32((ETA[2] - 1) / (eta - 1))
+    dispersion = 0.25 if held_liquid else 1.0
+    disp = tuple(dfar * np.float32(1.0 + dispersion * (v - eta) / (eta - 1.0)) for v in ETA)
     sig_f = np.maximum(_footprint(dfar, hxx_, hxy_, hyy_), _spread(ex + tanx * dfar, ey + tany * dfar, iy, ix,
                                                                   a_.shape))
     sig_f *= 1.0 - 0.30 * big
-    far = np.stack([_lod(pyr, c, ex + tanx * disp[c], ey + tany * disp[c], sig_f) for c in range(3)], -1)
+    if held_liquid:
+        sig_f = _spread(ex + tanx * dfar, ey + tany * dfar, iy, ix, a_.shape) + 0.010 * R
+    far_pyr = pyr
+    far_scale = 1.0
+    if held_liquid and matte is not None:
+        # Foreground fingers cannot also be the distant wall. Fill their missing background at room-detail scale;
+        # the near ray still reads the original fingers, with their own depth and full colour.
+        distant = np.stack([pyr[2][c] for c in range(3)], -1)
+        hidden = cv2.resize(matte, (distant.shape[1], distant.shape[0]), interpolation=cv2.INTER_AREA)
+        hidden = cv2.dilate(np.uint8(hidden > 16), np.ones((3, 3), np.uint8)) * 255
+        distant = lin(cv2.inpaint(gam(distant), hidden, 3.0, cv2.INPAINT_TELEA))
+        far_pyr = _pyramid(distant)
+        far_scale = 4.0
+    far = np.stack([_lod(far_pyr, c, (ex + tanx * disp[c] + 0.5) / far_scale - 0.5,
+                        (ey + tany * disp[c] + 0.5) / far_scale - 0.5, sig_f / far_scale) for c in range(3)], -1)
     if matte is not None:  # which of the two a ray lands on, softened over as much of the hand as the ray sees (a thin
         # stream flicked between them pixel by pixel; read at one softness, the finger's outline seen squeezed through
         # a stream was a sawtooth)
@@ -1620,6 +1692,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         for _ in range(LOD_MAX):
             mpyr.append([cv2.pyrDown(mpyr[-1][0])])
         m = _lod(mpyr, 0, (qx + 0.5) / qm - 0.5, (qy + 0.5) / qm - 0.5, 2.0 * sig_n / qm + 1.0)[:, None]
+        m *= np.asarray(near_valid)[..., None]
         col = m * near + (1.0 - m) * far
     else:
         col = far
@@ -1627,8 +1700,9 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     direct = np.stack([_remap(pyr[0][c], X, Y) for c in range(3)], -1)
     rim_facets = _ss(*((-0.05, 0.45) if held_liquid else (-0.30, 0.40)), crest + 0.35 * inner)
     liquid_arcs = HELD_RIM[2] + (1.0 - HELD_RIM[2]) * rim_facets if held_liquid else 1.0
-    clear_face = (0.18 if held_liquid else 0.35) * nz ** 4
-    clear = big * (1.0 - pool) * (clear_face + 0.65 * _ss(0.45, 0.95, 1.0 - nz) * (1.0 - rim_facets))
+    clear_face = (0.04 if held_liquid else 0.35) * nz ** 4
+    clear = big * (1.0 - pool) * (clear_face + (0.12 if held_liquid else 0.65)
+                                * _ss(0.45, 0.95, 1.0 - nz) * (1.0 - rim_facets))
     clear = np.minimum(clear, 0.90)  # overlapping clear facets cannot amplify the transmitted contrast
     col += clear[:, None] * (direct - col)
     # the rim's darkening and the dimming where rays are turned back belong to a body of water: a small drop is all
@@ -1663,6 +1737,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     F *= 1.0 - 0.4 * big
     if held_liquid:
         F *= 1.0 - _ss(0.3, 0.6, rr) * (1.0 - liquid_arcs)
+        F *= 0.65
     # by the waves running round it (its finest waves die out at the outline, and it was an even ring)
     flow_a = WHIP_FLOW * s / FPS
     whip = (_ss(0.4, 1.0, fast * FPS / WHIP_SHED) * np.clip(sw / 0.5, 0.0, 1.0)).astype(np.float32)  # a lashing stream
@@ -1736,23 +1811,23 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         gxw += WINDOW[5] * big * (gxb - gxw)
         gyw += WINDOW[5] * big * (gyb - gyw)
     nw = np.sqrt(gxw * gxw + gyw * gyw + 1.0)
-    spec = GLINT[0] * (1.0 - 0.25 * big) * _window(-gxw / nw, -gyw / nw, 1.0 / nw, Lk, 1.0)
+    spec = GLINT[0] * (1.0 - 0.25 * big) * _window(-gxw / nw, -gyw / nw, 1.0 / nw, Lk, 0.80 if held_liquid else 1.0)
     if sc.coat is not None:
         # The shallow junction between the spreading sheet and a run must not mirror one long window stripe.
-        spec *= 1.0 - 0.94 * pool
+        spec *= 1.0 - 0.75 * pool
     nc = np.sqrt(gxc * gxc + gyc * gyc + 1.0)
     # A saddle spreads the light into two weaker reflections; the orb retains the window's frame bars.
     saddle = _ss(-0.02, -0.3, (hxx * hyy - hxy * hxy)[iy, ix] * R * R)
     spec += (GLINT_CORE[0] * (1.0 + 0.30 * big) / max(float(room.white[k]), 0.3)
              * (1.0 - GLINT_CORE[3] * saddle)
-             * _window(-gxc / nc, -gyc / nc, 1.0 / nc, Lk, GLINT_CORE[1], big))
+             * _window(-gxc / nc, -gyc / nc, 1.0 / nc, Lk, GLINT_CORE[1] * (0.80 if held_liquid else 1.0), big))
     spec += (BACK[0] * big * deep) * _window(gxw / nw, gyw / nw, 1.0 / nw, Lk, BACK[1])
     hv = Lk + np.array([0.0, 0.0, 1.0], np.float32)
     hv /= np.linalg.norm(hv)
     ndh = np.clip(nx * hv[0] + ny * hv[1] + nz * hv[2], 0.0, 1.0)
     spec += GLINT[1] * ndh ** GLINT_POW
     if held_liquid:
-        spec *= 0.65  # shallow liquid facets mirror smaller broken pieces of the broad room light
+        spec *= 0.50  # shallow liquid facets mirror smaller broken pieces of the broad room light
     spec += (TINY_CORE * tiny * (1.0 - _ss(0.1, 0.6, rr))  # a small drop's core, lit by the light it gathers, in the
              * _ss(0.7, 0.95, th[iy, ix]))  # air (a drop lying on the palm lit so, a white pearl)
     if st.size:
@@ -1762,7 +1837,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     spec *= 1.0 - GLINT_FAST * whip  # (its broad glints, smeared by its speed, were a slab of white streaks)
     if sc.coat is not None:
         # The skin film supplies its own crease reflections; a pool's broad window would paint the palm white.
-        spec *= 1.0 - 0.96 * pool
+        spec *= 1.0 - 0.65 * pool
     if st.size:  # a thin bright line along its edge towards the light, all along it in the air and in lengths lying on
         # the skin, and fast, a dimmer one along the other (where the light grazed both edges, lit all along, they were
         # a glass tube's; broken into lengths in the air, cellophane's folds)
@@ -1773,7 +1848,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
                  * np.exp(-((np.abs(sxs) - GLINT_LINES[3]) / wl) ** 2))
         if falling:
             # A room reflection catches the falling sheet's lit side in moving lengths, with clear skin between.
-            lines = (GLINT_LINES[0] * _ss(0.02, 0.22, face_s[st])
+            lines = (0.35 * GLINT_LINES[0] * _ss(0.02, 0.22, face_s[st]) * (0.25 + 0.75 * seg)
                      * np.exp(-((np.abs(sxs) - GLINT_LINES[3]) / wl) ** 2))
         spec[st] += sw[st] * lines * np.clip(gm, 0.3, 2.0)
     gsy, gsx = np.gradient(cv2.GaussianBlur(np.clip(sd[crop], -20.0, None).astype(np.float32), (0, 0), 2.0))
@@ -1787,6 +1862,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     # length)
     if held_liquid:
         cres *= 0.20 * (0.35 + 0.65 * rim_facets)  # a faint far-side arc must not form a second glass collar
+        cres += (0.18 * np.exp(-((ins - 0.035) / 0.016) ** 2) * _ss(0.25, 0.85, -out_face)
+                 * (0.30 + 0.70 * rim_facets) * (1.0 - pool))  # a narrow broken lower meniscus gives clear water weight
     rim_gain, rim_band = (HELD_RIM[:2] if held_liquid else RIM_LIT)
     rim_light = (rim_gain * edge * _ss(*rim_band, rr) * _ss(0.0, 0.85, face)
                  * np.clip(1.0 + CREST_LIGHT[1] * crest, 0.6, 1.4))
@@ -1798,7 +1875,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     net = INNER_GLOW * np.exp(-(inner / 0.22) ** 2) * deep * (1.0 - F)
     rim_open = 0.75 * big * (1.0 - pool) * _ss(0.35, 0.90, rr) * (1.0 - rim_facets)
     if held_liquid:
-        rim_open = 0.90 * big * (1.0 - pool) * _ss(0.40, 0.92, rr) * (1.0 - 0.65 * rim_facets)
+        rim_open = 0.18 * big * (1.0 - pool) * _ss(0.40, 0.92, rr) * (1.0 - 0.65 * rim_facets)
     col += rim_open[:, None] * (direct - col)
     col += (spec + cres + net).astype(np.float32)[:, None] * lit[None, :]
     # froth: sparse entrained air lit by the room, carried in streaks along a stream. The airborne body remains clear
@@ -2086,7 +2163,7 @@ CAUSTIC_ELEV = 1.8  # the light it focuses comes more from the camera's side tha
 SHADE_AO, SHADE_R = 0.14, 0.6  # the palm right under the orb loses this much of the room's light, over this share of
 # its radius and its height over the palm (sigma; at its radius and half its height, out to 3 sigmas, fingers a hand
 # off it were left darker all through the hold, and the whole hand brightened when it was thrown)
-SPOT = (0.85, 0.8, 0.1)  # the held orb's focus: the share of the light through it that reaches it, how wide it is
+SPOT = (0.45, 0.65, 0.1)  # the held orb's focus: the share of the light through it that reaches it, how wide it is
 # against its rays' width there, and the share of the orb's light still traced cell by cell over it (the spot alone
 # was a projector's disc; that share dances with its surface)
 SPOT_LOBES = 4.0  # its outline's wobble shows this many times over in its focus...
@@ -3293,6 +3370,11 @@ def _orb_folds(sc: Scene, k: int, formed: int, c: np.ndarray, r: float, shape: n
         sc.blobs.append(Blob(*tip, rd * float(_ss(9, 12, age))))
 
 
+PALM_CHANNELS = ((2.35, 1.02, 0.090, 0.14), (0.95, 1.08, 0.065, -0.12), (-2.95, 0.80, 0.040, 0.10))
+# Angle, length, half-width and bend in palm-film radii: unequal curved routes drain toward the wrist and little-finger
+# side. Their terminal beads use the same paths so the connected water separates before the final isolated glints.
+
+
 def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, shape: np.ndarray,
                 modes: list, hand: Hand, seed: int, mask: np.ndarray | None, strength: float,
                 cam: np.ndarray | None) -> None:
@@ -3328,6 +3410,14 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 reach = float(distances[max(0, off[0] - 1)])
         edges.append(d * reach / s0)
     bead_offsets = rng.uniform((-0.30, -0.20), (0.30, 0.20), (5, 2))
+    angle = math.atan2(float(hand.nrm[release, 1]), float(hand.nrm[release, 0])) + 0.5 * math.pi
+    for j, (theta, length, _, bend) in enumerate(PALM_CHANNELS):
+        # The first three persistent beads receive the draining channels, rather than appearing as isolated glitter.
+        along = length - 0.18
+        across = bend * math.sin(3.0 * along)
+        u, v = along * math.cos(theta) - across * math.sin(theta), along * math.sin(theta) + across * math.cos(theta)
+        bead_offsets[j] = 1.436 * R / s0 * np.array([u * math.cos(angle) - 0.8 * v * math.sin(angle),
+                                                   u * math.sin(angle) + 0.8 * v * math.cos(angle)])
     bead_sizes = rng.uniform(0.018, 0.030, 5)
     inherited = scenes[release - 1].blobs[0].folds if release and scenes[release - 1].blobs else ()
     # Unequal launch times and arcs keep the spray away from a circular crown or an even dotted ring.
@@ -3379,7 +3469,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
         if age < slump:
             # The upper reservoir empties through a neck before its last water reaches the receiving skin.
             rr = R * ratio * (1.0 - fall) ** 0.85
-            flatten = float(_ss(5, 13, age))
+            flatten = float(_ss(2, 10, age))
             thickness = (1.0 - 0.65 * fall) * (1.0 - 0.85 * flatten)
             target = np.r_[p, zp] + nrm * (0.24 * s * (1.0 - flatten))
             carried = np.r_[p + (c0[:2] - p0) * ratio, zp + (c0[2]
@@ -3400,7 +3490,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 end = root + (foot - root) * arrive
                 pts = root[None] + (end - root)[None] * u[:, None]
                 pts[:, 0] += 0.025 * s * np.sin(math.pi * u) * math.sin(age * 0.4)
-                radius = s * (0.080 - 0.038 * u + 0.052 * u ** 6)
+                radius = s * (0.080 - 0.038 * u + 0.010 * u ** 6)
                 radius *= (1.0 - 0.55 * float(_ss(8, slump, age))) * min(1.0, rr / (0.12 * s))
                 radius *= 1.0 + 0.10 * np.sin(2.7 * math.pi * u - 0.7 * age)
                 arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts[:, :2], axis=0), axis=1))]
@@ -3420,7 +3510,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 sc.trains.append((at[0], at[1], rr, math.cos(ang), math.sin(ang), 0.1,
                                   0.035 * (1.0 - fall), 0.8 * rr, age * 0.22 * rr))
         # A small receiving sheet establishes contact before its front crosses the palm in six exposures.
-        spread = 0.20 * float(_ss(contact - 1, 8, age)) + 0.80 * float(_ss(8, 14, age))
+        spread = 0.20 * float(_ss(contact - 1, 8, age)) + 0.80 * float(_ss(8, 13, age))
         remaining = 1.0 - float(_ss(15, drain, age))
         if contact - 1 <= age < drain:
             rr = R * ratio * (0.38 + 0.75 * spread)
@@ -3439,16 +3529,18 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
                 width = (0.085 - 0.055 * u) * s * remaining * front
                 if width.max() >= 0.5 and arc[-1] > 1.0:
-                    sc.blobs += [b._replace(stream=()) for b in
-                                 _stream(pts, np.zeros_like(pts), width, np.zeros(8), np.zeros((8, 2)), arc,
-                                         np.full(8, 0.035))]
+                    # Two side tongues retain a little depth as they cross different palm edges; the finger-web
+                    # film is thinner. Their rounded tube reflections would turn the runoff into rigid glass rods.
+                    stream = _stream(pts, np.zeros_like(pts), width, np.zeros(8), np.zeros((8, 2)), arc,
+                                     np.full(8, 0.12 if j >= 3 else 0.035))
+                    sc.blobs += [b._replace(stream=()) for b in stream]
         wet = spread * (1.0 - float(_ss(25, dry, age)))
         if wet > 0.001:
             across = math.atan2(un[1], un[0]) + 0.5 * math.pi
             wet_radius = R * ratio * (0.336 + 1.10 * spread * spread)
             sc.wet.append((p[0], p[1], wet_radius, 0.8 * wet_radius,
                            across, 0.14 * wet, 2.7, 0.0, 0.25))
-            sc.coat = (p[0], p[1], wet_radius, wet, 1.0 - float(_ss(14, 22, age)))
+            sc.coat = (p[0], p[1], wet_radius, wet, 1.0 - float(_ss(14, 34, age)))
             for j, edge in enumerate(edges):
                 points = p + np.linspace(0.2, 1.0, 8)[:, None] * edge * s
                 sc.band.append((points, np.linspace(0.055, 0.025, 8) * s, 0.16 * wet))
@@ -4566,9 +4658,30 @@ def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room:
     angle = math.atan2(float(hand.nrm[k, 1]), float(hand.nrm[k, 0])) + 0.5 * math.pi
     u, v = dx * math.cos(angle) + dy * math.sin(angle), (-dx * math.sin(angle) + dy * math.cos(angle)) / 0.8
     radius = _palm_radius(u, v)
-    height = s * ((0.0005 + 0.004 * flowing) * ripple + 0.0002 * fine)
+    sheet = float(_ss(0.55, 0.90, flowing))
+    draining = float(_ss(0.02, 0.20, flowing) * (1.0 - _ss(0.70, 0.95, flowing)))
+    # One shallow volume first covers the skin, then separates into unequal draining channels. Only their curved
+    # surfaces reflect: no painted white paths, and the palm's original texture remains under the water.
+    channels = np.zeros_like(xx)
+    for theta, length, width, bend in PALM_CHANNELS:
+        along = u * math.cos(theta) + v * math.sin(theta)
+        across = -u * math.sin(theta) + v * math.cos(theta) - bend * np.sin(3.0 * along)
+        taper = _ss(-0.12, 0.12, along) * _ss(length, length - 0.20, along)
+        taper *= 0.35 + 0.65 * _ss(-0.20, 0.50, np.sin(8.0 * along + 2.0 * theta))
+        if theta > 2.0:
+            taper *= 1.0 - _ss(0.26, 0.34, along) * (1.0 - _ss(0.48, 0.55, along))
+        channels += np.exp(-(across / (width * (1.0 - 0.45 * np.clip(along, 0.0, 1.0)))) ** 2) * taper
+    height = s * ((0.0005 + 0.007 * sheet) * ripple + 0.0002 * fine
+                  + 0.009 * draining * channels)
     gy, gx = np.gradient(cv2.GaussianBlur(height.astype(np.float32), (0, 0), max(0.6, 0.0015 * s)))
     patch = P[y0:y1, x0:x1]
+    coverage = wet ** 1.3 * _ss(1.025, 0.96, radius) * matte[y0:y1, x0:x1].astype(np.float32) / 255.0
+    # A shallow sheet displaces the real palm folds by a few capture pixels. This survives phone reduction as
+    # liquid thickness while preserving the skin's detail and the matte's silhouette.
+    bend_x = np.clip(-24.0 * gx, -6.0, 6.0)
+    bend_y = np.clip(-24.0 * gy, -6.0, 6.0)
+    warped = _remap(P, xx + bend_x, yy + bend_y)
+    patch += (sheet + 0.8 * draining * np.clip(channels, 0.0, 1.0))[..., None] * coverage[..., None] * (warped - patch)
     lum = lin(skin[y0:y1, x0:x1]) @ fx._LUMA
     # Resolve the palm folds above the phone codec's fine texture, which would otherwise turn into glitter.
     skin_log = cv2.GaussianBlur(np.log(np.maximum(lum, 0.01)), (0, 0), max(0.7, 0.016 * s))
@@ -4632,15 +4745,25 @@ def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room:
     sharp = 3.0 * cv2.GaussianBlur(sharp, (0, 0), max(0.7, 0.010 * s))
     shoulder = 0.10 * ndh ** 45 * crease * bank_facing
     specular = (0.28 * broad ** 70 * _ss(1.0, 0.50, radius) + shoulder + 6.0 * sharp) * (0.75 + 0.25 * reflection)
+    liquid = (sheet * (0.025 + 0.050 * reflection) * broad ** 12
+              + draining * channels * (0.38 + 0.45 * reflection) * ndh ** 6)
+    specular += liquid * _ss(1.0, 0.75, radius)
     # A connected light-facing meniscus survives phone reduction, then drains into the measured crease banks.
     Lxy = max(math.hypot(float(L[0]), float(L[1])), 1e-6)
     facing = (dx * L[0] + dy * L[1] / 0.8) / np.maximum(np.hypot(dx, dy / 0.8) * Lxy, 1e-5)
     edge = np.exp(-((radius - 0.965) * r / max(1.2, 0.014 * s)) ** 2)
-    specular += 1.20 * flowing * edge * _ss(-0.25, 0.65, facing) * (0.65 + 0.35 * reflection)
+    theta = np.arctan2(v, u)
+    arcs = _ss(0.05, 0.75, np.cos(3.0 * theta + 0.6) + 0.3 * np.cos(5.0 * theta + 2.0))
+    specular += 1.20 * sheet * edge * _ss(-0.25, 0.65, facing) * arcs * (0.65 + 0.35 * reflection)
     specular = 0.32 * (1.0 - np.exp(-specular / 0.32)) * envelope
     contact_edge = np.exp(-((radius - 0.990) * r / max(0.9, 0.007 * s)) ** 2)
-    patch *= (1.0 - 0.10 * flowing * contact_edge * envelope)[..., None]
-    patch += specular[..., None] * room.lit(k)
+    thickness = (sheet * 0.06 * np.exp(-((radius - 0.91) / 0.07) ** 2)
+                 * (1.0 - _ss(-0.25, 0.65, facing)) * arcs * (0.25 + 0.75 * reflection))
+    thickness += 0.025 * draining * np.clip(channels, 0.0, 1.0)
+    patch *= (1.0 - (0.10 * sheet * contact_edge + thickness) * envelope)[..., None]
+    light = room.lit(k)
+    film_light = 0.35 * light + 0.65 * float(light.max())
+    patch += specular[..., None] * film_light
     return [(y0, y1, x0, x1)]
 
 

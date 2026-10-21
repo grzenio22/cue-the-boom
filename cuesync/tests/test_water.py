@@ -311,7 +311,7 @@ def test_the_post_collapse_palm_reflects_the_light_beyond_plain_wet_skin():
 
 
 def test_an_oblique_palm_keeps_broken_wet_highlights_for_a_second_after_the_sheet_drains():
-    n, release = 105, 44
+    n, release = 120, 44
     track, plate = track_of(n), wall(n)
     plate[:, :60, :32] = [238, 245, 250]  # a visible room window away from the palm's mirror direction
     plate[:, :75, 90:] = [38, 35, 30]
@@ -321,7 +321,8 @@ def test_an_oblique_palm_keeps_broken_wet_highlights_for_a_second_after_the_shee
     sc = water.orb_scenes(voice(n, hum=(4, 40), hits=((release, 1.0),)), track, hand, (H, W), 4, None)
     yy, xx = np.mgrid[:H, :W]
     palm = np.hypot(xx - 64, yy - 130) < 0.5 * S
-    for k in (release + 26, release + 38, release + 50):
+    # The connected draining channels now precede the isolated skin glints through exposure 34.
+    for k in (release + 38, release + 50, release + 62):
         assert sc[k].coat is not None
         plain = water.Scene(wet=sc[k].wet, band=sc[k].band, coat=(*sc[k].coat[:3], 0.0, 0.0))
         glossy = water.Scene(wet=sc[k].wet, band=sc[k].band, coat=sc[k].coat)
@@ -392,7 +393,7 @@ def test_a_spreading_palm_film_has_an_advancing_broken_liquid_edge():
     assert peaks[1] > peaks[0] + 20  # the reflection travels with the wet front rather than lighting one fixed patch
 
 
-def _phone_palm_film(radius: float, flowing: float, creased: bool = False):
+def _phone_palm_film(radius: float, flowing: float, creased: bool = False, normal=(0.0, -0.45, 0.89)):
     """A smooth palm crop at capture resolution, then reduced by three as in the phone gallery."""
     size, center, scale = 384, 192.0, 180.0
     yy, xx = np.mgrid[:size, :size].astype(np.float32)
@@ -405,7 +406,7 @@ def _phone_palm_film(radius: float, flowing: float, creased: bool = False):
                  - 0.12 * np.exp(-(second / 2.2) ** 2))[..., None]
     plate = skin.astype(np.uint8)[None]
     room = water.Room(plate)
-    normal = np.array([0.0, -0.45, 0.89])
+    normal = np.asarray(normal)
     hand = water.Hand(np.array([[center, center]]), normal[None], np.array([[0.0, -1.0, 0.0]]),
                       np.array([scale]), np.zeros((1, 3)), None)
     out = water.frame(0, plate[0], np.full((size, size), 255, np.uint8),
@@ -428,7 +429,8 @@ def test_the_spreading_rim_stays_connected_at_phone_size_over_five_exposures():
     yy, xx = np.mgrid[:128, :128]
     for radius in radii:
         added, _, _ = _phone_palm_film(radius, 1.0)
-        labels, stats, components = _phone_reflections(added)
+        radial = water._palm_radius(xx - 64, (yy - 64) / 0.8)
+        labels, stats, components = _phone_reflections(added * (radial > 0.90 * radius / 3.0))
         assert components, radius
         largest = max(components, key=lambda j: stats[j, cv2.CC_STAT_AREA])
         w, h = stats[largest, cv2.CC_STAT_WIDTH:cv2.CC_STAT_HEIGHT + 1]
@@ -453,6 +455,23 @@ def test_a_drained_film_consolidates_reflections_along_curved_skin_creases_at_ph
     center = np.hypot(xx - 192, yy - 192) < 0.65 * radius
     assert np.corrcoef(plate[center].ravel(), out[center].ravel())[0, 1] > 0.9
     assert np.max(out.astype(float) - plate) < 90  # clear skin stays visible through its wet reflection
+
+
+@pytest.mark.parametrize("flowing", [0.3, 0.5, 0.7])
+def test_a_draining_sheet_keeps_connected_liquid_between_its_rim_and_skin_folds_at_phone_size(flowing):
+    radius = 100.0
+    added, plate, out = _phone_palm_film(radius, flowing, creased=True, normal=(-0.05, -0.79, 0.61))
+    yy, xx = np.mgrid[:128, :128]
+    interior = np.hypot(xx - 64, (yy - 64) / 0.8) < 0.8 * radius / 3.0
+    lit = (added > 5.0) & interior
+    # A surviving outer arc alone cannot bridge a flattened sheet to its later isolated crease glints.
+    assert lit.sum() > 0.10 * interior.sum()
+    _, _, stats, _ = cv2.connectedComponentsWithStats(lit.astype(np.uint8), connectivity=8)
+    assert stats[1:, cv2.CC_STAT_AREA].max(initial=0) > 0.06 * interior.sum()
+    yy, xx = np.mgrid[:384, :384]
+    center = np.hypot(xx - 192, yy - 192) < 0.65 * radius
+    assert np.corrcoef(plate[center].ravel(), out[center].ravel())[0, 1] > 0.95
+    assert np.max(out.astype(float) - plate) < 90  # the connected reflection still leaves textured skin visible
 
 
 def test_a_resolved_wet_skin_footprint_has_a_visibly_irregular_boundary():
@@ -1239,6 +1258,62 @@ def test_the_hand_hides_the_water_only_where_it_is_in_front_of_it():
     assert np.abs(out[inside].astype(int) - plate[inside]).max() <= 2
     out, plate = _one_drop(_hand_at(-2.0 * S), matte)  # the hand behind it
     assert np.abs(out[inside].astype(int) - plate[inside]).mean() > 8
+
+
+@pytest.mark.parametrize("offset", [0.3, 0.6, 0.8])
+def test_a_refracted_ray_reaches_the_curved_back_of_the_held_body(offset):
+    radius, center = 72.0, 128.0
+    y0 = x0 = 48
+    yy, xx = np.mgrid[y0:209, x0:209].astype(np.float32)
+    back = np.sqrt(np.maximum(radius * radius - (xx - center) ** 2 - (yy - center) ** 2, 0.0))
+    X, Y = np.float32([center + offset * radius]), np.float32([center])
+    front = np.sqrt(radius * radius - (X - center) ** 2)
+    nx, nz = (X - center) / radius, front / radius
+    (tx, ty, tz), _ = water._refract(0.0, 0.0, -1.0, nx, np.zeros_like(nx), nz, 1.0 / water.ETA[1])
+    path, ex, ey = water._exit_surface(tx, ty, tz, X, Y, front, back, x0, y0)
+    ez = front + tz * path
+    # The ray must meet the curved far face, rather than travel twice the thickness at its entry pixel.
+    error = np.abs(np.sqrt((ex - center) ** 2 + (ey - center) ** 2 + ez * ez) - radius)
+    assert np.all(ez < 0.0) and np.all(error < 0.02 * radius)
+    # An entry on a sphere has one other quadratic root: t=-2 dot(entry,direction) for a unit ray.
+    analytic = -2.0 * ((X - center) * tx + front * tz)
+    assert np.all(np.abs(path - analytic) < 0.025 * radius)
+
+
+def test_the_held_body_does_not_sample_foreground_skin_as_the_distant_wall():
+    size = 384
+    neutral = np.full((1, size, size, 3), 135, np.uint8)
+    matte = np.zeros((size, size), np.uint8)
+    matte[190:370, 130:254] = 255
+    plate = neutral.copy()
+    plate[0, matte > 0] = [200, 100, 90]
+    hand = water.Hand(np.array([[192.0, 280.0]]), np.array([[0.0, 0.0, 1.0]]),
+                      np.array([[0.0, -1.0, 0.0]]), np.array([180.0]), np.array([[0.0, 0.0, -140.0]]), None)
+    sc = water.Scene([water.Blob(192.0, 160.0, 0.0, 72.0)], held=(192.0, 160.0, 0.0, 72.0, 1.0))
+    room, noise = water.Room(neutral), water.Noise(4)
+    clear, skin = [water.frame(0, source[0], matte, sc, hand, room, noise, 0.0, 4)
+                   for source in (neutral, plate)]
+    difference = np.abs(skin.astype(float) - clear).mean(-1)
+    # These upper rays cross the palm plane above the skin, though their distant-wall projections hit its RGB.
+    assert difference[100:110, 184:200].mean() < 3.0
+    assert difference[250:300, 150:230].mean() > 30.0  # clearing the distant source must retain the actual hand
+
+
+def test_the_receiving_hand_inside_a_collapsing_lens_is_seen_before_its_far_face():
+    size = 256
+    plate = np.full((size, size, 3), 135, np.uint8)
+    plate[100:220, 90:170] = [200, 100, 90]
+    matte = np.zeros((size, size), np.uint8)
+    matte[100:220, 90:170] = 255
+    hand = water.Hand(np.array([[128.0, 180.0]]), np.array([[0.0, 0.0, 1.0]]),
+                      np.array([[0.0, -1.0, 0.0]]), np.array([120.0]), np.zeros((1, 3)), None)
+    sc = water.Scene([water.Blob(128.0, 140.0, 0.0, 48.0)], held=(128.0, 140.0, 0.0, 48.0, 1.0))
+    layer = water.shade(water.Field(sc.blobs, size, size), sc, 0, hand,
+                        water.Room(np.full((1, size, size, 3), 135, np.uint8)), water.Noise(1),
+                        water._pyramid(lin(plate)), matte, 0.0, 1)
+    yy, xx = 140 - layer.box[0], 128 - layer.box[2]
+    colour = gam(layer.colour[yy, xx] / layer.alpha[yy, xx]).astype(float)
+    assert np.max(np.abs(colour - plate[140, 128])) < 22  # no wall-coloured hole where the palm receives the water
 
 
 def test_water_bends_the_plate_behind_it_with_no_cut_out_edge():
