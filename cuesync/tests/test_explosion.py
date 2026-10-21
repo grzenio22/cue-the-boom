@@ -58,6 +58,42 @@ def test_an_explosion_goes_off_on_its_hit_and_not_before():
     assert np.array_equal(X.render(plate, tr, None, tl, "fist", seed=3, element=el), out)  # the same bytes again
 
 
+def test_render_keeps_the_same_bytes_when_frames_are_drawn_on_four_threads(monkeypatch):
+    import threading
+
+    n, h, w = 64, 80, 104
+    yy, xx = np.mgrid[:h, :w]
+    plate = np.full((n, h, w, 3), (110, 95, 80), np.uint8)
+    masks = np.zeros((n, h, w), np.uint8)
+    masks[:, 48:, 42:62] = 255
+    plate[:, 48:, 42:62] = (150, 100, 90)
+    el = np.full((72, h, w, 3), 4, np.uint8)
+    for k in range(5, len(el)):
+        r = min(25, 4 + 3 * (k - 5))
+        cloud = (xx - 52) ** 2 + (yy - 40) ** 2 <= r * r
+        el[k, cloud] = (255, 160, 40) if k < 25 else (45, 40, 36)
+    tr = hand(n, w, h, at=(52.0, 62.0), scale=10.0)
+    cam = np.repeat(np.eye(3)[None], n, axis=0)
+    cam[:, 0, 2] = np.linspace(0, 3, n)
+    tl = Timeline(n=n, energy=np.zeros(n), hits=[4], sizes=[1.0], tap_frame=4, camera=cam)
+    drawn = set()
+    shoulder = X.shoulder_added
+
+    def finish(*args):
+        drawn.add(threading.get_ident())
+        return shoulder(*args)
+
+    monkeypatch.setattr(X, "shoulder_added", finish)
+    monkeypatch.setattr(X.fx, "THREADS", 1)
+    serial = X.render(plate, tr, masks, tl, seed=3, element=el)
+    assert len(drawn) == 1
+    drawn.clear()
+    monkeypatch.setattr(X.fx, "THREADS", 4)
+    parallel = X.render(plate, tr, masks, tl, seed=3, element=el)
+    np.testing.assert_array_equal(parallel, serial)
+    assert len(drawn) > 1
+
+
 @pytest.mark.parametrize("form", ["fist", "palm"])
 def test_the_arrow_changes_the_explosions_picture_with_landmarks(form):
     n, h, w = 24, 96, 128

@@ -178,9 +178,13 @@ def smoke_shading_ref(element: np.ndarray, params: CompositeParams, floor: int, 
     return float(np.median(np.concatenate(vals))) if vals else 0.25
 
 
+def _peak(rgb: np.ndarray) -> np.ndarray:
+    return np.maximum(np.maximum(rgb[..., 0], rgb[..., 1]), rgb[..., 2])
+
+
 def _hue_sat(e: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     r, g, b = e[..., 0], e[..., 1], e[..., 2]
-    mx, mn = e.max(-1), e.min(-1)
+    mx, mn = _peak(e), np.minimum(np.minimum(r, g), b)
     d = mx - mn
     sat = np.where(mx > 0, d / np.where(mx > 0, mx, 1.0), 0.0)
     hue = np.zeros_like(mx)
@@ -257,7 +261,7 @@ def _warmth(e: np.ndarray, params: CompositeParams) -> tuple[np.ndarray, np.ndar
     """(warm and saturated, regardless of brightness; the same and bright enough to be flame)."""
     hue, sat = _hue_sat(e)
     warm = _smoothstep(params.sat_lo, params.sat_hi, sat) * ((hue <= params.warm_hue_max_deg) | (hue >= 345.0))
-    return warm, warm * _smoothstep(params.fire_bright_lo, params.fire_bright_hi, e.max(-1))
+    return warm, warm * _smoothstep(params.fire_bright_lo, params.fire_bright_hi, _peak(e))
 
 
 def fire_weight_map(e: np.ndarray, params: CompositeParams, full_width: int, fire_effect: bool = True,
@@ -410,7 +414,7 @@ def composite_frame(
         black_floor = params.black_floor if params.black_floor is not None else estimate_black_level(elem8[None])
     gf, gs = float(np.clip(g_fire, 0, 1)), float(np.clip(g_smoke, 0, 1))
     k = 4  # find the element's extent on a 1/4 grid: cheap, and the margin covers the rounding
-    nz = elem8[::k, ::k].max(axis=-1).astype(np.int16) > black_floor + 2  # ignore speckle when sizing the crop
+    nz = _peak(elem8[::k, ::k]).astype(np.int16) > black_floor + 2  # ignore speckle when sizing the crop
     if holdout_row is not None:
         nz[min(nz.shape[0], (holdout_row + int(0.02 * h)) // k + 1):] = False
     rows, cols = nz.any(axis=1), nz.any(axis=0)
@@ -454,19 +458,18 @@ def composite_frame(
     kf = np.full_like(y, gf)
     if lift and gf < 1.0 and emission is not None:
         cut = emission[1] - (1.0 - gf) * params.fire_lift_frac * h
-        ragged = yy - (e.max(-1) - 0.5) * 0.25 * h  # the cut follows the flame's own structure, not a line
+        ragged = yy - (_peak(e) - 0.5) * 0.25 * h  # the cut follows the flame's own structure, not a line
         kf = _smoothstep(cut + 0.04 * h, cut - 0.02 * h, ragged) * (0.3 + 0.7 * gf)
     kf = kf * hold
 
     # fire: an opaque core that never darkens the plate
-    peak = e.max(-1)
     a_fire = params.fire_occlusion * _smoothstep(params.fire_alpha_lo, params.fire_alpha_hi, y)
     # only the bright core may darken what is behind it (for saturation); dim edges are pure light, so no
     # dark outline ever traces a flame on a bright wall
     core = _smoothstep(0.45, 0.75, y)
     ratio = e_lin / np.maximum(p_lin, 1e-3)
     lum_cap = (e_lin @ _LUMA) / np.maximum(p_lin @ _LUMA, 1e-3)  # edges: never darker than the wall (in luma)
-    cap = lum_cap + core * (ratio.max(-1) + params.fire_darken - lum_cap)
+    cap = lum_cap + core * (_peak(ratio) + params.fire_darken - lum_cap)
     a_fire = np.minimum(a_fire, cap)
     af = fire_w * a_fire * kf
     # A flame's dim skirt, added over a bright wall, turns deep red into salmon; real skirts glow orange.
@@ -580,17 +583,18 @@ def composite_frame(
     region_lin = p_lin if gain_lin is None else p_lin * (1.0 + (gain_lin - 1.0) * (1.0 - alpha))
     region = _gam_fast(region_lin * (1.0 - alpha) + emit)
     region = 1.0 - (1.0 - region) * (1.0 - bloom[..., None] * tint)
+    emit_peak = _peak(emit)
     if params.grain and grain_sigma > 0:
         rng = np.random.default_rng(seed)
         noise = rng.normal(0.0, grain_sigma / 255.0, region.shape[:2] + (1,)).astype(np.float32)
-        region += noise * np.clip(alpha + (emit.max(-1, keepdims=True) > 0.002), 0, 1)
+        region += noise * np.clip(alpha + (emit_peak[..., None] > 0.002), 0, 1)
     rng_d = np.random.default_rng(seed + 7919)  # one-level triangular dither: smooth ramps stay smooth in 8 bits
     region += ((rng_d.random(region.shape[:2], np.float32) - rng_d.random(region.shape[:2], np.float32))
                * (1.0 / 255.0))[..., None]
     out[cy_, cx_] = region
     if params.shoulder < 1.0:  # roll off what was ADDED, keeping hue: compress the max channel, scale all three
-        limit = np.maximum(base.max(-1), params.shoulder)
-        mx = out.max(-1)
+        limit = np.maximum(_peak(base), params.shoulder)
+        mx = _peak(out)
         over = mx > limit
         if over.any():
             room = np.maximum(1.0 - limit[over], 1e-4)
@@ -598,7 +602,7 @@ def composite_frame(
             out[over] *= (new / mx[over])[:, None]
     region8 = np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8)
     untouched = ~lit
-    untouched[cy_, cx_] &= (alpha[..., 0] <= 0) & (emit.max(-1) <= 0) & (bloom <= 0)
+    untouched[cy_, cx_] &= (alpha[..., 0] <= 0) & (emit_peak <= 0) & (bloom <= 0)
     region8[untouched] = plate_r[untouched]  # bit-exact where nothing contributes
     out8 = plate8.copy()
     out8[ry0:ry1, rx0:rx1] = region8
