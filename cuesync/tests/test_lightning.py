@@ -1462,10 +1462,11 @@ def test_the_balls_shell_stays_on_its_skin_and_its_arcs_are_kinked_channels_thro
     for t in range(12, n):
         b = balls[t]
         arcs = thrown(hand, balls, t, bolts, sparks)
-        for p, _, _ in bolts[t]:
-            if not any(p is q for q, *_ in arcs):
+        for channel in bolts[t]:
+            p, _, _ = channel
+            if not getattr(channel, "streamer", False) and not any(p is q for q, *_ in arcs):
                 r = np.hypot(p[:, 0] - b.x, p[:, 1] - b.y) / b.R
-                assert r.max() <= 1.0 + L.SHELL_SKIN + 0.10  # broad asymmetric boundary, without long stray streamers
+                assert r.max() <= 1.0 + L.SHELL_SKIN + 0.10  # the contained shell stays separate from short escapes
         for p, f, _, _ in arcs:
             count += f in L.TIPS
             c, a, e = np.array([b.x, b.y]), p[0], p[-1]
@@ -2436,7 +2437,7 @@ def test_ball_has_soft_rear_arcs_around_both_sides_of_the_lower_hemisphere():
         ball = balls[t]
         lower = []
         for channel in bolts[t]:
-            if not isinstance(channel, L._Filament) or channel.softness <= 0:
+            if not isinstance(channel, L._Filament) or channel.depth <= .5:
                 continue
             xy = (channel[0] - (ball.x, ball.y)) / ball.R
             if xy[:, 1].max() > .65 and np.linalg.norm(xy, axis=1).mean() > .85:
@@ -2475,3 +2476,97 @@ def test_ball_grounding_has_one_quieter_path_per_finger_instead_of_a_separate_lo
         for channel in channels:
             if any(np.allclose(channel[0][-1], spot[:2]) for spot in contacts):
                 assert channel[2] <= .55 * L.GROUND_ARC[1] + 1e-6
+
+
+def test_ball_surface_currents_share_one_radius_and_bow_toward_the_camera():
+    """Inclined surface currents retain small electrical kinks while their broad bends describe one sphere."""
+    for angle, tilt in ((.08, .36), (-.88, -.22)):
+        for seed in (1, 7, 29):
+            points = L._sphere_current(angle, tilt, -1.22, 1.22, 61, seed)
+            np.testing.assert_allclose(np.linalg.norm(points, axis=1), 1, atol=1e-6)
+            assert (points[:, 2] > 0).all()
+            xy = points[:, :2]
+            axis = xy[-1] - xy[0]
+            off = (xy - xy[0]) @ np.array([-axis[1], axis[0]]) / np.linalg.norm(axis)
+            assert np.abs(np.median(off[22:39])) > .12
+            assert np.linalg.norm(xy[[0, -1]], axis=1).min() > .9
+            np.testing.assert_array_equal(points, L._sphere_current(angle, tilt, -1.22, 1.22, 61, seed))
+
+
+def test_ball_dominant_front_current_bends_around_its_common_envelope():
+    """At phone size the leading current has a broad spherical bow rather than an unrelated zigzag chord."""
+    plate, track, mask = take(12, lambda t: (135, 300), 80, emitter="palm")
+    bolts, _, balls = L.ball_frames(L._hand(plate, track), voice(np.full(12, .9)), seed=1, matte=mask)
+    for t in range(6, 12):
+        ball = balls[t]
+        current = next(c for c in bolts[t] if isinstance(c, L._Filament) and c.softness == 0)
+        xy = (current[0] - (ball.x, ball.y)) / ball.R
+        axis = xy[-1] - xy[0]
+        off = (xy - xy[0]) @ np.array([-axis[1], axis[0]]) / np.linalg.norm(axis)
+        assert np.abs(np.median(off[len(off) // 3:2 * len(off) // 3])) > .17
+
+
+def test_ball_short_escaping_streamers_cast_local_light_on_adjacent_skin():
+    """A few tapered escapes interrupt the limb and light nearby skin, with no added white contact beads."""
+    ball = L.Ball(120, 120, 50, 1, 1, 1)
+    lm = np.tile((185., 120.), (21, 1))
+    paths = L._ball_streamers(np.array(ball[:2]), ball.R, lm, seed=3, frame=8)
+    assert 2 <= len(paths) <= 3
+    channels = [L._Filament(p, 2, .6, 0, streamer=True) for p in paths]
+    for p in paths:
+        radius = np.linalg.norm(p - ball[:2], axis=1) / ball.R
+        assert .80 <= radius[0] <= 1.0
+        assert 1.12 <= radius.max() <= 1.4
+        assert np.linalg.norm(np.diff(p, axis=0), axis=1).sum() < .7 * ball.R
+    matte = np.zeros((241, 241), np.float32)
+    matte[95:146, 180:196] = 1
+    got = L.streamer_light(matte, ball, channels)
+    assert got is not None
+    (y0, y1, x0, x1), field = got
+    full = np.zeros_like(matte)
+    full[y0:y1, x0:x1] = field
+    assert full[120, 183] > .1
+    assert not full[matte == 0].any()
+    assert full[:80].sum() == 0
+    assert L.streamer_light(matte, ball, []) is None
+
+
+def test_ball_streamers_stop_before_a_finger_intercepts_a_free_escape():
+    """A fallback escape must stop at a crossing finger too; aiming only its endpoint cannot protect the skin."""
+    c, radius = np.array([120., 120.]), 50.
+    matte = np.zeros((241, 241), np.uint8)
+    angle = -.94 + .12 * np.sin(8 / 24 * 1.3 + 3)
+    direction = np.array([np.cos(angle), np.sin(angle)])
+    cv2.line(matte, tuple(np.rint(c + 1.06 * radius * direction).astype(int)),
+             tuple(np.rint(c + 1.6 * radius * direction).astype(int)), 255, 10)
+    paths = L._ball_streamers(c, radius, None, seed=3, frame=8, matte=matte)
+    assert paths  # the unobstructed escapes remain visible
+    for p in paths:
+        dense = np.concatenate([np.linspace(a, b, max(2, int(np.linalg.norm(b - a) * 2) + 1))
+                                for a, b in zip(p[:-1], p[1:])])
+        xi, yi = np.rint(dense).astype(int).T
+        assert not matte[yi, xi].any()
+
+
+def test_ball_generated_streamer_cores_stay_in_air_beside_observed_fingers():
+    """The production ball path must use the matte check, including when several fingers overlap the limb."""
+    plate, track, mask = take(12, lambda t: (135, 300), 80, emitter="palm", middle_out=True)
+    bolts, _, _ = L.ball_frames(L._hand(plate, track), voice(np.full(12, .9)), seed=1, matte=mask)
+    streamers = [c[0] for frame in bolts[6:] for c in frame if getattr(c, "streamer", False)]
+    assert streamers
+    for p in streamers:
+        xi, yi = np.rint(p).astype(int).T
+        assert not mask[6, yi, xi].any()  # this fixture's observed hand is stationary
+
+
+def test_ball_escaping_streamers_remain_connected_to_a_foreground_current():
+    """A short escape starts on a visible current; an arbitrary bright limb root reads as a floating firefly."""
+    plate, track, _ = take(12, lambda t: (135, 300), 80, emitter="palm")
+    bolts, _, balls = L.ball_frames(L._hand(plate, track), voice(np.full(12, .9)), seed=1)
+    for channels, ball in zip(bolts[6:], balls[6:]):
+        currents = np.concatenate([c[0] for c in channels if isinstance(c, L._Filament)
+                                   and c.depth == 0 and not c.streamer])
+        escapes = [c[0] for c in channels if getattr(c, "streamer", False)]
+        assert escapes
+        for p in escapes:
+            assert np.linalg.norm(currents - p[0], axis=1).min() < .025 * ball.R

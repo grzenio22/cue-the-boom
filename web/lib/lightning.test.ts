@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   type Arcs, arcChannels, arcStep, type Ball, BALL_HAND_RGB, BALL_LIGHT, BALL_LOOK, BALL_ROOM_RGB, ballAt, ballRadius,
-  ballStep, BODY_STOPS, BRANCH_W, BUZZ_HF, buzzOf, channel, crosses, dense, DIP, drawBall, drawBallLight,
+  ballStep, ballStreamers, BODY_STOPS, BRANCH_W, BUZZ_HF, buzzOf, channel, crosses, dense, DIP, drawBall, drawBallLight,
   drawChannels, drawLand, drawLight, drawSpark, filamentSupport, fingerCoverage, GROUND, GROUND_BOW, GROUND_FREE, GROUND_GONE, GROUND_ON, IMPACT_MIN, jumpPath,
   LAND_NEAR, leader, LEADER, type Light, LIGHT_TAIL, lightStep, newArcs, onHand, type P2, pickTarget, type Plate,
   palmSource, plasmaAt, plasmaTurns, PRONG, receiverFocus, ride, rng, SHELL, SHELL_SKIN, sourceContact, SPLASH, streamStep, stretches, surfaces,
-  swing, TAPER, TARGET_APART, TARGET_AT, TARGET_BORDER, TARGET_CONE,
+  sphereCurrent, swing, TAPER, TARGET_APART, TARGET_AT, TARGET_BORDER, TARGET_CONE,
 } from "./lightning";
 
 describe("channel", () => {
@@ -769,9 +769,10 @@ describe("the ball", () => {
       !crossing.has(JSON.stringify(stroke.points)));
   };
 
-  const connectedCores = (ctx: ReturnType<typeof fakeCtx>) => {
+  const connectedCores = (ctx: ReturnType<typeof fakeCtx>, includeBranches = false) => {
     const paths: (typeof ctx.drawn)[] = [];
-    for (const stroke of ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255"))) {
+    for (const stroke of ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") ||
+      (includeBranches && Number(s.color.match(/^rgba\(([\d.]+)/)?.[1]) >= 198))) {
       const prev = paths.at(-1)?.at(-1)?.points.at(-1), first = stroke.points[0];
       if (prev && first && Math.hypot(prev[0] - first[0], prev[1] - first[1]) < 1e-6) paths.at(-1)!.push(stroke);
       else paths.push([stroke]);
@@ -803,13 +804,18 @@ describe("the ball", () => {
     expect(ctx.gradients[0].x1).toBe(150);
     expect(ctx.gradients[0].y1).toBe(405);
     drawBall(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
-    const hero = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") &&
-      s.filter !== "blur(4px)" && s.filter !== "blur(1.4px)").flatMap((s) => s.points);
-    expect(Math.min(...hero.map(([x]) => x))).toBeCloseTo(64, 6);
-    expect(Math.max(...hero.map(([x]) => x))).toBeCloseTo(236, 6);
+    const hero = connectedCores(ctx).sort((a, b) => {
+      const span = (path: typeof a) => Math.max(...path.flatMap((s) => s.points.map(([x]) => x))) -
+        Math.min(...path.flatMap((s) => s.points.map(([x]) => x)));
+      return span(b) - span(a);
+    })[0].flatMap((s) => s.points);
+    expect(Math.min(...hero.map(([x]) => x))).toBeGreaterThan(50);
+    expect(Math.min(...hero.map(([x]) => x))).toBeLessThan(60);
+    expect(Math.max(...hero.map(([x]) => x))).toBeGreaterThan(240);
+    expect(Math.max(...hero.map(([x]) => x))).toBeLessThan(250);
   });
 
-  it("keeps a connected dominant front arc crossing the luminous middle between random shell strikes", () => {
+  it("bows the dominant foreground current around one sphere instead of flattening it across the middle", () => {
     const b = { ...run()[20]!, shell: [], jumps: [], most: 1 };
     const R = ballRadius(b, 200);
     for (const frame of [20, 21, 22]) {
@@ -823,20 +829,136 @@ describe("the ball", () => {
       const points = cores.flatMap((stroke) => stroke.points);
       expect(points.length).toBeGreaterThan(20);
       expect(Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x))).toBeGreaterThan(1.6 * R);
-      expect(Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y))).toBeGreaterThan(0.4 * R);
+      expect(Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y))).toBeGreaterThan(0.2 * R);
       expect(Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y))).toBeLessThan(0.7 * R);
       const meanY = points.reduce((sum, [, y]) => sum + y, 0) / points.length;
-      expect(meanY).toBeGreaterThan(ballAt([200, 610], 1, R)[1] - 0.05 * R);
-      expect(meanY).toBeLessThan(ballAt([200, 610], 1, R)[1] + 0.1 * R);
+      expect(meanY).toBeGreaterThan(ballAt([200, 610], 1, R)[1] + 0.15 * R);
+      expect(meanY).toBeLessThan(ballAt([200, 610], 1, R)[1] + 0.4 * R);
       const yAt = (x: number) => [...points].sort((a, b) => Math.abs(a[0] - 200 - x * R) - Math.abs(b[0] - 200 - x * R))[0][1];
-      expect(yAt(-0.38)).toBeGreaterThan(yAt(-0.06) + 0.04 * R);
-      expect(yAt(0.20)).toBeGreaterThan(yAt(0.46));
-      const upper = ctx.drawn.filter((stroke) => stroke.color.startsWith("rgba(238, 243, 255") &&
-        stroke.points.some(([, y]) => y < ballAt([200, 610], 1, R)[1] - 0.65 * R));
-      expect(upper.length).toBeGreaterThan(0);
-      expect(Math.max(...upper.map((stroke) => Number(stroke.color.match(/([\d.]+)\)$/)![1])))).toBeLessThan(0.4);
+      expect(yAt(0)).toBeGreaterThan(yAt(-0.8) + 0.08 * R);
+      expect(yAt(0)).toBeGreaterThan(yAt(0.8) + 0.04 * R);
+      const center = ballAt([200, 610], 1, R);
+      expect(points.every(([x, y]) => Math.hypot(x - center[0], y - center[1]) <= R + 1e-6)).toBe(true);
       expect(cores.every((stroke) => !stroke.filter.includes("2.5"))).toBe(true);
     }
+  });
+
+  it("breaks the silhouette with a few short free streamers even between grounding strikes", () => {
+    const b = { ...run()[20]!, grown: 1, pulse: 0, shell: [], jumps: [], most: 1 };
+    const palm: P2 = [200, 610], center = ballAt(palm, 1, 100), ctx = fakeCtx();
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    const escaping = connectedCores(ctx, true).filter((path) => path.flatMap((s) => s.points)
+      .some(([x, y]) => Math.hypot(x - center[0], y - center[1]) > 112));
+    expect(escaping.length).toBeGreaterThanOrEqual(2);
+    expect(escaping.length).toBeLessThanOrEqual(3);
+    for (const path of escaping) {
+      const points = path.flatMap((s) => s.points);
+      expect(Math.hypot(points[0][0] - center[0], points[0][1] - center[1])).toBeGreaterThan(80);
+      expect(Math.hypot(points[0][0] - center[0], points[0][1] - center[1])).toBeLessThanOrEqual(100);
+      expect(Math.max(...points.map(([x, y]) => Math.hypot(x - center[0], y - center[1])))).toBeLessThan(138);
+      expect(path.at(-1)!.width).toBeLessThan(0.25 * path[0].width);
+      const alpha = (stroke: typeof path[number]) => Number(stroke.color.match(/([\d.]+)\)$/)![1]);
+      expect(alpha(path.at(-1)!)).toBeLessThan(0.2 * alpha(path[0]));
+    }
+  });
+
+  it("keeps both kinked foreground currents on the same sphere and recedes towards their ends", () => {
+    for (const [angle, tilt] of [[0.08, 0.42], [-0.88, -0.25]]) {
+      const points = sphereCurrent(angle, tilt, -1.2, 1.2, 45, 7);
+      expect(points).toEqual(sphereCurrent(angle, tilt, -1.2, 1.2, 45, 7));
+      expect(points).not.toEqual(sphereCurrent(angle, tilt, -1.2, 1.2, 45, 8));
+      expect(points.length).toBe(45);
+      for (const p of points) expect(Math.hypot(...p)).toBeCloseTo(1, 10);
+      expect(points[22][2]).toBeGreaterThan(0.9);
+      expect(points[0][2]).toBeLessThan(0.4);
+      expect(points.at(-1)![2]).toBeLessThan(0.4);
+      const normal = [-Math.sin(angle) * Math.cos(tilt), Math.cos(angle) * Math.cos(tilt), -Math.sin(tilt)];
+      expect(points.some((p) => Math.abs(p.reduce((sum, v, k) => sum + v * normal[k], 0)) > 0.01)).toBe(true);
+    }
+  });
+
+  it("connects every escaping root directly to a rendered foreground current", () => {
+    const b = { ...run()[20]!, frame: 20, grown: 1, pulse: 0, shell: [], jumps: [], most: 1 };
+    const ctx = fakeCtx(), center: P2 = [0, 0];
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, [0, 205], 200, 1);
+    const currents = connectedCores(ctx).flatMap((path) => path.flatMap((stroke) => stroke.points));
+    const paths = ballStreamers(b, center, 100, null, 200);
+    expect(paths.length).toBeGreaterThan(0);
+    for (const path of paths) {
+      const root = path[0];
+      expect(Math.hypot(...root)).toBeGreaterThan(80);
+      expect(Math.hypot(...root)).toBeLessThanOrEqual(100);
+      expect(Math.min(...currents.map((p) => Math.hypot(p[0] - root[0], p[1] - root[1])))).toBeLessThan(2.5);
+    }
+    expect(new Set(paths.map((path) => JSON.stringify(path[0]))).size).toBe(paths.length);
+  });
+
+  it("steers independent short streamers towards nearby finger surfaces and stops before their skin", () => {
+    const b = run()[20]!, center: P2 = [0, 0];
+    const hand: P2[] = Array.from({ length: 21 }, () => [500, 500]);
+    for (const finger of [[5, 6, 7, 8], [9, 10, 11, 12]]) for (const joint of finger) {
+      hand[joint] = finger[0] === 5 ? [140, 0] : [0, 140];
+    }
+    const paths = ballStreamers(b, center, 100, hand, 200);
+    expect(paths).toEqual(ballStreamers(b, center, 100, hand, 200));
+    expect(paths).not.toEqual(ballStreamers({ ...b, frame: b.frame + 2 }, center, 100, hand, 200));
+    expect(paths.length).toBeGreaterThan(0);
+    expect(paths.length).toBeLessThanOrEqual(3);
+    const end = paths[0].at(-1)!;
+    expect(Math.hypot(end[0] - 140, end[1])).toBeGreaterThanOrEqual(25);
+    expect(Math.hypot(end[0] - 140, end[1])).toBeLessThan(35);
+    expect(paths.every((p) => p.length >= 2 && p.length <= 9)).toBe(true);
+    expect(ballStreamers(b, center, 0, hand, 200)).toEqual([]);
+  });
+
+  it("stops every escaping streamer before the first foreground finger instead of drawing through its silhouette", () => {
+    const b = { ...run()[20]!, frame: 20 }, center: P2 = [0, 0];
+    const hand: P2[] = Array.from({ length: 21 }, () => [500, 500]);
+    for (const [joints, angle] of [[[5, 6, 7, 8], -1.45], [[9, 10, 11, 12], -0.94]] as [number[], number][]) {
+      for (const joint of joints) hand[joint] = [110 * Math.cos(angle), 110 * Math.sin(angle)];
+    }
+    const paths = ballStreamers(b, center, 100, hand, 200);
+    for (const path of paths) for (let j = 1; j < path.length; j++) for (let k = 0; k <= 20; k++) {
+      const u = k / 20, a = path[j - 1], z = path[j];
+      const point: P2 = [a[0] + u * (z[0] - a[0]), a[1] + u * (z[1] - a[1])];
+      expect(fingerCoverage(point, hand, 200)).toBeLessThanOrEqual(0.1);
+    }
+    const outside = ballStreamers(b, center, 100, null, 200);
+    expect(paths.length).toBeLessThan(outside.length);
+  });
+
+  it("lights only a short surface-clipped patch beside each escaping streamer without a contact bead", () => {
+    const layers: ReturnType<typeof fakeCtx>[] = [];
+    class LayerCanvas {
+      constructor(public width: number, public height: number) {}
+      getContext() {
+        const context = Object.assign(fakeCtx(), { canvas: this, setTransform() {}, clearRect() {}, drawImage() {} });
+        layers.push(context);
+        return context;
+      }
+    }
+    vi.stubGlobal("OffscreenCanvas", LayerCanvas);
+    try {
+      const b = { ...run()[20]!, grown: 1, pulse: 0, shell: [], jumps: [], most: 1 };
+      const ctx = Object.assign(fakeCtx(), { canvas: { width: 400, height: 800 }, drawImage() {} });
+      const palm: P2 = [200, 610], hand = handUp(200, 430, 100);
+      const center = ballAt(palm, 1, 100, hand), retained = ballStreamers(b, center, 100, hand, 200);
+      drawBallLight(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, hand, 400, 800, 1);
+      const lamps = layers.flatMap((layer) => layer.gradients.filter((g) => Math.abs(g.r1 - 34) < 1e-6)
+        .map((g) => ({ gradient: g, ops: layer.ops })));
+      expect(retained.length).toBeGreaterThan(0);
+      expect(retained.length).toBeLessThan(3);
+      expect(lamps.length).toBe(retained.length);
+      for (const [k, { gradient, ops }] of lamps.entries()) {
+        expect([gradient.x1, gradient.y1]).toEqual(retained[k].at(-1));
+        expect(ops).toContain("source-in");
+        expect(gradient.stops.at(-1)![1]).toBe("rgba(120, 195, 255, 0)");
+        const alpha = Number(gradient.stops[0][1].match(/([\d.]+)\)$/)![1]);
+        expect(alpha).toBeGreaterThan(0.05);
+        expect(alpha).toBeLessThan(0.35);
+      }
+      expect(ctx.gradients.some((g) => g.stops[0][1].startsWith("rgba(205, 230, 255"))).toBe(false);
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it("crosses the upper interior with a thinner near current whose middle leads its soft ends", () => {
@@ -864,8 +986,10 @@ describe("the ball", () => {
     const far = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") && s.filter === "blur(2.5px)");
     expect(far.length).toBeGreaterThan(0);
     const peak = Math.max(...far.map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])));
-    expect(peak).toBeGreaterThan(0.16);
-    expect(peak).toBeLessThan(0.8);
+    expect(peak).toBeGreaterThan(0.003);
+    expect(peak).toBeLessThan(0.12);
+    const front = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") && s.filter !== "blur(2.5px)");
+    expect(Math.max(...front.map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])))).toBeGreaterThan(4 * peak);
     const body = ctx.paintOrder.indexOf("fill");
     expect(body).toBeGreaterThan(0);
     expect(ctx.paintOrder.lastIndexOf("stroke:blur(2.5px)")).toBeLessThan(body);

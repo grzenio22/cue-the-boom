@@ -1266,6 +1266,91 @@ function cross3(a: P3, b: P3): P3 {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
+/** A jagged current on one unit sphere, with z towards the camera. Its plane bows the projected path around the
+ * same volume as its companions; small tangent kinks preserve the sphere instead of making a flat drawing. */
+export function sphereCurrent(angle: number, tilt: number, start: number, end: number, count: number, seed: number): P3[] {
+  const a: P3 = [Math.cos(angle), Math.sin(angle), 0];
+  const b: P3 = [-Math.sin(angle) * Math.sin(tilt), Math.cos(angle) * Math.sin(tilt), Math.cos(tilt)];
+  const normal = cross3(a, b), rand = rng(seed), points: P3[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = i / Math.max(1, count - 1), envelope = Math.sin(Math.PI * t);
+    const phi = start + (end - start) * t + 0.025 * (rand() - 0.5) * envelope;
+    const kink = 0.06 * (rand() - 0.5) * envelope;
+    points.push(unit3(a.map((v, k) => v * Math.sin(phi) + b[k] * Math.cos(phi) + normal[k] * kink) as P3));
+  }
+  return points;
+}
+
+/** The two resolved foreground paths also supply the escaping roots, so a free discharge cannot detach from them. */
+function ballCurrents(b: Ball): P3[][] {
+  const seconds = b.frame / 60, seed = 15485863 + Math.floor(b.frame / 2);
+  return [sphereCurrent(0.08 + 0.035 * Math.sin(seconds * 0.7), 0.42, -1.28, 1.28, 45, seed),
+    sphereCurrent(-0.88 + 0.035 * Math.cos(seconds * 0.9), -0.25, -1.48, 1.48, 45, seed + 32452843)];
+}
+
+/** Short discharges emerge from inside the luminous boundary and stop in the air. Nearby finger surfaces steer
+ * them; the first foreground finger truncates each path with an air gap, or removes it before it can escape. */
+export function ballStreamers(b: Ball, c: P2, radius: number, lm: P2[] | null, scale: number): P2[][] {
+  if (radius <= 0) return [];
+  const rand = rng(49979687 + Math.floor(b.frame / 2));
+  const apart = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  const candidates: { angle: number; distance: number; finger: number }[] = [];
+  if (lm?.length === 21 && scale > 0) for (let f = 0; f < FINGERS.length; f++) {
+    const finger = FINGERS[f];
+    for (let j = 1; j < finger.length; j++) for (let k = 0; k <= 6; k++) {
+      const u = k / 6, a = lm[finger[j - 1]], z = lm[finger[j]];
+      const x = a[0] + u * (z[0] - a[0]) - c[0], y = a[1] + u * (z[1] - a[1]) - c[1];
+      const distance = (Math.hypot(x, y) - 0.075 * scale) / radius;
+      if (distance >= 1.21 && distance <= 1.6) candidates.push({ angle: Math.atan2(y, x), distance, finger: f });
+    }
+  }
+  candidates.sort((a, b) => a.distance - b.distance);
+  const directions: { angle: number; length: number; finger: number }[] = [];
+  for (const candidate of candidates) {
+    if (directions.some((p) => p.finger === candidate.finger || apart(p.angle, candidate.angle) < 0.75)) continue;
+    directions.push({ angle: candidate.angle, length: Math.min(0.34, candidate.distance - 1.05), finger: candidate.finger });
+    if (directions.length === 2) break;
+  }
+  for (const fallback of [-0.94, 0.25, 2.3, 3.0]) {
+    if (directions.length === 3) break;
+    const angle = fallback + 0.12 * (rand() - 0.5);
+    if (directions.some((p) => apart(p.angle, angle) < 0.75)) continue;
+    directions.push({ angle, length: 0.16 + 0.18 * rand(), finger: -1 });
+  }
+  const clear = (p: P2) => !lm || lm.length !== 21 || FINGERS.every((finger) => finger.slice(1).every((joint, i) =>
+    toSegment(p, lm[finger[i]], lm[joint]) > 0.11 * scale + 0.03 * radius));
+  const roots = ballCurrents(b).flatMap((points) => [points[3], points[points.length - 4]])
+    .map(([x, y]) => ({ at: [c[0] + radius * x, c[1] + radius * y] as P2, angle: Math.atan2(y, x) }));
+  const used = new Set<number>();
+  return directions.flatMap(({ angle, length }) => {
+    const root = roots.map((p, i) => ({ i, distance: apart(p.angle, angle) })).sort((a, b) => a.distance - b.distance)[0];
+    if (root.distance > 0.55 || used.has(root.i)) return [];
+    const start = roots[root.i].at;
+    const end: P2 = [c[0] + radius * (1 + length) * Math.cos(angle), c[1] + radius * (1 + length) * Math.sin(angle)];
+    const shape = displace(start, end, rand, 0.28, 3);
+    if (!clear(start)) return [];
+    const retained: P2[] = [start];
+    const emit = () => { used.add(root.i); return [retained]; };
+    for (let i = 1; i < shape.length; i++) {
+      const a = shape[i - 1], z = shape[i];
+      const steps = Math.max(1, Math.ceil(Math.hypot(z[0] - a[0], z[1] - a[1]) / (0.015 * radius)));
+      for (let j = 1; j <= steps; j++) {
+        const point = (u: number): P2 => [a[0] + u * (z[0] - a[0]), a[1] + u * (z[1] - a[1])];
+        if (clear(point(j / steps))) continue;
+        let lo = (j - 1) / steps, hi = j / steps;
+        for (let search = 0; search < 12; search++) {
+          const mid = (lo + hi) / 2;
+          if (clear(point(mid))) lo = mid; else hi = mid;
+        }
+        retained.push(point(lo));
+        return Math.hypot(retained.at(-1)![0] - c[0], retained.at(-1)![1] - c[1]) > 1.02 * radius ? emit() : [];
+      }
+      retained.push(z);
+    }
+    return emit();
+  });
+}
+
 /** How much of a body a ball has (0-1): none until its charge (and the voice) pass half BALL_FORMED. */
 export function dense(level: number, charge: number): number {
   return Math.max(0, Math.min(1, (2 * (0.3 * level + 0.7 * charge)) / BALL_FORMED - 1));
@@ -1604,10 +1689,10 @@ function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: num
     const density = 0.28 + 0.2 * cloud + 0.54 * Math.max(s + 0.1, 0);
     const near = support?.[j * n + i] ?? 1;
     const body = 0.5 * chord * density * (1 - 0.25 * edge) * open * Math.max(1 - (r / 1.04) ** 2, 0) ** 0.65 *
-      (0.15 + 0.85 * near);
+      (0.4 + 0.6 * near);
     let hotShape = 0;
     for (const [ox, oy, sx, sy] of hotRegions) hotShape += 0.5 * Math.exp(-0.5 * (((x - ox) / sx) ** 2 + ((y - oy) / sy) ** 2));
-    const hot = 0.95 * hotShape * chord * (0.5 + 0.8 * Math.max(s, -0.45)) * open * (0.15 + 0.85 * near);
+    const hot = 0.95 * hotShape * chord * (0.5 + 0.8 * Math.max(s, -0.45)) * open * (0.5 + 0.5 * near);
     const energy = body + hot;
     const cover = hand ? fingerCoverage([hand.center[0] + x * hand.radius, hand.center[1] + y * hand.radius],
       hand.landmarks, hand.scale) : 0;
@@ -1731,7 +1816,7 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
   for (let k = 0; k < b.shell.length; k++) {
     const s = b.shell[k];
     if (s.flash <= 0.02) continue;
-    const shellGain = s.pts.reduce((sum, p) => sum + Math.hypot(...p), 0) / Math.max(1, s.pts.length) > 0.9 ? 0.55 : 1;
+    const shellGain = s.pts.reduce((sum, p) => sum + Math.hypot(...p), 0) / Math.max(1, s.pts.length) > 0.9 ? 0.35 : 1;
     const seen3 = projected[k];
     let run: P2[] = [], depth = 0, thickness = 0, far = false;
     const append = (p: P2, z: number) => {
@@ -1743,7 +1828,7 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
         const z = depth / run.length;
         const opticalDepth = far ? 1 : 0.35;
         const focusGain = (far ? 0.45 : 1.35 + 0.6 * Math.max(0, z)) * Math.exp(-4 * opticalDepth * body * thickness / run.length);
-        const gain = focusGain * shellGain * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade * (leaders.has(k) ? 0.18 : 0.08);
+        const gain = focusGain * shellGain * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade * (leaders.has(k) ? 0.24 : 0.09);
         (far ? rear : front).push([{ pts: run, width: width * (far ? 0.5 : 1), inten: 0.85, forks: [], at: 0, filament: true,
           depth: opticalDepth, softness: (far ? 1.8 + 1.4 * Math.max(0, -z) : 1.3) * px }, gain]);
       }
@@ -1769,21 +1854,13 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
     flush();
   }
   if (body > 0) {
-    // One resolved crossing leads; weak rear limbs continue round both hemispheres and yield to fingers.
+    // Two foreground currents share one sphere; dim broken rear stretches yield to its material and the fingers.
     const seconds = b.frame / 60, rand = rng(15485863 + Math.floor(b.frame / 2));
-    const anchors: P2[] = [[-0.86, -0.28], [-0.64, -0.20], [-0.38, 0.11], [-0.06, -0.05],
-      [0.20, 0.19], [0.46, 0.09], [0.70, 0.25], [0.86, 0.08]].map(([x, y]) => [x, y + 0.035 * gauss(rand)]);
-    const crossing: P2[] = [];
-    for (let i = 0, knot = 0; i <= 44; i++) {
-      const x = -0.86 + 1.72 * i / 44;
-      while (knot < anchors.length - 2 && anchors[knot + 1][0] < x) knot++;
-      const a = anchors[knot], z = anchors[knot + 1], u = (x - a[0]) / (z[0] - a[0]);
-      const y = a[1] + u * (z[1] - a[1]) + 0.045 * Math.sin(seconds * 1.7) + 0.025 * gauss(rand);
-      crossing.push([c[0] + R * x, c[1] + R * y]);
-    }
+    const currents = ballCurrents(b);
+    const crossing = currents[0].map(([x, y]): P2 => [c[0] + R * x, c[1] + R * y]);
     front.push([{ pts: crossing, width: 0.95 * width, inten: 1.1 * (0.4 + 0.6 * b.level), forks: [], at: 0,
       filament: true, depth: 0, softness: Math.max(0.35 * px, 0.003 * R), endSoft: Math.max(0.3 * px, 0.02 * R),
-      recessSoft: Math.max(0.5 * px, 0.055 * R) }, b.fade * body]);
+      endFade: 0.68, recessSoft: Math.max(0.5 * px, 0.055 * R) }, b.fade * body]);
     const visibleFilament = (points: P2[], width: number, inten: number, softness: number, depth: number,
       behind = depth >= 0.5, endSoft?: number, endFade?: number) => {
       let run: P2[] = [];
@@ -1802,8 +1879,8 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
       }
       emit();
     };
-    const interior = (anchors: P2[], noise: number, drift: P2): P2[] => {
-      const knots = anchors.map(([x, y]): P2 => [x + noise * gauss(rand) + drift[0], y + noise * gauss(rand) + drift[1]]);
+    const interior = (anchors: P2[], noise: number): P2[] => {
+      const knots = anchors.map(([x, y]): P2 => [x + noise * gauss(rand), y + noise * gauss(rand)]);
       const points: P2[] = [];
       for (let i = 1; i < knots.length; i++) {
         const a = knots[i - 1], z = knots[i];
@@ -1813,12 +1890,9 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
       points.push(knots[knots.length - 1]);
       return points.map(([x, y]): P2 => [c[0] + R * x, c[1] + R * y]);
     };
-    const far = interior([[-0.63, -0.38], [-0.38, -0.18], [-0.18, -0.04], [0.06, 0.15], [0.28, 0.40], [0.50, 0.53]],
-      0.035, [0, 0]);
-    visibleFilament(far, 0.85 * width, 0.9 * (0.4 + 0.6 * b.level), 2.5 * px, 0.25, true);
-    const near = interior([[-0.45, 0.62], [-0.38, 0.37], [-0.25, 0.15], [-0.08, 0.03], [0.05, -0.18],
-      [0.30, -0.23], [0.36, -0.35], [0.60, -0.48]], 0.022,
-      [0.035 * Math.sin(1.1 * seconds), 0.035 * Math.cos(0.9 * seconds)]);
+    const far = interior([[-0.63, -0.38], [-0.38, -0.18], [-0.18, -0.04], [0.06, 0.15], [0.28, 0.40], [0.50, 0.53]], 0.035);
+    visibleFilament(far, 0.85 * width, 0.45 * (0.4 + 0.6 * b.level), 2.5 * px, 0.85, true);
+    const near = currents[1].map(([x, y]): P2 => [c[0] + R * x, c[1] + R * y]);
     visibleFilament(near, 0.78 * width, 0.88 * (0.4 + 0.6 * b.level), 0.65 * px, 0, false,
       Math.max(0.3 * px, 0.02 * R), 0.75);
     const knots: P2[] = [[-0.55, 0.38], [-0.44, 0.58], [-0.22, 0.48], [-0.15, 0.65], [0.10, 0.57]]
@@ -1831,15 +1905,19 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
     lower.push(knots[knots.length - 1]);
     visibleFilament(lower.map(([x, y]): P2 => [c[0] + R * x, c[1] + R * y]), 0.55 * width,
       0.36 * (0.4 + 0.6 * b.level), 1.4 * px, 0.20);
-    for (const [start, end] of [[-2.6, -1.95], [-1.4, -0.78], [0.22, 0.92], [1.65, 2.4]]) {
+    for (const [start, end] of [[-2.6, -2.34], [-1.1, -0.82], [0.44, 0.72], [1.65, 1.97]]) {
       const points: P2[] = [];
       for (let i = 0; i <= 18; i++) {
         const theta = start + (end - start) * i / 18 + 0.08 * Math.sin(seconds * 0.7);
         const radius = 0.94 + 0.035 * gauss(rand);
         points.push([c[0] + R * radius * Math.cos(theta), c[1] + R * radius * Math.sin(theta)]);
       }
-      visibleFilament(points, 0.62 * width, (end < 0 ? 0.24 : 0.3) * (0.4 + 0.6 * b.level), 4 * px, 1);
+      visibleFilament(points, 0.62 * width, (end < 0 ? 0.12 : 0.15) * (0.4 + 0.6 * b.level), 4 * px, 1);
     }
+    // A low channel intensity selects the existing full branch taper; its gain restores a connected bright root.
+    for (const points of ballStreamers(b, c, R, lm ?? null, scale)) front.push([{ pts: points,
+      width: 0.80 * width, inten: 0.35 * (0.4 + 0.6 * b.level), forks: [], at: 0,
+      softness: Math.max(0.35 * px, 0.003 * R) }, 2.4 * b.fade * body]);
   }
   drawChannels(ctx, rear, px, 0.18, 0.15 * R, false, BALL_LOOK);
   drawBallBulk(ctx, b, c, R, px, body, lm, scale, filamentSupport(front, c, R));
@@ -2024,7 +2102,8 @@ export function jumpPath(shape: P2[], c: P2, R: number, tip: P2, leave: number, 
 /** The ball's light round it (BALL_LIGHT), screened: a cool white on the hand (its 21 landmarks ``lm``, px, or null)
  * and a blue-white on the room, from its middle as from a ball of its radius, R^2 / (d^2 + h^2) at most 1, gone by
  * three radii, little of it on what its dense middle hides, as strong as its body is dense; on the hand also a softer
- * light among the fingers round it, falling off as 1 / r from its edge out (FILL), and added, a pool of it on the palm
+ * light among the fingers round it, falling off as 1 / r from its edge out (FILL), small surface-clipped patches
+ * beside the escaping streamers, and added, a pool of it on the palm
  * under it (POOL_PALM). And, with the hand, the arcs it throws to the fingers (GROUND): a side's to that side's
  * fingertips clear of it, at most one per target, or a nearby pad or knuckle, each in
  * straight kinked steps (leader) bowing through the air off the hand and coming down onto the finger (jumpPath; one
@@ -2092,6 +2171,19 @@ export function drawBallLight(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, 
       }
       inner.stroke();
       ctx.drawImage(inner.canvas, 0, 0, w, h);
+    }
+    if (lm) for (const [k, points] of ballStreamers(b, c, R, lm, scale).entries()) {
+      const local = handLayer(ctx, `ball-streamer-${k}`, lm, scale);
+      if (!local) continue;
+      const end = points[points.length - 1], radius = 0.34 * R;
+      const glow = local.createRadialGradient(end[0], end[1], 0, end[0], end[1], radius);
+      for (let i = 0; i <= 6; i++) {
+        const u = i / 6, alpha = i === 6 ? 0 : 0.28 * lit * b.fade * Math.exp(-0.5 * (0.34 * u / 0.14) ** 2);
+        glow.addColorStop(u, `rgba(120, 195, 255, ${alpha})`);
+      }
+      local.fillStyle = glow;
+      local.fillRect(end[0] - radius, end[1] - radius, 2 * radius, 2 * radius);
+      ctx.drawImage(local.canvas, 0, 0, w, h);
     }
     const pool = lm ? handLayer(ctx, "ball-pool", lm, scale) : null;
     if (pool) { // (and pooled on the palm under it, added: +25 levels a radius from the palm's point)
