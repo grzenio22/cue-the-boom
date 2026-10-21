@@ -152,6 +152,7 @@ class JobQueue:
                 if job.retime:
                     retime_shot(job.retime["src"], job.spec, job.dir, job.retime["hit_shift"], job.retime["stop"], say)
                 elif job.replay and job.replay.get("bending"):
+                    self._wait_for(job.spec.extra.pop("reuse_job", None))
                     bending_again(job.replay["src"], job.spec, job.dir, say)
                 elif job.replay:
                     replay_scene_shot(job.replay["src"], job.spec, job.dir, say)
@@ -449,7 +450,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
                      describe: str | None = Form(None), object: str | None = Form(None),  # noqa: A002
                      sources: str | None = Form(None), frame: int | None = Form(None), reuse: str | None = Form(None)):
-        from .bending import BENDING_PROMPTS, MADE  # the elements a hand can throw (rendered, or made here)
+        from .bending import BENDING_PROMPTS, MADE, helpers_ready  # the elements a hand can throw (rendered, or made here)
         from .cues import SOURCES
         from .scene import Strokes
 
@@ -512,7 +513,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             if mode == "bending":  # the GPU renders it; without one, an element rendered ahead of time (the tracker needed)
                 from .bending import helpers_ready, library_dir
 
-                if (scenes and "render" in jq.renderers and render_ready()) or (helpers_ready() and (made or library_dir())):
+                if helpers_ready() and ((scenes and "render" in jq.renderers and render_ready()) or made or library_dir()):
                     return
                 raise HTTPException(503, "a hand of your own needs the GPU, or the hand tracker installed for an instant "
                                          "shot (see the README's From your hand)")
@@ -581,13 +582,21 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 and (not stroke_data or drawn_sample) and (not describe or drawn_sample)):
             hit = cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
                                       direction if mode == "scene" else None, subject))
+            hit_rc = json.loads((Path(hit["path"]) / "receipt.json").read_text()) if hit else {}
+            if hit and mode == "bending" and (
+                    (frame is not None and frame != int(hit.get("tap_frame", pm.get("hand", {}).get("frame", 0))))
+                    or (direction is not None and direction != hit_rc.get("bending", {}).get("aim"))):
+                hit = None
             if hit:  # this exact sample shot was made ahead of time: answer at once
                 copy_shot(Path(hit["path"]), d)
                 spec = ShotSpec(plate=sample_files("plates")[plate_sample],
                                 voice=sample_files("voices")[voice_sample] if voice_sample else None,
                                 effect=effect, point=(float(x), float(y)), seed=int(hit.get("seed", seed)),
                                 mode="scene" if mode == "scene" else "element", direction=direction, subject=subject,
-                                cue=cue, **(shot_defaults or {}))
+                                cue=cue, offset_s=float(hit_rc.get("inputs", {}).get("offset_s", 0.0)), **(shot_defaults or {}))
+                if mode == "bending":
+                    spec.extra["tap_frame"] = int(hit.get("tap_frame", pm.get("hand", {}).get("frame", 0)))
+                    spec.extra["sample_emitter"] = True
                 if auto_gesture:
                     spec.extra["gesture"] = auto_gesture
                 job = Job(id=job_id, dir=d, spec=spec, mode=mode, status="done", stage="done", progress=1.0,
@@ -607,7 +616,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         # a sample hand with its element made ahead: with the GPU offline, your take plays that render on the hand; an
         # element made here is made on the sample's own track and matte, GPU or not (no tracker needed)
         ahead_hand = [e for e in cache.values() if e.get("mode") == "bending" and e.get("plate") == plate_sample] \
-            if mode == "bending" and plate_sample and (made or not render_ready()) else []
+            if mode == "bending" and plate_sample and (made or not render_ready() or not helpers_ready()) else []
         if ahead_hand:  # (a fire made ahead replays; an element made here takes a shot's track, the fire's first)
             fire_ahead = [e for e in ahead_hand if e["effect"] not in MADE]
             ahead_hand = fire_ahead if auto else [e for e in ahead_hand if e["effect"] == effect] or \
@@ -632,7 +641,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             from .bending import sample_noise_offset  # a sample noise on a sample hand: on the hand's own strike
             from .media import probe_video
 
-            offset_s = sample_noise_offset(voice_path, probe_video(plate_path).duration_s, int(pm["hand"].get("frame", 0)))
+            offset_s = sample_noise_offset(voice_path, probe_video(plate_path).duration_s,
+                                           int(pm["hand"].get("strike", pm["hand"].get("frame", 0))))
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         point = (x, y) if x is not None and y is not None else tuple(t.get("emission_point") or (0.5, 0.7))
@@ -666,7 +676,11 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             except Exception as exc:
                 raise HTTPException(400, f"couldn't read the cue: {exc}") from None
         if ahead_hand:  # the GPU is offline: the sample hand's element made ahead plays this take on it (no new render)
-            spec.point, spec.extra["tap_frame"] = tuple(pm.get("point", spec.point)), int(ahead_hand[0].get("tap_frame", 0))
+            sample_frame = int(pm.get("hand", {}).get("frame", ahead_hand[0].get("tap_frame", 0)))
+            if frame is None:
+                spec.extra["tap_frame"] = sample_frame
+            if spec.point == tuple(pm.get("point", ())) and spec.extra["tap_frame"] == sample_frame:
+                spec.extra["sample_emitter"] = True
             if auto:  # your noise may ask for an element made here (a buzz: lightning; a long BOOM with a strike)
                 from .bending import instant_effect, load_track
 
@@ -685,7 +699,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             spec.effect = pick["effect"]
             return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="replay", title=pick["title"],
                                  replay={"src": Path(pick["path"])})).public()
-        if mode == "bending" and (made or not (scenes and "render" in jq.renderers and render_ready())):
+        if mode == "bending" and (made or not helpers_ready() or not (scenes and "render" in jq.renderers and render_ready())):
             mode = "bending_instant"  # no GPU (or none needed: made here): on the CPU worker
         return jq.submit(Job(id=job_id, dir=d, spec=spec, mode=mode)).public()
 
@@ -863,6 +877,15 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             voice_path = (await save(voice, d / "in" / f"voice{Path(voice.filename or '.wav').suffix or '.wav'}")
                           if voice is not None else sample_files("voices")[voice_sample])
         t = json.loads((await timing.read()).decode() or "{}") if timing is not None else {}
+        if offset_s is None and not t and bending and cue == "voice" and voice_sample:
+            from .bending import sample_noise_offset
+            from .media import probe_video
+
+            plate_sample = next((name for name, path in sample_files("plates").items() if path == src.spec.plate), None)
+            pm = sample_meta().get("plates", {}).get(plate_sample, {})
+            if pm.get("hand"):
+                offset_s = sample_noise_offset(voice_path, probe_video(src.spec.plate).duration_s,
+                                               int(pm["hand"].get("strike", pm["hand"].get("frame", 0))))
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         extra = {k: v for k, v in src.spec.extra.items() if k not in ("auto", "gesture")}  # the new take wasn't read for an effect

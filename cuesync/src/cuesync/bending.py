@@ -1353,7 +1353,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         k = int(np.clip(ign + abs((i % (2 * EMBER_LOOP)) - EMBER_LOOP), 0, len(element) - 1))
         en = float(energy[min(i, charge[1] - charge[0] - 1)])
         size = EMBER_SIZE[0] + (EMBER_SIZE[1] - EMBER_SIZE[0]) * en ** 0.7  # (grows early: the hum is heard building)
-        gain = (0.45 + 1.0 * en) * float(flicker[i])  # a hot core, brighter than the fire it becomes * (1.0 if t < charge[1] else (charge[1] + 3 - t) / 4)
+        gain = (0.45 + 1.0 * en) * float(flicker[i])  # a hot core, brighter than the fire it becomes
+        gain *= 1.0 if t < charge[1] else (charge[1] + 3 - t) / 4
         E = warp_element(source(k), track, ref, t, 0, size * play, blur=False)
         return E * gain
 
@@ -1651,7 +1652,11 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
     if effect in MADE_FOLEY:
         fluid, behaviour = MADE_FOLEY[effect]
         eff = types.SimpleNamespace(id=effect, fluid=fluid, behaviour=behaviour)
-        audio = mix_foley(audio, [foley(eff, n, env, timeline.hits, [g for g, _ in looks], c.cue.voice_end_frame,
+        sounding = [int(np.argmax(timeline.sizes))] if effect == "explosion" and timeline.hits else range(len(looks))
+        foley_env = np.zeros_like(env) if effect == "explosion" else env
+        audio = mix_foley(audio, [foley(eff, n, foley_env, [timeline.hits[i] for i in sounding],
+                                        [looks[i][0] for i in sounding],
+                                        c.cue.voice_end_frame,
                                         spec.seed)])
     out_dir = Path(out_dir)
     comp_path, final_path = out_dir / "composite.mp4", out_dir / "final.mp4"
@@ -2025,15 +2030,14 @@ def track_for(track: dict, emitter: str) -> dict:
 
 SAMPLE_TAIL_S = 0.4  # a sample noise's last sound lands at least this long before its clip's end...
 SAMPLE_HELD_S = 1.2  # ...and a noise held this long lets go there too...
-SAMPLE_LEAD_S = 0.3  # ...but none starts more than this before the hand's marked frame (a buzz moved earlier to let go
-# in the clip struck lightning from a hand still coming into the frame, 23 frames before it pointed)
+SAMPLE_LEAD_S = 0.3  # ...but a held noise moves at most this much earlier, unless its loudest hit would miss the clip
 
 
 def sample_noise_offset(voice: Path, plate_s: float, frame: int) -> float:
-    """Where a sample noise starts on a hand's clip (s): its first sound on ``frame``, the frame the hand was marked
-    on (the strike the take was filmed for), moved earlier as far as it takes for its last sound to land in the clip,
+    """Where a sample noise starts on a hand's clip (s): its loudest hit on ``frame``, the hand's strike,
+    moved earlier as far as it takes for its last sound to land in the clip,
     and a held noise (a sound over SAMPLE_HELD_S) to let go there too, though by no more than SAMPLE_LEAD_S; a hit's
-    tail may run off the end. (Started with the clip, a BOOM went off long before the punch it was for.)"""
+    tail may run off the end, but its loudest hit stays inside the clip."""
     from .audio import analyze
     from .media import read_audio
     from .pipeline import FPS, SR
@@ -2042,8 +2046,9 @@ def sample_noise_offset(voice: Path, plate_s: float, frame: int) -> float:
     spans = cue.intervals()
     held = max([b_ - a_ for a_, b_ in spans] or [0]) / FPS >= SAMPLE_HELD_S
     end = max(cue.onsets_s[-1], max(b_ for _, b_ in spans) / FPS if held else 0.0)
-    on = frame / FPS - cue.onsets_s[0]
-    return float(max(0.0, on - SAMPLE_LEAD_S, min(on, plate_s - SAMPLE_TAIL_S - end)))
+    on = frame / FPS - cue.hero_onset_s
+    off = max(0.0, on - SAMPLE_LEAD_S, min(on, plate_s - SAMPLE_TAIL_S - end))
+    return float(max(0.0, min(off, plate_s - SAMPLE_TAIL_S - cue.hero_onset_s)))
 
 
 def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
@@ -2054,13 +2059,17 @@ def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
     b = json.loads((src_dir / "receipt.json").read_text())["bending"]
     first = Path(b["performed_again"]["from"]) if b.get("performed_again") else \
         Path(b["instant"]["library"]) if b.get("instant") else src_dir
-    here = lambda name, was: str(first / name) if (first / name).exists() else was  # noqa: E731  (a shot made ahead
+    hand = Path(spec.extra.get("reuse") or first)
+    here = lambda name, was: str(hand / name) if (hand / name).exists() else was  # noqa: E731  (a shot made ahead
     # travels with its own track and matte)
     if spec.effect in MADE:  # (followed for its fire's point on the hand: moved onto this element's)
         Path(out_dir).mkdir(parents=True, exist_ok=True)
         track = Path(out_dir) / "hand_track.json"
-        track.write_text(json.dumps(track_for(load_track(Path(here("hand_track.json", b["track"]))),
-                                              EMITTER_OF.get(spec.effect, "palm"))))
+        moved = track_for(load_track(Path(here("hand_track.json", b["track"]))), EMITTER_OF.get(spec.effect, "palm"))
+        if spec.extra.get("sample_emitter"):
+            k = int(np.clip(spec.extra.get("tap_frame") or 0, 0, len(moved["xy"]) - 1))
+            spec.point = (moved["xy"][k][0] / moved["W"], moved["xy"][k][1] / moved["H"])
+        track.write_text(json.dumps(moved))
         return make_bending_shot(spec, None, out_dir, track, here("hand_mask.npz", b["mask"]), progress,
                                  tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)
     return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),

@@ -58,6 +58,37 @@ def test_an_explosion_goes_off_on_its_hit_and_not_before():
     assert np.array_equal(X.render(plate, tr, None, tl, "fist", seed=3, element=el), out)  # the same bytes again
 
 
+@pytest.mark.parametrize("form", ["fist", "palm"])
+def test_the_arrow_changes_the_explosions_picture_with_landmarks(form):
+    n, h, w = 24, 96, 128
+    plate = np.full((n, h, w, 3), 90, np.uint8)
+    el = np.full((40, 96, 128, 3), 4, np.uint8)
+    yy, xx = np.mgrid[:96, :128]
+    for k in range(5, 40):
+        r = min(30, 4 + 4 * (k - 5))
+        el[k][(xx - 64) ** 2 + (yy - 48) ** 2 <= r * r] = (255, 160, 40) if k < 25 else (40, 38, 36)
+    tr = hand(n, w, h, at=(64.0, 70.0), scale=12.0)
+    tl = Timeline(n=n, energy=np.zeros(n), hits=[8], sizes=[1.0], tap_frame=8)
+    forward = X.render(plate, tr, None, tl, form, seed=3, element=el)
+    tl.aim = 90.0
+    right = X.render(plate, tr, None, tl, form, seed=3, element=el)
+    assert np.array_equal(right[:8], plate[:8])
+    assert not np.array_equal(right[8:], forward[8:])
+
+
+@pytest.mark.parametrize("form, expected", [("fist", (90.0, 30.0)), ("palm", (72.0, 44.0))])
+@pytest.mark.parametrize("landmarks", [True, False])
+def test_the_arrow_places_the_blast_ahead_of_the_hand(form, expected, landmarks):
+    tr = hand(10, 200, 200)
+    tr["landmarks"][5][8] = [70.0, 30.0, 0.0]
+    if not landmarks:
+        tr.pop("landmarks")
+        expected = (80.0, 60.0) if form == "fist" else (72.0, 60.0)
+    p, direction, s = X.blast_point(tr, 5, form, aim=90.0)
+    assert np.allclose(direction, (1.0, 0.0))
+    assert np.allclose(p, expected) and s == 20.0
+
+
 def test_the_flash_light_is_its_own_image_spread_and_falling_off_round_it():
     h, w, r = 120, 200, 10
     yy, xx = np.mgrid[:h, :w]

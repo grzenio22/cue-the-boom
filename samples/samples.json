@@ -83,7 +83,8 @@
     0.645
    ],
    "hand": {
-    "frame": 40
+    "frame": 40,
+    "strike": 40
    },
    "note": "the author's own hand, walking from a hallway into a kitchen in one take; its flame was made ahead of time: hold your own fffff and it burns as long as you do, with no GPU"
   },
@@ -94,7 +95,8 @@
     0.42
    ],
    "hand": {
-    "frame": 68
+    "frame": 68,
+    "strike": 68
    },
    "note": "the author's own punch, filmed on a phone; its fireball was made ahead of time: time your own BOOM to the punch with no GPU"
   },
@@ -105,7 +107,8 @@
     0.654
    ],
    "hand": {
-    "frame": 54
+    "frame": 54,
+    "strike": 64
    },
    "note": "the author's own hand, filmed on a phone; its fireball was made ahead of time: perform your own rhythm on it with no GPU"
   },
@@ -116,7 +119,8 @@
     0.312
    ],
    "hand": {
-    "frame": 48
+    "frame": 48,
+    "strike": 52
    },
    "note": "the author's own hand, filmed on a phone; its flamethrower was made ahead of time: hold your own fffff on it with no GPU"
   },
@@ -127,7 +131,8 @@
     0.6
    ],
    "hand": {
-    "frame": 60
+    "frame": 60,
+    "strike": 60
    },
    "note": "a real hand (Pexels); its fireball was made ahead of time: perform your own rhythm on it with no GPU"
   },
@@ -304,7 +309,8 @@
     0.521
    ],
    "hand": {
-    "frame": 35
+    "frame": 35,
+    "strike": 35
    },
    "note": "the author's own hand closing to a fist on a BOOM, filmed on a phone; its fireball was made ahead of time, and a BOOOOM sets off an explosion: no GPU"
   },
@@ -315,7 +321,8 @@
     0.707
    ],
    "hand": {
-    "frame": 30
+    "frame": 30,
+    "strike": 30
    },
    "note": "the author's own open palm in a lit hallway; its flame was made ahead of time, and water, air and ball lightning are made on it from your noise: no GPU"
   }
