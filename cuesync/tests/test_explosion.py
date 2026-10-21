@@ -314,6 +314,27 @@ def test_the_flame_contour_has_no_added_opaque_spikes():
     assert lift[outside].max() < 8
 
 
+def test_live_flame_has_unequal_translucent_margins_and_an_opaque_core():
+    E, d = disc(600, 600, 220, (255, 160, 40))
+    wf = fire_weight(E)
+    results = []
+    for level in (0.25, 0.45):
+        room = np.full(E.shape, level, np.float32)
+        q = room.copy()
+        fire = X.Fire(1080)
+        fire.layer(q, room, E, wf, (0, 600, 0, 600), 4, 1.0, 0.0, 10, fire.ball(wf))
+        results.append(q)
+    # Changing the wall measures how much room survives through the flame. A filled contour blocks it right
+    # up to a narrow feather; thin tongues must transmit different amounts before reaching the solid interior.
+    transmission = ((results[1] - results[0]) / 0.2).mean(-1)
+    margin = (d > 200) & (d < 217)
+    assert transmission[margin].mean() > 0.15
+    assert transmission[margin].std() > 0.08
+    assert transmission[(d > 208) & (d < 209)].std() > 0.04  # unequal paths even at the same depth
+    assert transmission[(d > 183) & (d < 193)].mean() > 0.1  # breakup survives phone-size downsampling
+    assert np.abs(transmission[d < 160]).max() < 0.01
+
+
 def test_blurred_skin_repairs_the_matte_without_filling_the_gaps_between_fingers():
     plate = np.full((120, 120, 3), (170, 140, 100), np.uint8)
     plate[30:100, 50:70] = (225, 150, 135)
@@ -592,3 +613,21 @@ def test_dense_smoke_has_local_relief_over_a_featureless_room():
     # nor the room supplies texture, and the sub-level sensor grain alone cannot satisfy this contrast.
     assert core.mean() > 0.08
     assert relief[core].std() > 1.6
+
+
+def test_foreground_smoke_keeps_its_depth_while_the_rear_lobes_disperse():
+    yy, xx = np.mgrid[:240, :320]
+    silhouette = np.clip((90 - np.hypot(xx - 160, yy - 130)) / 4, 0, 1).astype(np.float32)
+    source = (4 + 51 * silhouette[..., None]).astype(np.uint8).repeat(3, -1)
+    room = np.full(source.shape, 0.3, np.float32)
+    # A compact near lobe sits below/right of the upper rear shoulder. Their separation must remain legible as
+    # the thin skirt clears; a global increase in smoke opacity would also close the surrounding open channels.
+    near = ((xx - 178) / 21) ** 2 + ((yy - 117) / 16) ** 2 < 1
+    rear = ((xx - 121) / 13) ** 2 + ((yy - 75) / 13) ** 2 < 1
+    volume = X.SmokeVolume(240, 320, 320, seed=2)
+    for since in (45, 52):
+        q = volume.draw(room, source, silhouette, 4, np.zeros_like(room), since, 40, 0.7,
+                        (0, 240, 0, 320))
+        transmission = (q / room).mean(-1)
+        assert np.median(transmission[near]) < 0.75 * np.median(transmission[rear])
+        assert (transmission[silhouette > 0.5] > 0.9).mean() > 0.15
