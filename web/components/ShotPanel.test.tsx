@@ -2,7 +2,7 @@ import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ShotPanel from "./ShotPanel";
-import type { EffectInfo } from "@/lib/shot";
+import type { EffectInfo, JobStatus } from "@/lib/shot";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -68,6 +68,18 @@ const button = (label: string) => {
 };
 const tap = async (el: HTMLButtonElement) => { await act(async () => { el.click(); }); };
 const offlineCopy = () => [...host.querySelectorAll("p")].find((p) => p.textContent?.startsWith("The GPU is offline:"))?.textContent;
+const finishedHand = (effect: string): JobStatus => ({
+  id: "finished-hand", effect, status: "done", stage: "done", progress: 1, message: "Done", error: null, files: {},
+  receipt: {
+    mode: "bending",
+    bending: { mask: null, snap: { used: "cue", mismatch: false }, hits: [{ frame: 30, gain: 1, size: 1 }], performed_again: null },
+    render: { seconds: 0, renderer: "", prompt: "", model: "" },
+    measured: { stop_latency_frames: null, stops_with_voice: false },
+    voice: { hero_onset_s: 1, voice_end_frame: null, active_intervals: [] },
+    guide: { length: 120, tail: "", keyframes: [], anchor_frame: 30 },
+    seconds_total: 76,
+  },
+});
 
 describe("ShotPanel offline sample hand", () => {
   it("lets an automatic cue reveal the available made effects without offering rendered hand effects", async () => {
@@ -130,7 +142,7 @@ describe("ShotPanel offline sample hand", () => {
   });
 
   it.each([
-    ["explosion", "Explosion"], ["lightning_arc", "Lightning"], ["lightning_ball", "Ball lightning"],
+    ["lightning_arc", "Lightning"], ["lightning_ball", "Ball lightning"],
     ["water_orb", "Water orb"], ["water_whip", "Water whip"], ["air_ball", "Air ball"], ["air_blast", "Air blast"],
   ])("describes selected %s as made locally with no new render", async (id, label) => {
     await show({ performance: { ...performance, suggested: id } });
@@ -138,6 +150,40 @@ describe("ShotPanel offline sample hand", () => {
     expect(offlineCopy()).toContain("made on this computer");
     expect(offlineCopy()).toContain(". No new render");
     expect(offlineCopy()).not.toContain("fireball");
+  });
+
+  it("gives an offline explosion a longer estimate and explains its pre-made fireball", async () => {
+    await show({ performance: { ...performance, suggested: "explosion" } });
+    expect(offlineCopy()).toContain("fireball made ahead of time");
+    expect(offlineCopy()).toContain("its blast is made on this computer from your hand and your voice");
+    expect(offlineCopy()).toContain("No new render; takes a few minutes on a laptop CPU");
+    expect(offlineCopy()).not.toContain("ready in about a minute");
+  });
+
+  it("shows the same local explosion estimate when hand effects are available without a scene GPU", async () => {
+    await show({ performance: { ...performance, suggested: "explosion" }, modes: ["bending", "instant"] });
+    expect(host.textContent).toContain("its blast is made on this computer from your hand and your voice");
+    expect(host.textContent).toContain("No new render; takes a few minutes on a laptop CPU");
+    expect(host.textContent).not.toContain("a minute or two on a laptop CPU");
+    expect(host.textContent).not.toContain("Rendered once over black on the GPU");
+  });
+
+  it("keeps the current estimate for other offline hand effects", async () => {
+    await show();
+    expect(offlineCopy()).toContain("No new render; ready in about a minute");
+    await tap(radio("Explosion"));
+    expect(offlineCopy()).toContain("takes a few minutes on a laptop CPU");
+    await tap(radio("Water orb"));
+    expect(offlineCopy()).toContain("No new render; ready in about a minute");
+  });
+
+  it.each([
+    ["explosion", "takes a few minutes on a laptop CPU"],
+    ["water_orb", "ready in about a minute"],
+  ])("gives a completed %s the matching replay estimate", async (effect, estimate) => {
+    await show({ initialJob: finishedHand(effect), onReplay: vi.fn() });
+    const replayCopy = button("Perform it again").parentElement?.textContent;
+    expect(replayCopy).toContain(`a new rhythm on the same hand take: no new render, ${estimate}`);
   });
 
   it("explains both local effects and the fireball made ahead when the cue decides", async () => {

@@ -35,6 +35,8 @@ from __future__ import annotations
 import dataclasses
 import functools
 import math
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import cv2
@@ -268,7 +270,7 @@ def inside(p: np.ndarray, w: int, h: int) -> np.ndarray:
 def render_blast(element: np.ndarray, floor: int) -> tuple[int, np.ndarray, float]:
     """(its first lit frame, where the blast is on it, the ball's radius GROW_FRAMES later) in a render over black:
     measured, so any render of a fireball can play (its blast is not always where its guide put it)."""
-    lit = element[:, ::4, ::4].max(-1).astype(np.int16) > floor + 24
+    lit = C._peak(element[:, ::4, ::4]).astype(np.int16) > floor + 24
     counts = lit.reshape(len(element), -1).sum(1)
     # (a spark held where the blast will be before it goes off is not the blast: a render can hold one for frames)
     on = np.nonzero(counts >= max(4, BLAST_SHARE * counts.max()))[0]
@@ -289,7 +291,7 @@ def render_reach(element: np.ndarray, floor: int, centre: np.ndarray, start: int
     d = np.hypot(xx - centre[0], yy - centre[1])
     reach = 0.0
     for t in range(start, len(element), 4):
-        lit = element[t, ::4, ::4].max(-1).astype(np.int16) > floor + 6
+        lit = C._peak(element[t, ::4, ::4]).astype(np.int16) > floor + 6
         if lit.sum() > 20:
             reach = max(reach, float(np.percentile(d[lit], 98)))
     return reach
@@ -483,7 +485,7 @@ def soot_shape(frame8: np.ndarray, floor: int, close: int, soft: float) -> np.nd
     judged against its smoke, not its fire: as the fire died the cloud's threshold fell and its gaps closed at once),
     gaps narrower than ``close`` px closed, every gap open to the outside left out, the rest filled, its edge feathered
     ``soft`` px."""
-    y = frame8.max(-1).astype(np.float32) - floor
+    y = C._peak(frame8).astype(np.float32) - floor
     smoke = (y > 4) & (C.fire_weight_map(C._black_floor_f(frame8, floor), PARAMS, frame8.shape[1], True) < 0.1)
     some = y[smoke] if smoke.sum() > 100 else y[y > 4]
     body = float(np.percentile(some, 90)) if some.size > 100 else 0.0
@@ -546,7 +548,7 @@ def fill_soot(E8: np.ndarray, floor: int, box, sil: np.ndarray, smoke: np.ndarra
     part = E8[y0:y1, x0:x1].astype(np.float32)
     sigma = 0.02 * min(E8.shape[:2])
     level, least = (floor + v * (255 - floor) for v in SOOT_FILL)
-    raised = part + np.maximum(level - smoke_blur(part.max(-1), smoke, sigma), 0.0)[..., None]
+    raised = part + np.maximum(level - smoke_blur(C._peak(part), smoke, sigma), 0.0)[..., None]
     lift = np.maximum(np.maximum(raised, 0.85 * wide_blur(part, sigma)), least)
     out = E8.copy()
     out[y0:y1, x0:x1] = np.clip(part + (np.maximum(lift, part) - part) * sil[..., None] + 0.5, 0, 255).astype(np.uint8)
@@ -636,7 +638,7 @@ def hand_coverage(plate8: np.ndarray, masks: np.ndarray | None, t: int) -> np.nd
     # they cannot turn the contour into isolated flecks and a jagged fringe.
     chroma = (rgb[..., 0] + rgb[..., 2] - 2.0 * rgb[..., 1]) / np.maximum(rgb.sum(-1), 1.0)
     chroma = cv2.GaussianBlur(chroma, (0, 0), max(0.6, min(h, w) / 1080.0))
-    reliable = chroma[(m > 0.95) & (rgb.max(-1) > 50)]
+    reliable = chroma[(m > 0.95) & (C._peak(rgb) > 50)]
     if reliable.size > 32:
         low = max(0.015, float(np.percentile(reliable, 10)) - 0.035)
         skin = C._smoothstep(low, low + 0.03, chroma) * support
@@ -793,7 +795,7 @@ class Outline:
         """(element in [0, 1], its cloud's silhouette, signed px in from its edge), at ``size`` (w, h). The render's
         thin threads of haze round the cloud are not the cloud (kept as such they drew thin dark lines on the wall)."""
         e = C._black_floor_f(cv2.resize(part, size, interpolation=cv2.INTER_AREA), floor)
-        inside = (C._smoothstep(0.03, 0.10, e.max(-1)) > 0.5).astype(np.uint8)
+        inside = (C._smoothstep(0.03, 0.10, C._peak(e)) > 0.5).astype(np.uint8)
         inside = cv2.morphologyEx(inside, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
         sd = cv2.distanceTransform(inside, cv2.DIST_L2, 3) - cv2.distanceTransform(1 - inside, cv2.DIST_L2, 3)
         return e, inside, sd
@@ -825,7 +827,7 @@ class Outline:
             wisp += share * cv2.remap(field, fxq + swirl * cu, fyq + swirl * cv, cv2.INTER_LINEAR,
                                       borderMode=cv2.BORDER_WRAP)
         wisp = np.clip(0.5 + 1.39 * (wisp - 0.5), 0.0, 1.0)  # (the two fields' mix spread back over [0, 1])
-        lum = e.max(-1)  # (its billows: the render's light on them, over that of its brightest tenth)
+        lum = C._peak(e)  # (its billows: the render's light on them, over that of its brightest tenth)
         lum = np.clip(lum / max(float(np.percentile(lum[inside > 0], 90)), 1e-3), 0.0, 1.0)
         wisp = WISPS[3] * lum + (1.0 - WISPS[3]) * wisp
         outer = np.clip(1.0 - sd / (OUTER[0] * rc), 0.0, 1.0)  # (1 at its edge, 0 at the outer lobes' inner side)
@@ -882,6 +884,27 @@ class SmokeVolume:
         self.h, self.w = h, w
         self.volume_noise = None
 
+    def _prepare_noise(self):
+        if self.volume_noise is not None:
+            return
+        px = self.side / 1080.0
+        q = max(1, round(3 * px))
+        shape = (40, math.ceil(self.h / q), math.ceil(self.w / q))
+        # One fixed 3D field at three scales. Its coordinates rise continuously with the cloud.
+        rng = np.random.default_rng([self.seed, 317])
+        ft = np.fft.rfftn(rng.standard_normal(shape))
+        kz = np.fft.fftfreq(shape[0])[:, None, None]
+        ky = np.fft.fftfreq(shape[1])[None, :, None]
+        kx = np.fft.rfftfreq(shape[2])[None, None, :]
+        self.volume_noise = []
+        for level in (1.0, 2.8, 5.2):
+            sigma = level * 8 * px / q
+            spectrum = ft * np.exp(-2 * np.pi ** 2 * sigma ** 2 * (0.25 * kz ** 2 + ky ** 2 + kx ** 2))
+            field = np.fft.irfftn(spectrum, shape, axes=(0, 1, 2)).astype(np.float32)
+            field /= max(float(field.std()), 1e-6)
+            self.volume_noise.append(field)
+        del ft, spectrum, field, kz, ky, kx
+
     def draw(self, room, source, silhouette, floor, ambient, since, rise, clear, box, erosion=None):
         """Keep the cooling source intact, then resolve late soot through real overlapping depths."""
         if clear <= 0.0:
@@ -901,7 +924,7 @@ class SmokeVolume:
         y0, _, x0, _ = box
         px = self.side / 1080.0
         yy, xx = np.mgrid[:hb, :wb].astype(np.float32)
-        peak = np.maximum(source.max(-1).astype(np.float32) - floor, 0.0) / (255 - floor)
+        peak = np.maximum(C._peak(source).astype(np.float32) - floor, 0.0) / (255 - floor)
         geometry = np.maximum(C._smoothstep(0.012, 0.085, peak), 0.92 * silhouette)
         key = geometry if erosion is None else geometry * erosion
         total = float(key.sum())
@@ -912,22 +935,7 @@ class SmokeVolume:
         # Resolve the dense boundaries at roughly 360 samples across a 1080-wide plate; source wrinkles stay native.
         q = max(1, round(3 * px))
         ny, nx, nz = math.ceil(hb / q), math.ceil(wb / q), 40
-        shape = (nz, math.ceil(self.h / q), math.ceil(self.w / q))
-        if self.volume_noise is None:
-            # One fixed 3D field at three scales. Its coordinates rise continuously with the cloud.
-            rng = np.random.default_rng([self.seed, 317])
-            ft = np.fft.rfftn(rng.standard_normal(shape))
-            kz = np.fft.fftfreq(shape[0])[:, None, None]
-            ky = np.fft.fftfreq(shape[1])[None, :, None]
-            kx = np.fft.rfftfreq(shape[2])[None, None, :]
-            self.volume_noise = []
-            for level in (1.0, 2.8, 5.2):
-                sigma = level * 8 * px / q
-                spectrum = ft * np.exp(-2 * np.pi ** 2 * sigma ** 2 * (0.25 * kz ** 2 + ky ** 2 + kx ** 2))
-                field = np.fft.irfftn(spectrum, shape, axes=(0, 1, 2)).astype(np.float32)
-                field /= max(float(field.std()), 1e-6)
-                self.volume_noise.append(field)
-            del ft, spectrum, field, kz, ky, kx
+        self._prepare_noise()
         yl, xl = np.mgrid[:ny, :nx].astype(np.float32)
         yn, xn = yl * q, xl * q
         mx = (xl + x0 / q + 0.10 * rise / q).astype(np.float32)
@@ -1046,7 +1054,7 @@ class SmokeVolume:
         y0, _, x0, _ = box
         px = self.side / 1080.0
         yy, xx = np.mgrid[:hb, :wb].astype(np.float32)
-        peak = np.maximum(source.max(-1).astype(np.float32) - floor, 0.0) / (255 - floor)
+        peak = np.maximum(C._peak(source).astype(np.float32) - floor, 0.0) / (255 - floor)
         geometry = np.maximum(C._smoothstep(0.012, 0.085, peak), 0.92 * silhouette)
         support = geometry.copy()
         if erosion is not None:
@@ -1529,7 +1537,10 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
     # the render's own frame edges fade out (its smoke rising past the top of the render drew a straight cut across
     # the room once carried there)
     edge = border_fade(el.shape[1], el.shape[2], EDGE_FADE)[..., None]
-    el = (floor + (el.astype(np.float32) - floor) * edge).clip(0, 255).astype(np.uint8)
+    faded = np.empty_like(el)
+    for e in range(len(el)):
+        faded[e] = (floor + (el[e].astype(np.float32) - floor) * edge).clip(0, 255).astype(np.uint8)
+    el = faded
     e_ign, el_centre, el_r8 = render_blast(el, floor)
     R = min(SIZE * s * size, MOST * side)
     k_el = min(R / el_r8, CLOUD_MOST * side / max(render_reach(el, floor, el_centre, e_ign) * (1 + SWELL[0]), 1.0))
@@ -1615,23 +1626,21 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
     wobble = cv2.GaussianBlur(wobble, (0, 0), FLICKER[1])[0, 4:-4]
     flicker = 1.0 + FLICKER[0] * np.clip(wobble / max(float(wobble.std()), 1e-6), -1.5, 1.5)
     held = held_colour = src = None  # (the light on the frame before, its colour, and where its fire's middle was)
-    for t in range(k0, last):
+
+    def prepare(t):
+        nonlocal held, held_colour, src
         since = t - k0
         settled = float(C._smoothstep(*LIGHT_SETTLE[:2], since))
-        pulse = 1.0 + (flicker[t] - 1.0) * min(1.0, since / 3.0)
-        P = lin(plate[t])
-        m = hand_coverage(plate[t], mask, t)
-        guard = cv2.GaussianBlur(cv2.dilate(m, np.ones((9, 9), np.uint8)), (0, 0), 2.0)
         o_t = room_point(cam, k0, t, origin)
         placed = element_on(t)
-        E8 = box = billow = rim_maps = ball = None
+        E8 = box = ef8 = wf = sil_box = detail8 = smoke = None
         burn, body = (0.0, 0.0) if frame_of(since) >= len(el) else (float(burns[frame_of(since)]),
                                                                     float(bodies[frame_of(since)]))
         if placed is not None:
             E8, sil = placed
             E8 = radial_blur(E8, o_t, GROW_BLUR.get(since, 0.0))
             E8 = cv2.GaussianBlur(E8, (0, 0), DEFOCUS_PX * side / 1080)
-            ys_, xs_ = np.nonzero(E8[::4, ::4].max(-1) > floor + 2)
+            ys_, xs_ = np.nonzero(C._peak(E8[::4, ::4]) > floor + 2)
             if ys_.size:
                 margin = max(24, int(math.ceil(0.18 * lift(t)[1] + 4)))
                 box = (max(0, 4 * ys_.min() - margin), min(h, 4 * ys_.max() + margin), max(0, 4 * xs_.min() - margin),
@@ -1645,21 +1654,19 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                 # One continuous key drives both soot preparation and fire drawing. Holding only the final
                 # fire layer still let saturation reopen pale holes in its underlying soot in a single frame.
                 wf = fire.material(wf, box, centre, burn, sil[y0:y1, x0:x1])
+                sil_box = sil[y0:y1, x0:x1].copy()
                 smoke = 1.0 - wf
                 E8 = soot_detail(E8, floor, box, smoke)
-                billow = soot_billows(E8, floor, box, billow_ref, smoke)
-                E8 = fill_soot(E8, floor, box, sil[y0:y1, x0:x1], smoke)
-                r_in = max(3, int(BILLOW_IN * side) | 1)
-                inner = cv2.erode(sil[y0:y1, x0:x1], cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_in, r_in)))
-                billow = billow * cv2.GaussianBlur(inner, (0, 0), r_in / 2)
-                rim_maps = outline.maps(E8, floor, box, since, lift(t)[1], fire_weight=wf)
-                ball = fire.ball(wf, burn, ef8.max(-1) > floor + 16) if burn > 0 or body > 0 else None  # (its
-                # cloud: the render lit over its black)
+                volume_mix = float(C._smoothstep(*VOLUME_HANDOFF, since)) * (1.0 - burn)
+                detail8 = E8 if volume_mix < 1.0 else None
+                E8 = fill_soot(E8, floor, box, sil_box, smoke)
+                if volume_mix > 0.0 and LOBE_SEPARATE[0] < since < sum(CLEAR):
+                    volume._prepare_noise()
         if box is None:
             fire.previous_material = None
         # the blast's light on the room and the arm, from its own image: the render's fire, and the white-hot core's
         # light on its first frames, spread round it and tinted to its colour
-        fire_small, colour, amb_t = None, fx.kelvin_rgb(4500.0), amb
+        fire_small, colour = None, fx.kelvin_rgb(4500.0)
         if E8 is not None:
             e = C._black_floor_f(cv2.resize(E8, (w // q, h // q), interpolation=cv2.INTER_AREA), floor)
             fire_small = C._lin(e) * C.fire_weight_map(e, PARAMS, w // q, True)[..., None]
@@ -1694,6 +1701,29 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             lit = hold * held if lit is None else np.maximum(lit, hold * held)
         if lit is not None and lit.max() > 1e-4:
             held, colour = lit, held_colour
+        else:
+            held = lit = None  # a released or exhausted flash must not return when ordinary light smoothing resumes
+        return t, E8, box, ef8, wf, sil_box, detail8, smoke, lit, colour, src, burn, body
+
+    def draw(t, E8, box, ef8, wf, sil_box, detail8, smoke, lit, colour, src, burn, body):
+        since = t - k0
+        settled = float(C._smoothstep(*LIGHT_SETTLE[:2], since))
+        pulse = 1.0 + (flicker[t] - 1.0) * min(1.0, since / 3.0)
+        P = lin(plate[t])
+        m = hand_coverage(plate[t], mask, t)
+        guard = cv2.GaussianBlur(cv2.dilate(m, np.ones((9, 9), np.uint8)), (0, 0), 2.0)
+        o_t = room_point(cam, k0, t, origin)
+        amb_t, billow, rim_maps, ball = amb, None, None, None
+        if box is not None:
+            y0, y1, x0, x1 = box
+            if detail8 is not None:
+                billow = soot_billows(detail8, floor, box, billow_ref, smoke)
+                r_in = max(3, int(BILLOW_IN * side) | 1)
+                inner = cv2.erode(sil_box, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_in, r_in)))
+                billow = billow * cv2.GaussianBlur(inner, (0, 0), r_in / 2)
+            rim_maps = outline.maps(E8, floor, box, since, lift(t)[1], fire_weight=wf)
+            ball = fire.ball(wf, burn, C._peak(ef8) > floor + 16) if burn > 0 or body > 0 else None
+        if lit is not None:
             L = cv2.resize(lit, (w, h)) * np.float32(LIGHT_GAIN)
             rim = rim_light(m, src) if mask is not None else np.zeros((h, w), np.float32)  # (from the fire's middle)
             on = (1.0 - m) + m * (ARM_LIGHT[0] + (ARM_LIGHT[1] + ARM_LIGHT[2] * burn) * rim)
@@ -1705,8 +1735,6 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             if ball is not None and burn > 0:  # (the wall by the burning ball lit no brighter than the ball's limb)
                 fire.wall_cap(ball, ef8, floor, P0, P, m, box, burn)
             amb_t = amb + np.float32(SOOT_LIT) * L[..., None] * colour
-        else:
-            held = None  # a released or exhausted flash must not return when ordinary light smoothing resumes
         # Keep the illuminated current plate for one foreground restoration after the rear heat and pressure
         # distortion. Restoring first let those remaps pull fire and soot over the fingers again.
         hand = P
@@ -1715,7 +1743,6 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             volume_mix = float(C._smoothstep(*VOLUME_HANDOFF, since)) * (1.0 - burn)
             # Once the volume owns the smoke, the older composite would be built only to be overwritten. Keep
             # the illuminated plate outside it and spend that CPU time resolving depth inside the cloud instead.
-            Q = P.copy()
             if volume_mix < 1.0:
                 comp = C.composite_frame(_by_root(_GAM8, P), E8, PARAMS, holdout_row=None, emission=tuple(o_t),
                                          fire_energy_ref=None, plate_key=plate_key, grain_sigma=1.5, black_floor=floor,
@@ -1723,12 +1750,14 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                                          seed=seed + t, ambient=amb_t, shading_ref=shading_ref, smoke_albedo=SOOT_ALBEDO,
                                          g_smoke=1.0 - _ease((since - CLEAR[0]) / CLEAR[1]), thin_soot=True)
                 Q = lin(comp)
-                if billow is not None:  # (as the smoke clears, its billows go with it)
+                if detail8 is not None:  # (as the smoke clears, its billows go with it)
                     y0, y1, x0, x1 = box
                     lit = Q[y0:y1, x0:x1] * (1.0 + (1.0 - _ease((since - CLEAR[0]) / CLEAR[1])) * billow)[..., None]
                     Q[y0:y1, x0:x1] = np.minimum(lit, np.maximum(Q[y0:y1, x0:x1], P[y0:y1, x0:x1]))
                 if rim_maps is not None:
                     outline.finish(Q, P, box, rim_maps)
+            else:
+                Q = P.copy()
             if box is not None:  # its soot scattering the room's light; its fire as a light (the composite drew it as
                 # lit smoke)
                 if volume_mix < 1.0:
@@ -1740,8 +1769,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                         _, wisp, eat, thin, _, _, _ = rim_maps
                         erosion = cv2.resize(C._smoothstep(eat - 0.22, eat + 0.22, wisp) * thin,
                                              (x1 - x0, y1 - y0), interpolation=cv2.INTER_LINEAR)
-                    v = volume.draw(P[y0:y1, x0:x1], ef8, sil[y0:y1, x0:x1], floor,
-                                    (volume_amb + amb_t - amb)[y0:y1, x0:x1], since, lift(t)[1], clear, box, erosion)
+                    v = volume.draw(P[y0:y1, x0:x1], ef8, sil_box, floor,
+                                    (volume_amb[y0:y1, x0:x1] + amb_t[y0:y1, x0:x1] - amb[y0:y1, x0:x1]), since, lift(t)[1], clear, box, erosion)
                     Q[y0:y1, x0:x1] += np.float32(volume_mix) * (v - Q[y0:y1, x0:x1])
                 fire.layer(Q, P, ef8, wf, box, floor, burn, body, since, ball, pulse=pulse)
             P = Q
@@ -1773,7 +1802,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                 emit, (a0, a1, b0, b1) = drawn
                 if not front:
                     cover = 0.0 if E8 is None else \
-                        np.clip((E8[a0:a1, b0:b1].max(-1).astype(np.float32) / 255.0 - 0.06) / 0.3, 0, 1) * 0.9
+                        np.clip((C._peak(E8[a0:a1, b0:b1]).astype(np.float32) / 255.0 - 0.06) / 0.3, 0, 1) * 0.9
                     emit = emit * ((1 - m[a0:a1, b0:b1]) * (1 - cover))[..., None]
                 P[a0:a1, b0:b1] += emit
         stops = FLASH.get(since, 0.0) * size
@@ -1783,7 +1812,24 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
             k = 1.0 + (2.0 ** stops - 1.0) * (FLASH_FAR + (1.0 - FLASH_FAR) * near)
             P = P * cv2.resize(k.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)[..., None]
         out[t] = shoulder_added(P, plate[t])
+        return t
+
+    def finished(t):
         say("compositing", 0.7 + 0.14 * (t - k0 + 1) / max(1, last - k0), f"The explosion: frame {t + 1} of {last}")
+
+    # Only the shape, material and light histories are sequential. Bound queued frame scratch to the pool's size.
+    if fx.THREADS == 1:
+        for t in range(k0, last):
+            finished(draw(*prepare(t)))
+    else:
+        with ThreadPoolExecutor(fx.THREADS) as ex:
+            pending = deque()
+            for t in range(k0, last):
+                pending.append(ex.submit(draw, *prepare(t)))
+                if len(pending) >= fx.THREADS:
+                    finished(pending.popleft().result())
+            for task in pending:
+                finished(task.result())
     out = fx.shake(out, [k0], [size], px=KNOCK_PX * h / 1080, seed=seed)  # the camera knocked...
     for t in range(k0, min(n, k0 + 8)):  # ...and pushed by the pressure wave
         z = ZOOM * size * math.exp(-(((t - k0) - 2) / 1.6) ** 2)

@@ -230,13 +230,17 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           </button>
         ))}
       </div>}
-      {handOffline && !replayOf && (
+      {hand && effect === "explosion" && !replayOf && (
+        <p className="muted">{handOffline && "The GPU is offline: "}Explosion uses a fireball made ahead of time;
+          its blast is made on this computer from your hand and your voice. No new render; takes a few minutes on a laptop CPU.</p>
+      )}
+      {handOffline && effect !== "explosion" && !replayOf && (
         <p className="muted">The GPU is offline: {MADE_EFFECTS.includes(effect)
           ? `${HAND_LABELS[effect] ?? effect} is made on this computer from your hand and your voice.`
           : "Your cue chooses an element made on this computer or plays this hand's fireball, made ahead of time, on each of your hits."}{" "}
           No new render; ready in about a minute.</p>
       )}
-      {hand && !handOffline && !replayOf && (
+      {hand && !handOffline && effect !== "explosion" && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
           fireball, a held fffff over a palm a flame in it (steam on the badge), a pf a pop of fire. Lightning, water, air and an
           explosion are made on this computer from your hand and your voice: choose them yourself. {sceneLive
@@ -349,7 +353,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           {again && onReplay && (
             <div className="row">
               <button onClick={() => onReplay(again, replayWith)}>Perform it again</button>
-              <span className="muted">{bent ? "a new rhythm on the same hand take: no new render, ready in about a minute"
+              <span className="muted">{bent ? (job.effect === "explosion"
+                ? "a new rhythm on the same hand take: no new render, takes a few minutes on a laptop CPU"
+                : "a new rhythm on the same hand take: no new render, ready in about a minute")
                 : "a new rhythm or another voice on the same render: no new render, ready in about 20 s"}</span>
             </div>
           )}
