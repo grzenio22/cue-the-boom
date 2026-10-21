@@ -853,8 +853,8 @@ def test_the_arcs_light_the_room_blue_white_and_the_hand_a_cool_white(monkeypatc
     assert dh.min() > 0 and dh[2] / ph[2] > max(dh[0] / ph[0], dh[1] / ph[1])
 
 
-def test_a_fingertip_lit_by_the_arcs_blows_to_a_cool_white_not_hot_pink():
-    """A tiny contact can record cool white while the wider reflection keeps the photographed skin colour.
+def test_a_fingertip_lit_by_the_arcs_records_cool_light_not_hot_pink():
+    """A soft contact records cool pale light while the wider reflection keeps the photographed skin colour.
     The contact is neutral (saturation at most 0.15, blue over red); the rest keeps SKIN_KEEP of its saturation (under the
     arcs' violet blue a pointing finger went a grey mauve), and nowhere on the hand does red rise more than green and
     SKIN_RED (a cool light on skin already red lifted it most in red and blue: the fingertips went hot pink, the hand
@@ -872,7 +872,7 @@ def test_a_fingertip_lit_by_the_arcs_blows_to_a_cool_white_not_hot_pink():
         contact = (np.hypot(xx - tip[0], yy - tip[1]) <= 0.06 * s) & (mask[0] > 0)
         hot = o[:, contact]
         c = np.mean([frame[np.argmax(frame @ LUMA)] for frame in hot], axis=0)
-        assert c.min() >= 235  # a resolved contact, without a minimum area of white skin
+        assert c.min() >= 200  # optical spreading can take the tiny source below sensor clipping
         _, spots, _ = L.arc_frames(L._hand(plate, track), voice(np.full(12, 0.9), hits=[0]),
                                    seed=2, matte=mask, plate=plate)
         emission, _ = L.layer([], spots[4], None, s, (0, H, 0, W), L.GLOW_CAP["arc"], 0,
@@ -1428,8 +1428,8 @@ def test_the_ball_is_ringed_by_a_shell_of_arcs_and_throws_uneven_arcs_to_the_fin
             r = np.linalg.norm(p - (b.x, b.y), axis=1).mean() / b.R
             if r > 0.9:
                 rim.append(it)
-        front = [c for c in bolts[t] if isinstance(c, L._Filament) and c.softness == 0]
-        rear = [c for c in bolts[t] if isinstance(c, L._Filament) and c.softness > 0]
+        front = [c for c in bolts[t] if isinstance(c, L._Filament) and c.depth == 0]
+        rear = [c for c in bolts[t] if isinstance(c, L._Filament) and c.depth > 0]
         front_image = L.draw(front, (0, H, 0, W), seed=0, ball=b)[..., 0] ** L.CORE_GAMMA
         rear_image = L.draw(rear, (0, H, 0, W), seed=0, ball=b)[..., 0] ** L.CORE_GAMMA
         assert front_image.max() > 0
@@ -2001,6 +2001,20 @@ def test_a_soft_foreground_channel_is_not_extinguished_as_a_rear_channel():
     assert foreground[110:131, 110:131].sum() > 4 * background[110:131, 110:131].sum()
 
 
+@pytest.mark.parametrize('scale', [1, 2])
+def test_near_current_ends_recede_at_both_phone_and_larger_resolutions(scale):
+    """A near channel's endpoint depth cue survives scaling past one pixel of optical softness."""
+    p = np.c_[np.linspace(60, 180, 90), np.full(90, 120)] * scale
+    box = (0, 241 * scale, 0, 241 * scale)
+    ball = L.Ball(120 * scale, 120 * scale, 80 * scale, 1, 1, 1)
+    plain = L._Filament(p, 3 * scale, 1, .65 * scale, 0)
+    receding = L._Filament(p, 3 * scale, 1, .65 * scale, 0, .75)
+    baseline = L.draw([plain], box, seed=3, ball=ball)[..., 0]
+    faded = L.draw([receding], box, seed=3, ball=ball)[..., 0]
+    assert faded[:, 60 * scale:75 * scale].sum() < .65 * baseline[:, 60 * scale:75 * scale].sum()
+    assert faded[:, 110 * scale:130 * scale].sum() > .9 * baseline[:, 110 * scale:130 * scale].sum()
+
+
 def test_local_palm_light_faces_the_source_and_preserves_finger_shadow():
     """A finger blocks new light beyond itself and its source-facing edge catches the local reflection."""
     m = np.zeros((300, 300), np.float32)
@@ -2219,6 +2233,31 @@ def test_tip_contact_is_smaller_than_the_reflected_skin_light():
     assert field.max() < 2.5
 
 
+def test_tip_reflection_wraps_the_observed_width_of_the_finger():
+    """The same tracked tip on narrower skin must not carry an equally broad cylindrical light patch."""
+    def reflected(radius):
+        matte = np.zeros((240, 240), np.float32)
+        cv2.ellipse(matte, (100, 140), (radius, 60), 0, 0, 360, 1, -1)
+        box, patch = L.tip_reflection((100, 80), (0, 1), 160, 1, 240, 240, matte=matte)
+        field = np.zeros_like(matte)
+        field[box[0]:box[1], box[2]:box[3]] = patch
+        return field
+
+    narrow, broad = reflected(14), reflected(30)
+    assert narrow[96, 116] < .65 * broad[96, 116]
+    assert narrow[96, 100] > .8 * broad[96, 100]
+
+
+def test_adjacent_finger_does_not_widen_the_emitting_finger_reflection():
+    """Only the emitter's contiguous skin section determines its curved cap, even beside another finger."""
+    matte = np.zeros((240, 240), np.float32)
+    matte[80:181, 93:108] = 1
+    _, alone = L.tip_reflection((100, 80), (0, 1), 160, 1, 240, 240, matte=matte)
+    matte[80:181, 120:133] = 1
+    _, adjacent = L.tip_reflection((100, 80), (0, 1), 160, 1, 240, 240, matte=matte)
+    np.testing.assert_allclose(adjacent, alone)
+
+
 def test_textured_fingertip_keeps_its_contrast_outside_a_small_clipped_contact():
     """A brighter finger retains the plate's surface variation instead of becoming a smooth pale strip."""
     plate, track, mask = take(6, lambda t: (135, 300), 100, palm=(100, 65, 60), texture=0)
@@ -2267,6 +2306,26 @@ def test_near_finger_channel_shares_focus_while_the_distant_stroke_stays_resolve
     assert lum[97:104, 60:90].max() < .75 * lum[97:104, 280:320].max()
 
 
+def test_source_core_and_bloom_share_the_finger_focus_and_shutter_motion():
+    """A moving defocused fingertip cannot carry a crisp stationary source inside a softer channel."""
+    box = (0, 101, 0, 161)
+    spots = [(80, 50, 1.2, 1)]
+    def source(soft, move):
+        emission, _ = L.layer([], spots, None, 160, box, L.GLOW_CAP['arc'], .7,
+                              np.asarray(move), [(80, 50)], root_soft=soft)
+        return emission @ LUMA
+
+    sharp = source(.7, (0, 0))
+    focused = source(4.5, (0, 0))
+    moving = source(4.5, (16, 0))
+    assert focused.max() < .6 * sharp.max()
+    yy, xx = np.indices(sharp.shape)
+    variance = lambda light, axis: float((light * axis ** 2).sum() / light.sum())
+    # The capped 12 px shutter adds about 12 square pixels of axial variance, including bloom.
+    assert variance(moving, xx - 80) > variance(focused, xx - 80) + 8
+    assert variance(moving, yy - 50) < 1.1 * variance(focused, yy - 50)
+
+
 def test_palm_source_near_an_index_tip_still_lights_its_facing_skin(monkeypatch):
     """As the palm turns, a source projected beside a fingertip retains a soft surface return there."""
     plate, track, mask = take(4, lambda t: (135, 300), 80, emitter='palm', middle_out=True,
@@ -2274,7 +2333,7 @@ def test_palm_source_near_an_index_tip_still_lights_its_facing_skin(monkeypatch)
     monkeypatch.setattr(L, '_palm_source', lambda hand, tap: hand.lm[:, 8] - (0, 4))
     timeline = voice(np.full(4, .9))
     wrapped = L.render(plate, track, mask, timeline, 'arc', seed=1)
-    monkeypatch.setattr(L, 'tip_reflection', lambda *args: None)
+    monkeypatch.setattr(L, 'tip_reflection', lambda *args, **kwargs: None)
     unwrapped = L.render(plate, track, mask, timeline, 'arc', seed=1)
     assert (wrapped[-1, 248:268, 107:115, 2].astype(float) - unwrapped[-1, 248:268, 107:115, 2]).max() > 5
 
@@ -2386,6 +2445,23 @@ def test_ball_has_soft_rear_arcs_around_both_sides_of_the_lower_hemisphere():
         assert lower
         assert np.min(np.asarray(lower)[:, 0]) < -.4
         assert np.max(np.asarray(lower)[:, 0]) > .4
+
+
+def test_ball_has_a_second_near_current_through_the_upper_interior():
+    """Two nonparallel near currents cross the volume; a bright lower crescent alone reads as a ring."""
+    plate, track, _ = take(16, lambda t: (135, 300), 80, emitter='palm')
+    bolts, _, balls = L.ball_frames(L._hand(plate, track), voice(np.full(16, .9)), seed=1)
+    for t in range(6, 16):
+        ball = balls[t]
+        near = []
+        for channel in bolts[t]:
+            if not isinstance(channel, L._Filament) or channel.depth != 0 or channel[2] < .5:
+                continue
+            xy = (channel[0] - (ball.x, ball.y)) / ball.R
+            if xy[:, 1].min() < -.35 and xy[:, 1].max() > .3 and np.linalg.norm(xy, axis=1).min() < .3:
+                near.append(xy)
+        assert near
+        assert any(p[:, 0].max() - p[:, 0].min() > .8 for p in near)
 
 
 def test_ball_grounding_has_one_quieter_path_per_finger_instead_of_a_separate_loop():

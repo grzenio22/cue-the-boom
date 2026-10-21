@@ -67,7 +67,7 @@ export const BRUSH = [2, 3, 0.06, 0.14, 0.3, 0.5, 0.26, 0.7]; // (count, its ran
  * its glow. ``depth`` is the material crossed by a volume filament, independently of its optical defocus. */
 export interface Channel { pts: P2[]; width: number; inten: number; forks: Channel[]; at: number; strikes?: P2; diffuse?: boolean;
   rootSoft?: number; rootScale?: number; softness?: number; endSoft?: number; recessSoft?: number; source?: PalmSource; filament?: boolean;
-  depth?: number }
+  depth?: number; endFade?: number }
 
 /** An observed open palm's compact source and the fingers that may pass in front of it. */
 export interface PalmSource { at: P2; radius: number; scale: number; landmarks: P2[]; aim: number; level?: number }
@@ -541,6 +541,7 @@ export function sourceContact(source: PalmSource): P2 {
 }
 
 const tipLevels = new WeakMap<P2, number>(); // The current tracked tip carries the voice envelope past individual stroke flashes.
+const tipOptics = new WeakMap<P2, { softness: number; motion: P2 }>();
 
 /** One tracked source's discharge, normally a fingertip aimed along its distal joints. An explicit palm source
  * supplies its own center and upward aim. A full channel requires a camera surface; voice level invents no roots. */
@@ -558,10 +559,15 @@ export function arcStep(arcs: Arcs, tip: P2, aim: number, scale: number, level: 
   if (main.ch) {
     const old = arcs.main.ch?.pts[0] ?? tip;
     const move = Math.hypot(tip[0] - old[0], tip[1] - old[1]);
-    main.ch.rootSoft = Math.max((0.7 + Math.min(2.5, 0.12 * move / Math.max(px, 1e-6))) * px,
-      Math.min(6 * px, 0.012 * scale));
+    const trackedSoft = (0.7 + Math.min(2.5, 0.12 * move / Math.max(px, 1e-6))) * px;
+    main.ch.rootSoft = source ? Math.max(trackedSoft, Math.min(6 * px, 0.012 * scale))
+      : Math.min(8 * px, Math.max(trackedSoft, 0.018 * scale));
     main.ch.rootScale = scale;
     main.ch.source = source ? { ...source, level } : undefined;
+    if (!source) {
+      const smear = Math.min(1, 8 * px / Math.max(move, 1e-6));
+      tipOptics.set(tip, { softness: main.ch.rootSoft, motion: [(tip[0] - old[0]) * smear, (tip[1] - old[1]) * smear] });
+    }
   }
   return { main, sides: [] };
 }
@@ -598,7 +604,7 @@ function currentProfile(c: Channel, total: number) {
     131071 * Math.round(total / 4)) >>> 0);
   const hot = [0.12 + 0.14 * rand(), 0.4 + 0.13 * rand(), 0.72 + 0.16 * rand()]
     .map((at) => ({ at, span: 0.035 + 0.03 * rand(), power: 0.72 + 0.28 * rand() }));
-  return { hot, dipAt: 0.36 + 0.28 * rand() };
+  return { hot, dipAt: 0.36 + 0.08 * rand() };
 }
 
 /** The stretches a channel is drawn in: [points, width px, alpha], thinning along it and, a branch (dimmer than the
@@ -606,7 +612,8 @@ function currentProfile(c: Channel, total: number) {
  * emitted intensity, so a bright foreground path retains its localized current dip while the discharge fades. */
 export function stretches(c: Channel, gain: number, top = 1): [P2[], number, number][] {
   const branch = !c.filament && c.inten < 0.6 ? Math.min(1, (0.6 - c.inten) / 0.2) : 0;
-  const hotFilament = c.filament && (c.depth ?? Number((c.softness ?? 0) > 0)) === 0 && c.inten * gain >= 0.65 * top;
+  const hotFilament = c.filament && (c.depth ?? Number((c.softness ?? 0) > 0)) === 0 &&
+    (!(c.softness ?? 0) || !!c.recessSoft) && c.inten * gain >= 0.65 * top;
   const out: [P2[], number, number][] = [];
   const n = c.pts.length - 1;
   if (n < 1) return out;
@@ -616,8 +623,9 @@ export function stretches(c: Channel, gain: number, top = 1): [P2[], number, num
   const total = cumulative[n];
   if (total <= 1e-9) return out;
   const { hot, dipAt } = currentProfile(c, total);
-  const currents = Array.from({ length: CHUNKS }, (_, k) => Math.max(...hot.map(({ at, span, power }) =>
-    power * Math.exp(-0.5 * (((k + 0.5) / CHUNKS - at) / span) ** 2))));
+  const chunks = c.filament || branch > 0 ? CHUNKS : 24;
+  const currents = Array.from({ length: chunks }, (_, k) => Math.max(...hot.map(({ at, span, power }) =>
+    power * Math.exp(-0.5 * (((k + 0.5) / chunks - at) / span) ** 2))));
   const peak = Math.max(...currents, 1e-9);
   const atDistance = (distance: number): P2 => {
     let j = 0;
@@ -626,20 +634,22 @@ export function stretches(c: Channel, gain: number, top = 1): [P2[], number, num
     return [c.pts[j][0] + u * (c.pts[j + 1][0] - c.pts[j][0]),
       c.pts[j][1] + u * (c.pts[j + 1][1] - c.pts[j][1])];
   };
-  for (let k = 0; k < CHUNKS; k++) {
-    const start = total * k / CHUNKS, stop = total * (k + 1) / CHUNKS;
+  const neck = Math.max(1, Math.min(chunks - 2, Math.round(hot[1].at * chunks - 0.5)));
+  for (let k = 0; k < chunks; k++) {
+    const start = total * k / chunks, stop = total * (k + 1) / chunks;
     const pts = [atDistance(start)];
     for (let i = 1; i < n; i++) if (cumulative[i] > start && cumulative[i] < stop) pts.push(c.pts[i]);
     pts.push(atDistance(stop));
-    const u = k / (CHUNKS - 1), current = 0.015 + 0.985 * currents[k] / peak;
-    const taper = 1 - (1 - MAIN_TAPER[0]) * ((k + 0.5) / CHUNKS) ** MAIN_TAPER[1];
+    const u = k / (chunks - 1), current = 0.015 + 0.985 * currents[k] / peak;
+    const taper = 1 - (1 - MAIN_TAPER[0]) * ((k + 0.5) / chunks) ** MAIN_TAPER[1];
     const thin = (c.filament ? 0.65 + 0.55 * current : 0.1 + 1.4 * current ** 0.75) * taper * (1 - branch) +
       (BRANCH_W[0] + (BRANCH_W[1] - BRANCH_W[0]) * u) * branch;
-    const dip = hotFilament ? 1 - 0.80 * Math.exp(-0.5 * (((k + 0.5) / CHUNKS - dipAt) / 0.055) ** 4) : 1;
+    const interruption = !c.filament && branch < 1 ? Math.exp(-0.5 * ((k - neck) / (0.013 * chunks)) ** 4) : 0;
+    const dip = hotFilament ? 1 - 0.80 * Math.exp(-0.5 * (((k + 0.5) / chunks - dipAt) / 0.055) ** 4) : 1;
     const filamentAlpha = (0.55 + 0.6 * current) * dip;
-    out.push([pts, Math.max(branch ? BRANCH_W[2] : 0, c.width * thin),
-      c.inten * gain * (1 - TAPER[0] * branch * u ** TAPER[1]) *
-      (branch + (1 - branch) * (c.filament ? filamentAlpha : 0.025 + 1.45 * current ** 1.5))]);
+    out.push([pts, Math.max(branch ? BRANCH_W[2] : 0, c.width * thin * (1 - 0.78 * interruption)),
+      c.inten * gain * (1 - TAPER[0] * branch * u ** TAPER[1]) * (1 + 0.2 * branch * (1 - u)) *
+      (branch + (1 - branch) * (c.filament ? filamentAlpha : (0.025 + 1.45 * current ** 1.5) * (1 - 0.96 * interruption)))]);
   }
   return out;
 }
@@ -773,6 +783,11 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
         rootSoft = 0.25 * px + (c.rootSoft - 0.25 * px) * fade * fade * (3 - 2 * fade);
       }
       let softness = c.softness ?? sourceSoft ?? rootSoft, alpha = a;
+      if (!source && c.rootScale && !c.filament) {
+        const first = pts[0], last = pts[pts.length - 1], root = c.pts[0];
+        const distance = Math.hypot((first[0] + last[0]) / 2 - root[0], (first[1] + last[1]) / 2 - root[1]);
+        alpha *= 1 - 0.15 * Math.exp(-0.5 * (distance / (0.045 * c.rootScale)) ** 2);
+      }
       if ((c.endSoft || c.recessSoft) && c.filament && (c.depth ?? 0) === 0 && c.inten * g >= 0.65 * top) {
         const start = c.pts[0], end = c.pts[c.pts.length - 1], dx = end[0] - start[0], dy = end[1] - start[1];
         const first = pts[0], last = pts[pts.length - 1];
@@ -782,7 +797,7 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
         const ends = fade * fade * (3 - 2 * fade);
         if (c.endSoft) {
           softness = Math.hypot(softness, c.endSoft * Math.sqrt(ends));
-          alpha *= 1 - 0.35 * ends;
+          alpha *= 1 - (c.endFade ?? 0.35) * ends;
         }
         if (c.recessSoft) {
           const recess = Math.exp(-0.5 * ((along - recessAt) / 0.085) ** 4);
@@ -814,7 +829,8 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
       air.setTransform(1, 0, 0, 1, 0, 0);
       air.clearRect(0, 0, air.canvas.width, air.canvas.height);
       air.setTransform(1 / SOFT_Q, 0, 0, 1 / SOFT_Q, 0, 0);
-      for (const [pts, w, a] of lit) {
+      for (const [pts, w, a, , softness] of lit) {
+        air.filter = `blur(${softness / SOFT_Q}px)`;
         air.strokeStyle = `rgba(${rgb}, ${Math.min(1, amp * a * glow * Math.min(1, w / (2 * px)))})`;
         air.lineWidth = Math.max(w, 2 * sigma * px * SOFT_Q); // (as wide as its blur: its peak stays near its alpha)
         stroke(air, pts);
@@ -844,7 +860,8 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
     stroke(ctx, pts);
   }
   ctx.filter = "none";
-  if (source) drawSpark(ctx, source.at, source.radius, 0.65 * Math.max(0, ...list.map(([, gain]) => gain)), false);
+  if (source) drawSpark(ctx, source.at, source.radius, 0.65 * Math.max(0, ...list.map(([, gain]) => gain)), false,
+    { softness: sourceSoft });
   ctx.restore();
   const impacts = (c: Channel, g: number) => { // (a channel's, and a prong's of it)
     if (c.strikes && c.inten * g >= IMPACT_MIN) drawImpact(ctx, c.pts[c.pts.length - 1], c.strikes, c.inten * g, px, c.diffuse);
@@ -854,17 +871,25 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
 }
 
 /** The fingertip's compact spark leaves its reflected skin light dominant; a hovering source keeps its air corona. */
-export function drawSpark(ctx: CanvasRenderingContext2D, at: P2, r: number, amp: number, onSkin = true) {
+export function drawSpark(ctx: CanvasRenderingContext2D, at: P2, r: number, amp: number, onSkin = true,
+  optics: { softness?: number; motion?: P2 } = onSkin ? tipOptics.get(at) ?? {} : {}) {
   if (amp <= 0) return;
-  if (onSkin) r *= 0.5 * 0.005 / 0.035;
-  const g = ctx.createRadialGradient(at[0], at[1], 0, at[0], at[1], r);
-  g.addColorStop(0, `rgba(240, 248, 255, ${Math.min(1, amp)})`);
-  g.addColorStop(0.3, `rgba(150, 200, 255, ${0.6 * Math.min(1, amp)})`);
-  g.addColorStop(1, "rgba(60, 110, 255, 0)");
+  if (onSkin) { r *= 0.5 * 0.005 / 0.035; amp *= 0.85; }
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  ctx.fillStyle = g;
-  ctx.fillRect(at[0] - r, at[1] - r, 2 * r, 2 * r);
+  ctx.filter = `blur(${Math.max(0, optics.softness ?? 0)}px)`;
+  const motion = optics.motion ?? [0, 0], moving = Math.hypot(...motion) > 0.1;
+  const taps = moving ? 5 : 1;
+  for (let i = 0; i < taps; i++) {
+    const t = moving ? i / (taps - 1) : 0;
+    const x = at[0] - t * motion[0], y = at[1] - t * motion[1], weight = moving ? (i === 0 || i === taps - 1 ? 0.125 : 0.25) : 1;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(240, 248, 255, ${Math.min(1, amp) * weight})`);
+    g.addColorStop(0.3, `rgba(150, 200, 255, ${0.6 * Math.min(1, amp) * weight})`);
+    g.addColorStop(1, "rgba(60, 110, 255, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
   ctx.restore();
 }
 
@@ -1759,14 +1784,15 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
     front.push([{ pts: crossing, width: 0.95 * width, inten: 1.1 * (0.4 + 0.6 * b.level), forks: [], at: 0,
       filament: true, depth: 0, softness: Math.max(0.35 * px, 0.003 * R), endSoft: Math.max(0.3 * px, 0.02 * R),
       recessSoft: Math.max(0.5 * px, 0.055 * R) }, b.fade * body]);
-    const visibleFilament = (points: P2[], width: number, inten: number, softness: number, depth: number) => {
+    const visibleFilament = (points: P2[], width: number, inten: number, softness: number, depth: number,
+      behind = depth >= 0.5, endSoft?: number, endFade?: number) => {
       let run: P2[] = [];
       const emit = () => {
         if (run.length > 1) {
           const thickness = run.reduce((sum, [x, y]) => sum + Math.sqrt(Math.max(0,
             1 - ((x - c[0]) ** 2 + (y - c[1]) ** 2) / (R * R || 1))), 0) / run.length;
-          (depth >= 0.5 ? rear : front).push([{ pts: run, width, inten, forks: [], at: 0, filament: true, depth,
-            softness }, b.fade * body * Math.exp(-4 * depth * body * thickness)]);
+          (behind ? rear : front).push([{ pts: run, width, inten, forks: [], at: 0, filament: true, depth,
+            softness, endSoft, endFade }, b.fade * body * Math.exp(-4 * depth * body * thickness)]);
         }
         run = [];
       };
@@ -1776,6 +1802,25 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
       }
       emit();
     };
+    const interior = (anchors: P2[], noise: number, drift: P2): P2[] => {
+      const knots = anchors.map(([x, y]): P2 => [x + noise * gauss(rand) + drift[0], y + noise * gauss(rand) + drift[1]]);
+      const points: P2[] = [];
+      for (let i = 1; i < knots.length; i++) {
+        const a = knots[i - 1], z = knots[i];
+        const depth = Math.max(1, Math.ceil(Math.log2(Math.hypot(z[0] - a[0], z[1] - a[1]) / 0.025)));
+        points.push(...displace(a, z, rand, 0.18, depth).slice(0, -1));
+      }
+      points.push(knots[knots.length - 1]);
+      return points.map(([x, y]): P2 => [c[0] + R * x, c[1] + R * y]);
+    };
+    const far = interior([[-0.63, -0.38], [-0.38, -0.18], [-0.18, -0.04], [0.06, 0.15], [0.28, 0.40], [0.50, 0.53]],
+      0.035, [0, 0]);
+    visibleFilament(far, 0.85 * width, 0.9 * (0.4 + 0.6 * b.level), 2.5 * px, 0.25, true);
+    const near = interior([[-0.45, 0.62], [-0.38, 0.37], [-0.25, 0.15], [-0.08, 0.03], [0.05, -0.18],
+      [0.30, -0.23], [0.36, -0.35], [0.60, -0.48]], 0.022,
+      [0.035 * Math.sin(1.1 * seconds), 0.035 * Math.cos(0.9 * seconds)]);
+    visibleFilament(near, 0.78 * width, 0.88 * (0.4 + 0.6 * b.level), 0.65 * px, 0, false,
+      Math.max(0.3 * px, 0.02 * R), 0.75);
     const knots: P2[] = [[-0.55, 0.38], [-0.44, 0.58], [-0.22, 0.48], [-0.15, 0.65], [0.10, 0.57]]
       .map(([x, y]) => [x + 0.025 * gauss(rand), y + 0.025 * gauss(rand)]);
     const lower: P2[] = [];
