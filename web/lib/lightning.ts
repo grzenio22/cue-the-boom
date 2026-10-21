@@ -62,9 +62,12 @@ export const BRUSH = [2, 3, 0.06, 0.14, 0.3, 0.5, 0.26, 0.7]; // (count, its ran
 // forks fanning on from its end
 
 /** A channel: its points, width (px), brightness against its bolt's main channel (1), forks, the parent's point it
- * forks from (``at``), and (a main channel) ``strikes``: which way the surface its far end strikes runs, or none. */
+ * forks from (``at``), and (a main channel) ``strikes``: which way the surface its far end strikes runs, or none.
+ * ``endSoft`` lets a foreground filament fall away in depth; ``recessSoft`` buries one short stretch without losing
+ * its glow. ``depth`` is the material crossed by a volume filament, independently of its optical defocus. */
 export interface Channel { pts: P2[]; width: number; inten: number; forks: Channel[]; at: number; strikes?: P2; diffuse?: boolean;
-  rootSoft?: number; rootScale?: number; softness?: number; source?: PalmSource; filament?: boolean }
+  rootSoft?: number; rootScale?: number; softness?: number; endSoft?: number; recessSoft?: number; source?: PalmSource; filament?: boolean;
+  depth?: number }
 
 /** An observed open palm's compact source and the fingers that may pass in front of it. */
 export interface PalmSource { at: P2; radius: number; scale: number; landmarks: P2[]; aim: number; level?: number }
@@ -588,10 +591,22 @@ export function arcChannels(arcs: Arcs, level: number): [Channel, number][] {
   return out;
 }
 
+/** The same path reuses its hot stretches and current dip, including where the foreground recedes optically. */
+function currentProfile(c: Channel, total: number) {
+  const start = c.pts[0], end = c.pts[c.pts.length - 1];
+  const rand = rng((4096 * Math.round((end[0] - start[0]) / 4) ^ 8192 * Math.round((end[1] - start[1]) / 4) ^
+    131071 * Math.round(total / 4)) >>> 0);
+  const hot = [0.12 + 0.14 * rand(), 0.4 + 0.13 * rand(), 0.72 + 0.16 * rand()]
+    .map((at) => ({ at, span: 0.035 + 0.03 * rand(), power: 0.72 + 0.28 * rand() }));
+  return { hot, dipAt: 0.36 + 0.28 * rand() };
+}
+
 /** The stretches a channel is drawn in: [points, width px, alpha], thinning along it and, a branch (dimmer than the
- * bolt's main channel), fading (TAPER) and thinning more (BRANCH_W) along it. */
-export function stretches(c: Channel, gain: number): [P2[], number, number][] {
+ * bolt's main channel), fading (TAPER) and thinning more (BRANCH_W) along it. ``top`` is this frame's strongest
+ * emitted intensity, so a bright foreground path retains its localized current dip while the discharge fades. */
+export function stretches(c: Channel, gain: number, top = 1): [P2[], number, number][] {
   const branch = !c.filament && c.inten < 0.6 ? Math.min(1, (0.6 - c.inten) / 0.2) : 0;
+  const hotFilament = c.filament && (c.depth ?? Number((c.softness ?? 0) > 0)) === 0 && c.inten * gain >= 0.65 * top;
   const out: [P2[], number, number][] = [];
   const n = c.pts.length - 1;
   if (n < 1) return out;
@@ -600,11 +615,7 @@ export function stretches(c: Channel, gain: number): [P2[], number, number][] {
     Math.hypot(c.pts[i][0] - c.pts[i - 1][0], c.pts[i][1] - c.pts[i - 1][1]));
   const total = cumulative[n];
   if (total <= 1e-9) return out;
-  const end = c.pts[n], start = c.pts[0];
-  const rand = rng((4096 * Math.round((end[0] - start[0]) / 4) ^ 8192 * Math.round((end[1] - start[1]) / 4) ^
-    131071 * Math.round(total / 4)) >>> 0);
-  const hot = [0.12 + 0.14 * rand(), 0.4 + 0.13 * rand(), 0.72 + 0.16 * rand()]
-    .map((at) => ({ at, span: 0.035 + 0.03 * rand(), power: 0.72 + 0.28 * rand() }));
+  const { hot, dipAt } = currentProfile(c, total);
   const currents = Array.from({ length: CHUNKS }, (_, k) => Math.max(...hot.map(({ at, span, power }) =>
     power * Math.exp(-0.5 * (((k + 0.5) / CHUNKS - at) / span) ** 2))));
   const peak = Math.max(...currents, 1e-9);
@@ -624,9 +635,11 @@ export function stretches(c: Channel, gain: number): [P2[], number, number][] {
     const taper = 1 - (1 - MAIN_TAPER[0]) * ((k + 0.5) / CHUNKS) ** MAIN_TAPER[1];
     const thin = (c.filament ? 0.65 + 0.55 * current : 0.1 + 1.4 * current ** 0.75) * taper * (1 - branch) +
       (BRANCH_W[0] + (BRANCH_W[1] - BRANCH_W[0]) * u) * branch;
+    const dip = hotFilament ? 1 - 0.80 * Math.exp(-0.5 * (((k + 0.5) / CHUNKS - dipAt) / 0.055) ** 4) : 1;
+    const filamentAlpha = (0.55 + 0.6 * current) * dip;
     out.push([pts, Math.max(branch ? BRANCH_W[2] : 0, c.width * thin),
       c.inten * gain * (1 - TAPER[0] * branch * u ** TAPER[1]) *
-      (branch + (1 - branch) * (c.filament ? 0.55 + 0.6 * current : 0.025 + 1.45 * current ** 1.5))]);
+      (branch + (1 - branch) * (c.filament ? filamentAlpha : 0.025 + 1.45 * current ** 1.5))]);
   }
   return out;
 }
@@ -741,10 +754,15 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
     const resolved = (c: Channel): boolean => !!(c.strikes && !c.diffuse) || c.forks.some(resolved);
     receiverContacts.set(ctx, list.some(([c]) => resolved(c)));
   }
+  const source = list.find(([c]) => c.source)?.[0].source;
+  const sourceSoft = source ? Math.min(3 * px, Math.max(0.6 * px, 0.012 * source.scale)) : undefined;
+  const top = Math.max(1e-9, ...list.map(([c, gain]) => c.inten * gain));
   const flat: [P2[], number, number, number, number][] = []; // points, width, alpha, branch share, optical softness
   const walk = (c: Channel, g: number) => {
     const branch = c.filament ? 0 : Math.min(1, Math.max(0, (0.6 - c.inten) / 0.4));
-    const parts = stretches(c, g);
+    const parts = stretches(c, g, top);
+    const recessAt = c.recessSoft && c.pts.length > 1 ? currentProfile(c, c.pts.slice(1).reduce((sum, p, i) =>
+      sum + Math.hypot(p[0] - c.pts[i][0], p[1] - c.pts[i][1]), 0)).dipAt : 0;
     for (let i = 0; i < parts.length; i++) {
       const [pts, w, a] = parts[i];
       let rootSoft = i < 2 ? c.rootSoft ?? 0.6 * px : 0.25 * px;
@@ -754,14 +772,31 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
         const fade = Math.max(0, Math.min(1, (0.8 * c.rootScale - distance) / (0.65 * c.rootScale)));
         rootSoft = 0.25 * px + (c.rootSoft - 0.25 * px) * fade * fade * (3 - 2 * fade);
       }
-      flat.push([pts, w, a, branch, c.softness ?? rootSoft]);
+      let softness = c.softness ?? sourceSoft ?? rootSoft, alpha = a;
+      if ((c.endSoft || c.recessSoft) && c.filament && (c.depth ?? 0) === 0 && c.inten * g >= 0.65 * top) {
+        const start = c.pts[0], end = c.pts[c.pts.length - 1], dx = end[0] - start[0], dy = end[1] - start[1];
+        const first = pts[0], last = pts[pts.length - 1];
+        const along = Math.max(0, Math.min(1, (((first[0] + last[0]) / 2 - start[0]) * dx +
+          ((first[1] + last[1]) / 2 - start[1]) * dy) / (dx * dx + dy * dy || 1)));
+        const fade = Math.max(0, Math.min(1, (Math.abs(along - 0.5) - 0.20) / 0.25));
+        const ends = fade * fade * (3 - 2 * fade);
+        if (c.endSoft) {
+          softness = Math.hypot(softness, c.endSoft * Math.sqrt(ends));
+          alpha *= 1 - 0.35 * ends;
+        }
+        if (c.recessSoft) {
+          const recess = Math.exp(-0.5 * ((along - recessAt) / 0.085) ** 4);
+          softness = Math.hypot(softness, c.recessSoft * Math.sqrt(recess));
+          alpha *= 1 - 0.75 * recess;
+        }
+      }
+      flat.push([pts, w, alpha, branch, softness]);
     }
     c.forks.forEach((f) => walk(f, g));
   };
   list.forEach(([c, g]) => walk(c, g));
   const lit = flat.filter(([pts, , a]) => pts.length > 1 && a > 0.001);
   ctx.save();
-  const source = list.find(([c]) => c.source)?.[0].source;
   if (source) drawSourceReflection(ctx, source);
   if (source) clipFingers(ctx, source.landmarks, source.scale);
   ctx.globalCompositeOperation = "lighter";
@@ -821,7 +856,7 @@ export function drawChannels(ctx: CanvasRenderingContext2D, channels: Channel[] 
 /** The fingertip's compact spark leaves its reflected skin light dominant; a hovering source keeps its air corona. */
 export function drawSpark(ctx: CanvasRenderingContext2D, at: P2, r: number, amp: number, onSkin = true) {
   if (amp <= 0) return;
-  if (onSkin) r *= 0.5;
+  if (onSkin) r *= 0.5 * 0.005 / 0.035;
   const g = ctx.createRadialGradient(at[0], at[1], 0, at[0], at[1], r);
   g.addColorStop(0, `rgba(240, 248, 255, ${Math.min(1, amp)})`);
   g.addColorStop(0.3, `rgba(150, 200, 255, ${0.6 * Math.min(1, amp)})`);
@@ -887,7 +922,8 @@ export const BALL_HAND_RGB = "0, 0, 0"; // leaves the picture as it was). Its li
 export function drawLight(ctx: CanvasRenderingContext2D, at: P2, scale: number, strength: number, lm: P2[] | null,
   room: string, onHand: string, w: number, h: number, handGain = 1) {
   if (strength <= 0 || (room === "0, 0, 0" && onHand === "0, 0, 0")) return; // (screened, black changes nothing)
-  const focus = receiverFocus(seen, receiverContacts.get(ctx) ?? false);
+  const keyFocus = receiverFocus(seen, true);
+  const focus = receiverContacts.get(ctx) ? keyFocus : 0;
   const roomGain = (1 - 0.85 * focus) * (1 - 0.65 * focus);
   ctx.save();
   ctx.globalCompositeOperation = "screen";
@@ -903,9 +939,11 @@ export function drawLight(ctx: CanvasRenderingContext2D, at: P2, scale: number, 
   if (mask) {
     if (source) sourceShadows(mask, source);
     const k = mask.createRadialGradient(at[0], at[1], 0, at[0], at[1], 2.5 * scale);
-    const gain = handGain * (source ? 0.65 * 0.22 : 1);
-    k.addColorStop(0, `rgba(${onHand}, ${0.75 * gain * strength})`);
-    k.addColorStop(1, `rgba(${onHand}, ${0.15 * gain * strength})`);
+    const gain = handGain * (source ? 0.50 * 0.16 : 1 - 0.65 * keyFocus);
+    const cap = 0.32 - 0.12 * keyFocus;
+    const response = (value: number) => source ? value : cap * Math.tanh(value / cap);
+    k.addColorStop(0, `rgba(${onHand}, ${response(0.75 * gain * strength)})`);
+    k.addColorStop(1, `rgba(${onHand}, ${response(0.15 * gain * strength)})`);
     mask.fillStyle = k;
     mask.fillRect(0, 0, w, h);
     ctx.drawImage(mask.canvas, 0, 0, w, h);
@@ -916,10 +954,10 @@ export function drawLight(ctx: CanvasRenderingContext2D, at: P2, scale: number, 
 
 const tipCanvas = new WeakMap<object, Ctx2D>();
 
-/** A narrow reflection follows the distal finger's curvature and fades rapidly away from the contact.
+/** A broad low-energy reflection follows the finger's curved sides and fades rapidly away from the contact.
  * Screening this local field leaves pores and creases in the camera image visible beneath the blue-white return. */
 function drawTipReflection(ctx: CanvasRenderingContext2D, lm: P2[], scale: number, strength: number,
-  tipIndex = 8, whitening = 0.3, cap = 1) {
+  tipIndex = 8, whitening = 0.12, cap = 0.24) {
   const main = ctx.canvas as HTMLCanvasElement | undefined;
   if (!main?.width || typeof ctx.drawImage !== "function") return;
   const tip = lm[tipIndex], joint = lm[tipIndex - 2], length = Math.hypot(joint[0] - tip[0], joint[1] - tip[1]);
@@ -935,14 +973,14 @@ function drawTipReflection(ctx: CanvasRenderingContext2D, lm: P2[], scale: numbe
   const pixels = texture.createImageData(64, 64);
   for (let j = 0; j < 64; j++) for (let i = 0; i < 64; i++) {
     const along = -0.025 + 0.385 * (j + 0.5) / 64, across = 0.6 * ((i + 0.5) / 64 - 0.5);
-    const curvature = Math.exp(-0.5 * (across / 0.1) ** 2);
+    const curvature = Math.exp(-0.5 * (across / 0.15) ** 2);
     const fade = Math.max(0, Math.min(1, (0.34 - along) / 0.08));
     const contact = Math.max(0, Math.min(1, (along + 0.025) / 0.035));
     const distance = Math.max(0, along);
-    const diffuse = curvature * Math.exp(-distance / 0.34) / (1 + (distance / 0.17) ** 2);
-    let reflected = (1 - Math.exp(-1.2 * strength * diffuse)) * fade * contact;
+    const diffuse = curvature * Math.exp(-distance / 0.22) / (1 + (distance / 0.11) ** 2);
+    let reflected = (1 - Math.exp(-0.63 * strength * diffuse)) * fade * contact;
     if (cap < 1) reflected = cap * Math.tanh(reflected / cap);
-    const white = whitening * (4 * strength * diffuse) / (1 + 4 * strength * diffuse);
+    const white = whitening * (2.1 * strength * diffuse) / (1 + 2.1 * strength * diffuse);
     pixels.data.set([185 + Math.round(70 * white), 218 + Math.round(37 * white), 255, Math.round(255 * reflected)],
       4 * (j * 64 + i));
   }
@@ -1016,12 +1054,12 @@ function drawSourceReflection(ctx: CanvasRenderingContext2D, source: PalmSource)
   const palm = [0, 1].map((axis) => indices.reduce((sum, i) => sum + source.landmarks[i][axis], 0) / 5) as P2;
   const contact = sourceContact(source), distance = Math.max(1, Math.hypot(palm[0] - source.at[0], palm[1] - source.at[1]));
   const gap = Math.hypot(contact[0] - source.at[0], contact[1] - source.at[1]);
-  const contactGain = 0.95 - 0.65 * Math.min(1, gap / Math.max(1, 0.1 * source.scale));
+  const contactGain = 1.1 - 0.65 * Math.min(1, gap / Math.max(1, 0.1 * source.scale));
   const at: P2 = [contact[0] + 0.06 * source.scale * (palm[0] - source.at[0]) / distance,
     contact[1] + 0.06 * source.scale * (palm[1] - source.at[1]) / distance];
   ctx.globalCompositeOperation = "screen";
-  for (const [name, sigma, peak] of [["palm-source-reflection", 0.14, 1 - Math.exp(-contactGain * level)],
-    ["palm-source-shoulder", 0.252, 0.16 * level]] as const) {
+  for (const [name, sigma, peak] of [["palm-source-reflection", 0.11, 1 - Math.exp(-contactGain * level)],
+    ["palm-source-shoulder", 0.198, 0.035 * level]] as const) {
     const mask = handLayer(ctx, name, source.landmarks, source.scale);
     if (!mask) continue;
     sourceShadows(mask, source);
@@ -1046,7 +1084,7 @@ function drawSourceReflection(ctx: CanvasRenderingContext2D, source: PalmSource)
     source.landmarks[tip][1] - source.at[1]) < Math.hypot(source.landmarks[best][0] - source.at[0],
     source.landmarks[best][1] - source.at[1]) ? tip : best, TIPS[0]);
   const tipGap = Math.hypot(source.landmarks[nearestTip][0] - source.at[0], source.landmarks[nearestTip][1] - source.at[1]);
-  if (tipGap < 0.2 * source.scale) drawTipReflection(ctx, source.landmarks, source.scale, 0.55 * level, nearestTip, 0.18, 0.2);
+  if (tipGap < 0.2 * source.scale) drawTipReflection(ctx, source.landmarks, source.scale, 0.55 * level, nearestTip, 0.12, 0.2);
   const coverage = handLayer(ctx, "palm-source-edge-mask", source.landmarks, source.scale);
   const facing = softLayer(ctx, "palm-source-edges");
   if (!facing || !coverage) return;
@@ -1150,18 +1188,18 @@ const LAND = [2.5, 8]; // px at 1080: where it lands, a white-hot point this wid
 const LAND_RGB = "111, 168, 255"; // #6fa8ff
 const SHELL_GONE = [0.45, 0.3]; // shares of the largest it grew to: shrinking, its shell fades out between these, and
 // with its body once it has been a ball (its crackle crawled over the fingers with no source)
-export const BALL_LIGHT = [0.75, 0.45, 40, 1, 3, 0.9]; // its light round it (cuesync.lightning's BALL_LIGHT): (alpha on
+export const BALL_LIGHT = [0.75 * 1.3 / 1.9, 0.45, 40, 1, 3, 0.9]; // its light round it (cuesync.lightning's BALL_LIGHT): (alpha on
 // the hand by its edge, on the room; px at 1080 its middle is over the palm, radii the wall is behind it; radii it is
 // gone by; radii of its dense middle, which hides what it lights there): from its middle as from a ball of its
 // radius, R^2 / (d^2 + h^2) at most 1, a cool white on the hand and a blue-white on the room (spread over the frame, a
 // deep blue, its light tinted the hand lavender and graded the room)
 const BALL_LIGHT_RGB = ["225, 240, 255", "150, 190, 255"]; // (on the hand, on the room)
-export const FILL = [0.12, 2.5, 1.5]; // (alpha a radius out, radii, radii): and on the hand, a softer light as 1 / r
+export const FILL = [0.0528, 2.5, 1.5]; // (alpha a radius out, radii, radii): and on the hand, a softer light as 1 / r
 // of the distance from its middle, coming up from its edge to the last radii and gone smoothly from the second to its
 // reach: a light among the fingers, not a spot on the palm (cuesync.lightning's FILL)
-export const POOL_PALM = [0.16, 0.1, 3]; // (alpha at the palm's point, a radius from it, radii it is gone by): its light
+export const POOL_PALM = [0.096, 0.06, 3]; // (alpha at the palm's point, a radius from it, radii it is gone by): its light
 // pooled on the palm under it, added (about 25 levels a radius out; screened alone, the palm under it hardly lit)
-const HALO: [number, number, string] = [0.045, 0.62, "20, 90, 255"]; // Gain, radius scale and colour: a small faint haze
+const HALO: [number, number, string] = [0.025, 0.62, "20, 90, 255"]; // Gain, radius scale and colour: a small faint haze
 // preserves the core's depth instead of surrounding every filament with a broad uniform blue cloud.
 const PLASMA_TURNS = 0.65; // Turns per second of the broad ridges seen through the translucent core.
 const PLASMA_LAYERS = [[1, 1, 0.2, 1, 0.3], [-0.75, 0.6, -0.5, 1, 0.2]]; // (rate, share, axis x, y, z): its two
@@ -1360,17 +1398,21 @@ export function ballRadius(b: Ball, scale: number): number {
   return scale * sized(b.grown, b.pulse);
 }
 
-/** The charge rises slightly with its radius, exposing its spherical upper half above the foreground fingers. */
-export function ballAt(palm: P2, px: number, radius = 0): P2 {
-  return [palm[0], palm[1] - BALL_LIFT * px - 0.28 * radius];
+/** The charge stays close to its supporting palm and moves into the tracked thumb opening so its lower side clears
+ * the fingers. The live renderer's projected lift is screen-up; its perpendicular thumb direction is horizontal.
+ * A nearly aligned thumb contributes less shift so tracking jitter cannot flip the charge across the palm. */
+export function ballAt(palm: P2, px: number, radius = 0, landmarks: P2[] | null = null): P2 {
+  const projected = landmarks?.length === 21 && Number.isFinite(landmarks[4][0]) ? landmarks[4][0] - palm[0] : 0;
+  const toward = radius > 0 ? projected / Math.max(Math.abs(projected), 0.35 * radius) : 0;
+  return [palm[0] + 0.5 * radius * toward, palm[1] - BALL_LIFT * px - 0.55 * radius];
 }
 
 /** Translucent material from the irregular core outwards, [radii, r, g, b, alpha]. The edge fades without a bright
  * rim and the camera remains visible through its middle; filaments carry the hottest light. */
 export const BODY_STOPS: [number, number, number, number, number][] = [
-  [0, 135, 202, 255, 0.185], [0.15, 142, 207, 255, 0.203], [0.3, 125, 195, 255, 0.185],
-  [0.45, 108, 182, 255, 0.157], [0.6, 95, 164, 255, 0.11], [0.75, 80, 150, 255, 0.052],
-  [0.9, 70, 137, 255, 0.0145], [1.15, 70, 137, 255, 0],
+  [0, 135, 202, 255, 0.1543], [0.15, 142, 207, 255, 0.1693], [0.3, 125, 195, 255, 0.1543],
+  [0.45, 108, 182, 255, 0.1307], [0.6, 95, 164, 255, 0.0917], [0.75, 80, 150, 255, 0.0433],
+  [0.9, 70, 137, 255, 0.0121], [1.15, 70, 137, 255, 0],
 ];
 
 const plasmaCanvas = new WeakMap<object, Ctx2D>();
@@ -1516,7 +1558,7 @@ function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: num
       Math.max(0, Math.min(1, (1.12 - r) / 0.3));
   }
   const bulk = smoothBulk(swirl, n);
-  const hotRegions = [[-0.2, -0.08, 0.3, 0.23], [0.18, 0.14, 0.22, 0.34], [0.04, -0.27, 0.19, 0.25]]
+  const hotRegions = [[-0.2, -0.08, 0.3, 0.23], [0.18, 0.14, 0.3, 0.23], [0.04, 0.28, 0.25, 0.19]]
     .map(([x, y, sx, sy], i) => [x + 0.07 * Math.sin(1.3 * phase + 2.1 * i),
       y + 0.07 * Math.cos(1.1 * phase + 1.7 * i), sx * 0.3 / 0.36, sy * 0.3 / 0.36]);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
@@ -1536,11 +1578,11 @@ function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: num
     const cloud = 0.5 + 0.5 * Math.sin(3.1 * x + 1.6 * y + 0.4 * phase) * Math.sin(2.7 * y - 1.3 * x - 0.3 * phase);
     const density = 0.28 + 0.2 * cloud + 0.54 * Math.max(s + 0.1, 0);
     const near = support?.[j * n + i] ?? 1;
-    const body = 0.6 * chord * density * (1 - 0.25 * edge) * open * Math.max(1 - (r / 1.04) ** 2, 0) ** 0.65 *
-      (0.45 + 0.55 * near);
+    const body = 0.5 * chord * density * (1 - 0.25 * edge) * open * Math.max(1 - (r / 1.04) ** 2, 0) ** 0.65 *
+      (0.15 + 0.85 * near);
     let hotShape = 0;
     for (const [ox, oy, sx, sy] of hotRegions) hotShape += 0.5 * Math.exp(-0.5 * (((x - ox) / sx) ** 2 + ((y - oy) / sy) ** 2));
-    const hot = 1.15 * hotShape * chord * (0.5 + 0.8 * Math.max(s, -0.45)) * open * (0.16 + 0.84 * near);
+    const hot = 0.95 * hotShape * chord * (0.5 + 0.8 * Math.max(s, -0.45)) * open * (0.15 + 0.85 * near);
     const energy = body + hot;
     const cover = hand ? fingerCoverage([hand.center[0] + x * hand.radius, hand.center[1] + y * hand.radius],
       hand.landmarks, hand.scale) : 0;
@@ -1585,7 +1627,7 @@ function drawBallBulk(ctx: CanvasRenderingContext2D, b: Ball, c: P2, R: number, 
   if (body > 0) {
     const scatter = softLayer(ctx, "ball-scatter");
     if (scatter && typeof ctx.drawImage === "function") {
-      scatter.filter = `blur(${0.35 * R / SOFT_Q}px)`;
+      scatter.filter = `blur(${0.20 * R / SOFT_Q}px)`;
       scatter.drawImage(ctx.canvas, 0, 0, ctx.canvas.width, ctx.canvas.height);
       scatter.filter = "none";
       scatter.globalCompositeOperation = "destination-in";
@@ -1594,7 +1636,7 @@ function drawBallBulk(ctx: CanvasRenderingContext2D, b: Ball, c: P2, R: number, 
         const n = PLASMA_PX, pixels = mask.createImageData(n, n);
         for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
           const x = (2 * (i + 0.5) / n - 1) * PLASMA_EXTENT, y = (2 * (j + 0.5) / n - 1) * PLASMA_EXTENT;
-          const tau = 2.5 * Math.exp(-0.5 * (x * x + y * y) / 0.37 ** 2) * (0.45 + 0.55 * support[j * n + i]);
+          const tau = 2.5 * Math.exp(-0.5 * (x * x + y * y) / 0.37 ** 2) * (0.25 + 0.75 * support[j * n + i]);
           pixels.data.set([255, 255, 255, Math.round(255 * body * (1 - Math.exp(-tau)))], 4 * (j * n + i));
         }
         mask.putImageData(pixels, 0, 0);
@@ -1646,9 +1688,9 @@ function drawBallBulk(ctx: CanvasRenderingContext2D, b: Ball, c: P2, R: number, 
 /** Rear filaments lose light through the core's projected thickness and yield to foreground fingers; front
  * channels cross the distributed emission with sharper, brighter cores. */
 export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale: number, px: number) {
-  const R = ballRadius(b, scale), c = ballAt(palm, px, R);
-  const body = b.born ? dense(b.level, b.charge) : 0;
   const lm = ballHands.get(ctx);
+  const R = ballRadius(b, scale), c = ballAt(palm, px, R, lm);
+  const body = b.born ? dense(b.level, b.charge) : 0;
   ctx.save();
   const reach = 1 + FIL_REACH * (1 - b.most) ** 2;
   const cs = Math.cos(b.turn), sn = Math.sin(b.turn), ct = Math.cos(0.35), st = Math.sin(0.35);
@@ -1674,10 +1716,11 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
     const flush = () => {
       if (run.length > 1) {
         const z = depth / run.length;
-        const focusGain = far ? 0.45 * Math.exp(-4 * body * thickness / run.length) : 1.35 + 0.6 * Math.max(0, z);
-        const gain = focusGain * shellGain * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade * (leaders.has(k) ? 0.3 : 0.08);
+        const opticalDepth = far ? 1 : 0.35;
+        const focusGain = (far ? 0.45 : 1.35 + 0.6 * Math.max(0, z)) * Math.exp(-4 * opticalDepth * body * thickness / run.length);
+        const gain = focusGain * shellGain * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade * (leaders.has(k) ? 0.18 : 0.08);
         (far ? rear : front).push([{ pts: run, width: width * (far ? 0.5 : 1), inten: 0.85, forks: [], at: 0, filament: true,
-          softness: far ? 2.5 * px : Math.max(0.35 * px, 0.003 * R) }, gain]);
+          depth: opticalDepth, softness: (far ? 1.8 + 1.4 * Math.max(0, -z) : 1.3) * px }, gain]);
       }
       run = []; depth = 0; thickness = 0;
     };
@@ -1701,25 +1744,56 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
     flush();
   }
   if (body > 0) {
-    // A connected near chord and two quiet upper limbs establish one spherical envelope between shell strikes.
+    // One resolved crossing leads; weak rear limbs continue round both hemispheres and yield to fingers.
     const seconds = b.frame / 60, rand = rng(15485863 + Math.floor(b.frame / 2));
+    const anchors: P2[] = [[-0.86, -0.28], [-0.64, -0.20], [-0.38, 0.11], [-0.06, -0.05],
+      [0.20, 0.19], [0.46, 0.09], [0.70, 0.25], [0.86, 0.08]].map(([x, y]) => [x, y + 0.035 * gauss(rand)]);
     const crossing: P2[] = [];
-    for (let i = 0; i <= 34; i++) {
-      const x = -0.86 + 1.72 * i / 34;
-      const y = -0.2 - 0.25 * x + 0.1 * Math.sin(Math.PI * x / 0.86) + 0.045 * Math.sin(seconds * 1.7) + 0.025 * gauss(rand);
+    for (let i = 0, knot = 0; i <= 44; i++) {
+      const x = -0.86 + 1.72 * i / 44;
+      while (knot < anchors.length - 2 && anchors[knot + 1][0] < x) knot++;
+      const a = anchors[knot], z = anchors[knot + 1], u = (x - a[0]) / (z[0] - a[0]);
+      const y = a[1] + u * (z[1] - a[1]) + 0.045 * Math.sin(seconds * 1.7) + 0.025 * gauss(rand);
       crossing.push([c[0] + R * x, c[1] + R * y]);
     }
     front.push([{ pts: crossing, width: 0.95 * width, inten: 1.1 * (0.4 + 0.6 * b.level), forks: [], at: 0,
-      filament: true, softness: Math.max(0.35 * px, 0.003 * R) }, b.fade * body]);
-    for (const [start, end] of [[-2.65, -1.95], [-1.35, -0.55]]) {
+      filament: true, depth: 0, softness: Math.max(0.35 * px, 0.003 * R), endSoft: Math.max(0.3 * px, 0.02 * R),
+      recessSoft: Math.max(0.5 * px, 0.055 * R) }, b.fade * body]);
+    const visibleFilament = (points: P2[], width: number, inten: number, softness: number, depth: number) => {
+      let run: P2[] = [];
+      const emit = () => {
+        if (run.length > 1) {
+          const thickness = run.reduce((sum, [x, y]) => sum + Math.sqrt(Math.max(0,
+            1 - ((x - c[0]) ** 2 + (y - c[1]) ** 2) / (R * R || 1))), 0) / run.length;
+          (depth >= 0.5 ? rear : front).push([{ pts: run, width, inten, forks: [], at: 0, filament: true, depth,
+            softness }, b.fade * body * Math.exp(-4 * depth * body * thickness)]);
+        }
+        run = [];
+      };
+      for (const p of points) {
+        if (lm && fingerCover(p, lm, scale)) emit();
+        else run.push(p);
+      }
+      emit();
+    };
+    const knots: P2[] = [[-0.55, 0.38], [-0.44, 0.58], [-0.22, 0.48], [-0.15, 0.65], [0.10, 0.57]]
+      .map(([x, y]) => [x + 0.025 * gauss(rand), y + 0.025 * gauss(rand)]);
+    const lower: P2[] = [];
+    for (let i = 1; i < knots.length; i++) {
+      const a = knots[i - 1], z = knots[i], depth = Math.max(1, Math.ceil(Math.log2(Math.hypot(z[0] - a[0], z[1] - a[1]) / 0.025)));
+      lower.push(...displace(a, z, rand, 0.18, depth).slice(0, -1));
+    }
+    lower.push(knots[knots.length - 1]);
+    visibleFilament(lower.map(([x, y]): P2 => [c[0] + R * x, c[1] + R * y]), 0.55 * width,
+      0.36 * (0.4 + 0.6 * b.level), 1.4 * px, 0.20);
+    for (const [start, end] of [[-2.6, -1.95], [-1.4, -0.78], [0.22, 0.92], [1.65, 2.4]]) {
       const points: P2[] = [];
       for (let i = 0; i <= 18; i++) {
         const theta = start + (end - start) * i / 18 + 0.08 * Math.sin(seconds * 0.7);
-        const radius = 0.94 + 0.018 * gauss(rand);
+        const radius = 0.94 + 0.035 * gauss(rand);
         points.push([c[0] + R * radius * Math.cos(theta), c[1] + R * radius * Math.sin(theta)]);
       }
-      front.push([{ pts: points, width: 0.62 * width, inten: 0.29 * (0.4 + 0.6 * b.level), forks: [], at: 0,
-        filament: true, softness: Math.max(0.35 * px, 0.003 * R) }, b.fade * body]);
+      visibleFilament(points, 0.62 * width, (end < 0 ? 0.24 : 0.3) * (0.4 + 0.6 * b.level), 4 * px, 1);
     }
   }
   drawChannels(ctx, rear, px, 0.18, 0.15 * R, false, BALL_LOOK);
@@ -1802,8 +1876,11 @@ export function leader(span: number, bow: number, rand: () => number, px: number
     tangent.push([tx / tl, ty / tl]);
   }
   const pts: P2[] = [[0, 0]];
+  const length = course.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - course[i][0], p[1] - course[i][1]), 0);
+  // Four shortest-step traversals leave room for kinks while bounding a walk that misses its endpoint.
+  const walkLimit = Math.max(16, 4 * Math.ceil(length / Math.max(s0 * px, 1e-6)));
   let at = 0, sign = rand() < 0.5 ? -1 : 1;
-  for (let guard = 0; guard < 200; guard++) {
+  for (let guard = 0; guard < walkLimit; guard++) {
     const p = pts[pts.length - 1], step = (s0 + (s1 - s0) * rand()) * px;
     if (Math.hypot(end[0] - p[0], end[1] - p[1]) <= 1.3 * step) break;
     let best = at;
@@ -1811,6 +1888,7 @@ export function leader(span: number, bow: number, rand: () => number, px: number
       if (Math.hypot(course[i][0] - p[0], course[i][1] - p[1]) < Math.hypot(course[best][0] - p[0], course[best][1] - p[1])) best = i;
     }
     at = best;
+    if (at === n && (p[0] - end[0]) * tangent[n][0] + (p[1] - end[1]) * tangent[n][1] >= 0) break;
     const [tx, ty] = tangent[at];
     const off = tx * (p[1] - course[at][1]) - ty * (p[0] - course[at][0]);
     const back = Math.max(-d1, Math.min(d1, (-Math.atan2(off, 2 * step) * 180) / Math.PI));
@@ -1913,7 +1991,7 @@ export function drawBallLight(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, 
   if (lm && lm.length === 21) ballHands.set(ctx, lm);
   else ballHands.delete(ctx);
   const R = ballRadius(b, scale);
-  const c = ballAt(palm, px, R);
+  const c = ballAt(palm, px, R, lm);
   const body = b.born ? dense(b.level, b.charge) : 0;
   if (body > 0) {
     const [onHandA, onRoomA, hover, behind, reach, shade] = BALL_LIGHT;
@@ -2025,7 +2103,7 @@ export function drawBallLight(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, 
     lines.push([{ pts, width: proximity * Math.max(1.2 * px, widthK(scale, px) * px * 1.8 * (0.8 + 0.3 * b.level)), inten: 1,
       forks: [], at: 0 }, 0.55 * 0.85 * j.flash * proximity ** 3]);
     const to = j.to!, joint = lm[to === 5 || to === 17 ? to + 1 : Math.max(0, to - 1)];
-    lands.push([pts[pts.length - 1], j.flash * proximity ** 2, [lm[to][0] - joint[0], lm[to][1] - joint[1]]]);
+    lands.push([pts[pts.length - 1], j.flash * proximity ** 4, [lm[to][0] - joint[0], lm[to][1] - joint[1]]]);
   }
   drawChannels(ctx, lines, px, 0.5, 0.1 * scale, false, BALL_LOOK);
   for (const [at, amp, along] of lands) drawLand(ctx, at, Math.min(1, amp), px, along);

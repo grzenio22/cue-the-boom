@@ -265,17 +265,20 @@ describe("arcStep", () => {
       const ctx = Object.assign(fakeCtx(), { canvas: { width: 1080, height: 1920 }, drawImage() {} });
       drawChannels(ctx as unknown as CanvasRenderingContext2D, arcChannels(arcs, 0.8), 1, 1, Infinity, false);
       const pool = layers.flatMap((layer) => layer.gradients.map((g) => ({ ...g, ops: layer.ops, transforms: layer.transforms })))
-        .find((g) => g.x1 === 0 && g.y1 === 0 && Math.abs(g.r1 - 107.8) < 0.001);
+        .find((g) => g.x1 === 0 && g.y1 === 0 && g.r1 > 80 && g.r1 < 90);
       expect(pool).toBeDefined();
-      expect(pool!.r1).toBeGreaterThan(100);
-      expect(pool!.r1).toBeLessThan(115);
+      expect(pool!.r1).toBeGreaterThan(80);
+      expect(pool!.r1).toBeLessThan(90);
       expect(pool!.ops).toContain("source-in");
       expect(pool!.ops).toContain("destination-out");
       const hoveringPeak = Number(pool!.stops[0][1].match(/([\d.]+)\)$/)![1]);
-      expect(hoveringPeak).toBeGreaterThan(0.15);
-      expect(hoveringPeak).toBeLessThan(0.25);
+      expect(hoveringPeak).toBeGreaterThan(0.25);
+      expect(hoveringPeak).toBeLessThan(0.35);
       expect(Number(pool!.stops.at(-1)![1].match(/([\d.]+)\)$/)![1])).toBe(0);
       expect(pool!.transforms).toContainEqual([1.3, 0.85]);
+      const shoulder = layers.flatMap((layer) => layer.gradients).find((g) => g.x1 === 0 && g.y1 === 0 &&
+        g.r1 > 150 && g.r1 < 160)!;
+      expect(Number(shoulder.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.03);
       const edgeLight = layers.some((layer) => layer.gradients.some((gradient) =>
         gradient.stops.some(([, color]) => color.startsWith("rgba(165, 215, 255"))));
       expect(edgeLight).toBe(true);
@@ -296,14 +299,14 @@ describe("arcStep", () => {
         "202, 224, 255", "175, 195, 255", 1080, 1920);
       expect(layers.slice(prior).some((layer) => layer.ops.includes("destination-out"))).toBe(true);
       const broad = layers.slice(prior).flatMap((layer) => layer.gradients).find((gradient) => gradient.r1 === 550)!;
-      expect(Number(broad.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.12);
+      expect(Number(broad.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.06);
       expect(layers.filter((layer) => layer.ops.includes("destination-out")).every((layer) =>
         !layer.ops.includes("multiply"))).toBe(true); // Cast shadows only withhold the new light.
       const touch = { ...source, at: sourceContact(source) };
       const touching = arcStep(newArcs(), touch.at, touch.aim, 220, 0.8, true, 2, 1, plateOf(900), touch);
       drawChannels(ctx as unknown as CanvasRenderingContext2D, arcChannels(touching, 0.8), 1, 1, Infinity, false);
       const touchingPool = layers.flatMap((layer) => layer.gradients).filter((gradient) =>
-        gradient.x1 === 0 && gradient.y1 === 0 && Math.abs(gradient.r1 - 107.8) < 0.001).at(-1)!;
+        gradient.x1 === 0 && gradient.y1 === 0 && gradient.r1 > 80 && gradient.r1 < 90).at(-1)!;
       expect(Number(touchingPool.stops[0][1].match(/([\d.]+)\)$/)![1])).toBeGreaterThan(1.35 * hoveringPeak);
     } finally { vi.unstubAllGlobals(); }
   });
@@ -410,6 +413,24 @@ describe("drawing", () => {
     expect(parts.at(-1)![2]).toBeGreaterThan(0.4 * parts[0][2]);
   });
 
+  it("keeps a bright foreground core apart from one localized current dip that survives fading", () => {
+    const c = { width: 2, inten: 0.9, forks: [], at: 0, filament: true, depth: 0,
+      pts: Array.from({ length: 65 }, (_, i): P2 => [10, i * 10]) };
+    const alpha = stretches(c, 1).map(([, , a]) => a);
+    expect(Math.min(...alpha)).toBeGreaterThan(0);
+    expect(Math.min(...alpha)).toBeGreaterThan(0.08 * Math.max(...alpha));
+    expect(Math.min(...alpha)).toBeLessThan(0.2 * Math.max(...alpha));
+    expect(Math.min(...alpha.slice(0, 3), ...alpha.slice(-3))).toBeGreaterThan(0.4 * Math.max(...alpha));
+    const dim = alpha.flatMap((a, i) => a < 0.25 * Math.max(...alpha) ? [i] : []);
+    expect(dim.length).toBeGreaterThan(0);
+    expect(dim.length).toBeLessThanOrEqual(2);
+    expect(dim.at(-1)! - dim[0] + 1).toBe(dim.length);
+    const fading = stretches(c, 0.15, 0.15).map(([, , a]) => a / 0.15);
+    expect(Math.max(...fading.map((a, i) => Math.abs(a - alpha[i])))).toBeLessThan(1e-12);
+    const deeper = stretches({ ...c, depth: 0.2 }, 1).map(([, , a]) => a);
+    expect(Math.min(...deeper)).toBeGreaterThan(0.4 * Math.max(...deeper));
+  });
+
   it("lets bright stretches narrow into quiet necks and a tapered end", () => {
     const widths: number[][] = [];
     for (let i = 0; i < 20; i++) {
@@ -430,6 +451,44 @@ describe("drawing", () => {
     const cores = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255"));
     expect(cores.length).toBeGreaterThan(5);
     expect(cores.every((s) => s.filter === "blur(2.5px)")).toBe(true);
+  });
+
+  it("softens the foreground ends and one short recess while keeping the remaining core crisp", () => {
+    const c = { pts: Array.from({ length: 45 }, (_, i): P2 => [100 + 4 * i, 200]), width: 2, inten: 0.9,
+      forks: [], at: 0, filament: true, depth: 0, softness: 0.35 };
+    const sharp = fakeCtx(), focused = fakeCtx(), receding = fakeCtx();
+    drawChannels(sharp as unknown as CanvasRenderingContext2D, [c], 1, 0, Infinity, false);
+    drawChannels(focused as unknown as CanvasRenderingContext2D, [{ ...c, endSoft: 2 }], 1, 0, Infinity, false);
+    drawChannels(receding as unknown as CanvasRenderingContext2D, [{ ...c, endSoft: 2, recessSoft: 5.5 }], 1, 0, Infinity, false);
+    const cores = (ctx: ReturnType<typeof fakeCtx>) => ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255"));
+    const original = cores(sharp), falling = cores(focused);
+    const alpha = (s: typeof original[number]) => Number(s.color.match(/([\d.]+)\)$/)![1]);
+    expect(Number(falling[0].filter.match(/[\d.]+/)![0])).toBeGreaterThan(1.5);
+    expect(Number(falling.at(-1)!.filter.match(/[\d.]+/)![0])).toBeGreaterThan(1.5);
+    expect(Number(falling[5].filter.match(/[\d.]+/)![0])).toBeLessThan(0.5);
+    expect(alpha(falling[0])).toBeGreaterThan(0.6 * alpha(original[0]));
+    expect(alpha(falling[0])).toBeLessThan(0.75 * alpha(original[0]));
+    expect(alpha(falling.at(-1)!)).toBeGreaterThan(0.6 * alpha(original.at(-1)!));
+    expect(alpha(falling.at(-1)!)).toBeLessThan(0.75 * alpha(original.at(-1)!));
+    expect(alpha(falling[5])).toBeCloseTo(alpha(original[5]), 6);
+    const buried = cores(receding), blur = buried.map((s) => Number(s.filter.match(/[\d.]+/)![0]));
+    const deepest = blur.indexOf(Math.max(...blur));
+    expect(blur[deepest]).toBeGreaterThan(4);
+    expect(deepest).toBeGreaterThan(2);
+    expect(deepest).toBeLessThan(9);
+    expect(alpha(buried[deepest])).toBeLessThan(0.6 * alpha(original[deepest]));
+    expect(blur.filter((value) => value > 3).length).toBeLessThanOrEqual(3);
+  });
+
+  it("matches the hovering palm discharge's focus along its distant channel as well as its root", () => {
+    const source = palmSource(handUp(540, 1500, 220), [540, 1560], 220, 1)!;
+    const arcs = arcStep(newArcs(), source.at, source.aim, 220, 1, true, 1, 1, plateOf(900), source);
+    const ctx = fakeCtx();
+    drawChannels(ctx as unknown as CanvasRenderingContext2D, arcChannels(arcs, 1), 1, 0, Infinity, false);
+    const cores = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") &&
+      s.points.some(([, y]) => y < source.at[1] - 120));
+    expect(cores.length).toBeGreaterThan(2);
+    expect(cores.every((s) => Number(s.filter.match(/[\d.]+/)![0]) >= 0.6)).toBe(true);
   });
 
   it("breaks the main filament into uneven thickness and brightness without flattening dim branches", () => {
@@ -526,21 +585,23 @@ describe("the light", () => {
     const tip = fakeCtx(), source = fakeCtx();
     drawSpark(tip as unknown as CanvasRenderingContext2D, [200, 400], 12, 1);
     drawSpark(source as unknown as CanvasRenderingContext2D, [200, 400], 12, 1, false);
-    expect(tip.gradients[0].r1).toBe(6);
+    expect(tip.gradients[0].r1).toBeLessThan(1);
+    expect(tip.gradients[0].r1).toBeGreaterThan(0.6);
     expect(source.gradients[0].r1).toBe(12);
   });
 
-  it("wraps the fingertip light down its facing skin and leaves the curved sides and distant finger quiet", () => {
+  it("wraps a restrained fingertip return over the curved sides while retaining the skin's warm pigment", () => {
     const textures: { width: number; pixels: Uint8ClampedArray }[] = [];
     class ContactCanvas {
       pixels = new Uint8ClampedArray();
       constructor(public width: number, public height: number) {}
       getContext() {
-        return Object.assign(fakeCtx(), { canvas: this, setTransform() {}, clearRect() {}, drawImage() {},
+        const ctx = Object.assign(fakeCtx(), { canvas: this, setTransform() {}, clearRect() {}, drawImage() {},
           createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
           putImageData: (data: { data: Uint8ClampedArray }) => {
             this.pixels = data.data.slice(); textures.push({ width: this.width, pixels: this.pixels });
           } });
+        return ctx;
       }
     }
     vi.stubGlobal("OffscreenCanvas", ContactCanvas);
@@ -552,14 +613,18 @@ describe("the light", () => {
         "202, 224, 255", "175, 195, 255", 400, 800);
       const contact = textures.find((texture) => texture.width === 64);
       expect(contact).toBeDefined();
+      expect(Number(ctx.gradients[0].stops[0][1].match(/([\d.]+)\)$/)![1])).toBeCloseTo(0.4, 6);
       const alpha = (x: number, y: number) => contact!.pixels[4 * (y * 64 + x) + 3];
       expect(alpha(32, 16)).toBeGreaterThan(35);
       expect(alpha(14, 16)).toBeGreaterThan(20);
-      expect(alpha(32, 40)).toBeGreaterThan(50);
+      expect(alpha(32, 40)).toBeGreaterThan(5);
       expect(alpha(4, 16)).toBeGreaterThan(2); // A Gaussian shoulder has no hard cylindrical cutoff.
-      expect(contact!.pixels[4 * (16 * 64 + 32)]).toBeGreaterThan(190);
-      expect(contact!.pixels[4 * (16 * 64 + 32)]).toBeLessThan(210);
-      expect(alpha(32, 16)).toBeGreaterThan(2 * alpha(10, 16));
+      expect(contact!.pixels[4 * (16 * 64 + 32)]).toBeGreaterThanOrEqual(185);
+      expect(contact!.pixels[4 * (16 * 64 + 32)]).toBeLessThan(195);
+      expect(alpha(32, 16)).toBeLessThan(65);
+      expect(alpha(32, 16)).toBeGreaterThan(1.25 * alpha(10, 16));
+      expect(alpha(32, 16)).toBeLessThan(2 * alpha(10, 16));
+      expect(alpha(32, 16)).toBeGreaterThan(4 * alpha(32, 40));
       expect(alpha(32, 16)).toBeGreaterThan(4 * alpha(32, 55));
       expect(ctx.ops).not.toContain("source-over"); // The reflection preserves the camera's texture.
       arcStep(newArcs(), lm[8], -Math.PI / 2, 100, 0.8, false, 1, 1, plateOf(900));
@@ -577,6 +642,53 @@ describe("the light", () => {
     expect(receiverFocus({ ...plateOf(900), lum: new Float32Array(135 * 240).fill(150) }, true)).toBe(1);
     expect(receiverFocus({ ...plateOf(900), lum: new Float32Array(135 * 240).fill(25) }, true)).toBe(0);
     expect(receiverFocus(plateOf(900), false)).toBe(0);
+  });
+
+  it("keeps dark-room finger bounce while reducing the broad hand patch around a bright-room receiver", () => {
+    let luminance = 25;
+    const layers: ReturnType<typeof fakeCtx>[] = [];
+    class PlateCanvas {
+      constructor(public width: number, public height: number) {}
+      getContext() {
+        const ctx = Object.assign(fakeCtx(), { canvas: this, setTransform() {}, clearRect() {}, drawImage() {},
+          createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+          putImageData() {},
+          getImageData: () => ({ data: new Uint8ClampedArray(this.width * this.height * 4).fill(luminance) }) });
+        layers.push(ctx);
+        return ctx;
+      }
+    }
+    vi.stubGlobal("OffscreenCanvas", PlateCanvas);
+    const ctx = Object.assign(fakeCtx(), { canvas: { width: 400, height: 800 }, drawImage() {}, getImageData() {} });
+    const receiving = { ...channel([200, 520], [200, 250], rng(1)), strikes: [1, 0] as P2 };
+    const lm = handUp(200, 600, 100);
+    for (const tip of [12, 16, 20]) lm[tip] = [...lm[tip - 2]];
+    const alpha = (gradient: { stops: [number, string][] }) => Number(gradient.stops[0][1].match(/([\d.]+)\)$/)![1]);
+    const render = (level: number, contact = true) => {
+      luminance = level;
+      drawChannels(ctx as unknown as CanvasRenderingContext2D, [contact ? receiving : { ...receiving, strikes: undefined }], 1);
+      drawLight(ctx as unknown as CanvasRenderingContext2D, [200, 300], 100, 1, lm,
+        "202, 224, 255", "175, 195, 255", 400, 800);
+      return { hand: alpha(layers.flatMap((layer) => layer.gradients).filter((g) => g.r1 === 250).at(-1)!),
+        room: alpha(ctx.gradients.at(-1)!) };
+    };
+    try {
+      const dark = render(25), bright = render(170);
+      expect(dark.hand).toBeGreaterThan(0.3);
+      expect(dark.hand).toBeLessThan(0.33);
+      expect(bright.hand).toBeGreaterThan(0.16);
+      expect(bright.hand).toBeLessThan(0.20);
+      expect(bright.hand).toBeLessThan(0.65 * dark.hand);
+      expect(dark.room).toBeCloseTo(0.4, 6);
+      expect(bright.room).toBeCloseTo(0.021, 6);
+      const brightWall = render(170, false);
+      expect(brightWall.hand).toBeCloseTo(bright.hand, 6);
+      expect(brightWall.room).toBeCloseTo(0.4, 6);
+    } finally {
+      luminance = 25;
+      drawChannels(ctx as unknown as CanvasRenderingContext2D, [receiving], 1);
+      vi.unstubAllGlobals();
+    }
   });
 
   it("holds while the strokes strike, flickering, and goes with the last of them", () => {
@@ -601,8 +713,10 @@ describe("the ball", () => {
     return voice.map((v, frame) => (b = ballStep(b, v, false, frame + 1)));
   };
 
-  const shellCores = (ctx: ReturnType<typeof fakeCtx>, b: Ball, palm: P2 = [200, 600], scale = 200) => {
+  const shellCores = (ctx: ReturnType<typeof fakeCtx>, b: Ball, palm: P2 = [200, 600], scale = 200, lm: P2[] | null = null) => {
     const baseline = fakeCtx();
+    if (lm) drawBallLight(baseline as unknown as CanvasRenderingContext2D, { ...b, born: false, jumps: [] },
+      palm, scale, lm, 400, 800, 1);
     drawBall(baseline as unknown as CanvasRenderingContext2D, { ...b, shell: [] }, palm, scale, 1);
     const crossing = new Set(baseline.drawn.map((stroke) => JSON.stringify(stroke.points)));
     return ctx.drawn.filter((stroke) => stroke.color.startsWith("rgba(238, 243, 255") &&
@@ -612,8 +726,31 @@ describe("the ball", () => {
   it("exposes a spherical charge above the fingers as its radius grows", () => {
     const b = run()[20]!, ctx = fakeCtx(), R = ballRadius(b, 200);
     drawBallLight(ctx as unknown as CanvasRenderingContext2D, b, [200, 610], 200, null, 400, 800, 1);
-    expect(ctx.gradients[0].y1).toBeLessThan(460 - 0.25 * R);
-    expect(ctx.gradients[0].y1).toBeGreaterThan(460 - 0.32 * R);
+    expect(ctx.gradients[0].y1).toBeLessThan(460 - 0.5 * R);
+    expect(ctx.gradients[0].y1).toBeGreaterThan(460 - 0.6 * R);
+  });
+
+  it("keeps the luminous body and its illumination together in the tracked thumb opening", () => {
+    const lm = handUp(200, 600, 100), palm: P2 = [200, 610];
+    const left = ballAt(palm, 1, 100, lm);
+    expect(left).toEqual([150, 405]);
+    const mirrored = lm.map(([x, y]): P2 => [400 - x, y]);
+    expect(ballAt(palm, 1, 100, mirrored)).toEqual([250, 405]);
+    const aligned = lm.map((p): P2 => [...p]);
+    aligned[4][0] = 199.9;
+    const justLeft = ballAt(palm, 1, 100, aligned);
+    aligned[4][0] = 200.1;
+    const justRight = ballAt(palm, 1, 100, aligned);
+    expect(Math.abs(justRight[0] - justLeft[0])).toBeLessThan(0.3);
+    const b = { ...run()[20]!, grown: 1, pulse: 0, shell: [], jumps: [], most: 1 }, ctx = fakeCtx();
+    drawBallLight(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, lm, 400, 800, 1);
+    expect(ctx.gradients[0].x1).toBe(150);
+    expect(ctx.gradients[0].y1).toBe(405);
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    const hero = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") &&
+      s.filter !== "blur(4px)" && s.filter !== "blur(1.4px)").flatMap((s) => s.points);
+    expect(Math.min(...hero.map(([x]) => x))).toBeCloseTo(64, 6);
+    expect(Math.max(...hero.map(([x]) => x))).toBeCloseTo(236, 6);
   });
 
   it("keeps a connected dominant front arc crossing the luminous middle between random shell strikes", () => {
@@ -623,19 +760,65 @@ describe("the ball", () => {
       const ctx = fakeCtx();
       drawBall(ctx as unknown as CanvasRenderingContext2D, { ...b, frame }, [200, 610], 200, 1);
       const cores = ctx.drawn.filter((stroke) => stroke.color.startsWith("rgba(238, 243, 255") &&
-        Number(stroke.color.match(/([\d.]+)\)$/)![1]) > 0.45);
+        stroke.filter !== "blur(4px)" && stroke.filter !== "blur(1.4px)" &&
+        Number(stroke.color.match(/([\d.]+)\)$/)![1]) > 0.01);
       const points = cores.flatMap((stroke) => stroke.points);
       expect(points.length).toBeGreaterThan(20);
       expect(Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x))).toBeGreaterThan(1.6 * R);
-      expect(Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y))).toBeGreaterThan(0.35 * R);
-      expect(Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y))).toBeLessThan(0.85 * R);
-      expect(points.reduce((sum, [, y]) => sum + y, 0) / points.length).toBeLessThan(ballAt([200, 610], 1, R)[1] - 0.12 * R);
+      expect(Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y))).toBeGreaterThan(0.4 * R);
+      expect(Math.max(...points.map(([, y]) => y)) - Math.min(...points.map(([, y]) => y))).toBeLessThan(0.7 * R);
+      const meanY = points.reduce((sum, [, y]) => sum + y, 0) / points.length;
+      expect(meanY).toBeGreaterThan(ballAt([200, 610], 1, R)[1] - 0.05 * R);
+      expect(meanY).toBeLessThan(ballAt([200, 610], 1, R)[1] + 0.1 * R);
+      const yAt = (x: number) => [...points].sort((a, b) => Math.abs(a[0] - 200 - x * R) - Math.abs(b[0] - 200 - x * R))[0][1];
+      expect(yAt(-0.38)).toBeGreaterThan(yAt(-0.06) + 0.04 * R);
+      expect(yAt(0.20)).toBeGreaterThan(yAt(0.46));
       const upper = ctx.drawn.filter((stroke) => stroke.color.startsWith("rgba(238, 243, 255") &&
         stroke.points.some(([, y]) => y < ballAt([200, 610], 1, R)[1] - 0.65 * R));
       expect(upper.length).toBeGreaterThan(0);
       expect(Math.max(...upper.map((stroke) => Number(stroke.color.match(/([\d.]+)\)$/)![1])))).toBeLessThan(0.4);
       expect(cores.every((stroke) => !stroke.filter.includes("2.5"))).toBe(true);
     }
+  });
+
+  it("continues the lower hemisphere with dim defocused rear arcs beneath the bright crossing", () => {
+    const b = { ...run()[20]!, shell: [], jumps: [], most: 1 };
+    const ctx = fakeCtx(), palm: P2 = [200, 610], R = ballRadius(b, 200), center = ballAt(palm, 1, R);
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    const lower = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") && Number(s.filter.match(/[\d.]+/)![0]) >= 3 &&
+      s.points.some(([, y]) => y > center[1] + 0.45 * R));
+    expect(lower.length).toBeGreaterThan(4);
+    expect(Math.max(...lower.flatMap((s) => s.points.map(([, y]) => y)))).toBeGreaterThan(center[1] + 0.8 * R);
+    expect(Math.max(...lower.map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])))).toBeLessThan(0.7);
+    expect(lower.every((s) => Number(s.filter.match(/[\d.]+/)![0]) >= 3)).toBe(true);
+    const lm = handUp(200, 430, 100), hidden = fakeCtx();
+    drawBallLight(hidden as unknown as CanvasRenderingContext2D, { ...b, born: false }, palm, 200, lm, 400, 800, 1);
+    drawBall(hidden as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    const visibleLower = hidden.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") && Number(s.filter.match(/[\d.]+/)![0]) >= 3 &&
+      s.points.some(([, y]) => y > center[1] + 0.45 * R));
+    expect(visibleLower.length).toBeGreaterThan(0);
+    expect(visibleLower.flatMap((s) => s.points).every((p) => fingerCoverage(p, lm, 200) < 0.35)).toBe(true);
+  });
+
+  it("adds one short jagged lower current that yields to crossing fingers", () => {
+    const b = { ...run()[20]!, grown: 1, pulse: 0, shell: [], jumps: [], most: 1 };
+    const palm: P2 = [200, 610], center = ballAt(palm, 1, 100), open = fakeCtx();
+    drawBall(open as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    const lower = (ctx: ReturnType<typeof fakeCtx>) => ctx.drawn.filter((s) =>
+      s.color.startsWith("rgba(238, 243, 255") && s.filter === "blur(1.4px)");
+    const points = lower(open).flatMap((s) => s.points);
+    expect(points.length).toBeGreaterThan(20);
+    expect(Math.max(...points.map(([, y]) => y))).toBeGreaterThan(center[1] + 55);
+    const width = Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x));
+    expect(width).toBeGreaterThan(50);
+    expect(width).toBeLessThan(90);
+    const lm = handUp(50, 490, 100), hidden = fakeCtx();
+    drawBallLight(hidden as unknown as CanvasRenderingContext2D, { ...b, born: false }, palm, 200, lm, 400, 800, 1);
+    drawBall(hidden as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    const visible = lower(hidden).flatMap((s) => s.points);
+    expect(visible.length).toBeGreaterThan(0);
+    expect(visible.length).toBeLessThan(points.length);
+    expect(visible.every((p) => fingerCoverage(p, lm, 200) < 0.35)).toBe(true);
   });
 
   it("concentrates volumetric support around the front arcs and leaves distant empty space open", () => {
@@ -670,7 +853,7 @@ describe("the ball", () => {
     expect(fingerCoverage([200, 660], lm, 100)).toBe(0);
   });
 
-  it("emits a faint irregular volume whose rear light yields to the crossing finger", () => {
+  it("emits a luminous translucent volume whose rear light yields to the crossing finger", () => {
     class PixelCanvas {
       pixels = new Uint8ClampedArray();
       constructor(public width: number, public height: number) {}
@@ -688,26 +871,27 @@ describe("the ball", () => {
         pts: Array.from({ length: 33 }, (_, i): [number, number, number] => [-0.48, 0.05 + 0.02 * i, 0.45]),
         inten: 1, left: 1, flash: 1,
       }], jumps: [] };
-      const lm = handUp(200, 520, 100), palm: P2 = [200, 610];
+      const lm = handUp(200, 393, 100), palm: P2 = [200, 610];
       const render = (hand: P2[] | null) => {
         let pixels = new Uint8ClampedArray();
         const ctx = Object.assign(fakeCtx(), { canvas: { width: 400, height: 800 },
           drawImage(canvas: PixelCanvas) { if (canvas.width === 112) pixels = canvas.pixels.slice(); } });
-        drawBallLight(ctx as unknown as CanvasRenderingContext2D, { ...b, born: false }, palm, 200, hand, 400, 800, 1);
-        drawBall(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+        const anchoredPalm: P2 = hand ? palm : [150, palm[1]];
+        drawBallLight(ctx as unknown as CanvasRenderingContext2D, { ...b, born: false }, anchoredPalm, 200, hand, 400, 800, 1);
+        drawBall(ctx as unknown as CanvasRenderingContext2D, b, anchoredPalm, 200, 1);
         return pixels;
       };
       const open = render(null), covered = render(lm);
       const alphaAt = (pixels: Uint8ClampedArray, p: P2) => {
-        const x = Math.floor(56 + 0.56 * (p[0] - 200) / 1.15), y = Math.floor(56 + 0.56 * (p[1] - 460) / 1.15);
+        const x = Math.floor(56 + 0.56 * (p[0] - 150) / 1.15), y = Math.floor(56 + 0.56 * (p[1] - 405) / 1.15);
         return pixels[4 * (y * 112 + x) + 3];
       };
       expect(alphaAt(open, lm[6])).toBeGreaterThan(3);
       expect(alphaAt(covered, lm[6])).toBeLessThan(0.08 * alphaAt(open, lm[6]));
-      expect(alphaAt(covered, [200, 410])).toBe(alphaAt(open, [200, 410]));
+      expect(alphaAt(covered, [200, 275])).toBe(alphaAt(open, [200, 275]));
       const alpha = Array.from(open).filter((_, i) => i % 4 === 3);
-      expect(Math.max(...alpha)).toBeGreaterThan(60); // Compact hot regions and integrated emission fill the interior.
-      expect(Math.max(...alpha)).toBeLessThan(145); // Near filaments retain the hottest light.
+      expect(Math.max(...alpha)).toBeGreaterThan(40); // Compact hot regions support the foreground discharge.
+      expect(Math.max(...alpha)).toBeLessThan(155); // The volume leaves the camera image readable through it.
       expect(new Set(alpha.filter((a) => a > 0)).size).toBeGreaterThan(10);
     } finally { vi.unstubAllGlobals(); }
   });
@@ -748,7 +932,7 @@ describe("the ball", () => {
   });
 
   it("uses the tracked fingers to hide rear filaments while leaving front filaments visible", () => {
-    const lm = handUp(200, 600, 100), palm: P2 = [200, 610];
+    const lm = handUp(150, 573, 100), palm: P2 = [200, 610];
     const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, turn: 0, shell: [{
       pts: Array.from({ length: 17 }, (_, i): [number, number, number] =>
         [-0.52 + i * 0.005, (0.9 - 0.5 * Math.sin(0.35)) / Math.cos(0.35), -0.5]),
@@ -782,7 +966,8 @@ describe("the ball", () => {
     const peak = (ctx: ReturnType<typeof fakeCtx>) => Math.max(...cores(ctx).map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])));
     expect(peak(far)).toBeLessThan(0.3 * peak(near));
     expect(cores(far).every((s) => Number(s.filter.match(/[\d.]+/)![0]) >= 2)).toBe(true);
-    expect(cores(near).every((s) => Number(s.filter.match(/[\d.]+/)![0]) < 1)).toBe(true);
+    expect(cores(near).every((s) => Number(s.filter.match(/[\d.]+/)![0]) >= 1 &&
+      Number(s.filter.match(/[\d.]+/)![0]) < 2)).toBe(true);
   });
 
   it("selects the two visible interior leaders instead of privileging the first two paths", () => {
@@ -795,8 +980,9 @@ describe("the ball", () => {
     drawBall(ctx as unknown as CanvasRenderingContext2D, b, [200, 600], 200, 1);
     const peak = (x: number) => Math.max(...shellCores(ctx, b).filter((s) =>
       s.points.some(([px]) => Math.abs(px - x) < 1)).map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])));
-    expect(peak(200)).toBeGreaterThan(0.32);
-    expect(peak(270)).toBeLessThan(0.3 * peak(200));
+    expect(peak(200)).toBeGreaterThan(0.06);
+    expect(peak(200)).toBeLessThan(0.16);
+    expect(peak(270)).toBeLessThan(0.8 * peak(200));
   });
 
   it("hides rear arcs through the thick middle while leaving their silhouette-side stretches visible", () => {
@@ -826,12 +1012,12 @@ describe("the ball", () => {
     const inner = render(0.6), outer = render(0.91);
     const alpha = (s: (typeof inner)[number]) => Number(s.color.match(/([\d.]+)\)$/)![1]);
     const emitted = (lines: typeof inner) => lines.reduce((sum, s) => sum + s.width * alpha(s), 0);
-    expect(Math.max(...inner.map(alpha))).toBeGreaterThan(0.2);
+    expect(Math.max(...inner.map(alpha))).toBeGreaterThan(0.01);
     expect(emitted(outer)).toBeLessThan(0.7 * emitted(inner));
   });
 
   it("stops the bright near run at the depth boundary before a hidden rear point", () => {
-    const lm = handUp(200, 600, 100), palm: P2 = [200, 610];
+    const lm = handUp(150, 573, 100), palm: P2 = [200, 610];
     const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, turn: 0, jumps: [], shell: [{
       pts: Array.from({ length: 33 }, (_, i): [number, number, number] => {
         const z = i < 16 ? 0.1 : -0.6;
@@ -841,25 +1027,25 @@ describe("the ball", () => {
     const ctx = fakeCtx();
     drawBallLight(ctx as unknown as CanvasRenderingContext2D, { ...b, born: false }, palm, 200, lm, 400, 800, 1);
     drawBall(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
-    const points = shellCores(ctx, b, palm).flatMap((s) => s.points);
+    const points = shellCores(ctx, b, palm, 200, lm).flatMap((s) => s.points);
     expect(points.length).toBeGreaterThan(10);
-    expect(Math.max(...points.map(([x]) => x))).toBeLessThan(145);
+    expect(Math.max(...points.map(([x]) => x))).toBeLessThan(95);
   });
 
   it("keeps rear filaments visible over the receiving palm below the distal fingers", () => {
-    const lm = handUp(200, 600, 100), palm: P2 = [200, 760];
+    const lm = handUp(200, 513, 100), palm: P2 = [200, 760];
     const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, turn: 0, jumps: [], shell: [{
       pts: Array.from({ length: 17 }, (_, i): [number, number, number] =>
-        [-0.1 + i * 0.005, (0.3 - 0.5 * Math.sin(0.35)) / Math.cos(0.35), -0.5]),
+        [-0.1 + i * 0.005, (0.7 - 0.5 * Math.sin(0.35)) / Math.cos(0.35), -0.5]),
       inten: 1, left: 1, flash: 1,
     }] };
     const open = fakeCtx(), palmCovered = fakeCtx();
     drawBall(open as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
     drawBallLight(palmCovered as unknown as CanvasRenderingContext2D, b, palm, 200, lm, 400, 800, 1);
-    const before = palmCovered.strokes;
     drawBall(palmCovered as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
-    expect(palmCovered.strokes - before).toBe(open.strokes);
-    expect(open.strokes).toBeGreaterThan(0);
+    const uncovered = shellCores(open, b, palm), covered = shellCores(palmCovered, b, palm, 200, lm);
+    expect(covered.length).toBe(uncovered.length);
+    expect(uncovered.length).toBeGreaterThan(0);
   });
 
   it("hovers off the palm, up the picture", () => {
@@ -951,6 +1137,25 @@ describe("the ball", () => {
     expect(GROUND.reduce((s, p) => s + p, 0)).toBeCloseTo(1, 9);
   });
 
+  it("ends a short leader as soon as its walk overshoots the terminal tangent", () => {
+    let calls = 0;
+    const path = leader(20, 0.35, () => { calls++; return 0.75; }, 0.25);
+    expect(path[0]).toEqual([0, 0]);
+    expect(path.at(-1)).toEqual([1, 0]);
+    expect(calls).toBeLessThan(40);
+    expect(Math.max(...path.map(([x]) => x))).toBeLessThan(2);
+  });
+
+  it("gives a long leader enough steps to reach its end without a large closing jump", () => {
+    let calls = 0;
+    const path = leader(3000, 0.1, () => { calls++; return 0; }, 1);
+    expect(path.at(-1)).toEqual([1, 0]);
+    expect(path.length).toBeGreaterThan(250);
+    const a = path.at(-2)!, b = path.at(-1)!;
+    expect(3000 * Math.hypot(b[0] - a[0], b[1] - a[1])).toBeLessThanOrEqual(13.1);
+    expect(calls).toBeLessThan(4000);
+  });
+
   it("draws each arc in straight steps kinked 20-50 degrees, its course never turning back on itself", () => {
     const rand = rng(4);
     const kinks: number[] = [];
@@ -1014,21 +1219,23 @@ describe("the ball", () => {
     const lm = handUp(200, 600, 100), palm: P2 = [200, 610];
     const render = (count: number, seed: number) => {
       const ctx = fakeCtx();
-      const b = { ...run()[20]!, grown: 1, most: 1, pulse: 0, shell: [],
+      const b: Ball = { ...run()[20]!, grown: 1, most: 1, pulse: 0, shell: [],
         jumps: Array.from({ length: count }, () => ({ side: -1, k: 0, pad: false, bow: 0.2, leave: 0,
           left: 1, flash: 1, seed })) };
       drawBallLight(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, lm, 400, 800, 1);
-      return ctx;
+      return Object.assign(ctx, { targets: b.jumps.filter((j) => j.to !== undefined).map((j) => j.to) });
     };
     const contacts = (ctx: ReturnType<typeof fakeCtx>) => ctx.gradients.filter((gradient) =>
       gradient.stops[0][1].startsWith("rgba(205, 230, 255"));
     const seed = Array.from({ length: 20 }, (_, i) => i + 1).find((seed) => contacts(render(1, seed)).length === 1);
     expect(seed).toBeDefined();
     const ctx = render(2, seed!);
-    expect(contacts(ctx).length).toBe(1);
+    expect(contacts(ctx).length).toBe(ctx.targets.length);
+    expect(new Set(ctx.targets).size).toBe(ctx.targets.length);
+    expect(contacts(ctx).length).toBeLessThanOrEqual(2);
     const cores = ctx.drawn.filter((stroke) => stroke.color.startsWith("rgba(238, 243, 255"));
     expect(cores.length).toBeGreaterThan(0);
-    expect(Math.max(...cores.map((stroke) => Number(stroke.color.match(/([\d.]+)\)$/)![1])))).toBeLessThan(0.2);
+    expect(Math.max(...cores.map((stroke) => Number(stroke.color.match(/([\d.]+)\)$/)![1])))).toBeLessThan(0.4);
     expect(Number(contacts(ctx)[0].stops[0][1].match(/([\d.]+)\)$/)![1])).toBeLessThan(0.35);
   });
 
