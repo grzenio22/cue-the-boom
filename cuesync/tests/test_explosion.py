@@ -58,11 +58,11 @@ def test_an_explosion_goes_off_on_its_hit_and_not_before():
     assert np.array_equal(X.render(plate, tr, None, tl, "fist", seed=3, element=el), out)  # the same bytes again
 
 
-def test_the_fireballs_light_is_its_own_image_spread_and_falling_off_round_it():
+def test_the_flash_light_is_its_own_image_spread_and_falling_off_round_it():
     h, w, r = 120, 200, 10
     yy, xx = np.mgrid[:h, :w]
     y = ((xx - 100) ** 2 + (yy - 60) ** 2 <= r * r).astype(np.float32)
-    spread, norm = X.falloff((h, w), X.LIGHT_FALLOFF[0] * r, r, X.LIGHT_FALLOFF[1])
+    spread, norm = X.falloff((h, w), X.LIGHT_FALLOFF[0] * r, r, X.LIGHT_SETTLE[2])
     L = X.blast_light(y, spread, norm)
     assert abs(L[60, 100] - 1.0) < 0.15 and 0.5 < L[60, 100 + r] < 0.8  # a ball of luminance 1 lights its middle 1
     past = L[60, 100 + 2 * r]
@@ -679,3 +679,106 @@ def test_foreground_smoke_keeps_its_depth_while_the_rear_lobes_disperse():
         transmission = (q / room).mean(-1)
         assert np.median(transmission[near]) < 0.75 * np.median(transmission[rear])
         assert (transmission[silhouette > 0.5] > 0.9).mean() > 0.15
+
+
+def test_sustained_firelight_leaves_the_distant_wall_outside_its_highlight_plateau():
+    from cuesync.transfer import lin
+
+    yy, xx = np.mgrid[:160, :320]
+    radius = 20
+    source = ((xx - 100) ** 2 + (yy - 80) ** 2 < radius ** 2).astype(np.float32)
+    spread, norm = X.falloff(source.shape, X.LIGHT_FALLOFF[0] * radius, radius, X.LIGHT_FALLOFF[1])
+    light = X.blast_light(source, spread, norm) * X.LIGHT_GAIN
+    plate = np.full((160, 320, 3), (165, 135, 100), np.uint8)
+    room = lin(plate)
+    colour = X.light_colour(np.array([[[0.9, 0.5, 0.1]]], np.float32))
+    empty = np.zeros(source.shape, np.float32)
+    lit = X.warm_light(room, room + room * light[..., None] * colour, empty, empty)
+    lift = X.shoulder_added(lit, plate).astype(float) - plate
+    near, far = lift[80, 140], lift[80, 220]
+    # A strong nearby orange response must still have a visible spatial gradient after the camera shoulder.
+    assert near[0] > 50 and near[1] > 15
+    assert far[0] < 0.2 * near[0] and far[1] < 5
+
+
+def test_the_initial_flash_does_not_hold_a_broad_wash_over_the_settled_fire():
+    n, h, w = 20, 128, 256
+    plate = np.full((n, h, w, 3), 120, np.uint8)
+    element = np.full((60, 96, 128, 3), 4, np.uint8)
+    yy, xx = np.mgrid[:96, :128]
+    for k in range(5, 60):
+        radius = min(30, 4 + 4 * (k - 5))
+        element[k][(xx - 64) ** 2 + (yy - 48) ** 2 <= radius ** 2] = (255, 160, 40)
+    track = hand(n, w, h, at=(80.0, 100.0), scale=12.0)
+    timeline = Timeline(n=n, energy=np.zeros(n), hits=[5], sizes=[1.0], tap_frame=5)
+    out = X.render(plate, track, None, timeline, "palm", seed=3, element=element)
+    far = out[:, 15:35, 210:240].mean((1, 2)) - 120
+    # The initial pressure flash still reaches the far wall. Once the sustained fire settles, its compact
+    # illumination must replace that old spatial footprint even if the old source was much more intense.
+    assert far[5, 0] > 20
+    assert far[15, 0] < 8 and far[15, 1] < 4
+
+
+def test_a_short_blast_cannot_relight_the_wall_after_its_flash_history_releases(monkeypatch):
+    n, h, w, hit = 20, 96, 128, 5
+    plate = np.full((n, h, w, 3), 100, np.uint8)
+    element = np.full((40, 96, 128, 3), 4, np.uint8)
+    element[5:16, 18:78, 34:94] = (255, 160, 40)
+    active, lit_frames = [hit], []
+    original = X.warm_light
+
+    def observe(*args, **kwargs):
+        lit_frames.append(active[0])
+        return original(*args, **kwargs)
+
+    def advance(*args):
+        active[0] += 1
+
+    monkeypatch.setattr(X, "warm_light", observe)
+    track = hand(n, w, h, at=(64.0, 75.0), scale=12.0)
+    timeline = Timeline(n=n, energy=np.zeros(n), hits=[hit], sizes=[1.0], tap_frame=hit)
+    X.render(plate, track, None, timeline, "palm", seed=3, element=element, progress=advance)
+    assert hit in lit_frames
+    assert not any(frame >= hit + 8 for frame in lit_frames)
+
+
+def test_the_burning_rim_keeps_dark_skin_folds_darker_than_the_lit_faces():
+    from cuesync.transfer import lin
+
+    plate = np.empty((24, 24, 3), np.uint8)
+    plate[:12] = (220, 145, 130)
+    plate[12:] = (95, 45, 40)
+    room = lin(plate)
+    matte = np.ones((24, 24), np.float32)
+    lit = room + np.array([1.8, 0.4, 0.02], np.float32)
+    out = X.shoulder_added(X.warm_light(room, lit, matte, matte * 0.65, burn=1.0), plate).astype(float)
+    original = plate @ X.C._LUMA
+    result = out @ X.C._LUMA
+    contrast = result[:12].mean() - result[12:].mean()
+    assert contrast > 0.65 * (original[:12].mean() - original[12:].mean())
+    lift = result - original
+    assert lift[:12].mean() > 5
+    assert lift[12:].mean() < 0.6 * lift[:12].mean()
+
+
+@pytest.mark.parametrize("since", [23, 30])
+def test_cooling_smoke_keeps_thin_fringe_and_unequal_paths_through_its_dense_body(since):
+    import cv2
+
+    yy, xx = np.mgrid[:200, :280]
+    distance = np.hypot((xx - 140) / 1.3, yy - 100)
+    silhouette = np.clip((85 - distance) / 8, 0, 1).astype(np.float32)
+    folds = 50 + 20 * np.sin(xx / 16) * np.cos(yy / 13)
+    source = (4 + silhouette * folds)[..., None].repeat(3, -1).astype(np.uint8)
+    room = np.full(source.shape, 0.3, np.float32)
+    result = X.SmokeVolume(200, 280, 280, seed=2).draw(
+        room, source, silhouette, 4, np.zeros_like(room), since, 25, 1.0, (0, 200, 0, 280))
+    transmission = (result / room).mean(-1)
+    # Measure actual transmitted room with no scattered light. At phone resolution there must be weak paths
+    # within the filled body, alongside dense folds; reducing the opacity of the whole cloud cannot satisfy both.
+    phone = cv2.resize(transmission, (140, 100), interpolation=cv2.INTER_AREA)
+    core = cv2.resize((distance < 55).astype(np.uint8), (140, 100), interpolation=cv2.INTER_NEAREST) > 0
+    assert (phone[core] > 0.35).mean() > 0.22
+    assert (phone[core] < 0.1).mean() > 0.15
+    fringe = (distance > 70) & (distance < 82)
+    assert transmission[fringe].mean() > 0.55

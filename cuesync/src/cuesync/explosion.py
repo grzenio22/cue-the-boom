@@ -72,8 +72,8 @@ CORE_LIGHT = {0: 1.0, 1: 0.6, 2: 0.4, 3: 0.25, 4: 0.12, 5: 0.05}  # its light on
 # ball grows
 FLASH = {0: 0.45, 1: 0.25, 2: 0.1, 3: 0.03}  # exposure, stops: the flash (at +0.7 the whole picture washed out; an
 # iris overshooting after it dipped the room's light for a frame)
-LIGHT_HOLD = 0.75  # the room's light falls by at most this share of itself a frame (as the flash and the core handed
-# over to the growing ball, the wall went +40, +12, +20 levels: a blink)
+LIGHT_HOLD = 0.75  # retain this share of the previous firelight between frames to avoid a second flash during
+# handoff. LIGHT_SETTLE releases the superseded broad flash first; subsequent firelight keeps this decay.
 FLICKER = (0.12, 0.5)  # the fireball's light flickers by about this share, its noise smoothed over this many frames
 # (8-12 Hz: a smooth ramp down is not how firelight behaves), as long as it is fire
 FLASH_REACH, FLASH_FAR = 2.5, 0.35  # the flash falls off over this many fireball radii, to this share far from it
@@ -82,9 +82,10 @@ LIGHT_GAIN = 6.6  # the fireball lights the room from its own image: its fire's 
 # (blast_light, LIGHT_FALLOFF), times this, on each surface's colour (fx.albedo): the wall within a radius of a ball at
 # full burn lifts about +50 levels in red, green under half of that, blue not at all, and the light dies with the fire
 # (the room light of a point source a hand behind the ball lifted the wall +9 levels: the blast lit nothing)
-LIGHT_FALLOFF = (0.8, 2.0)  # the spread is 1 / (1 + r / (this many radii of the ball)) ** this: a wall one radius
-# past its edge takes a quarter of what lights its middle, and twice as far a third of that (spread 1/r, the far wall
-# was lit nearly as much as the wall by the ball: a flat lift over the whole picture, not a pool of light round it)
+LIGHT_FALLOFF = (0.8, 4.2)  # source-convolved spread: (1 + r / (this many ball radii)) ** -power. Sustained fire
+# needs a compact pool: the camera shoulder otherwise flattens both the nearby and distant wall to the same orange.
+LIGHT_SETTLE = (4, 8, 2.0)  # frames after ignition: keep the initial flash's broader falloff (last value), then
+# tighten it continuously and restore the skin's recorded shadow relief as the camera settles onto the live fire.
 LIGHT_V = (0.5, 0.7)  # its colour is a camera's fire colour (RAMP) for the fire's brightness, held between deep
 # orange and orange (the render's own lemon-yellow lifted a khaki wall green; yellower, the wall went yellow-white)
 LIGHT_GLOW = 0.03  # the same light scattered in the air and the lens, over everything
@@ -104,6 +105,8 @@ SKIN_BG = 0.15  # ...and blue at most this much of green's rise (lit skin's red 
 SKIN_LIFT = (10.0, 40.0, 30.0)  # display levels: the most the fire lifts the arm's face, and its rim, and the rim this
 # much more while the fire burns (lit flat, a fist in front of the ball read cream-white; held to +40, the fist in
 # front of an orange fireball read unlit)
+SKIN_SHADE = 0.65  # display luminance of a fully lit skin face; darker native folds receive proportionally less
+# added rim light, and less of the warm-white rim, so a common highlight target cannot fill the hand's shadows.
 SKIN_RIM = (0.88, 0.45)  # ...where on its rim green may rise to this share of red and blue to this share of green's
 # rise (skin's red is near white already: held to SKIN_GR its rim could rise a dozen levels, and a rim lit by a
 # white-hot ball goes warm white)
@@ -206,8 +209,8 @@ SCATTER = (1.5, 0.12, 6.0, 0.15, 3e-3)  # the soot scatters the room's light as 
 SOOT_HUE = 0.85  # black soot takes the colour of the light it scatters and of what shows through it: the room's (lit by
 # the fire), this much of its colour kept, the rest grey (relit from the render's dim red fire, the soot by the dying
 # ball went raspberry and mauve, and neutral grey over the warm wall read lavender)
-VOLUME_HANDOFF = (18, 32)  # frames after ignition: resolve the cooling body into separate optical depths while its
-# last pockets still emit. The burning source keeps its existing exposure and contact treatment.
+VOLUME_HANDOFF = (16, 26)  # frames after ignition: open the cooling soot's unequal optical paths while its last hot
+# pockets remain. Delaying until 32 left the dense phase's thin lobes sealed by the older opaque composite.
 VOLUME_DEPTH = 3.4  # optical depth through overlapping soot: background detail fades before its broad illumination,
 # so a bright switch cannot remain a pale rectangular insert inside a thin lobe.
 LOBE_SEPARATE = (28, 36)  # after the cooling handoff, release the filled interior into overlapping lobes. Each
@@ -704,14 +707,15 @@ def _by_root(table: np.ndarray, x: np.ndarray) -> np.ndarray:
 
 
 def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray, rim: np.ndarray, burn: float = 0.0,
-               response: float = 1.0) -> np.ndarray:
+               response: float = 1.0, relief: float = 1.0) -> np.ndarray:
     """``lit`` (the room ``P`` with the fireball's light on it, linear) with what the light adds kept warm as the
     picture shows it (display values, after the shot's highlight shoulder, bending.SHOULDER). On the room: green rising
     at most LIGHT_WARM of red, blue not at all. On the arm (its matte ``m``): the skin's hue kept (green up to SKIN_GR
     of red, blue rising SKIN_BG of green) and its lift held to SKIN_LIFT, its face's to the first, its ``rim``'s to the
     second and, ``burn`` (BURN) of the way to a burning ball, the third more, its rim then going warm white
     (SKIN_RIM, and the band nearest its outline towards HOT_RIM's white). ``response`` is the fire's shared pulse,
-    applied after limiting the highlight so saturation cannot turn flickering firelight into a flat plateau."""
+    applied after limiting the highlight so saturation cannot turn flickering firelight into a flat plateau.
+    ``relief`` restores native skin shading after the initial flash, keeping dark creases below lit rim faces."""
     _, shown, back, _ = _tables()
     g0 = _by_root(shown, P)
     d = _by_root(shown, lit)
@@ -725,7 +729,9 @@ def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray, rim: np.ndarray, b
         green = np.clip((SKIN_GR + (SKIN_RIM[0] - SKIN_GR) * hot) * (g[..., 0] + red) - g[..., 1], 0.0,
                         np.maximum(e[..., 1], 0.0))
         skin = np.stack([red, green, np.clip(e[..., 2], 0.0, (SKIN_BG + (SKIN_RIM[1] - SKIN_BG) * hot) * green)], -1)
+        shade = 1.0 + np.float32(relief) * (np.clip((g @ C._LUMA) / SKIN_SHADE, 0.0, 1.0) - 1.0)
         most = (SKIN_LIFT[0] + (SKIN_LIFT[1] + SKIN_LIFT[2] * burn - SKIN_LIFT[0]) * r) / 255.0
+        most *= shade
         skin *= np.minimum(1.0, most / np.maximum(skin @ C._LUMA, 1e-6))[..., None]
         arm = (slice(a0, a1), slice(b0, b1)), skin
     np.minimum(d[..., 1], LIGHT_WARM * np.maximum(d[..., 0], 0.0), out=d[..., 1])  # (the room's)
@@ -736,7 +742,7 @@ def warm_light(P: np.ndarray, lit: np.ndarray, m: np.ndarray, rim: np.ndarray, b
     d += g0
     if arm is not None and burn > 0:  # (its hot edge, as shown)
         box = arm[0]
-        hot = np.float32(HOT_RIM[0] * burn) * C._smoothstep(*HOT_RIM[1], rim[box]) * m[box]
+        hot = np.float32(HOT_RIM[0] * burn) * C._smoothstep(*HOT_RIM[1], rim[box]) * m[box] * shade ** 2
         d[box] += hot[..., None] * np.maximum(np.array(HOT_RIM[2], np.float32) / 255.0 - d[box], 0.0)
     d = g0 + np.float32(response) * (d - g0)
     np.clip(d, 0.0, 1.0, out=d)
@@ -1073,7 +1079,9 @@ class SmokeVolume:
             # A smooth optical taper leaves both translucent strands and soft gaps. Its fine structure moves with
             # the layer, while the photographic billows retain their own native edge softness.
             porous = C._smoothstep(0.24 + 0.34 * edge, 0.82, noise)
-            density = cov * (0.24 * (1.0 - edge) + (0.76 + 0.24 * edge) * porous) * (1.0 - 0.6 * edge)
+            # Weak paths must remain weak through both overlapping layers. A broad density floor sealed them
+            # into one opaque patch; sparse paths and thinner fringes retain the dense photographed folds.
+            density = cov * (0.08 * (1.0 - edge) + (0.92 + 0.08 * edge) * porous ** 1.5) * (1.0 - 0.8 * edge)
             if index == 1:
                 density *= C._smoothstep(0.3, 0.68, noise)
             # Broad lower skirts disperse ahead of compact cores. Keep the denser foreground folds while removing
@@ -1595,6 +1603,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                            int(math.ceil(GROW_FRAMES / BURST_SPEED + len(el) - e_ign - GROW_FRAMES)) + 1))
     q = 8
     spread, spread_norm = falloff((h // q, w // q), LIGHT_FALLOFF[0] * R / q, R / q, LIGHT_FALLOFF[1])
+    flash_spread, flash_norm = falloff((h // q, w // q), LIGHT_FALLOFF[0] * R / q, R / q, LIGHT_SETTLE[2])
     outline, fire = Outline(h, w, side, seed), Fire(side, seed)
     volume = SmokeVolume(h, w, side, seed)
     wobble = np.random.default_rng([seed, 89]).standard_normal((1, n + 8))
@@ -1603,6 +1612,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
     held = held_colour = src = None  # (the light on the frame before, its colour, and where its fire's middle was)
     for t in range(k0, last):
         since = t - k0
+        settled = float(C._smoothstep(*LIGHT_SETTLE[:2], since))
         pulse = 1.0 + (flicker[t] - 1.0) * min(1.0, since / 3.0)
         P = lin(plate[t])
         m = hand_coverage(plate[t], mask, t)
@@ -1662,12 +1672,21 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
         lit = None
         if fire_small is not None and fire_small.max() > 0:
             y_small = fire_small @ C._LUMA
-            lit = blast_light(y_small, spread, spread_norm)
+            if settled <= 0.0:
+                lit = blast_light(y_small, flash_spread, flash_norm)
+            elif settled >= 1.0:
+                lit = blast_light(y_small, spread, spread_norm)
+            else:
+                lit = blast_light(y_small, (1.0 - settled) * flash_spread / flash_norm
+                                  + settled * spread / spread_norm, 1.0)
             ys_, xs_ = np.indices(y_small.shape)
             src = (q * float((xs_ * y_small).sum() / y_small.sum()), q * float((ys_ * y_small).sum() / y_small.sum()))
             held_colour = colour
-        if held is not None:  # (the room's light falls by at most LIGHT_HOLD a frame)
-            lit = LIGHT_HOLD * held if lit is None else np.maximum(lit, LIGHT_HOLD * held)
+        if held is not None:
+            # Release the superseded flash footprint as the compact source takes over. Its much stronger
+            # history otherwise kept even a tightly falling live fire on a broad, saturated orange pedestal.
+            hold = LIGHT_HOLD * (1.0 - settled) if since <= LIGHT_SETTLE[1] else LIGHT_HOLD
+            lit = hold * held if lit is None else np.maximum(lit, hold * held)
         if lit is not None and lit.max() > 1e-4:
             held, colour = lit, held_colour
             L = cv2.resize(lit, (w, h)) * np.float32(LIGHT_GAIN)
@@ -1677,10 +1696,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline, fo
                 * colour
             hot = shone > LIGHT_KNEE  # (the composite takes the plate in 8 bits: past white it would clip flat)
             shone[hot] = LIGHT_KNEE + (1.0 - LIGHT_KNEE) * np.tanh((shone[hot] - LIGHT_KNEE) / (1.0 - LIGHT_KNEE))
-            P0, P = P, warm_light(P, shone, m, rim, burn, response=pulse)
+            P0, P = P, warm_light(P, shone, m, rim, burn, response=pulse, relief=settled)
             if ball is not None and burn > 0:  # (the wall by the burning ball lit no brighter than the ball's limb)
                 fire.wall_cap(ball, ef8, floor, P0, P, m, box, burn)
             amb_t = amb + np.float32(SOOT_LIT) * L[..., None] * colour
+        else:
+            held = None  # a released or exhausted flash must not return when ordinary light smoothing resumes
         # Keep the illuminated current plate for one foreground restoration after the rear heat and pressure
         # distortion. Restoring first let those remaps pull fire and soot over the fingers again.
         hand = P
