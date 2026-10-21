@@ -1704,12 +1704,15 @@ class _Filament(tuple):
     """A projected channel with optical softness in pixels and a separate share of volume before it.
 
     A near channel can share the phone's defocus without being extinguished as if it lay behind the whole sphere.
+    ``end_fade`` lets its ends recede while retaining a bright foreground middle, independently of resolution.
     """
 
-    def __new__(cls, points: np.ndarray, width: float, intensity: float, softness: float, depth: float | None = None):
+    def __new__(cls, points: np.ndarray, width: float, intensity: float, softness: float, depth: float | None = None,
+                end_fade: float = 0.0):
         item = super().__new__(cls, (points, width, intensity))
         item.softness = softness
         item.depth = float(softness > 0) if depth is None else depth
+        item.end_fade = end_fade
         return item
 
 
@@ -2020,6 +2023,21 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
                                    + [knots[-1:]])
             visible_filament(c + R * lower, .55 * wd, .36 * (0.4 + 0.6 * lv) * pres * dying, 1.4 * k, .20)
 
+            # A second near current cuts obliquely through the upper interior. The dimmer deep continuation
+            # crosses behind it, so the bright lower chord cannot read as the rim of an empty ring.
+            knots = np.array([[-.45, .62], [-.38, .37], [-.25, .15], [-.08, .03],
+                              [.05, -.18], [.30, -.23], [.36, -.35], [.60, -.48]])
+            knots += prng.normal(0, .022, knots.shape)
+            knots += (.035 * math.sin(sec * 1.1), .035 * math.cos(sec * .9))
+            near = np.concatenate([displace(a, b, prng, .18, .025)[:-1] for a, b in zip(knots[:-1], knots[1:])]
+                                  + [knots[-1:]])
+            out.append(_Filament(c + R * near, .78 * wd, .88 * (0.4 + 0.6 * lv) * pres * dying, .65 * k, 0, .75))
+            far = np.array([[-.63, -.38], [-.38, -.18], [-.18, -.04], [.06, .15], [.28, .40], [.50, .53]])
+            far += prng.normal(0, .035, far.shape)
+            far = np.concatenate([displace(a, b, prng, .22, .025)[:-1] for a, b in zip(far[:-1], far[1:])]
+                                 + [far[-1:]])
+            visible_filament(c + R * far, .85 * wd, .9 * (0.4 + .6 * lv) * pres * dying, 2.5 * k, .25)
+
             # Interrupted rear limbs continue below the equator; their defocus and low current separate them
             # from the single resolved front crossing. Fingers still hide the far side of the sphere.
             for a, b in ((-2.60, -1.95), (-1.40, -.78), (.22, .92), (1.65, 2.40)):
@@ -2172,13 +2190,28 @@ def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0,
         current[1::2] *= 0.035  # long dim constrictions remain resolved through bloom and the camera shoulder
         necks = np.interp((np.arange(chunks) + 0.5) / chunks, knots, current)
         bead = (0.035 + 1.3 * necks ** 1.8) * (1.0 - branch) + rng.uniform(0.6, 1.0, chunks) * branch
+        current_gain = 1.0
         if isinstance(channel, _Filament):
             bead = 0.55 + 0.6 * necks  # near arcs retain a sharp connected crossing over the luminous interior
             if channel.depth == 0 and softness == 0 and inten >= .65 * top:
                 along = (np.arange(chunks) + .5) / chunks
-                dip_at = rng.uniform(.36, .64)
+                dip_at = rng.uniform(.36, .44)
                 # A short weak stretch breaks the white wire while the remaining foreground keeps a bright core.
                 bead *= 1 - .80 * np.exp(-.5 * ((along - dip_at) / .055) ** 4)
+        elif branch < .5:
+            # A narrow interruption inside a hot stretch survives the shoulder without breaking the whole leader.
+            along = (np.arange(chunks) + .5) / chunks
+            strongest = int(np.argmax(necks[2:-2])) + 2
+            dip = 1 - .96 * np.exp(-.5 * ((along - along[strongest]) / .013) ** 4)
+            energy = np.sum(bead ** CORE_GAMMA * (.12 + 1.55 * necks ** .9))
+            bead *= dip
+            necks *= .22 + .78 * dip
+            remaining = np.sum(bead ** CORE_GAMMA * (.12 + 1.55 * necks ** .9))
+            # Redistribution into the surviving hot stretches preserves the dark-room light response.
+            current_gain = min(1.15, float(energy / max(remaining, 1e-6)) ** (1 / CORE_GAMMA))
+        if branch >= .5:
+            # Fine forks need a short readable root before their irregular taper disappears into the phone blur.
+            bead *= np.linspace(1.35, 1, chunks)
         at = np.linspace(0.0, length[-1], chunks + 1)
         # Equal travelled lengths prevent a densely displaced bend from collecting a row of identical bright beads.
         sampled = np.c_[np.interp(at, length, p[:, 0]), np.interp(at, length, p[:, 1])]
@@ -2197,10 +2230,11 @@ def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0,
             cv2.polylines(sub, [q.reshape(-1, 1, 2)], False, lv, th, cv2.LINE_AA, shift=2)
         hot = np.clip((inten - GLOW_HOT[0]) / (GLOW_HOT[1] - GLOW_HOT[0]), 0.0, 1.0)
         boost = 1.0 + (max(1.0, floor / max(width, 1e-6)) - 1.0) * hot
-        line = sub.astype(np.float32) * np.float32(inten / 255.0)
+        line = sub.astype(np.float32) * np.float32(inten * current_gain / 255.0)
         if softness > 0:
             line = cv2.GaussianBlur(line, (0, 0), softness)
-        if ball is not None and isinstance(channel, _Filament) and channel.depth == 0 and softness == 0 and inten >= .65 * top:
+        if ball is not None and isinstance(channel, _Filament) and channel.depth == 0 and \
+                (softness == 0 or channel.end_fade > 0) and inten >= .65 * top:
             axis = p[-1] - p[0]
             xx = np.arange(bx0, bx1, dtype=np.float32) - p[0, 0]
             yy = np.arange(by0, by1, dtype=np.float32)[:, None] - p[0, 1]
@@ -2209,11 +2243,12 @@ def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0,
             ends = ends * ends * (3 - 2 * ends)
             defocused = cv2.GaussianBlur(line, (0, 0), max(.3, .02 * ball.R))
             line += (defocused - line) * ends
-            line *= 1 - .35 * ends
+            line *= 1 - (channel.end_fade or .35) * ends
             # A short stretch recedes into the charge, retaining its glow rather than a continuous white stripe.
-            recess = np.exp(-.5 * ((along - dip_at) / .085) ** 4)
-            buried = cv2.GaussianBlur(line, (0, 0), max(.5, .055 * ball.R))
-            line += (buried * .25 - line) * recess
+            if softness == 0:
+                recess = np.exp(-.5 * ((along - dip_at) / .085) ** 4)
+                buried = cv2.GaussianBlur(line, (0, 0), max(.5, .055 * ball.R))
+                line += (buried * .25 - line) * recess
         depth = getattr(channel, "depth", 0.0)
         if ball is not None and depth > 0:
             dx = (np.arange(bx0, bx1, dtype=np.float32) + x0 - ball.x) / ball.R
@@ -2329,10 +2364,12 @@ def softness(frame: np.ndarray, xy, s: float) -> float:
     return math.sqrt(max(sigma * sigma - SOFT_AA * SOFT_AA, 0.0))
 
 
-def _smear(core: np.ndarray, box: tuple, move: np.ndarray, around: list, s: float, most: float) -> np.ndarray:
+def _smear(core: np.ndarray, box: tuple, move: np.ndarray, around: list, s: float, most: float,
+           weld_keep: float = WELD_KEEP) -> np.ndarray:
     """``core`` (over ``box``, (bh, bw, c)) blurred along ``move`` (px: how far the hand went while the shutter was
     open; at most ``most`` px, SMEAR_MAX) within SMEAR_NEAR of the points ``around`` ([(x, y)] in the frame), in
-    place; within WELD of them it keeps WELD_KEEP of its sharp self, so a channel stays joined to its fingertip."""
+    place; within WELD of them it keeps ``weld_keep`` of its sharp self, so a channel stays joined to its fingertip.
+    Sources use zero: a sharp residual would leave a pinprick inside the recorded shutter smear."""
     length = float(np.hypot(*move))
     if length > most:
         move, length = np.asarray(move, np.float64) * (most / length), most
@@ -2356,7 +2393,7 @@ def _smear(core: np.ndarray, box: tuple, move: np.ndarray, around: list, s: floa
     gap = np.min([np.hypot(xx - px, yy - py) for px, py in pts], axis=0)[..., None]
     sub += (cv2.filter2D(sub, -1, ker, borderType=cv2.BORDER_CONSTANT).reshape(sub.shape) - sub) * \
         np.clip((far - gap) / (far - near), 0, 1)
-    weld = np.clip((WELD[1] * s - gap) / ((WELD[1] - WELD[0]) * s), 0, 1) * np.float32(WELD_KEEP)
+    weld = np.clip((WELD[1] * s - gap) / ((WELD[1] - WELD[0]) * s), 0, 1) * np.float32(weld_keep)
     np.maximum(sub, sharp * weld, out=sub)
     return core
 
@@ -2519,14 +2556,6 @@ def layer(bolts: list, spots: list, ball: Ball | None, s: float, box: tuple, cap
         lines *= (1.0 - hide)[..., None]
     if soft > 0:
         lines = cv2.GaussianBlur(lines, (0, 0), soft)
-    if root_soft > soft and around:
-        near = np.minimum.reduce([np.hypot(np.arange(box[2], box[3], dtype=np.float32) - x,
-                                          np.arange(box[0], box[1], dtype=np.float32)[:, None] - y)
-                                  for x, y in around]) / max(s, 1e-6)
-        blend = np.clip((0.8 - near) / .65, 0, 1)
-        blend = blend * blend * (3 - 2 * blend)
-        defocused = cv2.GaussianBlur(lines, (0, 0), math.sqrt(root_soft * root_soft - soft * soft))
-        lines += (defocused - lines) * blend[..., None]
     core, hot = np.maximum(lines[..., 0], 0), np.maximum(lines[..., 1], 0)  # (a wide smear is filtered by FFT, a hair
     # under 0 here and there)
     out = (core ** np.float32(CORE_GAMMA))[..., None] * (CORE_RGB * np.float32(CORE_GAIN))
@@ -2549,6 +2578,10 @@ def layer(bolts: list, spots: list, ball: Ball | None, s: float, box: tuple, cap
             _spot(spark, box, x, y, r, a)
         if g:
             _spot(haze, box, x, y, LAND[2] * k, g[0])
+    if ball is None and root_soft > 0 and spark.any():
+        # The contact and its bloom pass through the same optics as the finger, before surface occlusion.
+        spark = cv2.GaussianBlur(spark, (0, 0), max(.3, soft))
+        spark = _smear(spark[..., None], box, move, around, s, SMEAR_MAX * k, weld_keep=0)[..., 0]
     glow += haze[..., None] * HAZE_RGB
     flash = np.zeros(core.shape, np.float32)
     for x, y, ax, ay, g, fresh, *kind in impacts:
@@ -2572,7 +2605,20 @@ def layer(bolts: list, spots: list, ball: Ball | None, s: float, box: tuple, cap
         glow += (0.6 * _blur(spark, 0.12 * s))[..., None] * HAZE_RGB
     y = fx._lum(glow)
     glow *= (cap * np.tanh(y / cap) / np.maximum(y, 1e-6))[..., None]
-    return out + glow, veil
+    emission = out + glow
+    if root_soft > soft and around:
+        near = np.minimum.reduce([np.hypot(np.arange(box[2], box[3], dtype=np.float32) - x,
+                                          np.arange(box[0], box[1], dtype=np.float32)[:, None] - y)
+                                  for x, y in around]) / max(s, 1e-6)
+        blend = np.clip((.55 - near) / .4, 0, 1)
+        blend = blend * blend * (3 - 2 * blend)
+        # Filter recorded radiance after the core's nonlinear response, which would sharpen an earlier blur.
+        defocused = cv2.GaussianBlur(emission, (0, 0), math.sqrt(root_soft * root_soft - soft * soft))
+        emission += (defocused - emission) * blend[..., None]
+        # The unresolved electrode shares the blurred skin's range; its surrounding channel can still clip.
+        contact = np.exp(-.5 * (near / .045) ** 2)
+        emission *= (1 - .15 * contact)[..., None]
+    return emission, veil
 
 
 # ---- the light -----------------------------------------------------------------------------------------------------
@@ -2687,10 +2733,12 @@ def hand_reflectance(albedo: np.ndarray, matte: np.ndarray, scale: float) -> np.
     return albedo + (fill - albedo) * factor[..., None]
 
 
-def tip_reflection(source, inward, scale: float, level: float, h: int, w: int) -> tuple[tuple, np.ndarray] | None:
+def tip_reflection(source, inward, scale: float, level: float, h: int, w: int,
+                   matte: np.ndarray | None = None) -> tuple[tuple, np.ndarray] | None:
     """Blue-white contact light down a finger, rolled around its cylindrical face and lost rapidly down its length.
 
-    This is reflected skin illumination, masked by the hand in render, rather than a larger emissive fingertip dot.
+    The observed silhouette sets the cap's width when available. This is reflected skin illumination, masked by
+    the hand in render, rather than a larger emissive fingertip dot.
     """
     if level <= 0 or scale <= 0:
         return None
@@ -2699,15 +2747,43 @@ def tip_reflection(source, inward, scale: float, level: float, h: int, w: int) -
         return None
     y0, y1, x0, x1 = box
     axis = _unit(np.asarray(inward))
+    if matte is not None:
+        source = _source_contact(np.asarray(source), np.asarray(source) + .2 * scale * axis, matte)
     dx = np.arange(x0, x1, dtype=np.float32) - source[0]
     dy = np.arange(y0, y1, dtype=np.float32)[:, None] - source[1]
     along = dx * axis[0] + dy * axis[1]
     across = -dx * axis[1] + dy * axis[0]
     radius = max(1.0, 0.15 * scale)
-    curve = np.exp(-0.5 * (across / radius) ** 2)
+    center = 0.0
+    if matte is not None:
+        offsets = np.linspace(-.22, .22, 65) * scale
+        normal = np.array([-axis[1], axis[0]])
+        sections = np.asarray(source) + np.array([.08, .12, .16])[:, None, None] * scale * axis + offsets[:, None] * normal
+        xi = np.clip(np.rint(sections[..., 0]).astype(int), 0, w - 1)
+        yi = np.clip(np.rint(sections[..., 1]).astype(int), 0, h - 1)
+        on = matte[yi, xi] >= (140 if matte.dtype == np.uint8 else .55)
+        extents = []
+        for row in on:
+            selected = np.flatnonzero(row)
+            runs = np.split(selected, np.flatnonzero(np.diff(selected) > 1) + 1)
+            runs = [run for run in runs if run.size]
+            if runs:
+                run = min(runs, key=lambda part: float(np.abs(offsets[part]).min()))
+                extents.append((offsets[run[0]], offsets[run[-1]]))
+        if extents:
+            lo, hi = np.mean(extents, axis=0)
+            radius = float(np.clip(.45 * (hi - lo), .035 * scale, .15 * scale))
+            center = float(np.clip(.5 * (lo + hi), -.04 * scale, .04 * scale))
+    curve = np.exp(-0.5 * ((across - center) / radius) ** 2)
     falloff = np.exp(-np.maximum(along, 0) / (0.22 * scale)) / (1.0 + (along / (0.11 * scale)) ** 2)
     falloff *= np.clip((along + 0.025 * scale) / (0.025 * scale), 0, 1)
-    return box, (2.1 * level * curve * falloff).astype(np.float32)
+    reflection = 2.1 * curve * falloff
+    if matte is not None:
+        cap = np.exp(-.5 * ((along - .035 * scale) / (.03 * scale)) ** 2)
+        cap *= np.exp(-.5 * ((across - center) / (.8 * radius)) ** 2)
+        cap *= np.clip((along + .025 * scale) / (.025 * scale), 0, 1)
+        reflection = .7 * reflection + 1.1 * cap
+    return box, (level * reflection).astype(np.float32)
 
 
 def source_visibility(landmarks: np.ndarray, source, scale: float, box: tuple) -> np.ndarray:
@@ -3022,6 +3098,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     floor = GLOW_FLOOR * ARC_WIDTH[1] if form == "arc" else 0.0  # (times the hand's width scale)
     soft_px = (DEFOCUS[0] * side / 1080, DEFOCUS[1] * side / 1080)
     move = np.gradient(hand.xy, axis=0) * SHUTTER if n > 1 else np.zeros_like(hand.xy)  # the hand, shutter open
+    tip_move = np.gradient(hand.lm, axis=0) * SHUTTER if n > 1 and hand.lm is not None else None
     picks = np.linspace(0, n - 1, 8).astype(int)
     some = np.stack([lin(plate[i][::2, ::2]) for i in picks])
     white, tint = fx.plate_white(some), fx.plate_tint(some)
@@ -3082,16 +3159,20 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
         if form == "arc" and not roots and bolts[t]:
             # A return stroke has no separate spark, but still shares the source's focus and skin occlusion.
             roots = [tuple(bolts[t][0][0][0, :2])]
+        source_move = move[t]
+        if form == 'arc' and palm_source is None and roots and tip_move is not None:
+            tip = min(TIPS, key=lambda f: float(np.linalg.norm(hand.lm[t, f] - roots[0])))
+            source_move = tip_move[t, tip]
         land_axes = None
         if ball is not None and hand.lm is not None:
             land_axes = []
             for x, y, *_ in spots[t]:
                 f = min(TIPS, key=lambda f: float(np.linalg.norm(hand.lm[t, f] - (x, y))))
                 land_axes.append(_unit(hand.lm[t, f] - hand.lm[t, f - 2]))
-        E, veil = layer(bolts[t], spots[t], ball, s, box, GLOW_CAP[form], soft, move[t], tips or roots, seed, t, side,
+        E, veil = layer(bolts[t], spots[t], ball, s, box, GLOW_CAP[form], soft, source_move, tips or roots, seed, t, side,
                         floor * _width_k(s), behind(t, box, s, roots), struck[t], bright,
                         None if ball is None else finger_cover(hand, t, None if mask is None else mask[t], box), land_axes,
-                        min(6.0 * side / 1080, max(soft, .012 * s))
+                        min(8.0 * side / 1080, max(soft, .018 * s))
                         if form == 'arc' and palm_source is None else 0.0)
         return box, E, float(fx._lum(E).sum(dtype=np.float64)), veil
 
@@ -3265,7 +3346,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                         direct = 1.0 if palm_source is None else .55
                         reflected = tip_reflection((x, y), inward, float(hand.s[t]),
                                                    max(float(voice_levels[t] * hand.presence[t]), 0.3 * float(gain)) *
-                                                   max(.65 if palm_source is not None else 0, float(pulse[t])) * direct, h, w)
+                                                   max(.65 if palm_source is not None else 0, float(pulse[t])) * direct, h, w,
+                                                   matte=m if palm_source is None else None)
                         if reflected is not None:
                             (y0, y1, x0, x1), light = reflected
                             local = (light * m[y0:y1, x0:x1])[..., None]

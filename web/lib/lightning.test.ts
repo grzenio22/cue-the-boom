@@ -383,6 +383,18 @@ describe("arcStep", () => {
 });
 
 describe("drawing", () => {
+  it("breaks a hot main current with a narrow dim neck instead of an equally broad dark dash", () => {
+    const c = { pts: Array.from({ length: 129 }, (_, i): P2 => [400, 1000 - 800 * i / 128]),
+      width: 4, inten: 1, forks: [], at: 0 };
+    const parts = stretches(c, 1), peak = Math.max(...parts.map(([, , a]) => a));
+    const neck = parts.findIndex(([, , a], i) => i > 0 && i < parts.length - 1 && a < 0.16 * peak &&
+      parts[i - 1][2] > 0.25 * peak && parts[i + 1][2] > 0.25 * peak);
+    expect(neck).toBeGreaterThan(0);
+    const [points, width] = parts[neck];
+    expect(Math.abs(points.at(-1)![1] - points[0][1])).toBeLessThan(50);
+    expect(width).toBeLessThan(0.6 * Math.min(parts[neck - 1][1], parts[neck + 1][1]));
+  });
+
   it("concentrates current into a few irregular bright sections separated by quiet necks", () => {
     let adjacentBright = 0;
     for (let i = 0; i < 20; i++) {
@@ -429,6 +441,8 @@ describe("drawing", () => {
     expect(Math.max(...fading.map((a, i) => Math.abs(a - alpha[i])))).toBeLessThan(1e-12);
     const deeper = stretches({ ...c, depth: 0.2 }, 1).map(([, , a]) => a);
     expect(Math.min(...deeper)).toBeGreaterThan(0.4 * Math.max(...deeper));
+    const softNear = stretches({ ...c, softness: 0.65, endFade: 0.75 }, 1).map(([, , a]) => a);
+    expect(Math.min(...softNear)).toBeGreaterThan(0.4 * Math.max(...softNear));
   });
 
   it("lets bright stretches narrow into quiet necks and a tapered end", () => {
@@ -588,6 +602,38 @@ describe("the light", () => {
     expect(tip.gradients[0].r1).toBeLessThan(1);
     expect(tip.gradients[0].r1).toBeGreaterThan(0.6);
     expect(source.gradients[0].r1).toBe(12);
+    expect(Number(tip.gradients[0].stops[0][1].match(/([\d.]+)\)$/)![1])).toBeCloseTo(0.85, 6);
+    expect(Number(source.gradients[0].stops[0][1].match(/([\d.]+)\)$/)![1])).toBe(1);
+  });
+
+  it("gives the fingertip source its tracked focus and a trailing exposure smear", () => {
+    const plate = plateOf(900), stillTip: P2 = [400, 1000], movedTip: P2 = [424, 1006];
+    const still = arcStep(newArcs(4), stillTip, -Math.PI / 2, 220, 1, true, 1, 1, plate);
+    const moved = arcStep(still, movedTip, -Math.PI / 2, 220, 1, true, 2, 1, plate);
+    const settled = fakeCtx(), moving = fakeCtx();
+    drawSpark(settled as unknown as CanvasRenderingContext2D, stillTip, 26.4, 1);
+    drawSpark(moving as unknown as CanvasRenderingContext2D, movedTip, 26.4, 1);
+    expect(Number(moving.filled[0].filter.match(/[\d.]+/)?.[0] ?? 0)).toBeCloseTo(moved.main.ch!.rootSoft!, 6);
+    expect(Number(moving.filled[0].filter.match(/[\d.]+/)?.[0] ?? 0)).toBeGreaterThan(3.8);
+    expect(Number(moving.filled[0].filter.match(/[\d.]+/)?.[0] ?? 0)).toBeGreaterThanOrEqual(
+      Number(settled.filled[0].filter.match(/[\d.]+/)?.[0] ?? 0));
+    expect(moving.gradients.length).toBeGreaterThan(1);
+    expect(Math.min(...moving.gradients.map((g) => g.x1))).toBeLessThan(movedTip[0] - 2);
+    expect(Math.max(...moving.gradients.map((g) => g.x1))).toBeLessThanOrEqual(movedTip[0]);
+    expect(Math.max(...moving.gradients.map((g) => g.r1))).toBeLessThan(2);
+  });
+
+  it("lets the fingertip skin return lead by attenuating only the immediate emitted root", () => {
+    const c = { pts: Array.from({ length: 97 }, (_, i): P2 => [200, 400 - i]),
+      width: 4, inten: 1, forks: [], at: 0, rootSoft: 4 };
+    const plain = fakeCtx(), softened = fakeCtx();
+    drawChannels(plain as unknown as CanvasRenderingContext2D, [[c, 0.2]], 1, 0, Infinity, false);
+    drawChannels(softened as unknown as CanvasRenderingContext2D, [[{ ...c, rootScale: 220 }, 0.2]], 1, 0, Infinity, false);
+    const core = (ctx: ReturnType<typeof fakeCtx>) => ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255"));
+    const alpha = (s: ReturnType<typeof core>[number]) => Number(s.color.match(/([\d.]+)\)$/)![1]);
+    expect(alpha(core(softened)[0]) / alpha(core(plain)[0])).toBeGreaterThan(0.84);
+    expect(alpha(core(softened)[0]) / alpha(core(plain)[0])).toBeLessThan(0.9);
+    expect(alpha(core(softened).at(-1)!)).toBeCloseTo(alpha(core(plain).at(-1)!), 8);
   });
 
   it("wraps a restrained fingertip return over the curved sides while retaining the skin's warm pigment", () => {
@@ -723,6 +769,16 @@ describe("the ball", () => {
       !crossing.has(JSON.stringify(stroke.points)));
   };
 
+  const connectedCores = (ctx: ReturnType<typeof fakeCtx>) => {
+    const paths: (typeof ctx.drawn)[] = [];
+    for (const stroke of ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255"))) {
+      const prev = paths.at(-1)?.at(-1)?.points.at(-1), first = stroke.points[0];
+      if (prev && first && Math.hypot(prev[0] - first[0], prev[1] - first[1]) < 1e-6) paths.at(-1)!.push(stroke);
+      else paths.push([stroke]);
+    }
+    return paths;
+  };
+
   it("exposes a spherical charge above the fingers as its radius grows", () => {
     const b = run()[20]!, ctx = fakeCtx(), R = ballRadius(b, 200);
     drawBallLight(ctx as unknown as CanvasRenderingContext2D, b, [200, 610], 200, null, 400, 800, 1);
@@ -759,9 +815,11 @@ describe("the ball", () => {
     for (const frame of [20, 21, 22]) {
       const ctx = fakeCtx();
       drawBall(ctx as unknown as CanvasRenderingContext2D, { ...b, frame }, [200, 610], 200, 1);
-      const cores = ctx.drawn.filter((stroke) => stroke.color.startsWith("rgba(238, 243, 255") &&
-        stroke.filter !== "blur(4px)" && stroke.filter !== "blur(1.4px)" &&
-        Number(stroke.color.match(/([\d.]+)\)$/)![1]) > 0.01);
+      const cores = connectedCores(ctx).sort((a, b) => {
+        const span = (path: typeof a) => Math.max(...path.flatMap((s) => s.points.map(([x]) => x))) -
+          Math.min(...path.flatMap((s) => s.points.map(([x]) => x)));
+        return span(b) - span(a);
+      })[0];
       const points = cores.flatMap((stroke) => stroke.points);
       expect(points.length).toBeGreaterThan(20);
       expect(Math.max(...points.map(([x]) => x)) - Math.min(...points.map(([x]) => x))).toBeGreaterThan(1.6 * R);
@@ -779,6 +837,38 @@ describe("the ball", () => {
       expect(Math.max(...upper.map((stroke) => Number(stroke.color.match(/([\d.]+)\)$/)![1])))).toBeLessThan(0.4);
       expect(cores.every((stroke) => !stroke.filter.includes("2.5"))).toBe(true);
     }
+  });
+
+  it("crosses the upper interior with a thinner near current whose middle leads its soft ends", () => {
+    const b = { ...run()[20]!, grown: 1, pulse: 0, shell: [], jumps: [], most: 1 };
+    const palm: P2 = [200, 610], R = ballRadius(b, 200), center = ballAt(palm, 1, R), ctx = fakeCtx();
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, palm, 200, 1);
+    const near = connectedCores(ctx).find((path) => {
+      const points = path.flatMap((s) => s.points), first = points[0], last = points.at(-1)!;
+      return first[0] < center[0] - 0.35 * R && first[1] > center[1] + 0.5 * R &&
+        last[0] > center[0] + 0.5 * R && last[1] < center[1] - 0.35 * R;
+    });
+    expect(near).toBeDefined();
+    const alpha = near!.map((s) => Number(s.color.match(/([\d.]+)\)$/)![1]));
+    const middle = near!.slice(3, -3), ends = [near![0], near!.at(-1)!];
+    expect(Math.max(...alpha.slice(3, -3))).toBeGreaterThan(2 * Math.max(alpha[0], alpha.at(-1)!));
+    expect(Math.max(...middle.map((s) => s.width))).toBeLessThan(2.3);
+    expect(Math.min(...ends.map((s) => Number(s.filter.match(/[\d.]+/)![0])))).toBeGreaterThan(
+      Math.min(...middle.map((s) => Number(s.filter.match(/[\d.]+/)![0]))));
+    expect(near!.flatMap((s) => s.points).some(([x, y]) => Math.hypot(x - center[0], y - center[1]) < 0.25 * R)).toBe(true);
+  });
+
+  it("retains a visible dim far interior current behind the luminous body", () => {
+    const b = { ...run()[20]!, grown: 1, pulse: 0, shell: [], jumps: [], most: 1 }, ctx = fakeCtx();
+    drawBall(ctx as unknown as CanvasRenderingContext2D, b, [200, 610], 200, 1);
+    const far = ctx.drawn.filter((s) => s.color.startsWith("rgba(238, 243, 255") && s.filter === "blur(2.5px)");
+    expect(far.length).toBeGreaterThan(0);
+    const peak = Math.max(...far.map((s) => Number(s.color.match(/([\d.]+)\)$/)![1])));
+    expect(peak).toBeGreaterThan(0.16);
+    expect(peak).toBeLessThan(0.8);
+    const body = ctx.paintOrder.indexOf("fill");
+    expect(body).toBeGreaterThan(0);
+    expect(ctx.paintOrder.lastIndexOf("stroke:blur(2.5px)")).toBeLessThan(body);
   });
 
   it("continues the lower hemisphere with dim defocused rear arcs beneath the bright crossing", () => {
@@ -1296,6 +1386,8 @@ function fakeCtx() {
     strokes: 0, fills: 0, strokeStyle: "", fillStyle: "" as unknown, lineWidth: 1, filter: "",
     lineJoin: "", lineCap: "", gradients, ops, arcs: [] as number[][], clips: 0,
     drawn: [] as { color: string; width: number; filter: string; points: P2[] }[],
+    filled: [] as { filter: string; rect: number[] }[],
+    paintOrder: [] as string[],
     get globalCompositeOperation() { return ops[ops.length - 1] ?? ""; },
     set globalCompositeOperation(v: string) { ops.push(v); },
     save() {}, restore() {}, beginPath() { points = []; }, closePath() {}, rect() {},
@@ -1303,8 +1395,10 @@ function fakeCtx() {
     arc(...args: number[]) { this.arcs.push(args); }, clip() { this.clips++; }, translate() {}, rotate() {},
     transforms: [] as number[][],
     scale(...args: number[]) { this.transforms.push(args); },
-    stroke() { this.strokes++; this.drawn.push({ color: this.strokeStyle, width: this.lineWidth, filter: this.filter, points: [...points] }); },
-    fill() { this.fills++; }, fillRect() { this.fills++; },
+    stroke() { this.strokes++; this.paintOrder.push(`stroke:${this.filter}`);
+      this.drawn.push({ color: this.strokeStyle, width: this.lineWidth, filter: this.filter, points: [...points] }); },
+    fill() { this.fills++; this.paintOrder.push("fill"); },
+    fillRect(...rect: number[]) { this.fills++; this.paintOrder.push("fill"); this.filled.push({ filter: this.filter, rect }); },
     createRadialGradient: (_x0: number, _y0: number, _r0: number, x1: number, y1: number, r1: number) => {
       const g = { x1, y1, r1, stops: [] as [number, string][], addColorStop(at: number, c: string) { g.stops.push([at, c]); } };
       gradients.push(g);
