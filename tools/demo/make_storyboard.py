@@ -1,33 +1,29 @@
-"""V13 contest polish: generation becomes a reusable voice instrument (<=120 s).
+"""V14 final contest trim: eight-second contribution recap, all other v13 beats preserved.
 
-Four review edits, with every other v12 beat preserved:
-* Proof: remove the 3.5 s ensemble replay and 0.5 s of silence before the first
-  BOOM. Keep all three complete voice performances and the quiet/loud comparison.
-* Workflow: sequential close-ups of the actual API graph's model loader, fluid
-  LoRA, sampler and output, then its stored fire. Retain both narration lines
-  and App -> Comfy Python SDK -> ComfyUI -> LTX-2.5 on the close-ups.
-* Studio: cut from Make the shot directly into the finished BOOM, replay the
-  aligned author's recorded voice, show its waveform and hold the bright final
-  frame for three seconds. This deliberate hold is declared explicitly.
-* Contribution: overview -> one asset -> voice -> result highlights timed to
-  the unchanged narration, ending on moving small/large hits from the proof.
+The recap is shortened from 11.125 to 8 seconds. Its existing layout advances
+through the moving stored source, tracking/matte, voice and Perform + light.
+The entire original contribution narration is retained at pitch-preserving
+1.28x tempo, with the same measured phrase captions retimed to match. It ends
+before the invitation; no words are removed or cut at a picture boundary.
+The complete 3.5-second quiet/loud reprise remains directly after the recap.
 
-All footage is reused read-only from demo_v11/clips. All narration, measured
-phrase captions, invitation and credits are reused read-only from demo_v12.
-No new footage, narration or model generation. Kokoro-82M remains the credited
-narration voice. The absent fluid_element.json canvas is represented faithfully
-from the available fluid_element.api.json, using exact nodes/settings/links.
+All other beat dictionaries, source windows, sound, captions and durations
+are exactly those of v13. Reuse v13 workflow cards, v12 invitation/credits and
+voice, and v11 clips read-only. Only the recap picture and its narration are
+prepared in demo_v14. No footage or model generation is rebuilt.
 
 Run with the project Python and this checkout's cuesync/src on PYTHONPATH:
-  v13_cards.py
-  v13_contribution.py
+  v14_contribution.py
   make_storyboard.py
-  build_demo.py tools/demo/storyboard.json -o D:/openHiggsfield/runs/demo_v13/demo_v13.mp4
-  check_v11.py --video D:/openHiggsfield/runs/demo_v13/demo_v13.mp4
+  build_demo.py tools/demo/storyboard.json -o D:/openHiggsfield/runs/demo_v14/demo_v14.mp4
+  check_v11.py --video D:/openHiggsfield/runs/demo_v14/demo_v14.mp4
+  check_v14.py
+check_v11.py writes timecoded sheet_*.jpg with one sample every two seconds.
 Final beat groups: 00:00 hook; 00:08 moving introduction; 00:18 proof;
 00:32 workflow; 00:44 compositing and light; 00:53 walk/flamethrower;
 00:58.25 procedural effects; 01:02.25 lanterns/dinosaur; 01:12.125 Studio;
-01:31.625 contribution; 01:46.25 invitation; 01:52 credits; 01:56.50 end.
+01:31.625 recap; 01:39.625 quiet/loud reprise; 01:43.125 invitation;
+01:48.875 credits; 01:53.375 end. Savings from v13: 3.125 seconds.
 """
 from __future__ import annotations
 
@@ -35,14 +31,17 @@ import argparse
 import json
 from pathlib import Path
 
+from v14_contribution import STAGES
+
 FPS = 24
 CLAIM = "1 LTX generation · 3 performances · 0 additional AI generations"
 
 
 def make(root: Path, run: Path) -> dict:
     clips = root / "runs/demo_v11/clips"
-    cards, voice = run / "cards", root / "runs/demo_v12/vo12"
+    cards, voice = root / "runs/demo_v13/cards", root / "runs/demo_v12/vo12"
     durations = json.loads((voice / "durations.json").read_text(encoding="utf-8"))
+    durations.update(json.loads((run / "vo14/durations.json").read_text(encoding="utf-8")))
     spoken = json.loads((voice.parent / "vo_lines.json").read_text(encoding="utf-8"))
     mine = "Author's phone footage + own voice · fire rendered with LTX-2.5 + ainvfx-fluid"
     sample = "Author's phone footage · sample noise (synthetic) · procedural CPU effect"
@@ -52,7 +51,8 @@ def make(root: Path, run: Path) -> dict:
         return str(clips / name / "composite.mp4")
 
     def say(name, at=.2, text=None):
-        return dict(vo=str(voice / f"{name}.wav"), vo_at=at, vo_gain=1.3,
+        directory = run / "vo14" if name == "new12" else voice
+        return dict(vo=str(directory / f"{name}.wav"), vo_at=at, vo_gain=1.3,
                     vo_text=text or spoken[name].replace("Comfy UI", "ComfyUI"))
 
     tall = [0, .18, 1, .96]
@@ -135,11 +135,11 @@ def make(root: Path, run: Path) -> dict:
              hold_reason="Bright finished fire held for three seconds after the complete recorded BOOM",
              wave=True, pops=[[7 / 24, "BOOM"]], pop_x=1.1, pop_y=.45,
              chip="The finished shot", stamp=studio),
-        dict(id="innovation", type="image", src=str(cards / "pipeline_overview.png"), dur=4, zoom=1,
-             **say("new12", at=.1)),
-        dict(id="innovation_asset", type="image", src=str(cards / "pipeline_asset.png"), dur=116 / FPS, zoom=1),
-        dict(id="innovation_voice", type="image", src=str(cards / "pipeline_voice.png"), dur=27 / FPS, zoom=1),
-        dict(id="innovation_result", type="image", src=str(cards / "pipeline_result.png"), dur=28 / FPS, zoom=1),
+        *[dict(id=name, type="clip", src=str(run / "cards/pipeline_motion.mp4"),
+               start=sum(stage[1] for stage in STAGES[:i]) / FPS,
+               dur=count / FPS, fill=True, source_gain=0,
+               **(say("new12", at=.1) if i == 0 else {}))
+          for i, (name, count, _) in enumerate(STAGES)],
         dict(id="innovation_hits", type="clip", src=shot("proof_pf_pf_boom"), start=0, dur=3.5,
              fill=True, portrait_backdrop=True, crop=tall, wave=True,
              audio_src=str(clips / "proof_pf_pf_boom.wav"), audio_gain=4.5, audio_replace=True, author_voice=True,
@@ -150,11 +150,12 @@ def make(root: Path, run: Path) -> dict:
         dict(id="credits", type="image", src=str(root / "runs/demo_v12/cards/credits.png"), dur=4.5, zoom=1,
              audio_src=str(root / "runs/demo_v10/credits_crackle.wav"), audio_from=.8, audio_gain=.3),
     ]
-    # The 14.625 s contribution covers the unchanged 14.4 s WAV. Never extend
-    # untouched beats to spend the time saved by tightening the proof.
+    # Eight seconds of recap + the unchanged 3.5 s reprise cover the complete
+    # 11.25 s retimed WAV, with .1 s lead-in and .15 s before the invitation.
     phrase_path = voice / "caption_phrases.json"
     if phrase_path.exists():
         phrases = json.loads(phrase_path.read_text(encoding="utf-8"))
+        phrases.update(json.loads((run / "vo14/caption_phrases.json").read_text(encoding="utf-8")))
         for b in beats:
             if b.get("vo") and Path(b["vo"]).stem in phrases:
                 b["vo_captions"] = [[a, z, s.replace("Comfy UI", "ComfyUI").replace("LTX two point five", "LTX-2.5")]
@@ -174,7 +175,7 @@ def make(root: Path, run: Path) -> dict:
         elapsed = end
     if elapsed > 120.00001 or narration_end > elapsed:
         raise ValueError(f"Overlength: picture={elapsed:.2f}s, narration end={narration_end:.2f}s")
-    return dict(version=13, duration=elapsed, beats=beats, schedule=schedule,
+    return dict(version=14, duration=elapsed, beats=beats, schedule=schedule,
                 provenance=str(clips / "manifest.json"), narration=str(voice / "provenance.json"),
                 source_policy="Read-only v11 clips reused; no new AI generations or footage rebuilds")
 
@@ -182,7 +183,7 @@ def make(root: Path, run: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", type=Path, default=Path("D:/openHiggsfield"))
-    parser.add_argument("--run", type=Path, default=Path("D:/openHiggsfield/runs/demo_v13"))
+    parser.add_argument("--run", type=Path, default=Path("D:/openHiggsfield/runs/demo_v14"))
     parser.add_argument("--output", type=Path, default=Path(__file__).with_name("storyboard.json"))
     args = parser.parse_args()
     args.run.mkdir(parents=True, exist_ok=True)
