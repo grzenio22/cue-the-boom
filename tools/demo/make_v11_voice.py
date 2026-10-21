@@ -26,8 +26,13 @@ import sys
 
 RUN = Path("D:/openHiggsfield/runs/demo_v12")
 TTS_PYTHON = Path("D:/openHiggsfield/runs/tts-venv/Scripts/python.exe")
-TEMP = Path("D:/openHiggsfield_tmp/sol7/demo/tts")
+TEMP = Path("D:/openHiggsfield_tmp/sol12/demo/tts")
 CAPTION_PHRASES = {
+    "contribution15": [
+        "My contribution: separating generation from performance.",
+        "Your voice plays one LTX instrument,",
+        "without regenerating.",
+    ],
     "new12": [
         "My contribution is separating generation from performance:",
         "one LTX effect from ComfyUI becomes a reusable instrument.",

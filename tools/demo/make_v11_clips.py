@@ -282,7 +282,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--input-root", type=Path, default=Path("D:/openHiggsfield"))
     parser.add_argument("--out", type=Path, default=Path("D:/openHiggsfield/runs/demo_v11"))
-    parser.add_argument("--temp", type=Path, default=Path("D:/openHiggsfield_tmp/sol6/demo"))
+    parser.add_argument("--temp", type=Path, default=Path("D:/openHiggsfield_tmp/sol12/demo"))
     parser.add_argument("--only", nargs="+", choices=JOBS)
     parser.add_argument("--force", action="store_true", help="rebuild even if input and source hashes match")
     parser.add_argument("--refresh-unchanged", action="store_true",
