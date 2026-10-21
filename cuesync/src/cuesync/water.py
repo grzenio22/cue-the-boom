@@ -3386,7 +3386,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                                 - float(hand.depth(release, p0[0:1], p0[1:2], fingers=False)[0])) * ratio]
             touching = float(_ss(0, 0.55 * slump, age))
             at = carried * (1.0 - touching) + target * touching
-            deform = np.asarray(_shape(un, (1.0 + 0.80 * fall) * (1.0 - 0.75 * flatten),
+            deform = np.asarray(_shape(un, (1.0 - 0.25 * fall) * (1.0 - 0.75 * flatten),
                                       1.0 + 0.40 * flatten)).reshape(2, 2) @ shape
             sc.blobs.append(Blob(*at, rr, tuple(deform.ravel()), vy=0.025 * s,
                                  modes=tuple((l, a * (1.0 - 0.3 * fall), ph + 0.1 * age) for l, a, ph in modes),
@@ -3400,7 +3400,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 end = root + (foot - root) * arrive
                 pts = root[None] + (end - root)[None] * u[:, None]
                 pts[:, 0] += 0.025 * s * np.sin(math.pi * u) * math.sin(age * 0.4)
-                radius = s * (0.095 - 0.045 * u + 0.060 * u ** 6)
+                radius = s * (0.080 - 0.038 * u + 0.052 * u ** 6)
                 radius *= (1.0 - 0.55 * float(_ss(8, slump, age))) * min(1.0, rr / (0.12 * s))
                 radius *= 1.0 + 0.10 * np.sin(2.7 * math.pi * u - 0.7 * age)
                 arc = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(pts[:, :2], axis=0), axis=1))]
@@ -3419,7 +3419,8 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                 ang = 1.4 + j * 2.0
                 sc.trains.append((at[0], at[1], rr, math.cos(ang), math.sin(ang), 0.1,
                                   0.035 * (1.0 - fall), 0.8 * rr, age * 0.22 * rr))
-        spread = float(_ss(contact - 1, 20, age))
+        # A small receiving sheet establishes contact before its front crosses the palm in six exposures.
+        spread = 0.20 * float(_ss(contact - 1, 8, age)) + 0.80 * float(_ss(8, 14, age))
         remaining = 1.0 - float(_ss(15, drain, age))
         if contact - 1 <= age < drain:
             rr = R * ratio * (0.38 + 0.75 * spread)
@@ -3444,10 +3445,10 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
         wet = spread * (1.0 - float(_ss(25, dry, age)))
         if wet > 0.001:
             across = math.atan2(un[1], un[0]) + 0.5 * math.pi
-            wet_radius = 1.12 * R * ratio * (0.3 + 0.7 * spread)
+            wet_radius = R * ratio * (0.336 + 1.10 * spread * spread)
             sc.wet.append((p[0], p[1], wet_radius, 0.8 * wet_radius,
-                           across, 0.14 * wet, 2.7, 0.0, 0.15))
-            sc.coat = (p[0], p[1], wet_radius, wet, remaining)
+                           across, 0.14 * wet, 2.7, 0.0, 0.25))
+            sc.coat = (p[0], p[1], wet_radius, wet, 1.0 - float(_ss(14, 22, age)))
             for j, edge in enumerate(edges):
                 points = p + np.linspace(0.2, 1.0, 8)[:, None] * edge * s
                 sc.band.append((points, np.linspace(0.055, 0.025, 8) * s, 0.16 * wet))
@@ -3458,7 +3459,7 @@ def _palm_spill(scenes: list[Scene], release: int, c0: np.ndarray, R: float, sha
                     xy = p + s * (off + np.array([0.015, 0.11]) * float(_ss(13, 62, age)))
                     z = float(hand.depth(k, xy[0:1], xy[1:2])[0])
                     sc.blobs.append(Blob(xy[0], xy[1], z + rb * s * 0.45, rb * s * math.sqrt(left),
-                                         free=True, flat=0.59, glint=0.40 * left))
+                                         free=True, flat=0.59, glint=(0.10 + 0.20 * remaining) * left))
         for (born, life, off, vx, rb, height), (kl, land_xy, on_skin) in zip(spray, landings):
             tau = age - born
             if not 0 <= tau <= life + (3 if on_skin else 18):
@@ -4536,15 +4537,24 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
     return out
 
 
+def _palm_radius(u: np.ndarray, v: np.ndarray, phase: float = 2.7) -> np.ndarray:
+    """One irregular contact front for both the film reflection and the wet skin underneath it."""
+    theta = np.arctan2(v, u)
+    front = (1.0 + 0.08 * np.cos(theta + 0.22 * phase) + 0.055 * np.cos(2.0 * theta + 0.78 * phase)
+             + 0.12 * np.cos(3.0 * theta + phase) + 0.07 * np.cos(5.0 * theta + 1.7 * phase)
+             + 0.04 * np.cos(8.0 * theta + 2.9 * phase))
+    return np.hypot(u, v) / np.clip(front, 0.72, 1.28)
+
+
 def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room: Room, noise: Noise,
                 k: int, skin: np.ndarray) -> list[tuple]:
-    """A transparent skin film with a moving meniscus and sharp, interrupted crease reflections. Relief comes from
-    the original RGB ``skin``, so wetness cannot generate its own false crease around the film's perimeter."""
+    """A spreading skin film with a connected lit meniscus, a directional sheen and three tapered fold reflections.
+    Relief comes from the original RGB ``skin``; the wet boundary cannot invent a reflective crease of its own."""
     x, y, r, wet, flowing = coat
     H, W = P.shape[:2]
     s = float(hand.s[k])
-    y0, y1 = max(0, int(y - 1.15 * r)), min(H, int(y + 1.15 * r) + 2)
-    x0, x1 = max(0, int(x - 1.15 * r)), min(W, int(x + 1.15 * r) + 2)
+    y0, y1 = max(0, int(y - 1.32 * r)), min(H, int(y + 1.32 * r) + 2)
+    x0, x1 = max(0, int(x - 1.32 * r)), min(W, int(x + 1.32 * r) + 2)
     if min(y1 - y0, x1 - x0) < 3:
         return []
     yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
@@ -4555,46 +4565,79 @@ def _palm_gloss(P: np.ndarray, coat: tuple, matte: np.ndarray, hand: Hand, room:
     fine = noise.flow(17, xx - x, yy - y, np.zeros_like(xx), drift, 0, 0.045 * s)
     angle = math.atan2(float(hand.nrm[k, 1]), float(hand.nrm[k, 0])) + 0.5 * math.pi
     u, v = dx * math.cos(angle) + dy * math.sin(angle), (-dx * math.sin(angle) + dy * math.cos(angle)) / 0.8
-    theta = np.arctan2(v, u)
-    front = (1.0 + 0.060 * np.cos(3.0 * theta + 2.7) + 0.038 * np.cos(5.0 * theta + 4.59)
-             + 0.025 * np.cos(8.0 * theta + 7.83))
-    radius = np.hypot(u, v) / np.clip(front + 0.015 * ripple, 0.85, 1.11)
+    radius = _palm_radius(u, v)
     height = s * ((0.0005 + 0.004 * flowing) * ripple + 0.0002 * fine)
     gy, gx = np.gradient(cv2.GaussianBlur(height.astype(np.float32), (0, 0), max(0.6, 0.0015 * s)))
     patch = P[y0:y1, x0:x1]
     lum = lin(skin[y0:y1, x0:x1]) @ fx._LUMA
     # Resolve the palm folds above the phone codec's fine texture, which would otherwise turn into glitter.
-    skin_log = cv2.GaussianBlur(np.log(np.maximum(lum, 0.01)), (0, 0), max(0.7, 0.012 * s))
-    relief = skin_log - cv2.GaussianBlur(skin_log, (0, 0), max(2.0, 0.045 * s))
+    skin_log = cv2.GaussianBlur(np.log(np.maximum(lum, 0.01)), (0, 0), max(0.7, 0.016 * s))
+    relief = skin_log - cv2.GaussianBlur(skin_log, (0, 0), max(2.0, 0.055 * s))
     sy, sx = np.gradient(relief)
-    bank = np.hypot(sx, sy)
-    tensor_sigma = max(1.2, 0.020 * s)
-    jxx = cv2.GaussianBlur(sx * sx, (0, 0), tensor_sigma)
-    jyy = cv2.GaussianBlur(sy * sy, (0, 0), tensor_sigma)
-    jxy = cv2.GaussianBlur(sx * sy, (0, 0), tensor_sigma)
-    coherence = np.sqrt((jxx - jyy) ** 2 + 4.0 * jxy * jxy) / (jxx + jyy + 1e-7)
-    crease = (_ss(0.0010, 0.0040, bank) * _ss(0.003, 0.018, -relief)
-              * _ss(0.25, 0.75, coherence))
+    hyy, _ = np.gradient(sy)
+    hxy, hxx = np.gradient(sx)
+    curvature = np.sqrt((hxx - hyy) ** 2 + 4.0 * hxy * hxy)
+    high, low = 0.5 * (hxx + hyy + curvature), 0.5 * (hxx + hyy - curvature)
+    angle_bank = 0.5 * np.arctan2(2.0 * hxy, hxx - hyy)
+    bx, by = np.cos(angle_bank), np.sin(angle_bank)
+    slope = sx * bx + sy * by
+    offset = slope / np.maximum(high, 1e-6)
+    ridge = _ss(6.0, 24.0, (high - np.abs(low)) * s * s)
+    support = (radius < 1.03) & (matte[y0:y1, x0:x1] > 128)
+    folds = np.uint8((ridge > 0.15) & (np.abs(offset) < 0.014 * s) & support)
+    # Only a fold that stays aligned over a short span can mirror a connected sliver of the room light.
+    length = max(3, int(round(0.085 * s))) | 1
+    aligned = np.zeros_like(folds)
+    mid = length // 2
+    for theta in np.linspace(0.0, math.pi, 8, endpoint=False):
+        kernel = np.zeros((length, length), np.uint8)
+        vx, vy = int(round(mid * math.cos(theta))), int(round(mid * math.sin(theta)))
+        cv2.line(kernel, (mid - vx, mid - vy), (mid + vx, mid + vy), 1, 1)
+        aligned |= cv2.morphologyEx(folds, cv2.MORPH_OPEN, kernel)
+    reach = max(1, int(round(0.012 * s))) | 1
+    folds = cv2.morphologyEx(aligned, cv2.MORPH_CLOSE,
+                             cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (reach, reach)))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(folds, connectivity=8)
+    # Keep a few extended folds, not isolated pores. Their geometry is measured anew from the original skin.
+    candidates = [j for j in range(1, count)
+                  if max(stats[j, cv2.CC_STAT_WIDTH], stats[j, cv2.CC_STAT_HEIGHT]) > 0.12 * s]
+    keep = sorted(candidates, key=lambda j: int(stats[j, cv2.CC_STAT_AREA]), reverse=True)[:3]
+    joined = cv2.GaussianBlur(np.isin(labels, keep).astype(np.float32) * ridge,
+                              (0, 0), max(0.7, 0.007 * s))
     normal = hand.nrm[k]
     # The cupped center faces the camera more than the plane through the wrist and knuckles.
-    nx = normal[0] + 0.30 * dx - gx - 0.090 * s * sx
-    ny = normal[1] + 0.30 * dy - gy - 0.090 * s * sy
+    nx_base, ny_base = normal[0] + 0.30 * dx - gx, normal[1] + 0.30 * dy - gy
+    nx = nx_base - np.clip(0.32 * s * sx, -0.40, 0.40)
+    ny = ny_base - np.clip(0.32 * s * sy, -0.40, 0.40)
     nz = np.full_like(nx, max(float(normal[2]) + 0.15, 0.55))
     norm = np.sqrt(nx * nx + ny * ny + nz * nz)
     L = room.key(k, (x, y))
+    # A light-facing bank lies beside the measured valley, preserving a dark crease under the reflection.
+    shift = np.float32([[1.0, 0.0, -0.006 * s * L[0]], [0.0, 1.0, -0.006 * s * L[1]]])
+    crease = cv2.warpAffine(joined, shift, (joined.shape[1], joined.shape[0]), flags=cv2.INTER_LINEAR)
     half = _unit(L + np.array([0.0, 0.0, 1.0]))
     ndh = np.clip((nx * half[0] + ny * half[1] + nz * half[2]) / norm, 0.0, 1.0)
     envelope = wet ** 1.3 * _ss(1.025, 0.96, radius) * matte[y0:y1, x0:x1].astype(np.float32) / 255.0
-    facets = _ss(-0.40, 0.45, fine + 0.20 * ripple)
-    # The light catches narrow banks beside existing creases. Flat skin receives only a weak transparent reflection.
-    specular = (0.004 * ndh ** 35 * facets + 1.10 * ndh ** 60 * crease * (0.10 + 0.90 * facets)
-                + 0.40 * ndh ** 180 * crease * facets)
-    # A curled liquid front reflects only short arcs toward the room light, and disappears as the sheet drains.
+    # The whole wet surface mirrors the same light. The sharper lobe is confined to long, light-facing fold banks.
+    reflection = _ss(-0.65, 0.50, ripple)
+    broad_norm = np.sqrt(nx_base * nx_base + ny_base * ny_base + nz * nz)
+    broad = np.clip((nx_base * half[0] + ny_base * half[1] + nz * half[2]) / broad_norm, 0.0, 1.0)
+    bank_facing = _ss(0.0001, 0.0010, -(sx * L[0] + sy * L[1]))
+    sharp = (ndh ** 110 * crease * bank_facing).astype(np.float32)
+    count, labels, _, _ = cv2.connectedComponentsWithStats(np.uint8(sharp > 0.025), connectivity=8)
+    energy = np.bincount(labels.ravel(), weights=sharp.ravel(), minlength=count)
+    bright = sorted(range(1, count), key=lambda j: energy[j], reverse=True)[:3]
+    # The light's finite extent broadens three tapered banks into glossy patches, not a network of white strokes.
+    sharp *= np.isin(labels, bright)
+    sharp = 3.0 * cv2.GaussianBlur(sharp, (0, 0), max(0.7, 0.010 * s))
+    shoulder = 0.10 * ndh ** 45 * crease * bank_facing
+    specular = (0.28 * broad ** 70 * _ss(1.0, 0.50, radius) + shoulder + 6.0 * sharp) * (0.75 + 0.25 * reflection)
+    # A connected light-facing meniscus survives phone reduction, then drains into the measured crease banks.
     Lxy = max(math.hypot(float(L[0]), float(L[1])), 1e-6)
     facing = (dx * L[0] + dy * L[1] / 0.8) / np.maximum(np.hypot(dx, dy / 0.8) * Lxy, 1e-5)
-    edge = np.exp(-((radius - 0.965) * r / max(0.8, 0.006 * s)) ** 2)
-    specular += 0.65 * flowing * edge * _ss(-0.05, 0.65, facing) * (0.04 + 0.96 * facets ** 2)
-    specular = np.minimum(specular, 0.35) * envelope
+    edge = np.exp(-((radius - 0.965) * r / max(1.2, 0.014 * s)) ** 2)
+    specular += 1.20 * flowing * edge * _ss(-0.25, 0.65, facing) * (0.65 + 0.35 * reflection)
+    specular = 0.32 * (1.0 - np.exp(-specular / 0.32)) * envelope
     contact_edge = np.exp(-((radius - 0.990) * r / max(0.9, 0.007 * s)) ** 2)
     patch *= (1.0 - 0.10 * flowing * contact_edge * envelope)[..., None]
     patch += specular[..., None] * room.lit(k)
@@ -4700,9 +4743,10 @@ def _wet(P: np.ndarray, patches: list, matte: np.ndarray | None, lit: np.ndarray
         u = ((xx - x) * ca + (yy - y) * sa) / np.float32(rx)
         v = (-(xx - x) * sa + (yy - y) * ca) / np.float32(ry)
         th = np.arctan2(v, u)
-        uneven = (1.0 - soft) if sheen else 0.50 * (1.0 - soft)
-        rr = np.sqrt(u * u + v * v) / (1.0 + uneven * (0.14 * np.cos(3 * th + lob) + 0.09 * np.cos(5 * th + 1.7 * lob)
-                                                       + 0.06 * np.cos(8 * th + 2.9 * lob)))
+        rr = (_palm_radius(u, v, lob) if not sheen else
+              np.sqrt(u * u + v * v) / (1.0 + (1.0 - soft)
+                   * (0.14 * np.cos(3 * th + lob) + 0.09 * np.cos(5 * th + 1.7 * lob)
+                      + 0.06 * np.cos(8 * th + 2.9 * lob))))
         m = _ss(1.0, 1.0 - soft, rr).astype(np.float32)
         on = min(1.0, strength / SKIN_WET[4])  # (drying, its gloss and colour go with its darkening)
         sl = (slice(y0 - Y0, y1 - Y0), slice(x0 - X0, x1 - X0))
