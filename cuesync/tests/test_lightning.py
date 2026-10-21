@@ -1793,12 +1793,11 @@ def test_the_balls_body_is_moving_plasma_not_an_airbrushed_marble():
     assert 0.5 < np.mean(medians[0]) / np.mean(medians[1]) < 2.0
 
 
-def test_the_balls_arcs_over_the_skin_are_white_hot_not_magenta():
-    """An arc jumping from the ball to a fingertip is white-hot over the skin, as over the ball: the brightest 40 of
-    its pixels on the skin more than 1.3 radii out are white (every channel at least 235, green at most 12 levels under
-    red, blue at most 5 under green), and the glow beside it 2-3 px off its core turns the lit skin there no more than
-    15 degrees from its hue 5-7 px off it (added over skin at the top of red in a blue or violet glow, it clipped red,
-    left green behind and read as magenta-white scratches, (245, 197, 245))."""
+def test_the_balls_finger_contacts_are_white_hot_and_its_dim_leads_do_not_turn_skin_magenta():
+    """White landing contacts stay neutral while subdued long leads keep the receiving skin's hue.
+
+    A quiet outer path should not leave a broad white cable on the skin just to satisfy the contact colour check.
+    """
     n, s = 24, 80.0
     tl = voice(np.full(n, 0.95), hits=[0, 4, 8])
     plate, track, mask = take(n, lambda t: (135, 300), s, emitter="palm", palm=(240, 165, 148))
@@ -1812,10 +1811,12 @@ def test_the_balls_arcs_over_the_skin_are_white_hot_not_magenta():
             continue
         x, y, R = balls[t][:3]
         core = np.zeros((H, W), np.uint8)
+        for spot in sparks[t]:
+            a, b = np.rint(spot[:2]).astype(int)
+            patch = out[t, max(0, b - 1):b + 2, max(0, a - 1):a + 2].reshape(-1, 3)
+            if len(patch):
+                picked.append(patch[np.argmax(patch @ LUMA)])
         for p, *_ in thrown(hand, balls, t, bolts, sparks):
-            q = np.unique(np.round(p[:, :2]).astype(int), axis=0)
-            keep = (np.hypot(q[:, 0] - x, q[:, 1] - y) > 1.3 * R) & (mask[t][q[:, 1], q[:, 0]] > 0)
-            picked += [out[t][b, a] for a, b in q[keep]]
             cv2.polylines(core, [np.round(p[:, :2]).astype(np.int32).reshape(-1, 1, 2)], False, 1, 1)
         beside = cv2.dilate(core, np.ones((7, 7), np.uint8)) & ~cv2.dilate(core, np.ones((3, 3), np.uint8))
         off = cv2.dilate(core, np.ones((15, 15), np.uint8)) & ~cv2.dilate(core, np.ones((11, 11), np.uint8))
@@ -1823,8 +1824,8 @@ def test_the_balls_arcs_over_the_skin_are_white_hot_not_magenta():
         glow += list(out[t][(beside > 0) & clear])
         under += list(out[t][(off > 0) & clear])
     picked = np.array(picked, float)
-    assert len(picked) >= 40 and len(glow) >= 100
-    top = picked[np.argsort(picked @ LUMA)[-40:]].mean(0)
+    assert len(picked) >= 12 and len(glow) >= 100
+    top = picked[np.argsort(picked @ LUMA)[-8:]].mean(0)
     assert top.min() >= 235 and top[1] >= top[0] - 12 and top[2] >= top[1] - 5
     assert hue_gap(hue(np.mean(glow, 0)), hue(np.mean(under, 0))) <= 15.0
 
@@ -2057,7 +2058,9 @@ def test_front_filament_stops_at_its_depth_boundary_before_the_rear_vertex(monke
     plate, track, _ = take(10, lambda t: (135, 300), 80, emitter="palm")
     bolts, _, balls = L.ball_frames(L._hand(plate, track), voice(np.full(10, 0.95)), seed=3)
     b = balls[8]
-    near = [p for c in bolts[8] for p, _, _ in [c] if isinstance(c, L._Filament) and c.softness == 0]
+    # The injected two-vertex path is separate from the independently tested equator and upper-limb channels.
+    near = [p for c in bolts[8] for p, _, _ in [c]
+            if isinstance(c, L._Filament) and c.softness == 0 and len(p) <= 3]
     assert near
     assert max(p[:, 0].max() for p in near) < b.x + 0.2 * b.R
 
@@ -2129,3 +2132,95 @@ def test_arc_revision_a_wide_surface_turn_keeps_only_a_short_finger_aligned_depa
     reach = np.linalg.norm(channel[-1] - channel[0])
     assert channel[1, 1] < channel[0, 1]
     assert channel[0, 1] - channel[:, 1].min() < 0.1 * reach
+
+
+def test_tip_reflection_runs_down_the_finger_and_rolls_off_around_it():
+    """A contact illuminates the facing finger surface, with little light beyond its tip or around its sides."""
+    box, light = L.tip_reflection((100, 80), (0, 1), 160, 1, 300, 240)
+    field = np.zeros((300, 240), np.float32)
+    field[box[0]:box[1], box[2]:box[3]] = light
+    assert field[100, 100] > 0.5
+    assert field[100, 100] > 1.1 * field[100, 111]
+    assert field[100, 100] > 5 * field[160, 100]
+    assert field[65, 100] == 0
+    assert field[100, 100] > 3 * field[100, 125]
+
+
+def test_hand_reflectance_removes_background_colour_from_the_soft_skin_boundary():
+    """A bright wall mixed into a blurred silhouette must not turn into an added cyan skin outline."""
+    matte = np.zeros((160, 160), np.float32)
+    matte[30:130, 40:120] = 1
+    alb = np.tile(np.array([.8, .85, .9], np.float32), (160, 160, 1))
+    alb[35:125, 45:115] = [.25, .12, .08]
+    corrected = L.hand_reflectance(alb, matte, 100)
+    assert corrected[80, 41, 0] > 1.4 * corrected[80, 41, 2]
+    assert corrected[80, 41, 2] < .35
+    np.testing.assert_allclose(corrected[80, 80], alb[80, 80], atol=1e-5)
+
+
+def test_near_finger_channel_shares_focus_while_the_distant_stroke_stays_resolved():
+    """A soft moving finger cannot carry a razor-sharp arc; distant electricity retains its crisp core."""
+    p = np.c_[np.linspace(40, 360, 140), np.full(140, 100)]
+    box = (0, 201, 0, 401)
+    emission, _ = L.layer([(p, 4, 1)], [], None, 100, box, L.GLOW_CAP['arc'], .7,
+                          np.zeros(2), [(40, 100)], seed=2, root_soft=4.5)
+    lum = emission @ LUMA
+    assert lum[97:104, 60:90].max() < .75 * lum[97:104, 280:320].max()
+
+
+def test_palm_source_near_an_index_tip_still_lights_its_facing_skin(monkeypatch):
+    """As the palm turns, a source projected beside a fingertip retains a soft surface return there."""
+    plate, track, mask = take(4, lambda t: (135, 300), 80, emitter='palm', middle_out=True,
+                              wall=(20, 20, 20), palm=(80, 60, 50), texture=0)
+    monkeypatch.setattr(L, '_palm_source', lambda hand, tap: hand.lm[:, 8] - (0, 4))
+    timeline = voice(np.full(4, .9))
+    wrapped = L.render(plate, track, mask, timeline, 'arc', seed=1)
+    monkeypatch.setattr(L, 'tip_reflection', lambda *args: None)
+    unwrapped = L.render(plate, track, mask, timeline, 'arc', seed=1)
+    assert (wrapped[-1, 248:268, 107:115, 2].astype(float) - unwrapped[-1, 248:268, 107:115, 2]).max() > 5
+
+
+def test_proximal_finger_casts_a_distinct_shadow_beyond_its_root():
+    """A source beside an MCP joint must be blocked even if all distal joints lie outside its light rays."""
+    lm = np.tile((160.0, 70.0), (21, 1))
+    lm[5:9] = [(150, 150), (150, 115), (150, 90), (150, 70)]
+    shadow = L.source_visibility(lm, (80, 150), 160, (0, 300, 0, 300))
+    assert shadow[150, 195] < 0.3
+    assert shadow[210, 195] > 0.8
+
+
+def test_finger_shadow_leaves_the_near_surface_without_a_stamped_boundary():
+    """The near-surface shadow transition is continuous rather than a ring around each sampled joint."""
+    lm = np.tile((150.0, 130.0), (21, 1))
+    shadow = L.source_visibility(lm, (80, 130), 160, (0, 300, 0, 300))
+    assert np.abs(np.diff(shadow[130, 145:195])).max() < .16
+    assert shadow[130, 195] < .3
+
+
+def test_ball_has_a_dominant_continuous_front_crossing_at_its_equator():
+    """Every formed charge has a connected near arc crossing its middle, rather than only random short sparks."""
+    plate, track, mask = take(16, lambda t: (135, 300), 80, emitter="palm")
+    bolts, _, balls = L.ball_frames(L._hand(plate, track), voice(np.full(16, .9)), seed=1, matte=mask)
+    for t in range(6, 16):
+        ball = balls[t]
+        crossing = []
+        for channel in bolts[t]:
+            if not isinstance(channel, L._Filament) or channel.softness > 0:
+                continue
+            xy = (channel[0] - (ball.x, ball.y)) / ball.R
+            if xy[:, 0].min() < -.7 and xy[:, 0].max() > .7 and np.abs(xy[:, 1] + .2).max() < .4:
+                crossing.append(channel)
+        assert crossing
+
+
+def test_ball_grounding_has_one_quieter_path_per_finger_instead_of_a_separate_loop():
+    """Repeated paths to one thumb cannot enclose a second bright volume beside the charge."""
+    plate, track, mask = take(35, lambda t: (135, 300), 80, emitter="palm")
+    bolts, sparks, _ = L.ball_frames(L._hand(plate, track), voice(np.full(35, .95), hits=[0, 20]),
+                                    seed=0, matte=mask)
+    for channels, contacts in zip(bolts, sparks):
+        landings = [tuple(np.round(spot[:2], 4)) for spot in contacts]
+        assert len(landings) == len(set(landings))
+        for channel in channels:
+            if any(np.allclose(channel[0][-1], spot[:2]) for spot in contacts):
+                assert channel[2] <= .55 * L.GROUND_ARC[1] + 1e-6
