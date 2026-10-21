@@ -310,7 +310,7 @@ def cmd_studio(args) -> int:
         threading.Thread(target=announce, daemon=True).start()
         try:
             return cmd_serve(argparse.Namespace(workflow="workflows/fluid_element.api.json", jobs="runs/jobs",
-                                                host="127.0.0.1", port=args.port, allow_origin=None, timeout=600.0,
+                                                host="127.0.0.1", port=args.port, allow_origin=None, timeout=1200.0,
                                                 library=None, instant_only=not os.environ.get("COMFY_BASE_URL"),
                                                 precomputed=None))
         except KeyboardInterrupt:
@@ -435,7 +435,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--prompt", required=True)
     r.add_argument("--seed", type=int, default=42)
     r.add_argument("--workflow", required=True, help="exported API graph (workflows/fluid_element.api.json)")
-    r.add_argument("--timeout", type=float, default=600.0, help="seconds to wait for the job")
+    r.add_argument("--timeout", type=float, default=1200.0, help="seconds to wait for the job")
     r.add_argument("-o", "--output", required=True)
     r.set_defaults(func=cmd_render)
 
@@ -457,7 +457,7 @@ def build_parser() -> argparse.ArgumentParser:
     lb.add_argument("--workflow", default="workflows/fluid_element.api.json")
     lb.add_argument("--out", default="samples/library")
     lb.add_argument("--seeds", default="1,2")
-    lb.add_argument("--timeout", type=float, default=600.0)
+    lb.add_argument("--timeout", type=float, default=1200.0)
     lb.set_defaults(func=cmd_library)
 
     sh = sub.add_parser("shot", help="plate + performance -> the finished shot (final, breakdown, clean, receipt)")
@@ -489,7 +489,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="no GPU: use the pre-rendered element library (timed and placed by your performance)")
     sh.add_argument("--library", help="library folder (default: samples/library)")
     sh.add_argument("--workflow", default="workflows/fluid_element.api.json")
-    sh.add_argument("--timeout", type=float, default=600.0)
+    sh.add_argument("--timeout", type=float, default=1200.0)
     sh.add_argument("-o", "--output", default="runs/shot")
     sh.set_defaults(func=cmd_shot)
 
@@ -543,7 +543,7 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8765)
     sv.add_argument("--allow-origin", help="comma list of browser origins allowed to call the API directly")
-    sv.add_argument("--timeout", type=float, default=600.0, help="seconds to wait for one render")
+    sv.add_argument("--timeout", type=float, default=1200.0, help="seconds to wait for one render")
     sv.add_argument("--library", help="instant-mode element library (default: samples/library)")
     sv.add_argument("--instant-only", action="store_true", help="no GPU backend: serve instant mode only")
     sv.add_argument("--precomputed", help="sample shots made ahead of time (cuesync precompute) for the gallery; "
@@ -554,7 +554,7 @@ def build_parser() -> argparse.ArgumentParser:
     pc.add_argument("--out", default="runs/precomputed")
     pc.add_argument("--samples", default="samples")
     pc.add_argument("--workflow", default="workflows/fluid_element.api.json")
-    pc.add_argument("--timeout", type=float, default=600.0)
+    pc.add_argument("--timeout", type=float, default=1200.0)
     pc.set_defaults(func=cmd_precompute)
     sv.set_defaults(func=cmd_serve)
 

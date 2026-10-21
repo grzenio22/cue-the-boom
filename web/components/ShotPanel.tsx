@@ -244,7 +244,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
           fireball, a held fffff over a palm a flame in it (steam on the badge), a pf a pop of fire. Lightning, water, air and an
           explosion are made on this computer from your hand and your voice: choose them yourself. {sceneLive
-            ? "Rendered once over black on the GPU (~1 min), then carried on your hand."
+            ? "Rendered once over black on the GPU (1-3 min; the first after the GPU starts takes a few more), then carried on your hand."
             : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand (a minute or two on a laptop CPU)."}</p>
       )}
       {!hand && mode === "scene" && !ahead && (
@@ -262,7 +262,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           className={mode === "scene" ? "" : "secondary"} onClick={() => setMode("scene")}>
           Into the scene <span className="muted">{ahead ? "made ahead of time for this sample: it plays now"
             : replay ? "made ahead of time for this sample: your take plays its render, no GPU, ~20 s"
-            : "LTX-2.5 renders it into your shot and the scene reacts, ~2 min"}</span>
+            : "LTX-2.5 renders it into your shot and the scene reacts, 2-5 min"}</span>
         </button>
         <button role="radio" aria-checked={mode === "instant"} disabled={busy || !modes.includes("instant") || sceneOnly}
           className={mode === "instant" ? "" : "secondary"} onClick={() => setMode("instant")}>
@@ -274,7 +274,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         <div className="row">
           <button role="radio" aria-checked={mode === "render"} disabled={busy || !modes.includes("render") || sceneOnly}
             className={mode === "render" ? "" : "secondary"} onClick={() => setMode("render")}>
-            Element <span className="muted">rendered on black and composited; your footage is never regenerated, ~45 s</span>
+            Element <span className="muted">rendered on black and composited; your footage is never regenerated, 1-3 min</span>
           </button>
         </div>
       </details>

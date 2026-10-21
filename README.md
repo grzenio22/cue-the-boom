@@ -43,7 +43,7 @@ The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that 
 
 1. Pick **Your hand: open palm** (the author's hand).
 2. Cue it: pick the sample noise **pf, pf, KA-BOOM** (synthetic), or **Use my microphone** and make your own noise while the clip plays.
-3. **Make the shot**: the stored fire is timed and sized by your take, in about a minute on a laptop CPU.
+3. **Make the shot**: the stored fire is timed and sized by your take, in about a minute on a laptop CPU (an explosion takes a few).
 4. **Perform it again** with another rhythm: the same fire, no new render.
 
 Under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen, and the flame stays in the palm. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff".
@@ -66,7 +66,7 @@ cuesync bend --plate samples/plates/hand_palm.mp4 --voice samples/voices/pf-pf-k
 2. **Your hand** is followed by MediaPipe and RTMPose. SAM 2.1 supplies the matte with a GPU; the CPU route uses MediaPipe's skin segmenter and hand landmarks.
 3. **The fire** is rendered once, over black, by LTX-2.5 with the ainvfx-fluid IC-LoRA in a ComfyUI workflow, from a guide your sound paints.
 4. **Carried, lit, timed:** the fire follows your hand, lights your skin, passes behind your fingers and fires on every hit. A thrown fireball keeps moving after your hand pulls back.
-5. **Perform it again:** a new take re-composites the same render in about a minute on a CPU. A held flame burns as long as your new voice holds it.
+5. **Perform it again:** a new take re-composites the same render in about a minute on a CPU (an explosion takes a few). A held flame burns as long as your new voice holds it.
 
 **Or tap anything in your shot.** "KA-BOOM" at a jack-o'-lantern, "fwoooOOOM" at a toy dinosaur: LTX-2.5 renders the effect into the scene, so it lights the room and leaves its mark.
 

@@ -52,7 +52,7 @@ class ComfyRenderer:
     """Renders through the Comfy SDK (COMFY_BASE_URL: a self-hosted comfy-api-proxy or Comfy Cloud)."""
 
     workflow: Path
-    timeout: float = 600.0
+    timeout: float = 1200.0
     name: str = "comfy"
 
     scenes: bool = True  # can render into the scene (the graph has the image-to-video node)
