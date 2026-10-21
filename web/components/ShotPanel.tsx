@@ -130,8 +130,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [kind, setKind] = useState<string | null>(null); // your own clip: what it is
   useEffect(() => { if (!plate.sample) fetchObjects().then(setKinds, () => setKinds([])); }, [plate.sample]);
   const [describe, setDescribe] = useState("");
-  const handOffline = !!hand && !modes.includes("bending"); // a sample hand's element made ahead: the cue plays it
-  const choices = handOffline ? [] : hand ? effects.filter((e) => HAND_EFFECTS.includes(e.id))
+  const handOffline = !!hand && !modes.includes("bending"); // a sample hand's saved track also supports effects made here
+  const choices = hand ? effects.filter((e) => HAND_EFFECTS.includes(e.id) && (!handOffline || MADE_EFFECTS.includes(e.id)))
     : effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
   const setMode = (m: Mode) => {
     setModeState(m);
@@ -231,7 +231,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         ))}
       </div>}
       {handOffline && !replayOf && (
-        <p className="muted">The GPU is offline: your take plays this hand&apos;s fireball, made ahead of time, on each of your hits.
+        <p className="muted">The GPU is offline: {MADE_EFFECTS.includes(effect)
+          ? `${HAND_LABELS[effect] ?? effect} is made on this computer from your hand and your voice.`
+          : "Your cue chooses an element made on this computer or plays this hand's fireball, made ahead of time, on each of your hits."}{" "}
           No new render; ready in about a minute.</p>
       )}
       {hand && !handOffline && !replayOf && (

@@ -75,8 +75,8 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: AUDIO_CONSTRAINTS });
+      if (gone()) { stream.getTracks().forEach((t) => t.stop()); return; }
       ses.stream = stream;
-      if (gone()) { teardown(ses); return; }
       const video = document.createElement("video");
       ses.videos.push(video);
       video.muted = true;
@@ -93,8 +93,8 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       const files = await vision.FilesetResolver.forVisionTasks(WASM);
       const hands = await vision.HandLandmarker.createFromOptions(files, {
         baseOptions: { modelAssetPath: MODEL, delegate: "GPU" }, runningMode: "VIDEO", numHands: 1 });
+      if (gone()) { hands.close(); return; }
       ses.hands = hands;
-      if (gone()) { teardown(ses); return; }
       step = "The microphone didn't start";
       const audio = new AudioContext();
       ses.audio = audio;

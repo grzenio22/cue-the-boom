@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import FilmIt from "@/components/FilmIt";
 import Live from "@/components/Live";
 import type { DrawnSample, SamplePlate, SceneMap, Source } from "@/lib/shot";
@@ -61,27 +61,52 @@ function probeDuration(url: string): Promise<number> {
 export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[]; onPick: (p: PickedPlate) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const sequence = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; sequence.current++; };
+  }, []);
+
+  const pick = (plate: PickedPlate) => {
+    sequence.current++;
+    setBusy(null);
+    setError(null);
+    onPick(plate);
+  };
 
   const onFile = async (file: File | undefined, filmed = false, made?: string) => {
+    const token = ++sequence.current;
+    const current = () => mounted.current && sequence.current === token;
     setError(null);
+    setBusy(null);
     if (!file) return;
     let url = made ?? URL.createObjectURL(file);
     try {
-      if (!made && !(await playable(url))) { // shown from a copy it can play; the shot is still made from your file
-        setBusy("This browser can't play that file (an iPhone's HEVC?): making a copy it can, a few seconds…");
-        URL.revokeObjectURL(url);
-        url = await browserCopy(file).finally(() => setBusy(null));
+      if (!made) {
+        const plays = await playable(url);
+        if (!current()) { URL.revokeObjectURL(url); return; }
+        if (!plays) { // shown from a copy it can play; the shot is still made from your file
+          setBusy("This browser can't play that file (an iPhone's HEVC?): making a copy it can, a few seconds…");
+          URL.revokeObjectURL(url);
+          url = await browserCopy(file);
+          if (!current()) { URL.revokeObjectURL(url); return; }
+          setBusy(null);
+        }
       }
       const d = await probeDuration(url);
+      if (!current()) { URL.revokeObjectURL(url); return; }
       if (!Number.isFinite(d) || d < MIN_PLATE_S || d > MAX_PLATE_S) {
         URL.revokeObjectURL(url);
         setError(`Use a clip of ${MIN_PLATE_S}-${MAX_PLATE_S} s (this one is ${Number.isFinite(d) ? d.toFixed(1) : "?"} s). The shot uses up to 10 s.`);
         return;
       }
-      onPick({ source: { file, filename: file.name || "plate.mp4" }, url, title: filmed ? "your take" : file.name, point: null,
+      pick({ source: { file, filename: file.name || "plate.mp4" }, url, title: filmed ? "your take" : file.name, point: null,
         direction: null, subject: null, sample: false, sound: true, filmed });
     } catch {
       URL.revokeObjectURL(url);
+      if (!current()) return;
+      setBusy(null);
       setError("Could not read that video. Try an MP4 or MOV from your phone.");
     }
   };
@@ -92,7 +117,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
       {samples.length > 0 && (
         <div className="grid">
           {samples.map((s) => (
-            <button key={s.name} className="tile" onClick={() => onPick({ source: { sample: s.name }, url: s.url,
+            <button key={s.name} className="tile" onClick={() => pick({ source: { sample: s.name }, url: s.url,
               title: s.title ?? s.name, point: s.point ?? null, direction: s.direction ?? null, subject: s.subject ?? null,
               scene: s.scene, sample: true, sound: !!s.sound, drawn: s.drawn, hand: s.hand ?? null })}>
               <video src={s.url} muted playsInline preload="metadata" />

@@ -32,13 +32,14 @@ const MAX_SHOT_S = 10;
  * Step 3: cue it. Say it (perform the noise over the playing plate: mic, optional face camera, or a sample
  * noise), use a sound already in the clip (a snap, a click, a slam), or press and hold while it plays.
  */
-export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, drawn = false, hand = false, filmed = false, onDone }: {
+export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, drawn = false, hand = false, filmed = false, replay = false, onDone }: {
   plateUrl: string;
   point: [number, number];
   voices: SampleVoice[];
   takes: number;
   clipSound: boolean; // the plate is the user's own clip (it may carry a sound to lock to)
   filmed?: boolean; // filmed in the studio with its noise in it: its own sound is the cue to start with
+  replay?: boolean; // performing a finished shot again accepts a new voice or hold cue
   scene?: SceneMap; // a sample plate's map: what each noise does to it
   ready?: string[]; // sample noises whose scene shot was made ahead of time (the GPU is offline)
   live?: boolean; // the GPU renders into the scene right now
@@ -49,7 +50,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   // with the GPU offline, a drawing plays only as the shot made ahead of time with its own noise
   const onlyReady = drawn && !live;
   const why = "With the GPU offline, a drawing plays only with the noise it was made ahead of time with";
-  const [kind, setKind] = useState<CueKind>(filmed && clipSound ? "clip" : "voice");
+  const [kind, setKind] = useState<CueKind>(!replay && filmed && clipSound ? "clip" : "voice");
   const [holds, setHolds] = useState<[number, number][]>([]);
   const [holding, setHolding] = useState(false);
   const [holdPlaying, setHoldPlaying] = useState(false); // the hold pass plays the clip; the mic stays as it was
@@ -285,8 +286,8 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         <button role="radio" aria-checked={kind === "voice"} className={kind === "voice" ? "" : "secondary"}
           disabled={step === "performing" || holdPlaying} onClick={() => setKind("voice")}>Say it</button>
         <button role="radio" aria-checked={kind === "clip"} className={kind === "clip" ? "" : "secondary"}
-          disabled={step === "performing" || holdPlaying || !clipSound || onlyReady} onClick={() => setKind("clip")}
-          title={onlyReady ? why : clipSound ? undefined : "This sample has no sound of its own to lock to; your own clip may"}>The clip&apos;s own sound</button>
+          disabled={step === "performing" || holdPlaying || replay || !clipSound || onlyReady} onClick={() => setKind("clip")}
+          title={replay ? "Perform it again with your voice or press-and-hold" : onlyReady ? why : clipSound ? undefined : "This sample has no sound of its own to lock to; your own clip may"}>The clip&apos;s own sound</button>
         <button role="radio" aria-checked={kind === "hold"} className={kind === "hold" ? "" : "secondary"}
           disabled={step === "performing" || holdPlaying || onlyReady} onClick={() => setKind("hold")}
           title={onlyReady ? why : undefined}>Press and hold</button>
