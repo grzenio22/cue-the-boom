@@ -163,7 +163,7 @@ ON_HAND = (0.2, 0.03)  # hand sizes, share: a channel lying on the hand's matte 
 # more than this share of its length is drawn again (a fork or a second finger's channel then dropped if it still does;
 # the first finger's main channel kept): the bolts are struck into the room behind the hand, never across it (the
 # matte runs past the fingertip it leaves, so its first stretch may lie on it)
-HIDE_NEAR = (0.08, 0.16)  # hand sizes from a burning fingertip: and further out than this (faded in from the first),
+HIDE_NEAR = (0.004, 0.02)  # hand sizes from a burning fingertip: and further out than this (faded in from the first),
 # whatever of the channels or the crackle passes over the hand is hidden by it, as much as the matte covers it; only
 # the tip's own spot and the channels' roots stay on top (left on top out to half a hand, a channel crossed the fingers
 # and ran down the palm like a drawing on the skin)
@@ -242,11 +242,11 @@ BALL_FLARE = 1.0  # a hit flares its distributed hot core by this share, its whi
 # glow by at most INNER_FLARE: the sound's sync, now that the ball grows rather than pops into being
 PLASMA_RGB = np.array([0.75, 0.85, 1.0], np.float32)  # linear: the colour of its white-hot middle, a cool near-white
 # (lightning and an electric arc glow at about 7000-10000 K); the light it throws is LIGHT_RGB's
-BALL_HOT = (1.15, 0.30)  # gain, scale in radii: faint distributed hot regions leave the near crossing legible
-BODY = (0.6, 1.04)  # gain, radius: integrated bulk emission joins the disconnected channels into a luminous volume
+BALL_HOT = (0.95, 0.30)  # gain, scale in radii: distributed hot pockets retain the charge's luminous interior
+BODY = (0.5, 1.04)  # gain, radius: bulk emission fills the sphere between softer channels at several depths
 BODY_RGB = np.array([0.12, 0.5, 1.0], np.float32)  # a cyan-blue. Green in it matters: added to pink skin, a blue with
 # little green made lavender and mauve
-HALO = (0.045, 0.62)  # gain, sigma in radii: faint optical scatter leaves the turbulent volume and foreground arcs visible
+HALO = (0.025, 0.62)  # gain, sigma in radii: restrained scatter leaves gaps between the discharges visible
 # round it, in HALO_RGB, the faint haze of its light scattered in the
 # air and the lens, a Gaussian of that sigma, the same light added over skin and wall alike (in the picture as shown, a
 # band of saturated blue over its limb read as a drawn ring; at 0.3, with a blue haze, it veiled the palm by the ball)
@@ -262,7 +262,7 @@ PLASMA = (0.9, 0.65, (2.7, 7.0, 15.0), (0.75, 0.2, 0.05), (1.0, -0.75, 1.35), 0.
 # (filaments), the front and, seen through it, the back, each octave turning about its own axis at its own rate, about
 # 0.65 turns a second; faded out over the limb, where its haze is smooth
 PLASMA_MAP = (128, 256)  # px (latitude, longitude) of the noise on the sphere
-SCATTER = 0.35  # radii: what shows through its body is blurred this much, as much as the body hides it (seen sharp
+SCATTER = 0.20  # radii: what shows through its body is blurred this much, as much as the body hides it (seen sharp
 # through it, the wall in the gap between two fingers was a dark window across its top: a glass marble)
 BALL_FORMED = 0.08  # its charge (and level, as its body's glow is) at which it is as dense and bright as it gets:
 # almost at once, so a young ball is small and bright, not big and faint (at 0.25 a forming ball was a pale
@@ -310,10 +310,10 @@ WRAP_PX, WRAP_GAIN, WRAP_REACH = 12.0, 2.0, 3.0  # px at 1080, gain at the loude
 # faces of the fingers round it lit (at 5 px, 4 and 3 radii, the fingers next to it went 145 -> 144)
 WRAP_BEHIND = 0.15  # radii: the edges behind its body take none of it, coming up over this much past its outline (a
 # finger's lit edge seen through the body was a bright seam across it)
-SPILL = (0.7, 0.2)  # (sigma in its radii, gain at the loudest): its light pools softly on the palm under it, on the
+SPILL = (0.7, 0.12)  # (sigma in its radii, gain at the loudest): its light pools softly on the palm under it, on the
 # palm's point, apart from the ball hovering over it (lit only round the ball itself, the light read as the ball's own
 # edge on the skin: a sticker)
-FILL = (2.5, 2.5, 3.0, 0.15, 0.3, 1.5)  # (gain at the loudest, radii, radii, share, radii, radii): and the skin round
+FILL = (1.1, 2.5, 3.0, 0.10, 0.3, 1.5)  # (gain at the loudest, radii, radii, share, radii, radii): and the skin round
 # it within the first radii takes a softer light falling off as 1 / r of its distance from its middle (gone smoothly by
 # the second), the faces turned to it in full and the rest this share (which way the hand's outline faces, its matte
 # blurred this many radii), coming up from its edge to the last radii: a light among the fingers, not a spot on the
@@ -398,7 +398,7 @@ LIGHT_RGB = {form: tuple(np.array(rgb, np.float32) / float(np.array(rgb, np.floa
 LIGHT = (0.2, 2.5, 5.0, 1.5)  # the arcs': (how far in front of the hand the channels are, in hand sizes; gain on the
 # hand; gain on the room; gain on the wall right behind them, ROOM_NEAR away). A thin channel has no radius to stand off
 # by
-BALL_LIGHT = (1.9, 0.45, 40.0, 1.0, 3.0)  # the ball's: (gain on the hand, on the room; px at 1080 its middle is over
+BALL_LIGHT = (1.3, 0.45, 40.0, 1.0, 3.0)  # the ball's: (gain on the hand, on the room; px at 1080 its middle is over
 # the palm, radii the wall is behind it; radii it reaches): a light at its middle, falling on what is round it as from
 # a ball of its radius, as R^2 / (d^2 + h^2) at most 1 (d across the picture from its middle, h how far it is over the
 # surface), gone smoothly by the last, so nothing further off changes (spread from its image over the whole frame, its
@@ -414,6 +414,8 @@ KEY_RGB = tuple(np.array(rgb, np.float32) / float(np.array(rgb, np.float32) @ fx
 # room): a cool white with blue, the hand's blue rising most
 KEY_CAP = (0.32, 0.12)  # linear luminance: it brightens the hand by at most the first and the room by the second,
 # softly (held only under twice its own colour, the walls of a lit hallway went white round two bolts)
+TIP_KEY = (0.35, 0.20)  # gain share and luminance cap: a finger retains its photographed shading beneath the broad bounce
+TIP_POWER = 0.25  # extra unresolved source power in dark rooms preserves bounce when the visible contact clips to a few pixels
 ROOM_NEAR = 1.0  # hand sizes: the wall the arcs strike is this far behind them (with the room's far light alone, a
 # lone bolt lit nothing next to it; at 0.5 the light on it jumped about with each new path)
 ROOM_CAST = 1.5  # the room's light is divided by the room's own colour (room_cast), each channel of which is held
@@ -751,17 +753,25 @@ def _leader(span: float, bow: float, rng: np.random.Generator, k: float) -> np.n
     course = 2 * u * (1 - u) * ctl + u * u * end
     tangent = _unit(2 * (1 - u) * ctl + 2 * u * (end - ctl))
     pts, at, sign = [np.zeros(2)], 0, float(rng.choice([-1.0, 1.0]))
-    while True:
+    # A short connection can overshoot the endpoint; give the walk ample course length without an unbounded tail.
+    course_length = float(np.linalg.norm(np.diff(course, axis=0), axis=1).sum())
+    walk_limit = max(16, 4 * math.ceil(course_length / max(s0 * k, 1e-6)))
+    for _ in range(walk_limit):
         p, step = pts[-1], rng.uniform(s0, s1) * k
         if np.hypot(*(end - p)) <= 1.3 * step:
             pts.append(end)
             break
         at += int(np.argmin(np.hypot(*(course[at:] - p).T)))  # (where on its course the walk is: on, never back)
+        if at == len(course) - 1 and float((p - end) @ tangent[-1]) >= 0:
+            pts.append(end)
+            break
         tan = tangent[at]
         off = float(tan[0] * (p - course[at])[1] - tan[1] * (p - course[at])[0])  # (strayed to its +y side)
         back = float(np.clip(-math.degrees(math.atan2(off, 2.0 * step)), -d1, d1))
         sign = -sign if rng.random() < alternate else sign
         pts.append(p + _rot(tan, back + sign * rng.uniform(d0, d1)) * step)
+    else:
+        pts.append(end)  # an exhausted walk still closes; the caller rejects a course that swings too far
     pts = np.array(pts)
     mids = (pts[:-1] + pts[1:]) / 2.0
     d = np.diff(pts, axis=0)
@@ -1580,7 +1590,7 @@ def arc_frames(hand: _Hand, timeline: Timeline, seed: int = 0, matte: np.ndarray
                     out += _carry(_between(crng, kw, 0.55 * (0.4 + lit) * pres, 0.4, 0.03), np.zeros(2),  # their tips
                                   np.array([1.0, 0.0]), roots[0], root)
             if lv > 0 or speed[t] <= crawl_still:
-                radius = 0.5 * CORONA if source is None else 0.035
+                radius = 0.005 if source is None else 0.035
                 amp = max(CORONA_MIN * c, 0.15 * c + 0.4 * lit * (0.5 + lv)) * pres
                 sp.append((root[0], root[1], radius * s, amp * (1.0 if source is None else 0.65)))
         bolts.append(out)
@@ -1691,11 +1701,15 @@ class Ball(NamedTuple):
 
 
 class _Filament(tuple):
-    """A projected channel triple with optical softness in plate pixels, retained from its depth in the charge."""
+    """A projected channel with optical softness in pixels and a separate share of volume before it.
 
-    def __new__(cls, points: np.ndarray, width: float, intensity: float, softness: float):
+    A near channel can share the phone's defocus without being extinguished as if it lay behind the whole sphere.
+    """
+
+    def __new__(cls, points: np.ndarray, width: float, intensity: float, softness: float, depth: float | None = None):
         item = super().__new__(cls, (points, width, intensity))
         item.softness = softness
+        item.depth = float(softness > 0) if depth is None else depth
         return item
 
 
@@ -1895,7 +1909,14 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
             grown = min(math.sqrt(float(charge[t])), grown + BALL_RISE)
         born = born or _dense(lv * pres, float(charge[t]) * pres) > 0
         R = s * (BALL_R[0] + (BALL_R[1] - BALL_R[0]) * grown * grown * (3.0 - 2.0 * grown)) * (1.0 + pulse)
-        c += 0.28 * R * _unit(lift[t])  # expose the upper volume above the fingers instead of burying a sphere in them
+        up = _unit(lift[t])
+        c += .55 * R * up
+        if hand.lm is not None:
+            # The thumb-side opening exposes the lower charge while keeping it close to its supporting palm.
+            toward = hand.lm[t, 4] - hand.xy[t]
+            across = toward - up * float(toward @ up)
+            # Fade an ambiguous opening near the lift axis so subpixel thumb jitter cannot swap sides.
+            c += .5 * R * across / max(float(np.linalg.norm(across)), .35 * R, 1e-6)
         if R > last_r and R < SHELL_GONE[0] * top:  # (grown again from all but nothing: a new ball)
             most, top = 0.0, 0.0
         most, top, last_r = max(most, grown), max(top, R), R
@@ -1930,7 +1951,7 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
         leading = set(np.argsort(scores)[-2:].tolist())
         for slot, (p, flash) in enumerate(shells):
             gain = flash * (0.4 + 0.6 * lv) * pres * dying
-            gain *= 0.30 if slot in leading else 0.10
+            gain *= 0.18 if slot in leading else 0.08
             if gain <= 0.02:
                 continue
             for q, w_, it in p.tree:
@@ -1955,7 +1976,8 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
                         k_ = 1.35 + 0.6 * max(0.0, depth) if front[run[0]] else SHELL_BACK
                         if np.linalg.norm(q3[run], axis=1).mean() > 0.9:
                             k_ *= 0.55  # a weak interrupted outer skin cannot enclose the bright interior paths
-                        soft = 0.0 if front[run[0]] else (1.8 + 1.4 * max(0.0, -depth)) * k
+                        soft = (1.3 if front[run[0]] else 1.8 + 1.4 * max(0.0, -depth)) * k
+                        optical_depth = .35 if front[run[0]] else 1.0
                         if not front[run[0]] and cover is not None:
                             xi = np.round(points[:, 0] - cb[2]).astype(int)
                             yi = np.round(points[:, 1] - cb[0]).astype(int)
@@ -1964,24 +1986,48 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
                             visible[inside] = cover[yi[inside], xi[inside]] < 0.35
                             for kept in np.split(np.arange(len(points)), np.flatnonzero(np.diff(visible)) + 1):
                                 if visible[kept[0]] and len(kept) >= 2:
-                                    out.append(_Filament(points[kept], w_ * wd, it * gain * k_, soft))
+                                    out.append(_Filament(points[kept], w_ * wd, it * gain * k_, soft, optical_depth))
                         else:
-                            out.append(_Filament(points, w_ * wd, it * gain * k_, soft))
+                            out.append(_Filament(points, w_ * wd, it * gain * k_, soft, optical_depth))
         if born and dying > 0 and shells:
             # A near channel crosses a complete chord of the charge. Its changing kinks follow the same sphere;
             # random short shell paths alone cannot establish volume at phone size.
             prng = np.random.default_rng([seed & 0xFFFFFFFF, _PLASMA, t // 2])
-            u = np.linspace(-0.86, 0.86, 35)
-            v = -0.20 - 0.25 * u + 0.10 * np.sin(np.pi * u / 0.86) + 0.045 * math.sin(sec * 1.7)
+            u = np.linspace(-0.86, 0.86, 45)
+            anchors = np.array([-.28, -.20, .11, -.05, .19, .09, .25, .08])
+            anchors += prng.normal(0, .035, len(anchors))
+            v = np.interp(u, [-.86, -.64, -.38, -.06, .20, .46, .70, .86], anchors)
+            v += 0.045 * math.sin(sec * 1.7)
             v += prng.normal(0, 0.025, len(u))
             p = c + R * np.c_[u, v]
             out.append(_Filament(p, 0.95 * wd, 1.1 * (0.4 + 0.6 * lv) * pres * dying, 0.0))
-            # Interrupted upper limb paths tie the faint interior to the same spherical envelope without a ring.
-            for a, b in ((-2.65, -1.95), (-1.35, -0.55)):
+
+            def visible_filament(points, width, gain, soft, depth=None):
+                """Fingers hide the lower near return as well as the far limbs; no arc is painted across skin."""
+                visible = np.ones(len(points), bool)
+                if cover is not None:
+                    xi = np.clip(np.round(points[:, 0] - cb[2]).astype(int), 0, cover.shape[1] - 1)
+                    yi = np.clip(np.round(points[:, 1] - cb[0]).astype(int), 0, cover.shape[0] - 1)
+                    visible = cover[yi, xi] < 0.35
+                for kept in np.split(np.arange(len(points)), np.flatnonzero(np.diff(visible)) + 1):
+                    if visible[kept[0]] and len(kept) >= 2:
+                        out.append(_Filament(points[kept], width, gain, soft, depth))
+
+            # A short irregular current occupies the lower volume without drawing a smooth parallel contour.
+            knots = np.array([[-.55, .38], [-.44, .58], [-.22, .48], [-.15, .65], [.10, .57]])
+            knots += prng.normal(0, .025, knots.shape)
+            lower = np.concatenate([displace(a, b, prng, .18, .025)[:-1] for a, b in zip(knots[:-1], knots[1:])]
+                                   + [knots[-1:]])
+            visible_filament(c + R * lower, .55 * wd, .36 * (0.4 + 0.6 * lv) * pres * dying, 1.4 * k, .20)
+
+            # Interrupted rear limbs continue below the equator; their defocus and low current separate them
+            # from the single resolved front crossing. Fingers still hide the far side of the sphere.
+            for a, b in ((-2.60, -1.95), (-1.40, -.78), (.22, .92), (1.65, 2.40)):
                 theta = np.linspace(a, b, 19) + 0.08 * math.sin(sec * 0.7)
-                radius = 0.94 + prng.normal(0, 0.018, len(theta))
+                radius = 0.94 + prng.normal(0, 0.035, len(theta))
                 p = c + R * np.c_[radius * np.cos(theta), radius * np.sin(theta)]
-                out.append(_Filament(p, 0.62 * wd, 0.29 * (0.4 + 0.6 * lv) * pres * dying, 0.0))
+                gain = (.24 if b < 0 else .30) * (0.4 + 0.6 * lv) * pres * dying
+                visible_filament(p, 0.62 * wd, gain, 4.0 * k)
         # the arcs to the fingertips, once it has a body (GROUND): each side of it strikes on its own every
         # GROUND_GAP frames, never on the frame the other does but on a hit (when both strike, at least one arc
         # each), throwing as many arcs as GROUND draws, as many fewer as it is smaller, to the fingertips on its side
@@ -2028,7 +2074,7 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
                         0.55 * it * flash * pres * proximity ** 3) for q, w_, it in drawn)
             end = drawn[0][0][-1]
             sp.append((float(end[0]), float(end[1]), LAND[0] * k,
-                       LAND[1] * flash * pres * proximity ** 2, LAND[3] * flash * pres * proximity ** 2))
+                       LAND[1] * flash * pres * proximity ** 4, LAND[3] * flash * pres * proximity ** 4))
 
         for sd in (-1, 1):
             kept = []
@@ -2128,6 +2174,11 @@ def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0,
         bead = (0.035 + 1.3 * necks ** 1.8) * (1.0 - branch) + rng.uniform(0.6, 1.0, chunks) * branch
         if isinstance(channel, _Filament):
             bead = 0.55 + 0.6 * necks  # near arcs retain a sharp connected crossing over the luminous interior
+            if channel.depth == 0 and softness == 0 and inten >= .65 * top:
+                along = (np.arange(chunks) + .5) / chunks
+                dip_at = rng.uniform(.36, .64)
+                # A short weak stretch breaks the white wire while the remaining foreground keeps a bright core.
+                bead *= 1 - .80 * np.exp(-.5 * ((along - dip_at) / .055) ** 4)
         at = np.linspace(0.0, length[-1], chunks + 1)
         # Equal travelled lengths prevent a densely displaced bend from collecting a row of identical bright beads.
         sampled = np.c_[np.interp(at, length, p[:, 0]), np.interp(at, length, p[:, 1])]
@@ -2149,11 +2200,26 @@ def draw(bolts: list, box: tuple[int, int, int, int], seed: int = 0,
         line = sub.astype(np.float32) * np.float32(inten / 255.0)
         if softness > 0:
             line = cv2.GaussianBlur(line, (0, 0), softness)
-            if ball is not None:
-                dx = (np.arange(bx0, bx1, dtype=np.float32) + x0 - ball.x) / ball.R
-                dy = (np.arange(by0, by1, dtype=np.float32)[:, None] + y0 - ball.y) / ball.R
-                chord = np.sqrt(np.maximum(1.0 - dx * dx - dy * dy, 0.0))
-                line *= np.exp(-np.float32(4.0 * _dense(ball.level, ball.charge)) * chord)
+        if ball is not None and isinstance(channel, _Filament) and channel.depth == 0 and softness == 0 and inten >= .65 * top:
+            axis = p[-1] - p[0]
+            xx = np.arange(bx0, bx1, dtype=np.float32) - p[0, 0]
+            yy = np.arange(by0, by1, dtype=np.float32)[:, None] - p[0, 1]
+            along = np.clip((xx * axis[0] + yy * axis[1]) / max(float(axis @ axis), 1e-6), 0, 1)
+            ends = np.clip((np.abs(along - .5) - .20) / .25, 0, 1)
+            ends = ends * ends * (3 - 2 * ends)
+            defocused = cv2.GaussianBlur(line, (0, 0), max(.3, .02 * ball.R))
+            line += (defocused - line) * ends
+            line *= 1 - .35 * ends
+            # A short stretch recedes into the charge, retaining its glow rather than a continuous white stripe.
+            recess = np.exp(-.5 * ((along - dip_at) / .085) ** 4)
+            buried = cv2.GaussianBlur(line, (0, 0), max(.5, .055 * ball.R))
+            line += (buried * .25 - line) * recess
+        depth = getattr(channel, "depth", 0.0)
+        if ball is not None and depth > 0:
+            dx = (np.arange(bx0, bx1, dtype=np.float32) + x0 - ball.x) / ball.R
+            dy = (np.arange(by0, by1, dtype=np.float32)[:, None] + y0 - ball.y) / ball.R
+            chord = np.sqrt(np.maximum(1.0 - dx * dx - dy * dy, 0.0))
+            line *= np.exp(-np.float32(4.0 * depth * _dense(ball.level, ball.charge)) * chord)
         reg = core[by0:by1, bx0:bx1]
         np.maximum(reg[..., 0], line, out=reg[..., 0])
         np.maximum(reg[..., 1], line * np.float32(boost), out=reg[..., 1])
@@ -2384,8 +2450,8 @@ def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: Ball, seed: int
     chord = np.sqrt(np.maximum(1.0 - (radius / np.float32(BODY[1])) ** 2, 0.0) + 0.025)
     chord *= np.exp(-np.maximum(radius - 0.82, 0.0) ** 2 / 0.08)
     hot_shape = np.zeros(d2.shape, np.float32)
-    for j, (ox, oy, sx, sy) in enumerate(((-0.20, -0.08, 0.30, 0.23), (0.18, 0.14, 0.22, 0.34),
-                                          (0.04, -0.27, 0.19, 0.25))):
+    for j, (ox, oy, sx, sy) in enumerate(((-0.20, -0.08, 0.30, 0.23), (0.18, 0.14, 0.30, 0.23),
+                                          (0.04, 0.28, 0.25, 0.19))):
         ox += 0.07 * math.sin(phase * 1.3 + j * 2.1)
         oy += 0.07 * math.cos(phase * 1.1 + j * 1.7)
         scale = BALL_HOT[1] / 0.36
@@ -2406,8 +2472,8 @@ def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: Ball, seed: int
         support = _blur(channels[b0:b1, a0:a1], max(0.5, 0.13 * R))
         support = np.clip(support / max(float(support.max()), 0.01), 0, 1) ** 0.7
         # Ionised pockets gather around the actual discharge instead of forming a separate smooth luminous dome.
-        hot *= 0.16 + 0.84 * support
-        body *= 0.45 + 0.55 * support
+        hot *= 0.15 + 0.85 * support
+        body *= 0.15 + 0.85 * support
     halo = np.float32(HALO[0] * (HALO_VOICE[0] + HALO_VOICE[1] * ball.glow)) * \
         np.exp(d2 * np.float32(-0.5 / HALO[1] ** 2))
     haze_edge = np.clip((HALO_EDGE[1] * HALO[1] - np.sqrt(d2)) / ((HALO_EDGE[1] - HALO_EDGE[0]) * HALO[1]), 0.0, 1.0)
@@ -2602,7 +2668,7 @@ def hand_reflectance(albedo: np.ndarray, matte: np.ndarray, scale: float) -> np.
     """Estimate foreground reflectance along a soft silhouette from nearby reliable interior skin.
 
     The photographed boundary already contains bright background pixels. Lighting their composite colour as opaque
-    skin creates a cyan outline. Only the added hand key uses this estimate; the original photograph stays intact.
+    skin creates a cyan outline. Only added hand illumination uses this estimate; the original photograph stays intact.
     """
     h, w = matte.shape
     q = 2
@@ -2637,11 +2703,11 @@ def tip_reflection(source, inward, scale: float, level: float, h: int, w: int) -
     dy = np.arange(y0, y1, dtype=np.float32)[:, None] - source[1]
     along = dx * axis[0] + dy * axis[1]
     across = -dx * axis[1] + dy * axis[0]
-    radius = max(1.0, 0.10 * scale)
+    radius = max(1.0, 0.15 * scale)
     curve = np.exp(-0.5 * (across / radius) ** 2)
-    falloff = np.exp(-np.maximum(along, 0) / (0.34 * scale)) / (1.0 + (along / (0.17 * scale)) ** 2)
+    falloff = np.exp(-np.maximum(along, 0) / (0.22 * scale)) / (1.0 + (along / (0.11 * scale)) ** 2)
     falloff *= np.clip((along + 0.025 * scale) / (0.025 * scale), 0, 1)
-    return box, (4.0 * level * curve * falloff).astype(np.float32)
+    return box, (2.1 * level * curve * falloff).astype(np.float32)
 
 
 def source_visibility(landmarks: np.ndarray, source, scale: float, box: tuple) -> np.ndarray:
@@ -2688,14 +2754,14 @@ def source_pool(source, palm, scale: float, level: float, h: int, w: int,
     if matte is not None and matte.dtype == np.uint8:
         matte = matte.astype(np.float32) / np.float32(255)
     center = 0.6 * np.asarray(source) + 0.4 * np.asarray(palm)
-    pool_gain = .95
+    pool_gain = 1.1
     if matte is not None:
         contact = _source_contact(source, palm, matte)
         gap = float(np.linalg.norm(contact - source)) / max(scale, 1)
         # A hovering source catches the facing ridges; a source projected onto skin has a stronger local return.
         pool_gain -= .65 * float(np.clip(gap / .1, 0, 1))
         center = contact + 0.06 * scale * _unit(np.asarray(palm) - np.asarray(source))
-    sigma = max(1.0, 0.14 * scale)
+    sigma = max(1.0, 0.11 * scale)
     box = _around(float(center[0]), float(center[1]), 0.95 * scale, h, w)
     if box is None or level <= 0:
         return None
@@ -2704,7 +2770,7 @@ def source_pool(source, palm, scale: float, level: float, h: int, w: int,
     axis = _unit(np.asarray(palm) - np.asarray(source))
     _streak(light, box, float(center[0]), float(center[1]), float(axis[0]), float(axis[1]),
             1.3 * sigma, 0.85 * sigma, pool_gain * level)
-    _spot(light, box, float(center[0]), float(center[1]), 1.8 * sigma, 0.16 * level)
+    _spot(light, box, float(center[0]), float(center[1]), 1.8 * sigma, 0.035 * level)
     if matte is not None:
         q = 4
         small = cv2.resize(matte[y0:y1, x0:x1], (max(1, (x1 - x0) // q), max(1, (y1 - y0) // q)))
@@ -2967,11 +3033,13 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     bright = _bright(plate, mask) if form == "arc" else 0.0
     pulse = np.ones(n)
     receiver_focus = 0.0
+    key_focus = 0.0
     if form == "arc":  # (in a dark room: STROBE_DARK)
         lit_room = _room_luma(plate, mask)
         # Resolved contacts support local bounce; a blank wall still receives diffuse illumination.
         has_contact = any(len(contact) < 7 or not contact[6] for frame in struck for contact in frame)
-        receiver_focus = float(np.clip((lit_room - 50.0) / 60.0, 0.0, 1.0)) if has_contact else 0.0
+        key_focus = float(np.clip((lit_room - 50.0) / 60.0, 0.0, 1.0))
+        receiver_focus = key_focus if has_contact else 0.0
         pulse = strobe(voice_levels * hand.presence, seed,
                        float(np.clip((lit_room - STROBE_DARK[0]) / (STROBE_DARK[1] - STROBE_DARK[0]), 0.0, 1.0)))
     hf, wf = max(1, h // FIELD_Q), max(1, w // FIELD_Q)
@@ -3006,17 +3074,22 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
         if box is None:
             return None
         s = float(hand.s[t])
-        soft = float(np.clip(softness(plate[t], hand.xy[t], s), *soft_px))
+        limits = soft_px if palm_source is None else (soft_px[0], 3.0 * side / 1080)
+        soft = float(np.clip(softness(plate[t], hand.xy[t], s), *limits))
         tips = [(x, y) for x, y, _, amp in spots[t] if amp > 0] if form == "arc" else []  # (a ball's strokes are
         # instant: only the crackle at a fingertip glows on while the shutter is open)
+        roots = [(x, y) for x, y, *_ in spots[t]]
+        if form == "arc" and not roots and bolts[t]:
+            # A return stroke has no separate spark, but still shares the source's focus and skin occlusion.
+            roots = [tuple(bolts[t][0][0][0, :2])]
         land_axes = None
         if ball is not None and hand.lm is not None:
             land_axes = []
             for x, y, *_ in spots[t]:
                 f = min(TIPS, key=lambda f: float(np.linalg.norm(hand.lm[t, f] - (x, y))))
                 land_axes.append(_unit(hand.lm[t, f] - hand.lm[t, f - 2]))
-        E, veil = layer(bolts[t], spots[t], ball, s, box, GLOW_CAP[form], soft, move[t], tips, seed, t, side,
-                        floor * _width_k(s), behind(t, box, s, [(x, y) for x, y, *_ in spots[t]]), struck[t], bright,
+        E, veil = layer(bolts[t], spots[t], ball, s, box, GLOW_CAP[form], soft, move[t], tips or roots, seed, t, side,
+                        floor * _width_k(s), behind(t, box, s, roots), struck[t], bright,
                         None if ball is None else finger_cover(hand, t, None if mask is None else mask[t], box), land_axes,
                         min(6.0 * side / 1080, max(soft, .012 * s))
                         if form == 'arc' and palm_source is None else 0.0)
@@ -3056,6 +3129,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                     extra = (restored - tight) * np.float32((SPARK_RGB + 0.6 * HAZE_RGB) @ fx._LUMA)
                     small += extra
                     power[t] += float(extra.sum()) * FIELD_Q * FIELD_Q / max(1, len(spots[t]))
+                    if spots[t] and voice_levels[t] > 0:
+                        power[t] *= 1 + TIP_POWER * (1 - key_focus)
                 small /= max(float(small.sum(dtype=np.float64)), 1e-12)
                 last = small
             smalls.append(small)
@@ -3122,22 +3197,35 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                         shadow_box = _around(*hand.xy[t], 1.7 * float(hand.s[t]), h, w)
                         if shadow_box is not None:
                             sy0, sy1, sx0, sx1 = shadow_box
-                            visibility = 0.16 + 0.84 * source_visibility(hand.lm[t], palm_source[t],
-                                                                       float(hand.s[t]), shadow_box)
+                            visibility = source_visibility(hand.lm[t], palm_source[t], float(hand.s[t]), shadow_box)
+                            ey, ex = np.arange(sy1 - sy0), np.arange(sx1 - sx0)
+                            edge = np.minimum(np.minimum(ey, ey[::-1])[:, None], np.minimum(ex, ex[::-1]))
+                            feather = np.clip(edge / max(1.0, .15 * hand.s[t]), 0, 1)
+                            visibility = 1 - .84 * (1 - visibility) * feather * feather * (3 - 2 * feather)
                             shade[sy0:sy1, sx0:sx1] *= visibility
                     on_hand = cv2.resize(near, (w, h), interpolation=cv2.INTER_LINEAR) * shade
                     diffuse = _soft_cap(on_hand, HAND_CAP) * k + light
                     if visibility is not None:
-                        diffuse[sy0:sy1, sx0:sx1] *= .65 * visibility
+                        diffuse *= .50
+                        diffuse[sy0:sy1, sx0:sx1] *= visibility
                     on_hand = m * diffuse  # (and the room's light, where it
                     lit *= (1.0 - m)[..., None]  # falls on the hand, in the hand's colour)
                     lit += on_hand[..., None] * hand_rgb
-                    local_key_gain = key_hand_gain * (1.0 if palm_source is None else 0.22)
+                    local_key_gain = key_hand_gain * (1 - (1 - TIP_KEY[0]) * key_focus
+                                                       if palm_source is None else 0.16)
+                    local_key_cap = KEY_CAP[0] + (TIP_KEY[1] - KEY_CAP[0]) * key_focus \
+                        if palm_source is None else KEY_CAP[0]
                     skin_alb = hand_reflectance(alb, m, float(hand.s[t])) if palm_source is None else alb
+                    skin_key = _keyed(skin_alb, key * (0.5 + 0.5 * shade) * np.float32(local_key_gain),
+                                      key_hand, local_key_cap)
+                    if palm_source is None:
+                        # Preserve photographed surface variation after the key's luminance shoulder.
+                        photo = fx._lum(skin_alb)
+                        detail = np.clip((photo + .001) / (_blur(photo, max(1, .05 * hand.s[t])) + .001), .5, 1.5)
+                        skin_key *= detail[..., None] ** np.float32(.8)
                     P += (_keyed(alb, key * np.float32(key_room_gain * (1.0 - 0.85 * receiver_focus)), key_room,
                                  KEY_CAP[1] * (1.0 - 0.75 * receiver_focus)) * (1.0 - m)[..., None]
-                          + _keyed(skin_alb, key * (0.5 + 0.5 * shade) * np.float32(local_key_gain), key_hand, KEY_CAP[0])
-                          * m[..., None]) * k_key  # (each capped whole, then blended: capped in parts, the two
+                          + skin_key * m[..., None]) * k_key  # (each capped whole, then blended: capped in parts, the two
                     # added up to a bright rim along the hand's outline)
                 pools = pooled(struck[t], side, h, w, float(pulse[t]))  # (each strike's light on what it strikes)
                 if pools is not None:
@@ -3147,6 +3235,9 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                         ..., None] * room_rgb
                     P[y0:y1, x0:x1] += pl[..., None] * (np.float32(POOL[4]) * room_rgb)
                 P += alb * lit
+                if m is not None and palm_source is None:
+                    # A soft silhouette contains wall colour, which must not become a blue-white diffuse skin rim.
+                    P += (skin_alb - alb) * on_hand[..., None] * hand_rgb
                 if palm_source is not None and m is not None and spots[t]:
                     center = hand.lm[t, [0, 5, 9, 13, 17]].mean(0)
                     reflected = source_pool(palm_source[t], center, float(hand.s[t]),
@@ -3184,9 +3275,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                             photo = fx._lum(P0[y0:y1, x0:x1])
                             detail = np.clip((_blur(photo, max(.8, .003 * hand.s[t])) + .001) /
                                              (_blur(photo, max(1, .04 * hand.s[t])) + .001), .35, 1.5) ** 1.4
-                            P[y0:y1, x0:x1] += _keyed(response + np.array([0.025, 0.065, 0.10], np.float32),
-                                                       local[..., 0] * detail, np.ones(3, np.float32),
-                                                       .35 if palm_source is None else .2)
+                            # Apply recorded detail after the highlight shoulder so strong contact light cannot
+                            # flatten it again. The wider side return retains the skin's own reflectance.
+                            reflected = _keyed(response + np.array([0.010, 0.025, 0.04], np.float32),
+                                               local[..., 0], np.ones(3, np.float32),
+                                               .24 if palm_source is None else .2)
+                            P[y0:y1, x0:x1] += reflected * detail[..., None]
                 stops = min(stops, ARC_DIP_ROOM * room_lift(P, P0, m))  # (never so far down that the room away from
                 # the arcs goes darker than the plate)
             lit_box = None
@@ -3228,9 +3322,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                     v0, v1 = TRANSMIT[1]  # scattered in it, hidden, and seen through its blue: TRANSMIT)
                     deep = np.float32(TRANSMIT[0]) * np.clip((veil - np.float32(v0)) / np.float32(v1 - v0), 0.0, 1.0)
                     blue = np.asarray(TRANSMIT[2], np.float32) / np.float32(np.asarray(TRANSMIT[2]) @ fx._LUMA)
-                    rx = (np.arange(x0, x1, dtype=np.float32) - np.float32(balls[t].x)) / np.float32(balls[t].R)
-                    ry = (np.arange(y0, y1, dtype=np.float32)[:, None] - np.float32(balls[t].y)) / np.float32(balls[t].R)
-                    scattered = np.maximum(veil, np.exp(-((rx * rx + ry * ry) / 0.9) ** 3))
+                    # Only the emitting density scatters the background; a full spherical blur reads as glass.
+                    scattered = veil.copy()
                     scattered *= 1.0 - finger_cover(hand, t, None if mask is None else mask[t], (y0, y1, x0, x1))
                     for img in (P, P0):
                         sub = img[y0:y1, x0:x1]
@@ -3267,6 +3360,15 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                 sub += (toned - sub) * share[..., None]
             np.maximum(P, P0, out=P)  # (but the plate's own highlights stay as bright as they were)
             out[t] = gam(P)
+            if form == "arc" and palm_source is not None and layers[t] is not None:
+                y0, y1, x0, x1 = layers[t][0]
+                own = fx._lum(E)
+                recorded = np.clip(own / np.maximum(fx._lum(P[y0:y1, x0:x1]), 1e-6), 0, 1)
+                sensor = fx._soft_noise(np.random.default_rng([seed & 0xFFFFFFFF, _FRAME, t]), y1 - y0, x1 - x0)
+                # The sensor records noise after highlight compression, including the bright filament shoulder.
+                sensor *= np.float32(noise / fx._unit_grain_sigma()) * recorded
+                sub = out[t, y0:y1, x0:x1].astype(np.float32) + sensor[..., None]
+                out[t, y0:y1, x0:x1] = np.clip(sub + .5, 0, 255).astype(np.uint8)
             if form == "ball" and m is not None and balls[t] is not None:
                 ball = balls[t]
                 cool_box = _around(ball.x, ball.y, 3.0 * ball.R, h, w)
@@ -3307,8 +3409,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                             sub = out[t, y0:y1, x0:x1].astype(np.float32)
                             neutral = (sub @ fx._LUMA)[..., None] * np.array([0.94, 0.99, 1.06], np.float32)
                             # Near a white-hot contact the reflected source overtakes the skin's warm pigment.
-                            neutral_gain = .3 if palm_source is None else .18
-                            sub += (neutral - sub) * (neutral_gain * light / (1.0 + light) * m[y0:y1, x0:x1])[..., None]
+                            sub += (neutral - sub) * (.12 * light / (1.0 + light) * m[y0:y1, x0:x1])[..., None]
                             np.maximum(sub, gam(P0[y0:y1, x0:x1]), out=sub)
                             out[t, y0:y1, x0:x1] = np.clip(sub + 0.5, 0, 255).astype(np.uint8)
 
