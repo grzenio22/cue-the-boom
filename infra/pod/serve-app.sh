@@ -44,6 +44,16 @@ for _ in $(seq 1 20); do
   sleep 0.5
 done
 cd "$SRC"
+# The shot's own CPU work, sized to the container's share as pod-setup.sh does for ComfyUI
+CPUS=$(nproc)
+if [ -r /sys/fs/cgroup/cpu.max ]; then
+  read -r q p < /sys/fs/cgroup/cpu.max
+  [ "$q" != max ] && CPUS=$(( q / p ))
+elif [ -r /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ "$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)" -gt 0 ]; then
+  CPUS=$(( $(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us) / $(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us) ))
+fi
+[ "$CPUS" -ge 1 ] || CPUS=1
+export OMP_NUM_THREADS=$CPUS MKL_NUM_THREADS=$CPUS OPENBLAS_NUM_THREADS=$CPUS
 COMFY_BASE_URL=http://127.0.0.1:8189 setsid -f nohup /workspace/venv/bin/cuesync serve --jobs "$JOBS" \
   --host 127.0.0.1 --port 8765 --workflow workflows/fluid_element.api.json --library samples/library \
   < /dev/null > "$LOG/serve.log" 2>&1
@@ -59,3 +69,13 @@ for _ in $(seq 1 60); do
 done
 curl -s "$API/api/health"; echo
 echo "studio: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/) without a password (401 = gated)"
+
+# The first render after ComfyUI starts loads ~37 GB of weights onto the GPU (about 5 min): pay that now,
+# not on a judge's first take.
+GUIDE=/workspace/ComfyUI/input/03_control.mp4
+if [ -f "$GUIDE" ]; then
+  log "Warming the models with one render in the background (about 5 min) -> $LOG/warmup.log"
+  COMFY_BASE_URL=http://127.0.0.1:8189 setsid -f nohup /workspace/venv/bin/cuesync render --guide "$GUIDE" \
+    --prompt "ainvfxfluid, bright orange fire" --seed 1 --workflow workflows/fluid_element.api.json \
+    -o /root/warmup.mp4 < /dev/null > "$LOG/warmup.log" 2>&1
+fi

@@ -234,6 +234,19 @@ for f in sorted(glob.glob(f"{m}/diffusion_models/ltx-2.5-22b-distilled-*.safeten
 WARM
 
 log "Starting services (loopback only)"
+# Torch sizes its CPU pool from the host's cores (255 on a shared EPYC), but the container may get only a
+# quota of them (27): every CPU-side step then stalls on throttling, and a warm render took 14 min instead
+# of 2. Size the pools to the quota (cgroup v2, else v1).
+CPUS=$(nproc)
+if [ -r /sys/fs/cgroup/cpu.max ]; then
+  read -r q p < /sys/fs/cgroup/cpu.max
+  [ "$q" != max ] && CPUS=$(( q / p ))
+elif [ -r /sys/fs/cgroup/cpu/cpu.cfs_quota_us ] && [ "$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us)" -gt 0 ]; then
+  CPUS=$(( $(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us) / $(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us) ))
+fi
+[ "$CPUS" -ge 1 ] || CPUS=1
+export OMP_NUM_THREADS=$CPUS MKL_NUM_THREADS=$CPUS OPENBLAS_NUM_THREADS=$CPUS
+echo "CPU threads: $CPUS (the container's share)"
 if pgrep -f "main.py --listen 127.0.0.1 --port 8188" >/dev/null; then
   echo "ComfyUI already running"
 else

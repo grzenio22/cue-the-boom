@@ -103,12 +103,13 @@ def render_element(
     seed: int,
     workflow_path: str | Path,
     out_path: str | Path,
-    timeout: float = 600.0,
+    timeout: float = 1200.0,
     image_path: str | Path | None = None,
 ) -> RenderResult:
     """Render one fluid element from ``guide_path`` and download it to ``out_path``.
 
-    ``timeout`` bounds the wait for the job (seconds): a server that lost its upstream must not hang a batch.
+    ``timeout`` bounds the wait for the job (seconds): a server that lost its upstream must not hang a batch. The
+    first render after ComfyUI starts also loads ~37 GB of weights onto the GPU (about 5 min on a pod).
     ``image_path``: a plate frame to start from (scene mode: the effect is rendered into the plate).
     """
     try:
@@ -127,8 +128,9 @@ def render_element(
     try:
         job = client.run(wf, timeout=timeout)
     except TimeoutError as exc:
-        raise RuntimeError(f"render of {guide_path} did not finish within {timeout:.0f} s; "
-                           "is ComfyUI behind the proxy still running?") from exc
+        raise RuntimeError(f"render of {guide_path} did not finish within {timeout:.0f} s; is ComfyUI behind the "
+                           "proxy still running? (on a pod, run `podctl.py sync --restart` so its CPU threads fit "
+                           "the pod's share)") from exc
     except JobFailed as exc:  # surface the node that broke, not just "job failed"
         err = exc.error
         detail = f" [{err.code}] node {err.node_id}: {err.message}" if err else ""
