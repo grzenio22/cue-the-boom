@@ -78,6 +78,69 @@ def test_frames_the_air_never_reaches_are_the_plate_byte_for_byte():
 
 
 @pytest.mark.parametrize("form", ["ball", "blast"])
+@pytest.mark.parametrize("source", ["hold", "lost"])
+def test_air_waits_for_a_hand_that_arrives_after_the_voice(form, source):
+    n, first = 32, 12
+    plate = wall(n, W, H)
+    plate[first:, 236:284, 84:132] = (205, 145, 120)
+    tr = track_of(n, W, H, lambda t: (108, 260))
+    tr["src"][:first] = [source] * first  # the tracker copied its first sighting backwards
+    out = air.render(plate, tr, None, held(n, 2, n, hits=[2, 16]), form, seed=3)
+    assert np.array_equal(out[:first], plate[:first])
+    assert change(plate, out, 20).max() > 20
+
+
+@pytest.mark.parametrize("form", ["ball", "blast"])
+def test_air_fades_when_the_tracker_loses_a_hand_that_has_left(form):
+    n, last = 32, 12
+    plate = wall(n, W, H)
+    plate[:last, 236:284, 84:132] = (205, 145, 120)
+    tr = track_of(n, W, H, lambda t: (108, 260))
+    tr["src"][last:] = ["lost"] * (n - last)
+    out = air.render(plate, tr, None, held(n, 2, n, hits=[2]), form, seed=3)
+    assert change(plate, out, 9).max() > 20
+    assert np.array_equal(out[20:], plate[20:])
+
+
+@pytest.mark.parametrize("hits,sizes", [([12], [0.4]), ([-1, 12], [0.2, 0.8])])
+def test_a_blast_with_only_out_of_range_hits_uses_the_valid_tap(hits, sizes):
+    n = 12
+    plate = wall(n, W, H)
+    tr = track_of(n, W, H, lambda t: (108, 260))
+    tl = Timeline(n=n, energy=np.zeros(n), hits=hits, sizes=sizes, tap_frame=2)
+    fallback = Timeline(n=n, energy=np.zeros(n), hits=[], sizes=[], tap_frame=2)
+    out = air.render(plate, tr, None, tl, "blast", seed=3)
+    assert np.array_equal(out, air.render(plate, tr, None, fallback, "blast", seed=3))
+    assert np.array_equal(out[:2], plate[:2])
+    assert change(plate, out, 6).max() > 20
+
+
+def test_a_blast_keeps_each_valid_hits_own_strength_when_filtering_frames():
+    n = 12
+    plate = wall(n, W, H)
+    tr = track_of(n, W, H, lambda t: (108, 260))
+    tl = Timeline(n=n, energy=np.zeros(n), hits=[-1, 2, n], sizes=[0.1, 0.6, 1.0], tap_frame=5)
+    valid = Timeline(n=n, energy=np.zeros(n), hits=[2], sizes=[0.6], tap_frame=5)
+    assert np.array_equal(air.render(plate, tr, None, tl, "blast", seed=3),
+                          air.render(plate, tr, None, valid, "blast", seed=3))
+
+
+@pytest.mark.parametrize("axis", [0, 1])
+@pytest.mark.parametrize("visible", [2, 3, 4])
+def test_a_ball_clipped_to_a_few_pixels_at_an_edge_has_no_refraction_jump(axis, visible):
+    P0 = air.lin(wall(1, 80, 80)[0])
+    P = P0.copy()
+    centre = np.array([40.0, 40.0])
+    centre[axis] = -34 + visible - 1  # a radius-20 refraction box reaches just 2..4 px into the picture
+    ball = air._Ball(2, 0)
+    bent = ball.draw(P, (0, 0), centre, 20.0, air.spin_axis(np.array([0.0, -0.78, 0.62])),
+                     1.0, 0.0, 0.0, 0.0, 1.0, 0.3, 0.6, 0, None, None, 0.0, 0.2)
+    assert bent is not None and bent.shape == P0.shape
+    assert np.isfinite(P).all()
+    assert np.array_equal(bent, P0)  # the ball's outer crop can overlap after the actual bend is off screen
+
+
+@pytest.mark.parametrize("form", ["ball", "blast"])
 def test_the_same_seed_gives_the_same_bytes_and_another_seed_other_air(form):
     n = 36
     plate = wall(n, W, H)

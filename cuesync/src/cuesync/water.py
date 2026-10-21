@@ -76,7 +76,7 @@ import cv2
 import numpy as np
 
 from . import fx_light as fx
-from .bending import emitter_at
+from .bending import LOST_FADE, emitter_at, still_there
 from .elements import FORMS, Timeline
 from .transfer import gam, lin
 
@@ -815,6 +815,7 @@ class Hand:
     s: np.ndarray  # (n,): hand size px
     plane: np.ndarray  # (n, 3): the palm's depth, z = a x + b y + c
     off: np.ndarray | None  # (n, 21, 3): each landmark's x, y and depth off that plane (None: no landmarks)
+    presence: np.ndarray | None = None  # (n,): held tracker positions are visible only while the hand is still there
 
     def depth(self, k: int, x: np.ndarray, y: np.ndarray, fingers: bool = True) -> np.ndarray:
         """The hand's depth at px (x, y) on frame ``k``: its palm's plane, pulled to each landmark's own depth near it
@@ -832,20 +833,46 @@ class Hand:
         return z + (w * o[:, 2]).sum(-1) / (w.sum(-1) + np.float32(1.0 / (FINGER_FAR * s) ** 2))
 
 
-def hand_of(track: dict, n: int) -> Hand:
+def hand_presence(track: dict, n: int, plate: np.ndarray | None = None) -> np.ndarray:
+    """Visibility of the tracked hand: reject a copied leading position and fade a genuinely lost hand. A tracker
+    gap over an unchanged picture retains the hand, as in lightning; without a plate only the tracker is available."""
+    src = list(track.get("src") or [])[:n] + ["mp"] * n
+    presence = np.ones(n)
+    first = next((t for t in range(n) if src[t] not in ("hold", "lost")), None)
+    if first is None:
+        return presence
+    here = track
+    if plate is not None:
+        h, w = plate.shape[1:3]
+        xy, u, s = fx.track_arrays(track, len(track["xy"]), w, h)
+        here = track | {"xy": xy.tolist(), "dir": u.tolist(), "scale": s.tolist()}
+    for t in range(first):
+        if plate is None or not still_there(plate, here, first, t):
+            presence[t] = 0.0
+    run, seen = 0, first
+    for t in range(first, n):
+        gone = src[t] == "lost" and (plate is None or not still_there(plate, here, seen, t))
+        run = run + 1 if gone else 0
+        seen = t if src[t] not in ("lost", "hold") else seen
+        presence[t] = max(0.0, 1.0 - run / LOST_FADE)
+    return presence
+
+
+def hand_of(track: dict, n: int, plate: np.ndarray | None = None) -> Hand:
     """The palm from the track: its point (the emitter), size (smoothed), normal and depth (from its landmarks; without
     them, a palm facing the camera tipped towards the emitter's direction, at depth 0)."""
     em = [emitter_at(track, t) for t in range(n)]
     p = np.array([e[0] for e in em])
     d = np.array([e[1] for e in em])
     s = _tsmooth(np.array([e[2] for e in em]), TRACK_SMOOTH)
+    presence = hand_presence(track, n, plate)
     lms = track.get("landmarks") or []
     seen = [t for t in range(min(n, len(lms))) if lms[t] is not None]
     if not seen:
         nrm = _unit(np.concatenate([NO_LANDMARKS_TILT * d, np.full((n, 1), math.sqrt(1 - NO_LANDMARKS_TILT ** 2))], 1))
         d3 = np.concatenate([d, np.zeros((n, 1))], 1)
         along = _unit(d3 - (d3 * nrm).sum(1, keepdims=True) * nrm)
-        return Hand(p, nrm, along, s, np.zeros((n, 3)), None)
+        return Hand(p, nrm, along, s, np.zeros((n, 3)), None, presence)
     L, last = [], lms[seen[0]]
     for t in range(n):
         last = lms[t] if t < len(lms) and lms[t] is not None else last
@@ -870,7 +897,7 @@ def hand_of(track: dict, n: int) -> Hand:
         A = np.c_[L[t, PALM_LM, :2], np.ones(len(PALM_LM))]
         plane[t] = np.linalg.lstsq(A, L[t, PALM_LM, 2], rcond=None)[0]
         off[t, :, 2] -= np.c_[L[t, :, :2], np.ones(21)] @ plane[t]
-    return Hand(p, nrm, along, s, plane, off)
+    return Hand(p, nrm, along, s, plane, off, presence)
 
 
 def _aim(tl: Timeline, hand: Hand, k: int) -> np.ndarray:
@@ -3798,9 +3825,9 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 rr = rs * s * float(_ss(0.0, 0.3, u))  # (condensing out of the air as it sets off)
                 if rad > 0.9 * r and rr > 0.5:  # taken in as it touches it (drawn on over it, the drops arriving
                     # sat on the ball like glass seeds)
-                    shape, move = _moving(rr, vel, 1.0, DROP_SHUTTER)
-                    sc.blobs.append(Blob(pos[0], pos[1], c[2] + z0 * R * (1 - u), rr, shape, vel[0], vel[1],
-                                         free=True, move=move))
+                    drop_shape, drop_move = _moving(rr, vel, 1.0, DROP_SHUTTER)
+                    sc.blobs.append(Blob(pos[0], pos[1], c[2] + z0 * R * (1 - u), rr, drop_shape, vel[0], vel[1],
+                                         free=True, move=drop_move))
             if k >= g1:  # air inside, carried round as it circulates; then a drip off its underside, now and then
                 sc.bubbles += _air(bub, loop, circ, t, c, r, s, 1.0)
                 if k >= next_drip:
@@ -3896,13 +3923,14 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 sp = float(np.hypot(*vs))
                 u = vs / max(sp, 1e-6)
                 stretch = 1.0 + min(THROWN_STRETCH, sp / (2.5 * R0))
-                shape, move = _moving(R0 * kz, vs, stretch, THROWN_SHUTTER, (THROWN_LONG - stretch) * 2.0 * R0 * kz)
-                sc.blobs.append(Blob(xy[0], xy[1], c[2], R0 * kz, shape, vs[0], vs[1], CIRCULATE[0] / FPS,
+                drop_shape, drop_move = _moving(R0 * kz, vs, stretch, THROWN_SHUTTER,
+                                               (THROWN_LONG - stretch) * 2.0 * R0 * kz)
+                sc.blobs.append(Blob(xy[0], xy[1], c[2], R0 * kz, drop_shape, vs[0], vs[1], CIRCULATE[0] / FPS,
                                      THROWN_FOAM[0] * min(1.0, 2.0 * (1.0 - fade)),
-                                     modes=tuple((l, a * fade, ph) for l, a, ph in modes), move=move,
+                                     modes=tuple((l, a * fade, ph) for l, a, ph in modes), move=drop_move,
                                      lead=1.0))  # (sharp at its front, smeared behind)
                 if tau >= 1:  # the key light mirrored along its flight
-                    sc.streak = (xy[0], xy[1], u[0], u[1], float(np.hypot(*move)) if move else 0.0, R0 * kz,
+                    sc.streak = (xy[0], xy[1], u[0], u[1], float(np.hypot(*drop_move)) if drop_move else 0.0, R0 * kz,
                                  min(1.0, tau / TAKEOFF))
                 if fade > 0:  # (its air, small waves and points of light go with its wobble)
                     sc.bubbles += _air(bub, loop, circ, t, xy, R0 * kz, s * kz, fade)
@@ -4921,7 +4949,7 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
                          f"{None if mask is None else len(mask)}")
     say = progress or (lambda stage, share, msg: None)
     say("water", 0.0, "Working out where the water goes")
-    hand = hand_of(track, n)
+    hand = hand_of(track, n, plate)
     cam = None if timeline.camera is None else np.asarray(timeline.camera, np.float64)
     scenes = (orb_scenes(timeline, track, hand, (H, W), seed, cam, plate, mask) if form == "orb"
               else whip_scenes(timeline, track, hand, (H, W), seed, cam, mask, plate))
@@ -4933,7 +4961,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     done = [0]
 
     def one(k: int) -> None:
-        out[k] = frame(k, plate[k], None if mask is None else mask[k], scenes[k], hand, room, noise, code, seed)
+        presence = float(hand.presence[k])
+        if presence <= 0.0:
+            out[k] = plate[k]
+        else:
+            painted = frame(k, plate[k], None if mask is None else mask[k], scenes[k], hand, room, noise, code, seed)
+            out[k] = painted if presence >= 1.0 else gam(lin(plate[k]) * (1.0 - presence) + lin(painted) * presence)
         done[0] += 1
         if done[0] % 8 == 0:
             say("water", done[0] / n, f"Shaping the water: frame {done[0]} of {n}")

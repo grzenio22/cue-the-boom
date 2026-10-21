@@ -1318,7 +1318,7 @@ class _Ball:
 
         # ---- actual background refraction, on a smooth coarse grid round the ball
         box = _clip_box(cx, cy, 1.7 * R, 1.7 * R, w, h)
-        if box is not None:
+        if box is not None and min(box[1] - box[0], box[3] - box[2]) >= 2 * FIELD_Q:
             y0, y1, x0, x1 = box
             bh, bw = y1 - y0, x1 - x0
             gx, gy = _coarse_grid(box, FIELD_Q)
@@ -2690,10 +2690,11 @@ def _blast_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarra
     xy, _, size = fx.track_arrays(track, n, w, h)
     normal = palm_normals(track, n, w, h)
     opened = openness(track, n, w, h)
-    hits = [f for f in tl.hits if 0 <= f < n] or ([tl.tap_frame] if 0 <= tl.tap_frame < n else [])
-    sizes = [tl.sizes[i] for i, f in enumerate(tl.hits) if 0 <= f < n] if tl.hits else [1.0] * len(hits)
+    hits = [(f, tl.sizes[i]) for i, f in enumerate(tl.hits) if 0 <= f < n]
+    if not hits and 0 <= tl.tap_frame < n:
+        hits = [(tl.tap_frame, 1.0)]
     blasts = []
-    for j, (f, sz) in enumerate(zip(hits, sizes, strict=True)):
+    for j, (f, sz) in enumerate(hits):
         g = _open_from(opened, f)  # where and which way the push goes: from the open hand
         u, q = push_direction(track, g, normal[g], tl.aim, tl.tap_frame, n, w, h)
         gain = 0.55 + 0.45 * float(np.clip(sz, 0, 1))  # a "pf" pushes three quarters as hard as the loudest hit
@@ -2752,6 +2753,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     the voice's hits). ``track``: the hand's track, its emitter carried to the tap (cuesync.bending.anchored);
     ``mask``: the hand's matte [T, H, W] uint8, or None; ``progress(stage, share, message)``. Frames the air never
     reaches are the plate's, byte for byte."""
+    from .water import hand_presence
+
     if form not in FORMS["air"]:
         raise ValueError(f"air has no form {form!r}; one of {FORMS['air']}")
     plate = np.asarray(plate)
@@ -2762,5 +2765,12 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     out = plate.copy()
     code = fx.shadow_noise(plate) / fx._unit_grain_sigma() / 255.0
     (_ball_shot if form == "ball" else _blast_shot)(plate, out, track, mask, timeline, seed, code, say)
+    presence = hand_presence(track, n, plate)
+    for t in np.flatnonzero(presence < 1):
+        if presence[t] <= 0:
+            out[t] = plate[t]
+        else:
+            base = lin(plate[t])
+            out[t] = gam(base + np.float32(presence[t]) * (lin(out[t]) - base))
     say("air", 1.0, "The air is made")
     return out
