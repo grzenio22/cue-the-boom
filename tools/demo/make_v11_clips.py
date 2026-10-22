@@ -11,12 +11,15 @@ its resulting shot is composited again. clips/manifest.json records source hashe
     python tools/demo/make_v11_clips.py --only explosion_palm proof_boom --force
 
 All inputs are read-only. Output and temporary roots are configurable; each render
-runs in a separate process, sequentially, so decoded 1080p arrays are released.
+runs in a separate process so decoded 1080p arrays are released. Optional
+``--gallery-inputs`` uses an immutable copy of gallery assets; ``--workers 2``
+runs two independent jobs while the main process alone records their receipts.
 """
 
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import os
@@ -68,10 +71,10 @@ def outputs(job: str, clips: Path) -> list[Path]:
     return result
 
 
-def input_paths(job: str, root: Path) -> list[Path]:
+def input_paths(job: str, root: Path, gallery: Path | None = None) -> list[Path]:
     takes = root / "runs" / "takes"
     samples = root / "samples"
-    ahead = samples / "made_ahead" / "bending"
+    ahead = gallery or samples / "made_ahead" / "bending"
     if job == "studio":
         job_dir = root / "runs/jobs/fd58657de8da"
         return [root / "runs/demo_v9/studio_own3/studio.mp4", root / "runs/demo_v9/studio_say_own.wav",
@@ -152,7 +155,7 @@ def proof_voice(job: str, root: Path, clips: Path) -> Path:
     return path
 
 
-def render_worker(job: str, root: Path, clips: Path, temp: Path) -> None:
+def render_worker(job: str, root: Path, clips: Path, temp: Path, gallery: Path | None = None) -> None:
     # Absolute paths keep all input directories read-only. The cwd only helps the
     # current library resolver locate the already rendered explosion element.
     os.chdir(root)
@@ -191,7 +194,7 @@ def render_worker(job: str, root: Path, clips: Path, temp: Path) -> None:
         shutil.copyfile(result.composite, clips / "studio_result.mp4")
         return
 
-    ahead = root / "samples/made_ahead/bending"
+    ahead = gallery or root / "samples/made_ahead/bending"
     takes = root / "runs/takes"
     dest = clips / job
     dest.mkdir(parents=True, exist_ok=True)
@@ -250,7 +253,9 @@ def render_worker(job: str, root: Path, clips: Path, temp: Path) -> None:
             frame = original_warp(*args, **kwargs)
             k = int(args[3])
             if 0 <= k < len(capture):
-                capture[k] = np.maximum(capture[k], gam(frame))
+                # Fire may pack its transported extinction alongside RGB. The
+                # carried-on-black proof shows only emission, never that channel.
+                capture[k] = np.maximum(capture[k], gam(frame[..., :3]))
             return frame
 
         b.warp_element = capture_warp
@@ -260,9 +265,14 @@ def render_worker(job: str, root: Path, clips: Path, temp: Path) -> None:
         fx.flash = lambda *a, **k: None
         b.cap_light = lambda *a, **k: None
         b.contact_light = lambda *a, **k: None
+        if hasattr(b, "fire_light"):
+            b.fire_light.relight = lambda plate, *a, **k: (plate.copy(), np.zeros_like(plate), {})
 
+    # A resolved default of zero is still a default, not a user-authored arrow.
+    # Preserve that intent when a refreshed gallery receipt is replayed.
+    aim = None if bending.get("aim_mode") == "upward_default" else bending.get("aim")
     result = b.make_bending_shot(spec, None, dest, element / "hand_track.json", element / "hand_mask.npz", progress,
-                                 element_from=element, tap_frame=bending["tap_frame"], aim=bending.get("aim"))
+                                 element_from=element, tap_frame=bending["tap_frame"], aim=aim)
     if capture is not None:
         n = round(probe_video(result.composite).duration_s * 24)
         write_video(clips / "how_carried.mp4", capture[:n], fps=24, crf=16)
@@ -284,12 +294,16 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("D:/openHiggsfield/runs/demo_v11"))
     parser.add_argument("--temp", type=Path, default=Path("D:/openHiggsfield_tmp/sol12/demo"))
     parser.add_argument("--only", nargs="+", choices=JOBS)
+    parser.add_argument("--gallery-inputs", type=Path, help="Optional immutable gallery element/receipt/track/matte snapshot")
+    parser.add_argument("--workers", type=int, choices=(1, 2), default=1,
+                        help="Independent render subprocesses; concurrent timings are not a performance benchmark")
     parser.add_argument("--force", action="store_true", help="rebuild even if input and source hashes match")
     parser.add_argument("--refresh-unchanged", action="store_true",
                         help="refresh selected unchanged recipes after tooling-only edits; verify every source/output hash")
     parser.add_argument("--job", choices=JOBS, help=argparse.SUPPRESS)
     args = parser.parse_args()
     root, out, temp = args.input_root.resolve(), args.out.resolve(), args.temp.resolve()
+    gallery = args.gallery_inputs.resolve() if args.gallery_inputs else None
     clips = out / "clips"
     clips.mkdir(parents=True, exist_ok=True)
     temp.mkdir(parents=True, exist_ok=True)
@@ -297,7 +311,7 @@ def main() -> None:
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     os.environ["PYTHONPATH"] = str(SOURCE)
     if args.job:
-        render_worker(args.job, root, clips, temp)
+        render_worker(args.job, root, clips, temp, gallery)
         return
 
     manifest_path = clips / "manifest.json"
@@ -311,9 +325,9 @@ def main() -> None:
                                 "explosion": "LTX-2.5 fireball plus CPU lighting, smoke treatment and compositing",
                                 "lightning_and_water": "procedural CPU effects, synthetic sample noise",
                                 "narration": "Kokoro-82M, a synthetic voice"}})
-    hashes = {}
+    hashes, tasks = {}, []
     for job in args.only or JOBS:
-        ins = input_paths(job, root)
+        ins = input_paths(job, root, gallery)
         missing = [str(p) for p in ins if not p.exists()]
         if missing:
             raise FileNotFoundError("Missing inputs: " + ", ".join(missing))
@@ -340,10 +354,16 @@ def main() -> None:
         if not args.force and previous.get("fingerprint") == fingerprint and all(p.exists() for p in expected):
             print(f"{job}: up to date", flush=True)
             continue
+        tasks.append((job, ins, source_hashes, fingerprint, expected))
+
+    def rebuild(task):
+        job, ins, source_hashes, fingerprint, expected = task
         log = clips / f"{job}.log"
         print(f"{job}: rebuilding (log: {log})", flush=True)
         started = time.time()
         cmd = [sys.executable, str(SCRIPT), "--input-root", str(root), "--out", str(out), "--temp", str(temp), "--job", job]
+        if gallery:
+            cmd += ["--gallery-inputs", str(gallery)]
         with log.open("w", encoding="utf-8") as f:
             completed = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
         if completed.returncode or not all(p.exists() for p in expected):
@@ -352,14 +372,31 @@ def main() -> None:
         entry = {"fingerprint": fingerprint, "elapsed_seconds": round(time.time() - started, 2),
                  "cache_tool_sha256": code[str(SCRIPT.relative_to(CHECKOUT))],
                  "inputs_sha256": source_hashes, "outputs_sha256": {str(p): sha(p) for p in expected},
+                 "no_new_render": True, "no_gpu": True,
+                 "concurrent_workers": args.workers, "timing_is_benchmark": False,
                  "method": "existing studio recording; resulting shot recomposited by current checkout" if job == "studio" else
                            "current checkout CPU render/composite from cached model render; no new model render"}
+        elements = {str(p): source_hashes[str(p)] for p in ins if p.name == "element.mp4"}
+        if len(elements) == 1:
+            entry["element_sha256"] = next(iter(elements.values()))
         receipt = clips / ("studio_result_current" if job == "studio" else job) / "receipt.json"
         if receipt.exists():
             entry["receipt"] = json.loads(receipt.read_text(encoding="utf-8"))
-        manifest["jobs"][job] = entry
-        dump(manifest_path, manifest)
-        print(f"{job}: done in {entry['elapsed_seconds']:.1f}s", flush=True)
+        return job, entry
+
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        pending = {pool.submit(rebuild, task): task[0] for task in tasks}
+        try:
+            for future in as_completed(pending):
+                job, entry = future.result()
+                # Only this main thread writes the manifest; workers own disjoint outputs.
+                manifest["jobs"][job] = entry
+                dump(manifest_path, manifest)
+                print(f"{job}: done in {entry['elapsed_seconds']:.1f}s", flush=True)
+        except BaseException:
+            for future in pending:
+                future.cancel()
+            raise
     dump(manifest_path, manifest)
 
 

@@ -5,9 +5,9 @@ evaluation, setting the helpers up by hand, and the other routes (into the scene
 
 ## Generation and performance
 
-Generation makes a stored element; performance gives it a new timeline. Near the top of the studio, **One render. Three performances.** uses `hand_palm__boom__fire_burst` and its two replays, `hand_palm__pfpfboom__again` and `hand_palm__pfx4__again`, in `samples/made_ahead/bending/`. The author's palm footage and one LTX-2.5 fire element stay the same. The three cues are their recorded **BOOM**, **pf, pf, BOOM** and **pf pf pf PF**.
+Generation makes a stored element; performance gives it a new timeline. Near the top of the studio, **One render. Three performances.** uses `hand_palm__boom__fire_burst` and its two replays, `hand_palm__pfpfboom__again` and `hand_palm__pfx4__again`, in `samples/made_ahead/bending/`. The author's palm footage and one LTX-2.5 fire element stay the same. **BOOM** uses the original recorded cue; **pf, pf, BOOM** and **pf pf pf PF** are edited rhythms assembled from the author's recordings and room tone.
 
-Both replay receipts name the base shot and record the same element SHA-256, `no_new_render: true` and `no_gpu: true`. The new voice determines the hit frames, size and held duration; tracking, masking, compositing and light run on the CPU. This is the separation described in demo v13: the generated effect becomes a reusable instrument.
+Both replay receipts name the base shot and record the same element SHA-256, `no_new_render: true` and `no_gpu: true`. The new voice determines the hit frames, size and held duration; tracking, masking, compositing and light run on the CPU. The generated effect becomes a reusable instrument.
 
 For hand effects, LTX-2.5 with ainvfx-fluid generates the fire and the explosion's fireball once over black. [`runner.py`](cuesync/src/cuesync/runner.py) loads the API workflow JSON, constructs the Comfy Python SDK workflow and sends it to the self-hosted Comfy API with `client.run`. Lightning, water and air are procedural CPU effects. The explosion reuses an LTX fireball; its blast, light, smoke compositing and dissipation are handled on the CPU.
 
@@ -46,22 +46,26 @@ LTX-2.5 can only take the guide on an 8-frame grid (a third of a second at 24 fp
 
 The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA learned static sources, so the hand itself is never regenerated). Then it is carried on your hand frame by frame:
 - **Tracking** ([`hand_track.py`](cuesync/src/cuesync/hand_track.py)): MediaPipe follows the hand you tapped; RTMPose re-finds it where MediaPipe loses it; optical flow fills the gaps. In the studio you see its path before anything is made, with the frames it lost in red.
+- **Aim:** palm bursts and vertical plumes default upward when no aim was supplied. An explicit aim is preserved; directional jets retain the hand's inferred direction.
+- **Finite thickness** ([`fx_volume.py`](cuesync/src/cuesync/fx_volume.py)): nine correlated depth slabs share the stored fire image's energy, with upward advection and small view-dependent parallax. Thermal redistribution emphasizes interior filaments without filling turbulent gaps. Optical extinction is bounded by emitted luminance, including a final bound against the plate, so faint fire cannot paint a dark soot rim on a bright wall.
 - **History:** each part of the flame keeps the direction it was thrown in, so a swing whips through the air.
 - **Size** ([`bending.fit_play`](cuesync/src/cuesync/bending.py)): measured on what the render draws, not on what its guide asked for (the model paints well inside it). A palm's flame plays 2.8 hands tall, a fireball 2.2 hands wide (1.1 from a fingertip), within the frame's room, never smaller than rendered.
 - **Thrown:** a fireball leaves the fist (or the palm) a frame after the strike and flies on along it, slowing and rising, with the room; the fist pulls back without it. A flame stays on the hand.
 - **A flame in the palm** comes up out of the skin: its foot fades over a quarter of a hand, broken by noise that rises with the flame, and throws a pool of light on the palm it stands in.
-- **Matte** ([`hand_mask.py`](cuesync/src/cuesync/hand_mask.py)): SAM 2.1 cuts the hand and forearm out, so the fingers in front of the flame's root hide it. Without SAM, the matte is the skin MediaPipe's segmenter finds, filled out by the hand drawn from its landmarks (and the landmarks alone where the skin isn't found).
+- **Matte and depth** ([`hand_mask.py`](cuesync/src/cuesync/hand_mask.py), [`hand_surface.py`](cuesync/src/cuesync/hand_surface.py)): with a matte and 21 valid 3D landmarks, palm triangles and finger capsules provide a smooth 2.5D surface proxy. Capsule widths follow the matte's distance transform. Depth-tested root overlap lets foreground skin hide the flame; missing landmarks fall back to directional holdout and zero view parallax. Without SAM, the existing skin/landmark matte remains available.
 - **Timing:** each hit fires on your arm's strike when the strike falls on the beat.
-- **Light** ([`fx_light.py`](cuesync/src/cuesync/fx_light.py)):
-  - The flame's own image is spread as light, and your hand is lit as if round, on the side facing the flame.
-  - The room gets less. Soot only where flame is, and its dim edge hides no more of the room than it gives back.
-  - Skin under a flame is no brighter than the flame times its albedo: the light on it rolls off towards that, so a fist next to a fireball keeps its texture instead of blowing out.
-- **A camera's colour** (`bending.fire_hdr`): in a lit room a camera exposes for the room and sees a flame's core blown to white. The render's core is brightened by its heat (not the whole flame, which only went orange, yellow, lemon), its overexposure spills through warm white, and a lens glow surrounds it; the flame lights the room as brightly as it now reads.
+- **Light** ([`fire_relight.py`](cuesync/src/cuesync/fire_relight.py)): three energy-weighted bands approximate the flame's extended emitter. Exposure-aware, masked material estimates let dark skin and nearby surfaces reflect its light without bleeding skin colour across the matte. Missing surface normals use a restrained diffuse estimate inside the hand matte. A local contact pool fades as a burst leaves the hand, while room bounce follows the emitted fire; a soft SAM-derived blocker reduces added room bounce behind the hand. A `tanh` shoulder limits highlights while preserving the original ambient light.
+- **A camera's colour:** hot interior filaments move toward warm white while dim gaps stay transparent. A restrained lens glow connects the flame's highlights to the footage.
 - **Filmed like the hand:** the fire is smeared by the hand's motion over half a frame (a phone's shutter) and softened to the plate's sharpness.
+- **Heat refraction:** the foreground matte excludes skin from the shimmer, so fingers are not warped by the hot-air effect. Surface and volume work is bounded to the active region for CPU rendering.
 - **Charge-up:** hum before the strike ("mmmmmmBOOM") and an ember grows in your palm with your voice. It lights your fingers until the strike releases the fireball; the hum launches nothing.
 - **First person:** with the phone at your eyes and your hand coming in from below, a handheld camera is measured on the background, so what was already thrown moves with the room, not with the screen. A camera on a tripod is left alone.
   - On a handheld stand-in with a known camera path, the error is 0.6 px median over the flame's 10-frame history, against 27 px of camera motion.
   - The tracker's ground truth in [`cuesync/tests/bending/gt/`](cuesync/tests/bending/gt) is provisional: points marked by eye on gridded crops (AI-assisted), not hand-clicked.
+
+These stages are an **image-based 2.5D approximation**, not recovered 3D room geometry or a physical fluid simulation. The soft room-light blocker uses assumed depth. Plain bright walls can still reveal the source element's flat silhouette; dark-footage relighting cannot recover detail absent from the recording.
+
+**Current CPU measurement:** the 161-frame walking-flame sample (1080×1920, 24 fps, two overlapping held cues) recomposited in **83.6 seconds** on a Ryzen 9 7900X with four OpenCV threads, using its stored element, track and matte. Active-region processing reduced the same job from 139.2 seconds. Comparing all decoded frames found only 16 changed pixels out of 333,849,600, with a maximum channel difference of 2/255. This measures cached compositing on that desktop, not tracking a new clip or a guarantee for every laptop. Reproduce the CPU-only job with `python tools/rebuild_hand_fire_gallery.py --shot hand_walk__fffff__flame_plume --run --run-root runs/cpu-benchmark`.
 
 ### Lightning, water, air and an explosion
 
@@ -93,7 +97,7 @@ The shipped gallery has five beyond-fire shots: `hand_fist__boooom__explosion`, 
 
 [`tools/demo/elements_card.py`](tools/demo/elements_card.py) makes the README's image from those directories' `final.mp4` files. It uses zero-based frames **46, 56, 49, 60 and 30**, respectively, selected around the receipts' hits and holds. The explosion is past hit 35; both lightning forms are within their held cues; the water orb is shown during hold 2–54, before its final hit at 43. The script only crops and resizes the frames, then adds cue labels. With PyAV and Pillow installed, run `python tools/demo/elements_card.py` from the repository root. It resolves sample paths relative to the script's location.
 
-**The path a judge's laptop takes, on nineteen phone takes.** Nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library.
+**Earlier CPU-route evaluation, on nineteen phone takes.** Before the nine-slab compositor upgrade, nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library. The timings below describe that earlier compositor, not the current fire pipeline or a laptop performance guarantee.
 - Every one of the nineteen made a shot, in 32 to 100 s each on a desktop CPU.
 - The hand was lost on at most 23 % of a clip's frames.
 - The picks: a palm's "pf" a pop of fire, a fist's strike a burst, a roar from pointing fingers a flamethrower, a held "fffff" over an open palm a flame in it, a BOOM a fireball. One snap with no voice became a pop of fire where a lighter's flame was meant; a tap on the badge changes it.
@@ -227,7 +231,7 @@ The app uses open weights, self-hosted, with no partner nodes or closed APIs:
 - **SAM 2.1**-small (Meta; Apache-2.0).
 - Optional: LTX-2.5 IC-LoRA **Alpha-Gen** (Lightricks), a smoke-matte fallback.
 
-The demo's narration uses **Kokoro-82M** (Apache-2.0), a synthetic voice, separate from the app and from the author's performed cues. The studio's **pf, pf, BOOM** and **pf pf pf PF** samples are the author's recordings; the other preset noises are synthetic. [Model files, versions and revisions](build/model-files.md).
+The demo's narration uses **Kokoro-82M** (Apache-2.0), a synthetic voice, separate from the app and from the author's performed cues. The studio's **pf, pf, BOOM** and **pf pf pf PF** samples are edited rhythms assembled from the author's recorded pf/BOOM sounds and room tone; the other preset noises are synthetic. [Model files, versions and revisions](build/model-files.md).
 
 ## With a GPU
 
@@ -285,4 +289,4 @@ pip install "./cuesync[server,dev]"
 pytest cuesync/tests
 ```
 
-The suite runs on the CPU in about four minutes. 20 tests are skipped without MediaPipe, SAM 2.1 or the development plates. The studio's own tests need Node 24: `npm install`, then `npm test`, in `web/`.
+The suite runs on the CPU; duration depends on the machine and concurrent rendering. The final integration run passed 960 tests, with 20 skipped without MediaPipe, SAM 2.1 or the development plates. The studio's own tests need Node 24: `npm install`, then `npm test`, in `web/`.

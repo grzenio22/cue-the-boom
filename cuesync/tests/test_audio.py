@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from cuesync.audio import CueSheet, NoOnsetError, analyze
+from cuesync.media import read_audio
 
 SR = 48000
 
@@ -24,6 +25,13 @@ def test_onset_at_sample_zero_detected():
 def test_hero_is_loudest_of_two():
     x = burst(0.5, amp=0.2) + burst(1.5, amp=0.9)
     assert abs(analyze(x, SR).hero_onset_s - 1.5) <= 1/24
+
+
+def test_aac_phone_sample_keeps_its_main_attack_and_sustained_end():
+    """AAC recompression must not make the startup click replace the real performance at 2.5 s."""
+    cue = analyze(read_audio("samples/plates/hand_walk.mp4", SR), SR)
+    assert [hit.frame for hit in cue.hits()] == [60]
+    assert cue.voice_end_frame == 149
 
 
 def test_rising_tone_envelope_rises_and_peak_late():

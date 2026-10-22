@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Performance } from "@/components/Performer";
 import EffectBadge from "@/components/EffectBadge";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, MADE_EFFECTS, fetchObjects, followJob, type JobEvent, type JobStatus, madeAhead, type Mode, type ObjectKind, pollUntilDone, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
+import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, MADE_EFFECTS, fetchObjects, followJob, type JobEvent, JobNotFoundError, type JobStatus, madeAhead, type Mode, type ObjectKind, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -88,7 +88,7 @@ function HandChips({ job }: { job: JobStatus }) {
 }
 
 /** Step 4: pick the effect and how to make it, then the shot. */
-export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], hand = null, initialJob, replayOf = null, replayWith = [], siblings = [], onReplay, onBusy, onDone }: {
+export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], hand = null, initialJob, initialEffect, replayOf = null, replayWith = [], siblings = [], onReplay, onBusy, onJobChange, onDone }: {
   plate: PickedPlate;
   point: [number, number];
   direction: number | null;
@@ -101,11 +101,13 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   hand?: { frame: number; prep?: string | null } | null; // your hand is the source (element bending), tapped on this frame
   // (prep: the job that followed that tap through the clip already: the shot reuses it)
   initialJob?: JobStatus | null; // this take's shot, if it was already made (coming back to it)
+  initialEffect?: string | null; // the submitted choice, including before the server has picked an automatic effect
   replayOf?: string | null; // play this take on that finished shot's render (no new render)
   replayWith?: string[]; // and those other shots on the plate with it, as one scene
   siblings?: string[]; // the other finished shots on this still plate that could be performed with this one
   onReplay?: (jobId: string, together: string[]) => void; // the performer wants to perform this shot (and those) again
   onBusy?: (busy: boolean) => void;
+  onJobChange?: (job: JobStatus, effect: string) => void; // retain submitted and latest status when this panel is reopened
   onDone: (job: JobStatus, effect: string) => void;
 }) {
   const drawn = strokes.length > 0;
@@ -124,7 +126,12 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const madeFor = hand && MADE_EFFECTS.includes(performance.suggested) ? performance.suggested : null;
   const [effect, setEffect] = useState(madeFor ?? AUTO_EFFECT);
   const [pickOwn, setPickOwn] = useState(!!madeFor); // a hand shot: the cue decides unless you open the list
-  useEffect(() => { if (madeFor) { setEffect(madeFor); setPickOwn(true); } }, [madeFor]);
+  const [previousMadeFor, setPreviousMadeFor] = useState(madeFor);
+  // A new suggested cue resets the choice; ordinary rerenders keep the performer's manual pick.
+  if (previousMadeFor !== madeFor) {
+    setPreviousMadeFor(madeFor);
+    if (madeFor) { setEffect(madeFor); setPickOwn(true); }
+  }
   const [subject, setSubject] = useState(plate.subject ?? "");
   const [kinds, setKinds] = useState<ObjectKind[]>([]);
   const [kind, setKind] = useState<string | null>(null); // your own clip: what it is
@@ -146,6 +153,11 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const setBusy = (b: boolean) => { setBusyState(b); onBusy?.(b); };
   const [event, setEvent] = useState<JobEvent | null>(null);
   const [job, setJob] = useState<JobStatus | null>(initialJob ?? null);
+  const [monitorError, setMonitorError] = useState<string | null>(null);
+  const [submittedEffect, setSubmittedEffect] = useState(initialEffect ?? initialJob?.effect ?? effect);
+  const monitor = useRef<AbortController | null>(null);
+  useEffect(() => () => monitor.current?.abort(), []);
+  const pending = job?.status === "queued" || job?.status === "running";
   const [view, setView] = useState<View>("final.mp4");
   const [resultWide, setResultWide] = useState(false); // a landscape shot gets the width it needs
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
@@ -161,40 +173,85 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       setSharing(false);
     }
   };
+  const observe = async (queued: JobStatus, eff: string, controller: AbortController) => {
+    const { signal } = controller;
+    let latest = queued;
+    const updateStatus = (status: JobStatus) => {
+      if (signal.aborted) return;
+      latest = status;
+      setJob(status);
+      onJobChange?.(status, eff);
+      if (status.files["guide_preview.mp4"]) setGuideUrl(status.files["guide_preview.mp4"]);
+    };
+    updateStatus(queued);
+    setMonitorError(null);
+    setEvent({ stage: queued.stage, progress: queued.progress, message: queued.message, t: 0 });
+    const peek = setInterval(() => { // the guide exists a second in: show it while the element is made
+      fetch(`/api/jobs/${queued.id}`, { signal }).then((response) => response.ok ? response.json() : null).then((status: JobStatus | null) => {
+        if (!status || signal.aborted || status.id !== queued.id) return;
+        if (status.status === "queued" || status.status === "running") updateStatus(status);
+        if (status.files["guide_preview.mp4"]) {
+          setGuideUrl(status.files["guide_preview.mp4"]);
+          clearInterval(peek);
+        }
+      }).catch(() => undefined);
+    }, 1500);
+    try {
+      const done = queued.status === "done" || queued.status === "error" ? queued
+        : await followJob(queued.id, setEvent, { signal, onStatus: updateStatus });
+      if (signal.aborted) return;
+      updateStatus(done);
+      setView("final.mp4");
+      if (done.status === "done") onDone(done, eff);
+    } catch (e) {
+      if (!signal.aborted) {
+        if (e instanceof JobNotFoundError) updateStatus({ ...latest, status: "error", stage: "missing", error: e.message });
+        else setMonitorError((e as Error).message);
+      }
+    } finally {
+      clearInterval(peek);
+      if (!signal.aborted) { controller.abort(); monitor.current = null; setBusy(false); }
+    }
+  };
+  const resume = async () => {
+    if (!job || monitor.current) return;
+    const controller = new AbortController();
+    monitor.current = controller;
+    setBusy(true);
+    await observe(job, submittedEffect, controller);
+  };
   const make = async (pick?: string, reuse?: string) => {
+    if (monitor.current || pending) return;
+    const controller = new AbortController();
+    monitor.current = controller;
     const eff = pick ?? effect;
     setBusy(true);
     setJob(null);
+    setMonitorError(null);
+    setGuideUrl(null);
     setEvent({ stage: "uploading", progress: 0.01, message: "Uploading", t: 0 });
+    let queued: JobStatus;
     try {
-      const queued = replayOf
+      queued = replayOf
         ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing,
           together: replayWith })
         : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
           timing: performance.timing, effect: eff, point, seed, mode, direction, frame: hand?.frame ?? null, reuse: reuse ?? hand?.prep ?? null, subject: subject.trim() || null, object: kind,
           cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
           describe: describe.trim() || null, sources: several ? sources : null });
-      setGuideUrl(null);
-      const peek = setInterval(() => { // the guide exists a second in: show it while the element is made
-        fetch(`/api/jobs/${queued.id}`).then((r) => r.json()).then((s: JobStatus) => {
-          if (s.files["guide_preview.mp4"]) { setGuideUrl(s.files["guide_preview.mp4"]); clearInterval(peek); }
-        }).catch(() => undefined);
-      }, 1500);
-      let done: JobStatus;
-      try {
-        done = await followJob(queued.id, setEvent);
-      } finally {
-        clearInterval(peek);
-      }
-      if (done.status !== "done" && done.status !== "error") done = await pollUntilDone(queued.id);
-      setJob(done);
-      setView("final.mp4");
-      if (done.status === "done") onDone(done, eff);
     } catch (e) {
-      setJob({ id: "", status: "error", stage: "error", progress: 0, message: "", error: (e as Error).message, files: {}, receipt: null });
-    } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) {
+        const failed: JobStatus = { id: "", status: "error", stage: "error", progress: 0, message: "", error: (e as Error).message, files: {}, receipt: null };
+        setJob(failed);
+        onJobChange?.(failed, eff);
+        monitor.current = null;
+        setBusy(false);
+      }
+      return;
     }
+    if (controller.signal.aborted) return;
+    setSubmittedEffect(eff);
+    await observe(queued, eff, controller);
   };
 
   // a take for performing a shot again plays at once: nothing to choose, nothing to render
@@ -238,14 +295,14 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         <p className="muted">The GPU is offline: {MADE_EFFECTS.includes(effect)
           ? `${HAND_LABELS[effect] ?? effect} is made on this computer from your hand and your voice.`
           : "Your cue chooses an element made on this computer or plays this hand's fireball, made ahead of time, on each of your hits."}{" "}
-          No new render; ready in about a minute.</p>
+          No new render; processing time varies with your clip and computer.</p>
       )}
       {hand && !handOffline && effect !== "explosion" && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
           fireball, a held fffff over a palm a flame in it (steam on the badge), a pf a pop of fire. Lightning, water, air and an
           explosion are made on this computer from your hand and your voice: choose them yourself. {sceneLive
             ? "Rendered once over black on the GPU (1-3 min; the first after the GPU starts takes a few more), then carried on your hand."
-            : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand (a minute or two on a laptop CPU)."}</p>
+            : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand. Processing time varies with your clip and computer."}</p>
       )}
       {!hand && mode === "scene" && !ahead && (
         <label className="row">
@@ -314,8 +371,13 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         </label>
       )}
       <div className="row">
-        <button disabled={busy || effects.length === 0 || (!hand && sceneOnly && mode !== "scene")} onClick={() => void make()}>{job?.status === "done" ? "Make it again" : "Make the shot"}</button>
+        {pending
+          ? <button disabled={busy} onClick={() => void resume()}>Check existing shot</button>
+          : <button disabled={busy || effects.length === 0 || (!hand && sceneOnly && mode !== "scene")} onClick={() => void make()}>{job?.status === "done" ? "Make it again" : "Make the shot"}</button>}
       </div>
+
+      {monitorError && <p className="chip warn" role="status">Could not check shot {job?.id}: {monitorError}</p>}
+      {pending && !busy && <p className="muted">Last known status: {job.status}. Checking this shot continues the existing job.</p>}
 
       {busy && event && (
         <div aria-live="polite">
@@ -333,7 +395,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           )}
         </div>
       )}
-      {job?.status === "error" && <p className="chip bad">The shot failed: {job.error}</p>}
+      {job?.status === "error" && <p className="chip bad">{job.stage !== "missing" && "The shot failed: "}{job.error}</p>}
       {job?.status === "done" && (
         <div>
           <div className="row" role="tablist">
@@ -355,7 +417,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
               <button onClick={() => onReplay(again, replayWith)}>Perform it again</button>
               <span className="muted">{bent ? (job.effect === "explosion"
                 ? "a new rhythm on the same hand take: no new render, takes a few minutes on a laptop CPU"
-                : "a new rhythm on the same hand take: no new render, ready in about a minute")
+                : "a new rhythm on the same hand take: no new render, processing time varies with your clip and computer")
                 : "a new rhythm or another voice on the same render: no new render, ready in about 20 s"}</span>
             </div>
           )}

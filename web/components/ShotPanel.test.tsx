@@ -44,6 +44,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -157,29 +158,29 @@ describe("ShotPanel offline sample hand", () => {
     expect(offlineCopy()).toContain("fireball made ahead of time");
     expect(offlineCopy()).toContain("its blast is made on this computer from your hand and your voice");
     expect(offlineCopy()).toContain("No new render; takes a few minutes on a laptop CPU");
-    expect(offlineCopy()).not.toContain("ready in about a minute");
+    expect(offlineCopy()).not.toContain("processing time varies with your clip and computer");
   });
 
   it("shows the same local explosion estimate when hand effects are available without a scene GPU", async () => {
     await show({ performance: { ...performance, suggested: "explosion" }, modes: ["bending", "instant"] });
     expect(host.textContent).toContain("its blast is made on this computer from your hand and your voice");
     expect(host.textContent).toContain("No new render; takes a few minutes on a laptop CPU");
-    expect(host.textContent).not.toContain("a minute or two on a laptop CPU");
+    expect(host.textContent).not.toContain("Processing time varies with your clip and computer");
     expect(host.textContent).not.toContain("Rendered once over black on the GPU");
   });
 
-  it("keeps the current estimate for other offline hand effects", async () => {
+  it("explains variable processing time for other offline hand effects", async () => {
     await show();
-    expect(offlineCopy()).toContain("No new render; ready in about a minute");
+    expect(offlineCopy()).toContain("No new render; processing time varies with your clip and computer");
     await tap(radio("Explosion"));
     expect(offlineCopy()).toContain("takes a few minutes on a laptop CPU");
     await tap(radio("Water orb"));
-    expect(offlineCopy()).toContain("No new render; ready in about a minute");
+    expect(offlineCopy()).toContain("No new render; processing time varies with your clip and computer");
   });
 
   it.each([
     ["explosion", "takes a few minutes on a laptop CPU"],
-    ["water_orb", "ready in about a minute"],
+    ["water_orb", "processing time varies with your clip and computer"],
   ])("gives a completed %s the matching replay estimate", async (effect, estimate) => {
     await show({ initialJob: finishedHand(effect), onReplay: vi.fn() });
     const replayCopy = button("Perform it again").parentElement?.textContent;
@@ -193,6 +194,120 @@ describe("ShotPanel offline sample hand", () => {
     expect(offlineCopy()).toContain("made on this computer");
     expect(offlineCopy()).toContain("fireball, made ahead of time");
     expect(offlineCopy()).toContain("No new render");
+  });
+
+  it("accepts a new cue's suggestion while keeping manual choices across unrelated rerenders", async () => {
+    await show();
+    await tap(radio("Air ball"));
+    await show({ modes: ["bending", "instant"] });
+    expect(radio("Air ball").getAttribute("aria-checked")).toBe("true");
+    await show({ performance: { ...performance, suggested: "lightning_arc" } });
+    expect(radio("Lightning").getAttribute("aria-checked")).toBe("true");
+    await show({ performance: autoPerformance });
+    expect(radio("Lightning").getAttribute("aria-checked")).toBe("true");
+  });
+});
+
+describe("ShotPanel monitoring recovery", () => {
+  const queued: JobStatus = {
+    id: "submitted-shot", effect: "water_orb", status: "queued", stage: "queued", progress: 0,
+    message: "Waiting for the GPU", error: null, files: {}, receipt: null,
+  };
+  class ProgressStream extends EventTarget {
+    static latest: ProgressStream;
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    onerror: (() => void) | null = null;
+    closed = false;
+    constructor() { super(); ProgressStream.latest = this; }
+    close() { this.closed = true; }
+  }
+
+  it("checks the existing shot after monitoring fails instead of submitting another render", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", ProgressStream);
+    let online = false;
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/jobs" && init?.body instanceof FormData) {
+        sent.push(init.body);
+        return Response.json(queued);
+      }
+      if (url === "/api/jobs/submitted-shot") {
+        if (!online) throw new TypeError("Network offline");
+        return Response.json({ ...queued, status: "done", stage: "done", progress: 1, files: { "final.mp4": "/shot.mp4" } });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const completed: { id: string; effect: string }[] = [];
+    await show({ onDone: (job, effect) => completed.push({ id: job.id, effect }) });
+    await tap(button("Make the shot"));
+    await act(async () => {
+      ProgressStream.latest.onerror?.();
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+
+    expect(host.textContent).not.toContain("The shot failed");
+    expect(host.textContent).toContain("submitted-shot");
+    expect(button("Check existing shot").disabled).toBe(false);
+    await tap(radio("Air ball"));
+    online = true;
+    await tap(button("Check existing shot"));
+    await act(async () => { ProgressStream.latest.onerror?.(); });
+
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/shot.mp4");
+    expect(sent).toHaveLength(1);
+    expect(completed).toEqual([{ id: "submitted-shot", effect: "water_orb" }]);
+  });
+
+  it("stops observing a submitted shot when the panel unmounts", async () => {
+    vi.stubGlobal("EventSource", ProgressStream);
+    vi.stubGlobal("fetch", async () => Response.json(queued));
+    await show();
+    await tap(button("Make the shot"));
+    await act(async () => { root.render(null); });
+    expect(ProgressStream.latest.closed).toBe(true);
+  });
+
+  it("lets the user make a replacement after the server confirms the job no longer exists", async () => {
+    vi.stubGlobal("EventSource", ProgressStream);
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/jobs" && init?.body instanceof FormData) {
+        sent.push(init.body);
+        return Response.json(sent.length === 1 ? queued : {
+          ...queued, id: "replacement-shot", status: "done", stage: "done", files: { "final.mp4": "/replacement.mp4" },
+        });
+      }
+      if (url === "/api/jobs/submitted-shot") return new Response("Not found", { status: 404 });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await show();
+    await tap(button("Make the shot"));
+    await act(async () => { ProgressStream.latest.onerror?.(); });
+    expect(host.textContent).toContain("could not find this shot");
+    expect(button("Make the shot").disabled).toBe(false);
+    await tap(button("Make the shot"));
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/replacement.mp4");
+    expect(sent).toHaveLength(2);
+  });
+
+  it("does not let a late guide-preview response overwrite a completed shot", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", ProgressStream);
+    let finishPreview!: (response: Response) => void;
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (url === "/api/jobs") return Response.json(queued);
+      return new Promise<Response>((resolve) => { finishPreview = resolve; });
+    });
+    await show();
+    await tap(button("Make the shot"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    await act(async () => {
+      ProgressStream.latest.dispatchEvent(new MessageEvent("end", { data: JSON.stringify({
+        ...queued, status: "done", stage: "done", files: { "final.mp4": "/shot.mp4" },
+      }) }));
+    });
+    await act(async () => { finishPreview(Response.json({ ...queued, status: "running" })); });
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/shot.mp4");
+    expect(button("Make it again").disabled).toBe(false);
   });
 });
 

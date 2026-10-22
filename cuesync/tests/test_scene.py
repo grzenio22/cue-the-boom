@@ -963,6 +963,62 @@ def test_each_hit_of_a_rhythm_goes_on_its_own_cue_within_a_speed_limit():
     assert warp_anchors([8, 24, 52], [16, 32, 49], [0.7, 0.75, 1.0]) == [(8, 16), (52, 49)]
 
 
+def _short_steam_render():
+    cue = cue_of([(1.5, 0.5, 0.7)])
+    eff = load_effect("steam_jet")
+    plate = np.full((96, 256, 128, 3), 60, np.uint8)
+    sp = paint_scene_guide(cue, eff, (0.5, 0.65), plate, start=15, length=57, size=(128, 256))
+    render = plate[:57].copy()
+    render[sp.events[0].at:, 80:160, 48:80] = 210  # steam remains visible at the render's end
+    return plate, render, sp, eff
+
+
+def test_finite_steam_fades_a_short_renders_held_tail_without_retiming_its_onset():
+    from cuesync.scene_shot import time_scene
+
+    plate, render, sp, eff = _short_steam_render()
+    original_plate, original_render = plate.copy(), render.copy()
+    held = time_scene(plate, True, render, sp, eff, 240, voice_end=None, impacts=False)
+    st = time_scene(plate, True, render, sp, eff, 240, voice_end=48, impacts=False)
+    last = st.index.index(len(render) - 1)
+
+    assert len(st.frames) == len(plate) == 96 and last == 71
+    assert st.index == held.index
+    assert (st.onset, st.shift, st.hits) == (held.onset, held.shift, held.hits)
+    assert st.index[st.hits[0]] == st.onset  # the first visible steam still lands on its cue
+    np.testing.assert_array_equal(st.frames[:last + 1], held.frames[:last + 1])
+    levels = st.frames[last:last + 13, 120, 64, 0].astype(int)
+    assert levels[0] == 210 and levels[-1] == 60
+    assert np.all(np.diff(levels) < 0)  # the held cloud disperses rather than freezing
+    np.testing.assert_array_equal(st.frames[last + 12:], plate[last + 12:])
+    np.testing.assert_array_equal(plate, original_plate)
+    np.testing.assert_array_equal(render, original_render)
+    assert any("steam" in w and "12 frames" in w and "original plate" in w for w in st.warnings)
+
+
+@pytest.mark.parametrize("effect,voice_end", [
+    ("steam_jet", None),  # no release was recorded
+    ("steam_jet", 80),  # the performer is still holding when the render ends
+    ("smoke", 48),
+    ("attack_only_steam", 48),
+    ("blow_out", 48),  # returning to the original plate would relight the candle
+])
+def test_short_render_preserves_ongoing_and_persistent_effects(effect, voice_end):
+    from cuesync.scene_shot import time_scene
+
+    plate, render, sp, eff = _short_steam_render()
+    if effect == "smoke":
+        eff = dataclasses.replace(eff, fluid="smoke")
+    elif effect == "attack_only_steam":
+        eff = dataclasses.replace(eff, voice_gate="attack")
+    elif effect == "blow_out":
+        eff = load_effect("blow_out")
+    st = time_scene(plate, True, render, sp, eff, 240, voice_end=voice_end, impacts=False)
+
+    np.testing.assert_array_equal(st.frames, render[st.index])
+    assert not any("held tail" in w for w in st.warnings)
+
+
 def test_a_rhythm_the_model_spaced_unevenly_lands_hit_by_hit():
     from cuesync.scene_shot import time_scene
 

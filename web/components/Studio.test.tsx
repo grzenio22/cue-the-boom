@@ -65,6 +65,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   if (scrollIntoView) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", scrollIntoView);
@@ -92,5 +93,61 @@ describe("Studio replay cues", () => {
     expect(button("The clip's own sound").disabled).toBe(true);
     expect(button("Use my microphone").disabled).toBe(false);
     expect(button("Press and hold").disabled).toBe(false);
+  });
+});
+
+describe("Studio interrupted render recovery", () => {
+  it.each(["queued", "running"])("keeps a %s job when Move it unmounts and then reopens the shot panel", async (lastStatus) => {
+    vi.useFakeTimers();
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+    class ProgressStream extends EventTarget {
+      static latest: ProgressStream;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor() { super(); ProgressStream.latest = this; }
+      close() {}
+    }
+    vi.stubGlobal("EventSource", ProgressStream);
+    const apiFetch = fetch;
+    let online = true;
+    let finished = false;
+    const queued: JobStatus = { ...job, status: "queued", stage: "queued", progress: 0, message: "Waiting", files: {}, receipt: null };
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/jobs") {
+        submitted.push(init!.body as FormData);
+        return Response.json(queued);
+      }
+      if (url === "/api/jobs/candle-shot") {
+        if (!online) throw new TypeError("Network offline");
+        return Response.json(finished ? job : { ...queued, status: "running", stage: "rendering", message: "Rendering", progress: 0.5 });
+      }
+      return apiFetch(url, init);
+    });
+    await act(async () => { root.render(<Studio />); });
+    await click("Candle");
+    await click("The clip's own sound");
+    await click("Lock it to my clip's sound");
+    await click("Make the shot");
+    if (lastStatus === "running") await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    online = false;
+    await act(async () => {
+      ProgressStream.latest.onerror?.();
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(button("Move it").disabled).toBe(false);
+    await click("Move it");
+    expect(button("Check existing shot")).toBeUndefined();
+    await click("That's the spot");
+
+    expect(button("Check existing shot")).toBeDefined();
+    expect(button("Make the shot")).toBeUndefined();
+    expect(host.textContent).toContain(`Last known status: ${lastStatus}`);
+    online = true;
+    finished = true;
+    await click("Check existing shot");
+    await act(async () => { ProgressStream.latest.onerror?.(); });
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/candle-shot.mp4");
+    expect(submitted).toHaveLength(1);
+    expect(button("Perform it again")).toBeDefined();
   });
 });

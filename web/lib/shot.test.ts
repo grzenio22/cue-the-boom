@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { dragDirection, failure, hitAnchor, madeAhead, type Receipt, replayable, sameStrokes, sceneEffect, suggestEffect } from "./shot";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { dragDirection, failure, followJob, hitAnchor, madeAhead, pollUntilDone, type JobStatus, type Receipt, replayable, sameStrokes, sceneEffect, suggestEffect } from "./shot";
 
 const SR = 48000;
 
@@ -95,5 +95,86 @@ describe("replayable", () => {
     expect(replayable(plate, "voice", mine, [0.3, 0.39], [])).toBe(false);
     expect(replayable(plate, "voice", mine, [0.48, 0.39], [{ points: [[0.4, 0.4]], width: 0.05 }])).toBe(false);
     expect(replayable({ ...plate, scene: {} }, "voice", mine, [0.48, 0.39], [])).toBe(false);
+  });
+});
+
+describe("job monitoring", () => {
+  const status = (state: JobStatus["status"]): JobStatus => ({
+    id: "slow-shot", status: state, stage: state, progress: state === "done" ? 1 : 0.25,
+    message: state, error: null, files: state === "done" ? { "final.mp4": "/slow-shot/final.mp4" } : {}, receipt: null,
+  });
+  class ProgressStream extends EventTarget {
+    static latest: ProgressStream;
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    onerror: (() => void) | null = null;
+    closed = false;
+    constructor() { super(); ProgressStream.latest = this; }
+    close() { this.closed = true; }
+  }
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  it("finishes after a 21-minute queue and 15-minute render without a client lifetime limit", async () => {
+    vi.useFakeTimers();
+    const started = Date.now();
+    vi.stubGlobal("fetch", async () => {
+      const elapsed = Date.now() - started;
+      return Response.json(status(elapsed < 21 * 60_000 ? "queued" : elapsed < 36 * 60_000 ? "running" : "done"));
+    });
+    const finished = pollUntilDone("slow-shot").then((job) => job, (error: Error) => error);
+    await vi.advanceTimersByTimeAsync(36 * 60_000);
+    expect(await finished).toMatchObject({ id: "slow-shot", status: "done", files: { "final.mp4": "/slow-shot/final.mp4" } });
+  });
+
+  it("recovers from a disconnected stream, a network failure, and a temporary gateway error", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", ProgressStream);
+    let attempts = 0;
+    vi.stubGlobal("fetch", async (url: string) => {
+      expect(url).toBe("/api/jobs/slow-shot");
+      attempts++;
+      if (attempts === 1) throw new TypeError("Failed to fetch");
+      if (attempts === 2) return new Response("Bad gateway", { status: 502 });
+      return Response.json(status(attempts === 3 ? "running" : "done"));
+    });
+    const messages: string[] = [];
+    const finished = followJob("slow-shot", (event) => messages.push(event.message)).then((job) => job, (error: Error) => error);
+    ProgressStream.latest.onerror?.();
+    await vi.runAllTimersAsync();
+    expect(await finished).toMatchObject({ status: "done" });
+    expect(messages).toContain("running");
+    expect(ProgressStream.latest.closed).toBe(true);
+  });
+
+  it("falls back to status requests if the stream ends before the job is terminal", async () => {
+    vi.stubGlobal("EventSource", ProgressStream);
+    vi.stubGlobal("fetch", async () => Response.json(status("done")));
+    const finished = followJob("slow-shot", () => undefined);
+    ProgressStream.latest.dispatchEvent(new MessageEvent("end", { data: JSON.stringify(status("running")) }));
+    await expect(finished).resolves.toMatchObject({ status: "done" });
+  });
+
+  it("closes the stream when its owner stops monitoring", async () => {
+    vi.stubGlobal("EventSource", ProgressStream);
+    const controller = new AbortController();
+    const finished = followJob("slow-shot", () => undefined, { signal: controller.signal }).catch((error: Error) => error);
+    controller.abort();
+    expect(ProgressStream.latest.closed).toBe(true);
+    expect(await finished).toMatchObject({ name: "AbortError" });
+  });
+
+  it("cancels the polling wait without making another status request", async () => {
+    vi.useFakeTimers();
+    const requests: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      requests.push(url);
+      return Response.json(status("running"));
+    });
+    const controller = new AbortController();
+    const finished = pollUntilDone("slow-shot", 1500, { signal: controller.signal }).catch((error: Error) => error);
+    await vi.advanceTimersByTimeAsync(100);
+    controller.abort();
+    await vi.runAllTimersAsync();
+    expect(await finished).toMatchObject({ name: "AbortError" });
+    expect(requests).toEqual(["/api/jobs/slow-shot"]);
   });
 });

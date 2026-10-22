@@ -6,6 +6,10 @@ import type { JobStatus } from "@/lib/shot";
 const CUES = ["BOOM", "pf, pf, BOOM", "pf pf pf PF"];
 const DRIFT_S = 0.15; // a performance this far off the first one's clock is put back in step
 
+function playTogether(players: HTMLVideoElement[]) {
+  players.forEach((v) => { v.muted = true; v.loop = true; v.currentTime = 0; void v.play().catch(() => undefined); });
+}
+
 /** Three performances of the same render side by side: all three muted and looping in step, or heard one by one.
  * (Every pause, seek and wait was once coordinated between them, and a seek's own "waiting" restarted the wait: the
  * three sat on their first frame. Now each plays on its own and is only nudged back in step.) */
@@ -23,6 +27,7 @@ export default function Again() {
         if (!active || !Array.isArray(payload)) return;
         const ordered = [0, 1, 2].map((i) => payload.find((s) => s && s.again === i && s.files?.["final.mp4"]));
         setShots(ordered.every(Boolean) ? (ordered as JobStatus[]) : []);
+        setPlaying(ordered.every(Boolean) && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
       })
       .catch(() => { if (active) setShots([]); });
     return () => { active = false; };
@@ -32,15 +37,15 @@ export default function Again() {
 
   const together = () => { // all three, muted, from the start, in step
     setListening(null);
-    media().forEach((v) => { v.muted = true; v.loop = true; v.currentTime = 0; void v.play().catch(() => undefined); });
+    playTogether(media());
     setPlaying(true);
   };
 
   useEffect(() => { // start them together once they are on the page, unless the viewer asked for less motion
     if (!shots || shots.length !== 3) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    together();
-  }, [shots]); // eslint-disable-line react-hooks/exhaustive-deps
+    playTogether(players.current.filter((v): v is HTMLVideoElement => v !== null));
+  }, [shots]);
 
   useEffect(() => { // keep the three on one clock while they play together
     if (!playing || listening !== null) return;
@@ -73,7 +78,7 @@ export default function Again() {
   return (
     <section className="again" aria-labelledby="again-heading">
       <h2 id="again-heading">One render. Three performances.</h2>
-      <p>The same LTX-2.5 render on the author&apos;s hand, timed three times by three takes of their voice: one generation, three performances, no new render, no GPU.</p>
+      <p>The same LTX-2.5 render on the author&apos;s hand, timed by three performances using their recorded voice: one generation, three performances, no new render, no GPU. The two rhythms are edited from their recorded <em>pf</em> and <em>BOOM</em> sounds.</p>
       <p className="again-fact"><strong>1 generation, 3 performances, 0 new renders</strong></p>
       {shots === null ? <p className="muted" role="status">Loading the performances…</p>
         : shots.length !== 3 ? <p className="muted" role="status">The three performances are not available here.</p>

@@ -24,7 +24,7 @@ export interface Performance {
   previewUrl: string;
 }
 
-type Step = "idle" | "armed" | "performing";
+type Step = "idle" | "armed" | "starting" | "performing" | "finishing";
 
 const MAX_SHOT_S = 10;
 
@@ -53,7 +53,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   const [kind, setKind] = useState<CueKind>(!replay && filmed && clipSound ? "clip" : "voice");
   const [holds, setHolds] = useState<[number, number][]>([]);
   const [holding, setHolding] = useState(false);
-  const [holdPlaying, setHoldPlaying] = useState(false); // the hold pass plays the clip; the mic stays as it was
+  const [holdPlaying, setHoldPlaying] = useState(false); // the hold pass plays the clip without the microphone
   const holdStart = useRef<number | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [withFace, setWithFace] = useState(false);
@@ -75,17 +75,65 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   const stopwatch = useRef<{ pcm: number; play: number | null }>({ pcm: 0, play: null }); // performance.now() stamps
   const inputLatencyS = useRef(0.02);
   const finishing = useRef(false);
-  const meter = useRef<{ ctx: AudioContext; raf: number } | null>(null);
+  const meter = useRef<{ ctx: AudioContext; raf: number | null } | null>(null);
+  const captureGeneration = useRef(0);
+  const takeGeneration = useRef(0);
+  const takeAbort = useRef<AbortController | null>(null);
+  const takeBusy = useRef(false);
+  const activePlate = useRef<HTMLVideoElement | null>(null);
+  const busy = step === "starting" || step === "performing" || step === "finishing";
+
+  const stopPlayback = useCallback(() => {
+    stopClock.current?.();
+    stopClock.current = null;
+    const plate = activePlate.current;
+    activePlate.current = null;
+    if (plate) {
+      plate.onended = null;
+      plate.ontimeupdate = null;
+      plate.pause();
+    }
+  }, []);
+
+  const discardTake = useCallback(() => {
+    ++takeGeneration.current;
+    takeAbort.current?.abort();
+    takeAbort.current = null;
+    takeBusy.current = false;
+    finishing.current = false;
+    stopPlayback();
+    const pcm = pcmRef.current;
+    pcmRef.current = null;
+    if (pcm) void pcm.stop().catch(() => undefined);
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    if (rec && rec.state !== "inactive") rec.stop();
+    holdStart.current = null;
+  }, [stopPlayback]);
 
   const release = useCallback(() => {
+    ++captureGeneration.current; // also abandon permission and constraint requests still in flight
+    discardTake();
     if (meter.current) {
-      cancelAnimationFrame(meter.current.raf);
-      void meter.current.ctx.close();
+      if (meter.current.raf !== null) cancelAnimationFrame(meter.current.raf);
+      void meter.current.ctx.close().catch(() => undefined);
       meter.current = null;
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-  }, []);
+  }, [discardTake]);
+
+  const changeKind = (next: CueKind) => {
+    if (next === kind) return;
+    release();
+    setStep("idle");
+    setLevel(0);
+    setNotes([]);
+    setError(null);
+    setHolding(false);
+    setHoldPlaying(false);
+    setKind(next);
+  };
 
   useEffect(() => release, [release]);
 
@@ -93,46 +141,56 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
     if (step !== "idle" && withFace && faceRef.current && streamRef.current) faceRef.current.srcObject = streamRef.current;
   }, [step, withFace]);
 
-  const startMeter = (stream: MediaStream) => {
+  const startMeter = (stream: MediaStream, generation: number) => {
     const ctx = new AudioContext();
+    const activeMeter = { ctx, raf: null as number | null };
+    meter.current = activeMeter; // release the context even if graph setup fails
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     ctx.createMediaStreamSource(stream).connect(analyser);
     const buf = new Float32Array(analyser.fftSize);
     const tick = () => {
+      if (captureGeneration.current !== generation) return;
       analyser.getFloatTimeDomainData(buf);
       let s = 0;
       for (const v of buf) s += v * v;
       const db = 20 * Math.log10(Math.sqrt(s / buf.length) + 1e-9);
       setLevel(Math.min(1, Math.max(0, (db + 60) / 54)));
-      if (meter.current) meter.current.raf = requestAnimationFrame(tick);
+      activeMeter.raf = requestAnimationFrame(tick);
     };
-    meter.current = { ctx, raf: requestAnimationFrame(tick) };
+    activeMeter.raf = requestAnimationFrame(tick);
   };
 
   const arm = async () => {
     setError(null);
     release(); // never orphan an earlier stream or meter
+    const generation = captureGeneration.current;
+    const gone = () => captureGeneration.current !== generation;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: withFace ? videoConstraints("user") : false });
+      if (gone()) { stream.getTracks().forEach((t) => t.stop()); return; }
       streamRef.current = stream;
       const found: string[] = [];
       const [audio] = stream.getAudioTracks();
       const [video] = stream.getVideoTracks();
       if (audio) {
         const r = await applyAndVerify(audio, AUDIO_CONSTRAINTS);
+        if (gone()) return;
         found.push(...r.mismatches.map((m) => `mic: ${m}`));
         const lat = (r.settings as MediaTrackSettings & { latency?: number }).latency;
         inputLatencyS.current = typeof lat === "number" ? lat : 0.02;
       }
       if (video) {
         const r = await applyAndVerify(video, videoConstraints("user"));
+        if (gone()) return;
         found.push(...r.mismatches.map((m) => `camera: ${m}`));
       }
       setNotes(found);
-      startMeter(stream);
+      startMeter(stream, generation);
       setStep("armed");
     } catch (err) {
+      if (gone()) return;
+      release();
       const name = err instanceof DOMException ? err.name : "";
       setError(
         name === "NotAllowedError" || name === "SecurityError"
@@ -145,94 +203,126 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   };
 
   const finish = useCallback(async () => {
-    if (finishing.current) return;
+    if (finishing.current || !takeBusy.current) return;
     finishing.current = true;
-    stopClock.current?.();
+    const generation = takeGeneration.current;
+    const gone = () => takeGeneration.current !== generation;
+    setStep("finishing");
+    stopPlayback();
     const warnings: string[] = [];
-
-    let faceBlob: Blob | null = null;
+    const chunks = faceChunks.current;
+    const mime = mimeRef.current;
     const rec = recorderRef.current;
-    if (rec && rec.state !== "inactive") {
-      await new Promise<void>((resolve) => { rec.onstop = () => resolve(); rec.stop(); });
-      faceBlob = new Blob(faceChunks.current, { type: mimeRef.current ?? undefined });
-    }
-    if (pcmRef.current) ctxOffsetMs.current = pcmRef.current.ctxToPerfOffsetMs(); // now the context is surely running
-    const pcm = pcmRef.current ? await pcmRef.current.stop() : { pcm: new Float32Array(0), sampleRate: 48000, firstFrame: 0 };
+    recorderRef.current = null;
+    const activePcm = pcmRef.current;
     pcmRef.current = null;
-    const onsetS = detectOnsetPCM(pcm.pcm, pcm.sampleRate);
+    if (activePcm) ctxOffsetMs.current = activePcm.ctxToPerfOffsetMs(); // now the context is surely running
+    try {
+      const faceStopped = rec && rec.state !== "inactive"
+        ? new Promise<void>((resolve) => { rec.onstop = () => resolve(); rec.stop(); })
+        : Promise.resolve();
+      const [pcm] = await Promise.all([
+        activePcm ? activePcm.stop() : Promise.resolve({ pcm: new Float32Array(0), sampleRate: 48000, firstFrame: 0 }),
+        faceStopped,
+      ]);
+      if (gone()) return;
+      const faceBlob = rec ? new Blob(chunks, { type: mime ?? undefined }) : null;
+      const onsetS = detectOnsetPCM(pcm.pcm, pcm.sampleRate);
 
-    let faceOffsetS: number | null = null;
-    if (withFace && faceBlob && faceBlob.size > 0) {
-      try {
-        const decoded = await new OfflineAudioContext(1, 1, pcm.sampleRate).decodeAudioData(await faceBlob.arrayBuffer());
-        faceOffsetS = estimateOffsetS(pcm.pcm, decoded.getChannelData(0), pcm.sampleRate);
-        if (faceOffsetS === null) warnings.push("Couldn't sync your face video to the mic; the shot goes without the inset.");
-      } catch {
-        warnings.push("Couldn't read your face video; the shot goes without the inset.");
+      let faceOffsetS: number | null = null;
+      if (withFace && faceBlob && faceBlob.size > 0) {
+        try {
+          const decoded = await new OfflineAudioContext(1, 1, pcm.sampleRate).decodeAudioData(await faceBlob.arrayBuffer());
+          faceOffsetS = estimateOffsetS(pcm.pcm, decoded.getChannelData(0), pcm.sampleRate);
+          if (faceOffsetS === null) warnings.push("Couldn't sync your face video to the mic; the shot goes without the inset.");
+        } catch {
+          warnings.push("Couldn't read your face video; the shot goes without the inset.");
+        }
+        if (gone()) return;
       }
-    }
-    let timing: TimingJson | null = null;
-    if (clockSamples.current.length >= 2) {
-      timing = buildTimingJson({
-        // the plate's clock where the noise is (the whole-take fit is the fallback when no onset was heard)
-        clock: onsetS === null ? fitMediaClock(clockSamples.current)
-          : fitMediaClockNear(clockSamples.current, perfMsOfSample(pcm.firstFrame, onsetS * pcm.sampleRate, pcm.sampleRate, ctxOffsetMs.current)),
-        firstFrame: pcm.firstFrame, sampleRate: pcm.sampleRate,
-        ctxToPerfOffsetMs: ctxOffsetMs.current, inputLatencyS: inputLatencyS.current, onsetSInNoise: onsetS,
-        faceOffsetS, emissionPoint: point,
+      let timing: TimingJson | null = null;
+      if (clockSamples.current.length >= 2) {
+        timing = buildTimingJson({
+          // the plate's clock where the noise is (the whole-take fit is the fallback when no onset was heard)
+          clock: onsetS === null ? fitMediaClock(clockSamples.current)
+            : fitMediaClockNear(clockSamples.current, perfMsOfSample(pcm.firstFrame, onsetS * pcm.sampleRate, pcm.sampleRate, ctxOffsetMs.current)),
+          firstFrame: pcm.firstFrame, sampleRate: pcm.sampleRate,
+          ctxToPerfOffsetMs: ctxOffsetMs.current, inputLatencyS: inputLatencyS.current, onsetSInNoise: onsetS,
+          faceOffsetS, emissionPoint: point,
+        });
+        const sw = stopwatch.current;
+        const guard = plausibleOffset(timing.noise_offset_s, sw.play === null ? 0 : -(sw.play - sw.pcm) / 1000);
+        if (!guard.fitted) {
+          timing = { ...timing, noise_offset_s: guard.offsetS };
+          warnings.push("The clip's clock couldn't be read exactly; your noise is placed by a stopwatch (within about 50 ms).");
+        }
+      } else {
+        warnings.push("The clip's timing wasn't captured; the noise is placed from the start of the clip.");
+      }
+      const voice = new Blob([encodeWav(pcm.pcm, pcm.sampleRate) as BlobPart], { type: "audio/wav" });
+      const face = faceOffsetS !== null && faceBlob && mime ? faceBlob : null;
+      setStep("armed");
+      finishing.current = false;
+      takeBusy.current = false;
+      onDone({
+        cue: "voice", voice: { file: voice, filename: "mic.wav" }, timing, face, faceExt: mime?.includes("mp4") ? "mp4" : "webm",
+        suggested: suggestEffect(pcm.pcm, pcm.sampleRate, onsetS), onsetS, warnings, label: `take ${takes + 1}`,
+        previewUrl: URL.createObjectURL(voice),
       });
-      const sw = stopwatch.current;
-      const guard = plausibleOffset(timing.noise_offset_s, sw.play === null ? 0 : -(sw.play - sw.pcm) / 1000);
-      if (!guard.fitted) {
-        timing = { ...timing, noise_offset_s: guard.offsetS };
-        warnings.push("The clip's clock couldn't be read exactly; your noise is placed by a stopwatch (within about 50 ms).");
-      }
-    } else {
-      warnings.push("The clip's timing wasn't captured; the noise is placed from the start of the clip.");
+    } catch {
+      if (gone()) return;
+      discardTake();
+      setStep("armed");
+      setError("The recording couldn't be saved. Try performing again, or use a sample noise.");
     }
-    const voice = new Blob([encodeWav(pcm.pcm, pcm.sampleRate) as BlobPart], { type: "audio/wav" });
-    const face = faceOffsetS !== null && faceBlob && mimeRef.current ? faceBlob : null;
-    setStep("armed");
-    finishing.current = false;
-    onDone({
-      cue: "voice", voice: { file: voice, filename: "mic.wav" }, timing, face, faceExt: mimeRef.current?.includes("mp4") ? "mp4" : "webm",
-      suggested: suggestEffect(pcm.pcm, pcm.sampleRate, onsetS), onsetS, warnings, label: `take ${takes + 1}`,
-      previewUrl: URL.createObjectURL(voice),
-    });
-  }, [point, withFace, takes, onDone]);
+  }, [point, withFace, takes, onDone, discardTake, stopPlayback]);
 
   const perform = async () => {
     const stream = streamRef.current;
     const plate = plateRef.current;
-    if (!stream || !plate) return;
+    if (!stream || !plate || takeBusy.current) return;
+    takeBusy.current = true; // guard a second tap before React updates the disabled button
+    const generation = ++takeGeneration.current;
+    const controller = new AbortController();
+    takeAbort.current = controller;
+    const gone = () => takeGeneration.current !== generation;
+    setStep("starting");
+    setError(null);
     clockSamples.current = [];
     faceChunks.current = [];
-    const pcm = await startPcmRecorder(stream); // the anchors start BEFORE the plate, so they cover all of it
-    pcmRef.current = pcm;
-    stopwatch.current = { pcm: performance.now(), play: null };
-    ctxOffsetMs.current = pcm.ctxToPerfOffsetMs();
-    mimeRef.current = withFace && typeof MediaRecorder !== "undefined" ? pickMime((t) => MediaRecorder.isTypeSupported(t)) : null;
-    if (mimeRef.current) {
-      const rec = new MediaRecorder(stream, { mimeType: mimeRef.current });
-      rec.ondataavailable = (e) => { if (e.data.size) faceChunks.current.push(e.data); };
-      rec.start();
-      recorderRef.current = rec;
-    } else {
-      recorderRef.current = null;
-    }
-    plate.muted = true;
-    plate.currentTime = 0;
-    stopClock.current = sampleClock(plate, (s) => clockSamples.current.push(s));
-    plate.onended = () => { void finish(); };
-    plate.ontimeupdate = () => { // the shot uses the first 10 s of the clip: stop there
-      if (plate.currentTime >= MAX_SHOT_S) { plate.pause(); void finish(); }
-    };
-    setStep("performing");
     try {
+      const pcm = await startPcmRecorder(stream, controller.signal); // anchor the PCM before the plate starts
+      if (gone()) { await pcm.stop(); return; }
+      takeAbort.current = null;
+      pcmRef.current = pcm;
+      activePlate.current = plate;
+      stopwatch.current = { pcm: performance.now(), play: null };
+      ctxOffsetMs.current = pcm.ctxToPerfOffsetMs();
+      mimeRef.current = withFace && typeof MediaRecorder !== "undefined" ? pickMime((t) => MediaRecorder.isTypeSupported(t)) : null;
+      if (mimeRef.current) {
+        const rec = new MediaRecorder(stream, { mimeType: mimeRef.current });
+        recorderRef.current = rec;
+        const chunks = faceChunks.current;
+        rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+        rec.start();
+      } else {
+        recorderRef.current = null;
+      }
+      plate.muted = true;
+      plate.currentTime = 0;
+      stopClock.current = sampleClock(plate, (s) => clockSamples.current.push(s));
+      plate.onended = () => { void finish(); };
+      plate.ontimeupdate = () => { // the shot uses the first 10 s of the clip: stop there
+        if (plate.currentTime >= MAX_SHOT_S) { plate.pause(); void finish(); }
+      };
+      setStep("performing");
       await plate.play();
-      stopwatch.current.play = performance.now();
+      if (!gone()) stopwatch.current.play = performance.now();
     } catch {
-      void finish();
+      if (gone()) return;
+      discardTake();
+      setStep("armed");
+      setError("Could not start the recording. Try Perform again, or use a sample noise.");
     }
   };
 
@@ -247,31 +337,45 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   };
 
   // press and hold while the clip plays: each press is a hit, each hold how long it lasts
+  const lift = () => {
+    const plate = plateRef.current;
+    const start = holdStart.current;
+    holdStart.current = null;
+    setHolding(false);
+    if (!plate || start === null) return;
+    const end = Math.min(MAX_SHOT_S, Number.isFinite(plate.duration) ? plate.duration : MAX_SHOT_S);
+    // Keep even a tap at the final frame usable without sending a cue past the clip.
+    const t0 = Math.max(0, Math.min(start, end - 0.1));
+    const t1 = Math.min(end, Math.max(plate.currentTime, t0 + 0.1));
+    if (t1 <= t0) return;
+    setHolds((h) => [...h, [Math.round(t0 * 100) / 100, Math.round(t1 * 100) / 100]]);
+  };
   const playForHolds = async () => {
     const plate = plateRef.current;
-    if (!plate) return;
+    if (!plate || activePlate.current) return;
+    const generation = ++takeGeneration.current;
+    activePlate.current = plate;
     setHolds([]);
+    setError(null);
+    holdStart.current = null;
+    setHolding(false);
     plate.muted = true;
     plate.currentTime = 0;
-    plate.onended = () => setHoldPlaying(false);
-    plate.ontimeupdate = () => { if (plate.currentTime >= MAX_SHOT_S) { plate.pause(); setHoldPlaying(false); } };
+    const endHolds = () => { lift(); stopPlayback(); setHoldPlaying(false); };
+    plate.onended = endHolds;
+    plate.ontimeupdate = () => { if (plate.currentTime >= MAX_SHOT_S) endHolds(); };
     setHoldPlaying(true);
-    try { await plate.play(); } catch { setHoldPlaying(false); }
+    try { await plate.play(); } catch {
+      if (takeGeneration.current !== generation) return;
+      endHolds();
+      setError("Could not play the clip. Try playing it again.");
+    }
   };
   const press = () => {
     const plate = plateRef.current;
-    if (!plate || plate.paused) return;
+    if (!plate || plate.paused || holdStart.current !== null) return;
     holdStart.current = plate.currentTime;
     setHolding(true);
-  };
-  const lift = () => {
-    const plate = plateRef.current;
-    const t0 = holdStart.current;
-    holdStart.current = null;
-    setHolding(false);
-    if (!plate || t0 === null) return;
-    const t1 = Math.max(plate.currentTime, t0 + 0.1);
-    setHolds((h) => [...h, [Math.round(t0 * 100) / 100, Math.round(t1 * 100) / 100]]);
   };
   const useHolds = () => {
     onDone({ cue: "hold", voice: null, holds, timing: null, face: null, faceExt: "webm",
@@ -284,12 +388,12 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
       <h2>3. Cue it</h2>
       <div className="row" role="radiogroup" aria-label="How to cue it">
         <button role="radio" aria-checked={kind === "voice"} className={kind === "voice" ? "" : "secondary"}
-          disabled={step === "performing" || holdPlaying} onClick={() => setKind("voice")}>Say it</button>
+          disabled={busy || holdPlaying} onClick={() => changeKind("voice")}>Say it</button>
         <button role="radio" aria-checked={kind === "clip"} className={kind === "clip" ? "" : "secondary"}
-          disabled={step === "performing" || holdPlaying || replay || !clipSound || onlyReady} onClick={() => setKind("clip")}
+          disabled={busy || holdPlaying || replay || !clipSound || onlyReady} onClick={() => changeKind("clip")}
           title={replay ? "Perform it again with your voice or press-and-hold" : onlyReady ? why : clipSound ? undefined : "This sample has no sound of its own to lock to; your own clip may"}>The clip&apos;s own sound</button>
         <button role="radio" aria-checked={kind === "hold"} className={kind === "hold" ? "" : "secondary"}
-          disabled={step === "performing" || holdPlaying || onlyReady} onClick={() => setKind("hold")}
+          disabled={busy || holdPlaying || onlyReady} onClick={() => changeKind("hold")}
           title={onlyReady ? why : undefined}>Press and hold</button>
       </div>
       <div className="perform">
@@ -308,7 +412,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
           <p className="muted">No sound needed: play the clip and hold the button while the effect should be there. Press briefly for a pop, hold for a flame.</p>
           <div className="row">
             <button className="secondary" disabled={holdPlaying} onClick={() => void playForHolds()}>{holds.length ? "Play again" : "Play the clip"}</button>
-            <button aria-pressed={holding} disabled={!holdPlaying} onPointerDown={press} onPointerUp={lift}
+            <button aria-pressed={holding} disabled={!holdPlaying} onPointerDown={press} onPointerUp={lift} onPointerCancel={lift}
               onPointerLeave={() => { if (holding) lift(); }} style={{ minWidth: 160, touchAction: "none" }}>
               {holding ? "Holding…" : "Hold"}
             </button>
@@ -321,7 +425,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         <>
           <div className="row">
             <button disabled={onlyReady} title={onlyReady ? why : undefined} onClick={() => void arm()}>Use my microphone</button>
-            <label className="muted"><input type="checkbox" checked={withFace} onChange={(e) => setWithFace(e.target.checked)} /> add my face to the shot</label>
+            <label className="muted"><input type="checkbox" checked={withFace} onChange={(e) => { release(); setWithFace(e.target.checked); }} /> add my face to the shot</label>
           </div>
           <p className="muted">{onlyReady ? `${why}: pick it below.` : withFace ? "Your face video is uploaded with your noise and shown as an inset in the final shot." : "Only your noise is uploaded."}</p>
         </>
@@ -331,8 +435,8 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
           <div className="meter" aria-label="microphone level"><span style={{ width: `${Math.round(level * 100)}%` }} /></div>
           {notes.map((n) => <span key={n} className="chip warn">{n}</span>)}
           <div className="row">
-            <button disabled={step === "performing"} onClick={() => void perform()}>{takes > 0 ? "Perform again" : "Perform"}</button>
-            <span className="muted">{step === "performing" ? "Recording: make the noise when it should hit!" : "The clip plays muted. Make your noise at the moment it should happen."}</span>
+            <button disabled={busy} onClick={() => void perform()}>{takes > 0 ? "Perform again" : "Perform"}</button>
+            <span className="muted">{step === "starting" ? "Starting the microphone…" : step === "finishing" ? "Saving your recording…" : step === "performing" ? "Recording: make the noise when it should hit!" : "The clip plays muted. Make your noise at the moment it should happen."}</span>
           </div>
         </>
       )}
@@ -349,7 +453,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         const sample = (v: SampleVoice) => {
           const off = onlyReady && !isReady(v); // a drawing has no instant shot: this one needs the GPU
           return (
-            <button key={v.name} className="secondary" disabled={step === "performing" || off} title={off ? why : undefined}
+            <button key={v.name} className="secondary" disabled={busy || off} title={off ? why : undefined}
               onClick={() => pickSample(v)}>
               {v.title ?? v.name}
               <span className="muted" style={{ marginLeft: 6 }}>{off ? "needs the GPU" : makes(v)}</span>

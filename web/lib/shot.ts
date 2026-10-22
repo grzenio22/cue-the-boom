@@ -337,30 +337,115 @@ export async function compareTakes(a: string, b: string): Promise<JobStatus> {
   return json<JobStatus>(await fetch("/api/compare", { method: "POST", body: form }));
 }
 
-/** Ask for a job's status until it ends (about ten minutes at most). */
-export async function pollUntilDone(id: string, wait = 1500): Promise<JobStatus> {
-  for (let i = 0; i < 400; i++) {
-    const r = await fetch(`/api/jobs/${id}`);
-    if (r.status === 404) throw new Error("the server lost this job (it may have restarted); please make it again");
-    const s: JobStatus = await r.json();
-    if (s.status === "done" || s.status === "error") return s;
-    await new Promise((res) => setTimeout(res, wait));
+/** A confirmed missing job can be replaced; a connection failure cannot tell us that. */
+export class JobNotFoundError extends Error {
+  constructor() {
+    super("The server could not find this shot; it may have restarted. You can make a new shot.");
+    this.name = "JobNotFoundError";
   }
-  throw new Error("this is taking too long; please try again");
 }
 
-/** Follow a job until it ends; returns the final status. If the progress stream drops, it keeps asking. */
-export function followJob(id: string, onEvent: (e: JobEvent) => void): Promise<JobStatus> {
+interface MonitorOptions {
+  signal?: AbortSignal;
+  onStatus?: (status: JobStatus) => void;
+  onEvent?: (event: JobEvent) => void;
+}
+
+function waitForCheck(ms: number, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
-    const es = new EventSource(`/api/jobs/${id}/events`);
-    es.onmessage = (m) => onEvent(JSON.parse(m.data) as JobEvent);
-    es.addEventListener("end", (m) => {
+    const abort = () => { clearTimeout(timer); reject(signal?.reason); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, ms);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+/** Queue time is unbounded; only the server decides when a render has timed out. */
+export async function pollUntilDone(id: string, wait = 1500, options: MonitorOptions = {}): Promise<JobStatus> {
+  const { signal, onStatus, onEvent } = options;
+  let failures = 0;
+  let progress = 0;
+  while (true) {
+    signal?.throwIfAborted();
+    let response: Response | undefined;
+    let status: JobStatus;
+    try {
+      response = await fetch(`/api/jobs/${id}`, { signal });
+      if (response.status === 404) throw new JobNotFoundError();
+      if (!response.ok) throw await failure(response);
+      status = await response.json();
+      if (status?.id !== id || !["queued", "running", "done", "error"].includes(status.status)) {
+        throw new Error("The server returned an unreadable shot status.");
+      }
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (response && response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) throw error;
+      if (++failures >= 3) throw new Error("Progress checks were interrupted. Your shot may still be running. Check this shot again.", { cause: error });
+      onEvent?.({ stage: "reconnecting", progress, message: "Connection interrupted; checking your existing shot again", t: 0 });
+      await waitForCheck(wait * failures, signal);
+      continue;
+    }
+    signal?.throwIfAborted();
+    failures = 0;
+    progress = status.progress;
+    onStatus?.(status);
+    onEvent?.({ stage: status.stage, progress, message: status.message, t: 0 });
+    if (status.status === "done" || status.status === "error") return status;
+    await waitForCheck(wait, signal);
+  }
+}
+
+/** Follow a job until it ends; a dropped or incomplete stream falls back to status checks. */
+export function followJob(id: string, onEvent: (e: JobEvent) => void, options: MonitorOptions = {}): Promise<JobStatus> {
+  return new Promise((resolve, reject) => {
+    const { signal } = options;
+    let es: EventSource | undefined;
+    let settled = false;
+    let polling = false;
+    const closeStream = () => {
+      if (!es) return;
+      es.onmessage = null;
+      es.onerror = null;
+      es.removeEventListener("end", end);
       es.close();
-      resolve(JSON.parse((m as MessageEvent).data) as JobStatus);
-    });
-    es.onerror = () => {
-      es.close();
-      pollUntilDone(id).then(resolve, reject);
     };
+    const finish = (status: JobStatus) => {
+      if (settled) return;
+      settled = true;
+      closeStream();
+      signal?.removeEventListener("abort", abort);
+      resolve(status);
+    };
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      closeStream();
+      signal?.removeEventListener("abort", abort);
+      reject(error);
+    };
+    const abort = () => fail(signal?.reason);
+    const poll = () => {
+      if (settled || polling) return;
+      polling = true;
+      closeStream();
+      pollUntilDone(id, 1500, { ...options, onEvent }).then(finish, fail);
+    };
+    const end = (event: Event) => {
+      try {
+        const status = JSON.parse((event as MessageEvent).data) as JobStatus;
+        if (status.id === id && (status.status === "done" || status.status === "error")) finish(status);
+        else poll();
+      } catch { poll(); }
+    };
+    if (signal?.aborted) { abort(); return; }
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      es = new EventSource(`/api/jobs/${id}/events`);
+      es.onmessage = (event) => {
+        try { onEvent(JSON.parse(event.data) as JobEvent); } catch { poll(); }
+      };
+      es.addEventListener("end", end);
+      es.onerror = poll;
+    } catch { poll(); }
   });
 }

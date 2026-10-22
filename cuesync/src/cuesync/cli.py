@@ -516,7 +516,8 @@ def build_parser() -> argparse.ArgumentParser:
     bd.add_argument("--x", type=float, default=0.5, help="where on the hand it comes from, as a fraction of the width")
     bd.add_argument("--y", type=float, default=0.5)
     bd.add_argument("--frame", type=int, default=0, help="the frame (24 fps) --x --y are on")
-    bd.add_argument("--direction", type=float, help="aim, degrees clockwise from up (default: the hand's own)")
+    bd.add_argument("--direction", type=float,
+                    help="aim, degrees clockwise from up (default: upward for palm fire; tracked for pointing jets)")
     bd.add_argument("--offset-s", type=float, default=0.0, help="where your take starts in the clip, seconds")
     bd.add_argument("--instant", action="store_true", help="no GPU: an element rendered ahead of time "
                                                           "(samples/library/bending), carried on your hand")

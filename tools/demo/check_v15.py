@@ -1,4 +1,4 @@
-"""Check the final cut, regenerated sources, and the narrowly scoped v15 edits.
+"""Check the final cut, regenerated sources, and the v15/v16 edit constraints.
 
     python tools/demo/check_v15.py
     python tools/demo/check_v15.py --metadata-only
@@ -8,6 +8,8 @@ timecoded contact sheets. Source hashes and storyboard dictionaries establish
 preservation after rebuilding the effects; old encoded pictures are not used
 as the reference. Waveform measurements establish presence and level, while a
 listening pass remains necessary to judge intelligibility and the edit.
+The default video follows the storyboard version; v16 preserves v15 timing and
+speech while refreshing production fire pictures and separating Studio step labels.
 """
 
 from __future__ import annotations
@@ -59,6 +61,8 @@ def beats_of(board: dict | list) -> list[dict]:
 
 def structure_check(board: dict | list, baseline: dict | list) -> tuple[dict, list[str]]:
     """Compare unchanged beat fields, with explicit exceptions for this edit."""
+    if isinstance(board, dict) and board.get("version") == 16:
+        return integration_structure_check(board, baseline)
     beats, previous = beats_of(board), beats_of(baseline)
     errors, changed, unchanged = [], [], []
     old = {b["id"]: b for b in previous}
@@ -140,6 +144,47 @@ def structure_check(board: dict | list, baseline: dict | list) -> tuple[dict, li
                 timeline=[dict(id=e["id"], start=e["start"], end=e["end"]) for e in current]), errors
 
 
+def integration_structure_check(board: dict, baseline: dict | list) -> tuple[dict, list[str]]:
+    """The integration cut may replace media and separate confirmed Studio overlaps."""
+    beats, previous = beats_of(board), beats_of(baseline)
+    errors, changed = [], []
+    if [b["id"] for b in beats] != [b["id"] for b in previous]:
+        errors.append("The v16 integration cut changed the approved beat sequence")
+
+    def editorial(value):
+        if isinstance(value, dict):
+            return {k: editorial(v) for k, v in value.items()
+                    if k not in {"src", "srcs", "element_src", "chip_header"}}
+        return [editorial(v) for v in value] if isinstance(value, list) else value
+
+    for beat, prior in zip(beats, previous):
+        comparable = dict(beat)
+        if beat["id"] == "perform":
+            if beat.get("wave_box") != [.54, .025, .4, .115]:
+                errors.append("The Studio voice waveform must stay within the reserved header")
+            comparable["wave_box"] = prior.get("wave_box")
+        if editorial(comparable) != editorial(prior):
+            errors.append(f"Integration changed timing, narration, audio, or editorial content: {beat['id']}")
+        if beat.get("chip_header") and beat["id"] not in {"upload", "perform", "make"}:
+            errors.append(f"Unexpected header layout change: {beat['id']}")
+        if beat != prior:
+            changed.append(dict(id=beat["id"], changed_fields=sorted(k for k in set(beat) | set(prior)
+                                                                   if beat.get(k) != prior.get(k))))
+    for identity in ("upload", "perform", "make"):
+        step = next((b for b in beats if b["id"] == identity), {})
+        if not step.get("chip_header"):
+            errors.append(f"{identity} chip has no reserved header band")
+    current, before = timeline(beats), timeline(previous)
+    duration = current[-1]["end"]
+    if abs(duration - before[-1]["end"]) > 1e-6 or duration > 118:
+        errors.append("Integration changed the approved demo duration")
+    if abs(float(board.get("duration", duration)) - duration) > .002:
+        errors.append("Storyboard duration does not match its frame-rounded beats")
+    return dict(permitted_changes=changed, baseline_duration=before[-1]["end"], duration=duration,
+                expected_frames=sum(b["frames"] for b in current),
+                timeline=[dict(id=e["id"], start=e["start"], end=e["end"]) for e in current]), errors
+
+
 def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
     """Verify current renderer fingerprints and every recorded output digest."""
     from make_v11_clips import JOBS
@@ -165,18 +210,22 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
                 collect(child)
 
     collect(board)
-    candidates = {ROOT / "runs/demo_v11/clips/manifest.json"}
+    current_manifest = Path(board["provenance"]) if isinstance(board, dict) and board.get("provenance") else (
+        ROOT / "runs/demo_v11/clips/manifest.json")
+    candidates = {current_manifest}
     for p in paths:
         for ancestor in p.parents:
             if ancestor.name == "clips" and (ancestor / "manifest.json").exists():
                 candidates.add(ancestor / "manifest.json")
                 break
+    production_outputs = set()
     for path in sorted(candidates):
         if not path.is_file():
             errors.append(f"Missing rebuilt clip manifest: {path}")
             continue
         data = read_json(path)
-        checked_code, checked_outputs = [], []
+        historical = path != current_manifest
+        checked_code, checked_inputs, checked_outputs = [], [], []
         code = data.get("source_sha256", {})
         if not code:
             errors.append(f"No current source fingerprints in {path}")
@@ -184,16 +233,28 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
             source = CHECKOUT / relative
             good = source.is_file() and digest(source) == expected
             checked_code.append(dict(source=str(source), matches=good))
-            if not good:
+            if not good and not historical:
                 errors.append(f"Rebuilt clips do not match current code: {source}")
         missing = sorted(set(JOBS) - set(data.get("jobs", {})))
-        if path.parent == ROOT / "runs/demo_v11/clips" and missing:
+        if not historical and path.parent == ROOT / "runs/demo_v11/clips" and missing:
             errors.append(f"Rebuilt manifest lacks jobs: {', '.join(missing)}")
         for name, job in data.get("jobs", {}).items():
+            for filename, expected in job.get("inputs_sha256", {}).items():
+                if historical:
+                    continue
+                source = Path(filename)
+                good = source.is_file() and digest(source) == expected
+                checked_inputs.append(dict(job=name, source=filename, matches=good))
+                if not good:
+                    errors.append(f"Rebuilt input differs from manifest: {source}")
             if not job.get("outputs_sha256"):
                 errors.append(f"No rebuilt output hashes for {name}")
             for filename, expected in job.get("outputs_sha256", {}).items():
                 output = Path(filename)
+                if not historical:
+                    production_outputs.add(output)
+                if historical and output not in paths:
+                    continue
                 good = output.is_file() and digest(output) == expected
                 checked_outputs.append(dict(job=name, source=filename, matches=good))
                 if not good:
@@ -202,15 +263,52 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
             expected_fingerprint = hashlib.sha256(json.dumps(input_code, sort_keys=True).encode()).hexdigest()
             if job.get("fingerprint") != expected_fingerprint:
                 errors.append(f"Job fingerprint does not use current code and recorded inputs: {name}")
-        manifests.append(dict(path=str(path), code=checked_code, outputs=checked_outputs))
+        if not historical and isinstance(board, dict) and board.get("version", 15) >= 16:
+            proof = [data.get("jobs", {}).get(name, {}) for name in
+                     ("proof_boom", "proof_pf_pf_boom", "proof_pf_x4")]
+            shared = {job.get("element_sha256") for job in proof}
+            if len(shared) != 1 or None in shared:
+                errors.append("Three demo performances do not prove reuse of the identical element SHA-256")
+            if any({sha for filename, sha in job.get("inputs_sha256", {}).items()
+                    if Path(filename).name == "element.mp4"} != {job.get("element_sha256")} for job in proof):
+                errors.append("Demo proof element receipt differs from its verified source element")
+            if not all(job.get("no_new_render") is True and job.get("no_gpu") is True for job in proof):
+                errors.append("Three demo performances lack explicit CPU/no-new-model-render provenance")
+        manifests.append(dict(path=str(path),
+                              policy="Historical retained media: referenced output hashes preserved; no claim of a rebuild by current code"
+                                     if historical else "Current production composites: current code, input and output hashes required",
+                              code=checked_code, inputs=checked_inputs, outputs=checked_outputs))
+    if isinstance(board, dict) and board.get("version", 15) >= 16:
+        for path in paths:
+            if path.is_relative_to(current_manifest.parent) and path not in production_outputs:
+                errors.append(f"Storyboard production clip has no rendered-output provenance: {path}")
     assets = []
     for path in sorted(paths):
         if not path.is_file():
             errors.append(f"Missing storyboard source: {path}")
         else:
             assets.append(dict(path=str(path), sha256=digest(path), bytes=path.stat().st_size))
+    derived = []
+    for receipt in sorted({p.parent / "provenance.json" for p in paths
+                           if p.parent.name == "cards" and (p.parent / "provenance.json").is_file()}):
+        data = read_json(receipt)
+        checks = []
+        for field in ("sources_sha256", "outputs_sha256"):
+            for filename, expected in data.get(field, {}).items():
+                path = Path(filename)
+                good = path.is_file() and digest(path) == expected
+                checks.append(dict(path=filename, matches=good, kind=field))
+                if not good:
+                    errors.append(f"Derived recap media differs from provenance: {path}")
+        derived.append(dict(path=str(receipt), checks=checks))
+    if isinstance(board, dict) and board.get("version", 15) >= 16:
+        for path in paths:
+            if path.is_relative_to(current_manifest.parent.parent / "cards"):
+                receipt = path.parent / "provenance.json"
+                if not receipt.is_file() or str(path) not in read_json(receipt).get("outputs_sha256", {}):
+                    errors.append(f"Storyboard recap has no derived-output provenance: {path}")
     return dict(method="Current checkout code and rebuilt source/output SHA-256 digests; approved beat dictionaries and valid source windows",
-                manifests=manifests, storyboard_assets=assets), errors
+                manifests=manifests, storyboard_assets=assets, derived_cards=derived), errors
 
 
 def voice_provenance_check(schedule: list[dict]) -> tuple[dict, list[str]]:
@@ -380,17 +478,68 @@ def source_picture_check(video: Path, schedule: list[dict]) -> tuple[dict, list[
                 checked_beats=rows), errors
 
 
+def chip_header_layout_check(video: Path, schedule: list[dict], out: Path,
+                             identity: str) -> tuple[dict, list[str]]:
+    """Decode every protected UI frame and verify its title band has no source pixels."""
+    from build_demo import render_beat
+    from PIL import Image
+
+    entry = next(e for e in schedule if e["id"] == identity)
+    beat = entry["beat"]
+    references, _ = render_beat(dict(beat, dur=1 / FPS))
+    reference = references[0][:170].astype(np.float32)
+    compare_mask = np.ones(reference.shape[:2], dtype=bool)
+    excluded_wave_box = None
+    if beat.get("wave") and beat.get("wave_box"):
+        bx, by, bw, bh = beat["wave_box"]
+        # The live voice envelope belongs in the header. Exclude just its pixels
+        # (plus codec edges), while checking the chip and all remaining space.
+        x1, y1 = max(0, int(bx * W) - 6), max(0, int(by * H) - 6)
+        x2, y2 = min(W, int((bx + bw) * W) + 7), min(170, int((by + bh) * H) + 7)
+        compare_mask[y1:y2, x1:x2] = False
+        excluded_wave_box = [x1, y1, x2, y2]
+    errors, differences, samples = [], [], []
+    with av.open(str(video)) as container:
+        stream = container.streams.video[0]
+        container.seek(int(entry["start"] / float(stream.time_base)), stream=stream, backward=True)
+        for frame in container.decode(stream):
+            at = float(frame.time or 0)
+            if at < entry["start"] - .001:
+                continue
+            if at >= entry["end"] - .001:
+                break
+            image = frame.to_ndarray(format="rgb24")
+            differences.append(float(np.abs(image[:170].astype(np.float32) - reference)[compare_mask].mean()))
+            for target in {"upload": (76., 77., 78.), "perform": (84., 86., 87.), "make": (88., 89.)}[identity]:
+                if abs(at - target) < .001:
+                    path = out / f"{identity}-{int(target)}s.jpg"
+                    Image.fromarray(image).save(path, quality=95)
+                    samples.append(str(path))
+    if len(differences) != entry["frames"]:
+        errors.append(f"{identity} layout scan did not decode every frame")
+    maximum = max(differences, default=999.)
+    if maximum > 3:
+        errors.append(f"Recorded Studio pixels overlap or alter the reserved {identity} title band")
+    return dict(decoded_frames=len(differences), title_band_y=[0, 170],
+                excluded_animated_waveform_bounds=excluded_wave_box,
+                maximum_mean_absolute_error=maximum, threshold=3, samples=samples), errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--video", type=Path, default=RUN / "demo_v15.mp4")
+    parser.add_argument("--video", type=Path)
     parser.add_argument("--storyboard", type=Path, default=Path(__file__).with_name("storyboard.json"))
-    parser.add_argument("--baseline", "--base-storyboard", type=Path, default=ROOT / "runs/demo_v14/storyboard.json")
+    parser.add_argument("--baseline", "--base-storyboard", type=Path)
     parser.add_argument("--output", type=Path, help="Report and contact-sheet directory; defaults to the video's directory")
     parser.add_argument("--metadata-only", action="store_true")
     args = parser.parse_args()
+    board = read_json(args.storyboard)
+    version = board.get("version", 15) if isinstance(board, dict) else 15
+    args.video = args.video or ROOT / f"runs/demo_v{version}/demo_v{version}.mp4"
     out = args.output or args.video.parent
     out.mkdir(parents=True, exist_ok=True)
-    board, baseline = read_json(args.storyboard), read_json(args.baseline)
+    args.baseline = args.baseline or ROOT / f"runs/demo_v{15 if version == 16 else 14}/storyboard.json"
+    baseline = read_json(args.baseline)
     schedule = timeline(beats_of(board))
     total = schedule[-1]["end"]
     structure, errors = structure_check(board, baseline)
@@ -411,6 +560,20 @@ def main() -> int:
                   errors=errors, review=[],
                   limitations="Waveform presence, word timing, caption pixels and levels require a companion listening and visual review for intelligibility and edit quality.")
     if not args.metadata_only:
+        if version >= 16:
+            build_path = args.video.with_suffix(".build.json")
+            if not build_path.is_file():
+                errors.append(f"Missing final encode source manifest: {build_path}")
+            else:
+                from build_demo import build_source_hashes
+                build = read_json(build_path)
+                report["encode_manifest"] = dict(path=str(build_path), **build)
+                if build.get("sources_sha256") != build_source_hashes(board, args.storyboard):
+                    errors.append("Media, storyboard or renderer changed after final encoding")
+                if build.get("video_sha256") != sha256(args.video):
+                    errors.append("Final video differs from its encoding manifest")
+                if build.get("frames") != structure["expected_frames"]:
+                    errors.append("Encoding manifest frame count differs from storyboard")
         picture = scan_video(args.video, schedule, narrations, out)
         report["picture"] = picture
         if picture["decode_error"]:
@@ -434,6 +597,11 @@ def main() -> int:
         source_pictures, source_picture_errors = source_picture_check(args.video, schedule)
         report["source_picture_comparison"] = source_pictures
         errors.extend(source_picture_errors)
+        if version >= 16:
+            for identity in ("upload", "perform", "make"):
+                layout, layout_errors = chip_header_layout_check(args.video, schedule, out, identity)
+                report[f"{identity}_layout"] = layout
+                errors.extend(layout_errors)
         audio = read_audio(args.video, SR)
         sound = dict(duration=audio.size / SR, levels=levels(audio), silence=silence_check(audio), beats=[])
         report["audio"] = sound
@@ -474,7 +642,7 @@ def main() -> int:
         if sound["levels"]["near_full_scale_samples"]:
             report["review"].append(dict(kind="audio_near_full_scale", **sound["levels"]))
     report["status"] = "errors" if errors else "metadata_passed" if args.metadata_only else "measured_checks_passed"
-    destination = out / ("qa_v15_metadata.json" if args.metadata_only else "qa_v15.json")
+    destination = out / (f"qa_v{version}_metadata.json" if args.metadata_only else f"qa_v{version}.json")
     destination.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"{report['status']}: {total:.3f}s, {structure['expected_frames']} expected frames")
     print(f"{len(errors)} errors; {len(report['review'])} review items -> {destination}")

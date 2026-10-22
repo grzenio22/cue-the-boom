@@ -24,7 +24,9 @@ Beats (all times in seconds; text may use \\n):
   [[t, x, y, "1"], ...] (a numbered ring on the clip at x, y as fractions, from t s: where a hit goes off) and
   "headline" / "subline" (a title over the clip itself, top left), "fill": true (the clip, or its crop, fills the
   whole frame, the text over it; a crop of the frame's own shape is not cut further) and "chip": "..." (a step's
-  name, big, top left); "pop_x" / "pop_y": where the noise words sit, as shares of the clip's width and height
+  name, big, top left); "chip_header": true reserves a separate header band and fits the entire clip below it,
+  for screen recordings whose own headings must remain clear; "pop_x" / "pop_y": where the noise words sit,
+  as shares of the clip's width and height
   (beside the fire, not on it); "audio_gain": how much louder audio_src plays (a take said quietly); "wave_box":
   [x, y, w, h] as shares of the frame, where a filled clip's sound is drawn; "stamp_top": the stamp at the top
       (an image may add "crop" too; "split": [0.4] cuts a wide image at those fractions of its width and stacks
@@ -48,6 +50,7 @@ appears at "cue_at" for "cue_dur" (default 1.5 s). All narration captions stay i
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -378,7 +381,12 @@ def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
         env = envelope(audio, n) if b.get("wave") else None
         for i in range(n):
             img = Image.new("RGB", (W, H), BG)
-            if b.get("portrait_backdrop"):
+            if b.get("chip_header"):
+                # The UI can scroll beneath this fixed title. Fit its complete crop
+                # below the title band, so no underlying heading can collide with it.
+                im = fit(c.frame(i), W - 120, H - 210)
+                x0, y0 = (W - im.width) // 2, 170 + (H - 210 - im.height) // 2
+            elif b.get("portrait_backdrop"):
                 background = cover(c.frame(i), W, H).filter(ImageFilter.GaussianBlur(35))
                 img = Image.blend(background, Image.new("RGB", (W, H), BG), .45)
                 im = fit(c.frame(i), W, H)
@@ -645,6 +653,7 @@ def build(storyboard: Path, out: Path) -> float:
     from av.video.reformatter import ColorRange, Colorspace
 
     board = json.loads(Path(storyboard).read_text(encoding="utf-8"))
+    source_hashes = build_source_hashes(board, storyboard)
     room_tone = board.get("room_tone") if isinstance(board, dict) else None
     beats = board["beats"] if isinstance(board, dict) else board
     captions = narration_captions(beats)
@@ -690,7 +699,42 @@ def build(storyboard: Path, out: Path) -> float:
                 container.mux(packet)
         for packet in astream.encode():
             container.mux(packet)
+    if build_source_hashes(board, storyboard) != source_hashes:
+        raise RuntimeError("A demo source changed during encoding; rebuild from stable inputs")
+    out.with_suffix(".build.json").write_text(json.dumps(dict(
+        video=str(out.resolve()), video_sha256=file_sha256(out),
+        frames=n_frames, fps=FPS, duration=n_frames / FPS,
+        sources_sha256=source_hashes), indent=2) + "\n", encoding="utf-8")
     return n_frames / FPS
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(4 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_source_hashes(board: dict | list, storyboard: Path) -> dict[str, str]:
+    """Bind the finished cut to the precise media and renderer used to encode it."""
+    paths = {storyboard.resolve(), Path(__file__).resolve()}
+
+    def collect(value):
+        if isinstance(value, dict):
+            for name, child in value.items():
+                if name in {"src", "audio_src", "vo", "element_src"} and isinstance(child, str):
+                    paths.add(Path(child).resolve())
+                elif name == "srcs":
+                    paths.update(Path(p).resolve() for p in child)
+                else:
+                    collect(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child)
+
+    collect(board)
+    return {str(path): file_sha256(path) for path in sorted(paths)}
 
 
 def main() -> int:

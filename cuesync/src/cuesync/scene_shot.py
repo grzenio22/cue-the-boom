@@ -335,6 +335,16 @@ def time_scene(plate: np.ndarray, still: bool, render: np.ndarray, sp: ScenePlan
             warnings.append(f"used the render instead of your clip's own pixels: {stats.reason}")
             frames = _render_over_plate(plate, render, idx)
         plate_view, idx_out = plate, idx
+    if eff.fluid == "steam" and eff.voice_gate == "both" and voice_end is not None:
+        last = next((f for f, e in enumerate(index) if e >= L - 1), n_out)
+        if voice_end <= last < n_out - 1:
+            # A finite jet must not freeze after its render runs out. Preserve the real render and its
+            # timing, then dissolve only the held tail. Persistent changes (e.g. a candle put out) stay.
+            if stats is None or stats.accepted:  # the rejected-transfer fallback already fades over 12 frames
+                for f in range(last + 1, n_out):
+                    a = max(0.0, 1.0 - (f - last) / 12)
+                    frames[f] = plate_view[f] if a == 0 else gam(lin(plate_view[f]) * (1 - a) + lin(frames[f]) * a)
+            warnings.append("steam render ended before the clip; faded its held tail back to the original plate over 12 frames")
     if onset is not None and impacts:  # no flash or shake for a burst that can't be found, nor for a merged hit
         frames = impact(frames, [hits[k] for k in shown], [strengths[k] for k in shown],
                         sc.shake if sc else 0.0, sc.flash if sc else 0.0)

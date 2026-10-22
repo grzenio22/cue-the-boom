@@ -64,8 +64,9 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
   const sequence = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
+    sequence.current++;
     mounted.current = true;
-    return () => { mounted.current = false; sequence.current++; };
+    return () => { mounted.current = false; };
   }, []);
 
   const pick = (plate: PickedPlate) => {

@@ -893,8 +893,11 @@ def test_a_sample_hand_uses_its_shipped_track_when_only_the_gpu_is_ready(sample_
     assert not renderer.prompts
 
 
-@pytest.mark.parametrize("changes", [{"frame": "30"}, {"direction": "90"}])
-def test_a_custom_hand_frame_or_aim_does_not_use_the_sample_cache(sample_hand, tmp_path, changes):
+@pytest.mark.parametrize("changes,aim,aim_mode", [
+    ({"frame": "30"}, 0.0, "upward_default"),
+    ({"direction": "90"}, 90.0, "explicit"),
+])
+def test_a_custom_hand_frame_or_aim_does_not_use_the_sample_cache(sample_hand, tmp_path, changes, aim, aim_mode):
     client = hand_client(sample_hand, tmp_path / "jobs")
     first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
                                             "effect": "fire_burst", "x": "0.4", "y": "0.6", **changes}).json()
@@ -902,7 +905,8 @@ def test_a_custom_hand_frame_or_aim_does_not_use_the_sample_cache(sample_hand, t
     done = wait(client, first["id"])
     assert done["status"] == "done", done.get("error")
     assert done["receipt"]["bending"]["tap_frame"] == int(changes.get("frame", 10))
-    assert done["receipt"]["bending"]["aim"] == (90.0 if "direction" in changes else None)
+    assert done["receipt"]["bending"]["aim"] == aim
+    assert done["receipt"]["bending"]["aim_mode"] == aim_mode
 
 
 def test_a_sample_hand_keeps_a_new_tap_point_and_frame(sample_hand, tmp_path):

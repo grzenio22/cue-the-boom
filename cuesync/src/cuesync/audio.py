@@ -246,8 +246,9 @@ def analyze(samples: np.ndarray, sr: int = 48000, *, offset_s: float = 0.0, fps:
                 if level < ONSET_OVER_FLOOR * noise_floor:  # +12 dB over the room tone
                     continue
                 before = band_rms[max(0, j - attack): max(0, j - 1)]
-                # a real hit is a level RISE (+6 dB), not a flux ripple inside a sustained sound
-                if before.size and band_rms[j: j + 4].mean() < RISE_FACTOR * max(float(before.mean()), noise_floor):
+                # A real hit is a level RISE (+6 dB), not a flux ripple inside a sustained sound. Use the
+                # full attack window: stopping early made tiny AAC changes erase a still-rising phone cue.
+                if before.size and band_rms[j: j + attack].mean() < RISE_FACTOR * max(float(before.mean()), noise_floor):
                     continue
             if hops and j - hops[-1] < min_gap:
                 continue

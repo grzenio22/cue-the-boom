@@ -373,11 +373,15 @@ export default function Studio() {
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
           strokes={drawing ? strokes : []} sources={sources} hand={hand ? { frame: aim?.frame ?? aimFrame, prep: shown?.track ? shown.id : null } : null}
-          initialJob={current.job} onBusy={setRendering}
+          initialJob={current.job} initialEffect={current.effect} onBusy={setRendering}
           replayOf={current.replayOf ?? null} replayWith={current.replayWith ?? []}
           siblings={siblings}
           onReplay={(id, together) => { setReplayOf(id); setReplayWith(together); setPerforming(true); }}
           effects={effects} modes={health?.modes ?? []} madeAheadScene={madeAheadScene}
+          onJobChange={(job, effect) => {
+            const id = current.id;
+            setTakes((t) => t.map((x) => (x.id === id ? { ...x, job, effect } : x)));
+          }}
           onDone={(job, effect) => {
             const id = current.id; // this take, even if the user has moved on to another before it finishes
             setTakes((t) => t.map((x) => (x.id === id ? { ...x, job, effect } : x)));

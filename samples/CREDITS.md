@@ -1,15 +1,61 @@
-# Real footage
+# Sample and media provenance
+
+The samples combine original phone footage and voice recordings, licensed stock
+sources, LTX-generated elements and scene renders, and procedural effects.
+The screenshots and explanatory graphics in `../media/` show those assets and
+the app; they are not all model-generated images. See [NOTICE.md](../NOTICE.md)
+for the repository's licence exceptions.
+
+## The author's footage
+
+`plates/hand_palm.mp4`, `hand_point.mp4`, `hand_walk.mp4`, `hand_punch.mp4`,
+`hand_fist.mp4` and `hand_open.mp4` are the author's own hand footage, filmed on
+a phone for this project, with the author's voice where present. These original
+recordings are supplied under the repository's licence. Their finished shots
+are in the matching `made_ahead/bending/hand_*` directories.
+
+The fire in those finished shots, and the explosion's fireball, comes from
+LTX-2.5 with ainvfx-fluid. Lightning and water are procedural CPU effects; the
+explosion combines the stored fireball with procedural blast effects. The five
+beyond-fire gallery shots use synthetic cue sounds over the author's footage.
+
+## The author's voice and the three performances
+
+**One render. Three performances.** uses the same palm footage and generated
+fire element for all three performances:
+
+| Performance | Audio source | Finished shot |
+|---|---|---|
+| BOOM | The original recorded BOOM in the author's hand clip | `made_ahead/bending/hand_palm__boom__fire_burst` |
+| pf, pf, BOOM | `voices/pf-pf-boom-author.wav`: edited from the author's recorded pf and BOOM sounds, with room tone from the hand take | `made_ahead/bending/hand_palm__pfpfboom__again` |
+| pf pf pf PF | `voices/pf-x4-author.wav`: edited from the same recorded sounds and room tone into a different rhythm | `made_ahead/bending/hand_palm__pfx4__again` |
+
+The two rhythm presets are assembled performances, rather than separate
+continuous voice takes. Their `receipt.json` files point back to the BOOM shot,
+record `no_new_render: true` and `no_gpu: true`, and identify the same generated
+element by SHA-256:
+`990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765`.
+The audio notes in [samples.json](samples.json) record the edits too.
+
+The other presets in `voices/` are synthetic. `tools/make_hand_noises.py` makes
+the five presets for lightning, water, air and the explosion. Added Foley is
+procedurally synthesized by `cuesync.sfx_synth`. The demo's narration is a
+separate synthetic voice made with Kokoro-82M; it is not the author's cue voice.
+
+## Generated stand-ins and elements
+
+`plates/pumpkin_kitchen.mp4`, `mug_counter.mp4`, `toy_desk.mp4`,
+`candle_shelf.mp4` and `jackolantern_kitchen.mp4` are LTX-2.5-generated stand-ins.
+`plates/candle_snap.mp4` uses the candle stand-in with a synthetic snap in its
+soundtrack. The element library in `library/` contains stored LTX renders;
+generated outputs have the model terms described in [NOTICE.md](../NOTICE.md).
+
+## Stock footage and photos
 
 The `made_ahead/scene/real_*` shots and the renders in `timing_set/real/` were made on real stock video and
 photos. Each one is processed (the effect rendered into it by LTX-2.5 with ainvfx-fluid); those source clips
 themselves are not in this repository. The one exception is the sample hand: `plates/hand_cupped.mp4` is the
 Pexels clip itself (at 720p), so a hand of your own can be tried with no camera.
-
-`plates/hand_palm.mp4`, `hand_point.mp4`, `hand_walk.mp4`, `hand_punch.mp4`, `hand_fist.mp4` and `hand_open.mp4` (and
-their shots in `made_ahead/bending/hand_palm__*`, `hand_point__*`, `hand_walk__*`, `hand_punch__*`, `hand_fist__*` and
-`hand_open__*`) are the author's
-own hand and voice, filmed on a phone for this project, under the repository's licence. The sample noises in `voices/`
-are synthetic (`tools/make_hand_noises.py` makes the five for lightning, water, air and the explosion).
 
 | Shots | Source | Author | Licence |
 |---|---|---|---|
@@ -48,3 +94,8 @@ credited above.
 | [Various short blows/puffs of air from male mouth](https://freesound.org/people/rykenn/sounds/432170/) | rykenn | CC0 1.0 | `made_ahead/scene/real_voice_lanterns_call`, `made_ahead/scene/real_voice_candles_call` |
 | [Boom (vocal)](https://freesound.org/people/Sadiquecat/sounds/802505/) | Sadiquecat | CC0 1.0 | `made_ahead/scene/real_voice_jack_sadiquecat` |
 | ["Ka-Boom!" (a vocal; unfa's own recording)](https://freesound.org/people/unfa/sounds/245604/) | unfa | CC0 1.0 | `made_ahead/scene/real_voice_pumpkins_kaboom`, `made_ahead/scene/real_voice_jack_unfa`, `made_ahead/bending/hand_cupped__kaboom__fire_burst` |
+
+The cupped-hand shot's original cue recording also ships as
+`made_ahead/bending/hand_cupped__kaboom__fire_burst/source_voice.wav` so its CPU
+rebuild can reproduce the original two hits. The receipt records its SHA-256
+and placement offset; it is the credited unfa recording, not a synthetic preset.

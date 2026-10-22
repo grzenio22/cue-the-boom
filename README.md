@@ -4,7 +4,7 @@
 
 **Film your hand. Make the noise. Throw fire, lightning and water.**
 
-Near the top of the studio, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render, performed with three takes of their own voice: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each take changes the timing and size without another generation or a GPU.
+Near the top of the studio, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render with three voice-driven performances: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
 
 For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning and water are procedural CPU effects.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
 
@@ -43,7 +43,7 @@ The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that 
 
 1. Pick **Your hand: open palm** (the author's hand).
 2. Cue it: pick the sample noise **pf, pf, KA-BOOM** (synthetic), or **Use my microphone** and make your own noise while the clip plays.
-3. **Make the shot**: the stored fire is timed and sized by your take, in about a minute on a laptop CPU (an explosion takes a few).
+3. **Make the shot**: the stored fire is timed and sized by your take. Processing time depends on the clip, effect and your computer.
 4. **Perform it again** with another rhythm: the same fire, no new render.
 
 Under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen, and the flame stays in the palm. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff".
@@ -66,7 +66,7 @@ cuesync bend --plate samples/plates/hand_palm.mp4 --voice samples/voices/pf-pf-k
 2. **Your hand** is followed by MediaPipe and RTMPose. SAM 2.1 supplies the matte with a GPU; the CPU route uses MediaPipe's skin segmenter and hand landmarks.
 3. **The fire** is rendered once, over black, by LTX-2.5 with the ainvfx-fluid IC-LoRA in a ComfyUI workflow, from a guide your sound paints.
 4. **Carried, lit, timed:** the fire follows your hand, lights your skin, passes behind your fingers and fires on every hit. A thrown fireball keeps moving after your hand pulls back.
-5. **Perform it again:** a new take re-composites the same render in about a minute on a CPU (an explosion takes a few). A held flame burns as long as your new voice holds it.
+5. **Perform it again:** a new take re-composites the same render on the CPU. A held flame burns as long as your new voice holds it; longer holds and overlapping hits take more time to process.
 
 **Or tap anything in your shot.** "KA-BOOM" at a jack-o'-lantern, "fwoooOOOM" at a toy dinosaur: LTX-2.5 renders the effect into the scene, so it lights the room and leaves its mark.
 
@@ -127,9 +127,9 @@ To generate a new hand element or render into a scene, use ComfyUI with LTX-2.5 
 - **Code:** [MIT](LICENSE), with [`cuesync/` under Apache-2.0](cuesync/LICENSE). The workflows are under the [LTX-2.x Community License](workflows/LICENSE-LTX-2.x), and LTX-rendered shots carry its terms. See [NOTICE.md](NOTICE.md) for exceptions and third-party notices.
 - **Models:** LTX-2.5 and ainvfx-fluid are open weights under the LTX-2.x Community License; the LTX-2.5 download is gated by a click-through on Hugging Face. [Files, versions and revisions](build/model-files.md).
 - **Software:** ComfyUI (GPL-3.0); the Comfy Python SDK and comfy-api-proxy (Comfy Org); ComfyUI-LTXVideo (Lightricks); Next.js; PyAV/FFmpeg; OpenCV.
-- **Demo narration:** Kokoro-82M (Apache-2.0), a synthetic narration voice used in the demo video; it is not part of the app. The performed fire cues are the author's own recorded voice.
+- **Demo narration:** Kokoro-82M (Apache-2.0), a synthetic narration voice used in the demo video; it is not part of the app. The performed fire cues use the author's recorded voice, including the two edited rhythms described above.
 - **Footage and sounds:**
   - `hand_palm`, `hand_point`, `hand_walk`, `hand_punch`, `hand_fist` and `hand_open` are the author's own hand and voice.
   - `hand_cupped` is a Pexels clip (Kindel Media).
-  - The other sample clips are stand-ins generated with LTX-2.5. The preset noises are synthetic except **pf, pf, BOOM** and **pf pf pf PF**, which are the author's recordings. The five beyond-fire gallery shots use synthetic noises over the author's footage.
+  - The other sample clips are stand-ins generated with LTX-2.5. The preset noises are synthetic except **pf, pf, BOOM** and **pf pf pf PF**, which are edited rhythms made from the author's recordings. The five beyond-fire gallery shots use synthetic noises over the author's footage.
   - The real-footage scene shots are made from stock clips and photos, and real people's CC0 voices, by the authors in [samples/CREDITS.md](samples/CREDITS.md). Only the processed scene shots are in the repository; the Pexels hand clip ships as-is.

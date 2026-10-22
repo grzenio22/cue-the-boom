@@ -17,9 +17,12 @@ RUN curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-lin
 RUN useradd -m -u 1000 user
 WORKDIR /app
 COPY --chown=user cuesync cuesync
+COPY --chown=user effects effects
 COPY --chown=user samples samples
 COPY --chown=user workflows workflows
 COPY --chown=user web web
+COPY --chown=user LICENSE NOTICE.md ./
+COPY --chown=user build/model-files.md build/model-files.md
 COPY --chown=user start.sh start.sh
 
 # the core, and the hand tracker's own environment (MediaPipe's opencv-contrib clashes with the core's opencv-python)
@@ -34,7 +37,14 @@ RUN PYTHONPATH=cuesync/src cuesync/.venv-track/bin/python -c \
 # matte runs in the same environment, with MediaPipe's skin segmenter and the hand's landmarks, no SAM)
 
 RUN cd web && npm ci --no-audit --no-fund && CUESYNC_API_URL=http://127.0.0.1:8765 npm run build
-RUN chown -R user /app
+# Runtime downloads need the model directory; Next writes caches and regenerated pages beneath .next.
+# The preinstalled tracker environment and node_modules stay root-owned and readable by the runtime user.
+RUN chown user /app/models && chown -R user /app/web/.next
+# MediaPipe's CPU task library also links EGL/GLES; importing its Python package alone does not load it.
+RUN apt-get update && apt-get install -y --no-install-recommends libegl1 libgles2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && cuesync/.venv-track/bin/python -c \
+    "import ctypes, mediapipe; from pathlib import Path; ctypes.CDLL(str(Path(mediapipe.__file__).parent / 'tasks/c/libmediapipe.so'))"
 USER user
 ENV HOME=/home/user
 EXPOSE 7860

@@ -541,7 +541,7 @@ def _box(weight: np.ndarray, pad: int) -> tuple[int, int, int, int] | None:
 
 
 def heat_haze(frames_lin: np.ndarray, element_alpha: np.ndarray, seed: int = 0, out: np.ndarray | None = None,
-              frame0: int = 0) -> np.ndarray:
+              frame0: int = 0, foreground: np.ndarray | None = None) -> np.ndarray:
     """Fire's heat haze: what is seen through the hot air above and around the flame shimmers, rising, by at most
     3 px (``haze_field``). ``element_alpha`` is the warped element's coverage [T, H, W] (float 0..1 or uint8).
     Frames without a flame are copied unchanged. ``out`` may be ``frames_lin``. ``frame0``: the clip's frame number
@@ -551,9 +551,29 @@ def heat_haze(frames_lin: np.ndarray, element_alpha: np.ndarray, seed: int = 0, 
     grids = _haze_grids(frame0 + n, h, w, seed)
     out = _out(frames_lin, out)
 
+    def active_box(shift: np.ndarray) -> tuple[int, int, int, int] | None:
+        # Same component-wise threshold as abs(shift).max(-1), without a large
+        # float temporary or allocating the coordinates of every active pixel.
+        active = cv2.bitwise_not(cv2.inRange(shift, (-1e-3, -1e-3), (1e-3, 1e-3)))
+        x, y, bw, bh = cv2.boundingRect(active)
+        if not bw or not bh:
+            return None
+        sh, sw = shift.shape[:2]
+        return max(0, y - 4), min(sh, y + bh + 4), max(0, x - 4), min(sw, x + bw + 4)
+
     def one(f: int) -> None:
         shift = haze_field(_alpha(element_alpha[f]), frame0 + f, grids, side)
-        box = None if shift is None else _box(np.abs(shift).max(-1) > 1e-3, 4)
+        box = None if shift is None else active_box(shift)
+        if box is not None and foreground is not None:
+            # Apply after the heat field's blur/upsampling so it cannot spread back onto skin.
+            # This factor can only shrink support; the original padded box also
+            # contains every pixel the masked field's final remap could touch.
+            y0, y1, x0, x1 = box
+            local = shift[y0:y1, x0:x1]
+            local *= (1.0 - np.clip(_alpha(foreground[f, y0:y1, x0:x1]), 0., 1.))[..., None]
+            masked_box = active_box(local)
+            box = None if masked_box is None else (y0 + masked_box[0], y0 + masked_box[1],
+                                                    x0 + masked_box[2], x0 + masked_box[3])
         if box is None:
             if out is not frames_lin:
                 out[f] = frames_lin[f]

@@ -35,7 +35,7 @@ button.secondary, .btn.secondary { background: var(--chip); color: var(--fg); }
 .chip.bad { color: var(--bad); }
 .muted { color: var(--muted); }
 /* helper text inside a selected (orange) button: grey on orange can't be read */
-button:not(.secondary) .muted, .btn:not(.secondary) .muted { color: #4a2a00; }
+button:not(.secondary):not(.tile) .muted, .btn:not(.secondary):not(.tile) .muted { color: #4a2a00; }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
 
 h2 { font-size: 1.15rem; margin: 1.6em 0 0.4em; }

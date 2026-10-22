@@ -262,17 +262,31 @@ def browser_copy(src: str | Path, out: str | Path, long_side: int = 1280, max_s:
     """A copy of a clip any browser plays (H.264 and AAC, as displayed, at most ``long_side`` px on its long side and
     ``fps`` frames a second), for the studio to show your clip when the browser can't play the phone's own file (an
     iPhone's HEVC in Firefox, or in a Chromium without the codec): the clip stayed black and couldn't be tapped. The
-    timeline is the original's, so a frame picked on the copy is that moment of the clip."""
+    timeline is the original's, so a frame picked on the copy is that moment of the clip. Clips longer than
+    ``max_s`` are rejected, never shortened to get past the studio's duration check."""
+    from .conform import conform
+
     info = probe_video(src)
+    if info.duration_s > max_s + 1e-6:
+        raise ValueError(f"choose a clip up to {max_s:g} seconds long")
     k = min(1.0, long_side / float(max(info.width, info.height, 1)))
     w, h = max(2, int(info.width * k) // 2 * 2), max(2, int(info.height * k) // 2 * 2)
     rate = int(min(fps, round(info.fps) if info.fps else fps)) or fps
     clip = read_video(src, size=(w, h), max_s=max_s, target_fps=rate)
+    # The decoder's median-gap tail is only an estimate; a sparse VFR clip's stream duration
+    # gives the actual final packet duration instead of extrapolating another long gap.
+    duration = info.duration_s or clip.duration_s
+    if duration is not None and duration > max_s + 1e-6:
+        raise ValueError(f"choose a clip up to {max_s:g} seconds long")
+    # Decode sampling only discards redundant source frames. VFR gaps still need held output frames;
+    # writing the retained frames consecutively changes the tap time and cuts the audio short.
+    frames = conform(clip, size=(w, h), fps=rate, duration_s=duration)
+    del clip
     try:
-        audio = read_audio(src)[: int(round(len(clip.frames) / rate * 48000))]
+        audio = read_audio(src)[: int(round(len(frames) / rate * 48000))]
     except ValueError:  # (no sound)
         audio = None
-    write_video(out, clip.frames, fps=rate, audio=audio, crf=23, preset="veryfast")
+    write_video(out, frames, fps=rate, audio=audio, crf=23, preset="veryfast")
     return Path(out)
 
 

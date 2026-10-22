@@ -36,6 +36,10 @@ import cv2
 import numpy as np
 
 from .gestures import effect_for_kind
+from . import fx_light as fx
+from . import fire_relight as fire_light
+from . import hand_surface
+from .fx_volume import volume_element
 
 POINTING = ("Victory", "Pointing_Up")  # two fingers, or one: a jet from the fingertips
 SNAP_BEFORE, SNAP_AFTER = 4, 1  # frames at 24 fps the strike may come before / after the voice's hit and still take it
@@ -1058,6 +1062,157 @@ def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None,
     return disc * np.clip(back / max(0.3 * s, 1.0), 0, 1)
 
 
+FIRE_VOLUME = dict(slabs=9, optical_depth=.30, density_contrast=.34, temperature=.18,
+                   thickness=.9, parallax=.60, flow=.040, energy=.95)
+
+
+def fire_landmarks(track: dict, t: int) -> np.ndarray | None:
+    """A measured 3D hand for this frame; do not invent depth across tracking gaps."""
+    frames = track.get("landmarks") or []
+    if t >= len(frames) or frames[t] is None:
+        return None
+    lm = np.asarray(frames[t], np.float32)
+    sources = track.get("src") or []
+    if lm.shape != (21, 3) or not np.isfinite(lm).all() or (t < len(sources) and sources[t] == "rtm"):
+        return None
+    return lm
+
+
+def palm_views(track: dict, reference: int) -> np.ndarray:
+    """Small relative view changes from the palm normal, zero on missing-depth frames."""
+    n = len(track.get("landmarks") or track.get("xy", []))
+    angles = np.full(n, np.nan, np.float32)
+    for t in range(n):
+        lm = fire_landmarks(track, t)
+        if lm is None:
+            continue
+        normal = np.cross(lm[5] - lm[0], lm[17] - lm[0])
+        if np.linalg.norm(normal) < 1e-5:
+            continue
+        if normal[2] > 0:
+            normal *= -1
+        angles[t] = np.arctan2(normal[0], -normal[2])
+    known = np.flatnonzero(np.isfinite(angles))
+    result = np.zeros(n, np.float32)
+    if not len(known):
+        return result
+    # Smooth only uninterrupted measured spans: a missing frame remains a true fallback.
+    for span in np.split(known, np.flatnonzero(np.diff(known) > 1) + 1):
+        values = np.unwrap(angles[span])
+        angles[span] = np.convolve(np.pad(values, (2, 2), mode="edge"), np.ones(5) / 5, mode="valid")
+    baseline = angles[known[np.argmin(abs(known - reference))]]
+    result[known] = np.clip(.07 + .4 * (angles[known] - baseline), -.17, .17)
+    return result
+
+
+def hand_motion_px(track: dict, t: int) -> float:
+    """Screen-space shutter motion, robust to one mistracked fingertip.
+
+    Camera motion belongs here: the photograph blurs from both camera and hand movement.
+    """
+    if t <= 0:
+        return 0.
+    frames = track.get("landmarks") or []
+    if t < len(frames) and frames[t] is not None and frames[t - 1] is not None:
+        now, before = np.asarray(frames[t], np.float32), np.asarray(frames[t - 1], np.float32)
+        # A 2D fallback can measure photographic motion without supplying fictitious surface depth.
+        if (now.shape in ((21, 2), (21, 3)) and before.shape in ((21, 2), (21, 3))
+                and np.isfinite(now[:, :2]).all() and np.isfinite(before[:, :2]).all()):
+            return float(np.median(np.linalg.norm(now[:, :2] - before[:, :2], axis=1)))
+    return float(np.linalg.norm(emitter_at(track, t)[0] - emitter_at(track, t - 1)[0]))
+
+
+def fire_visibility(track: dict, t: int, matte: np.ndarray | None, geo: dict | None, z0: float,
+                    contact: bool = True, box: tuple[int, int, int, int] | None = None) -> np.ndarray:
+    """Camera visibility of the approximate root surface, in plate pixel coordinates.
+
+    Smaller landmark z is nearer the camera. This is a 2.5D hand proxy, not recovered scene depth.
+    With ``box=(y0,y1,x0,x1)``, return only that patch, evaluating the same surface on its overlap.
+    """
+    h, w = matte.shape if matte is not None else (int(track["H"]), int(track["W"]))
+    by0, by1, bx0, bx1 = box or (0, h, 0, w)
+    visibility = np.ones((by1-by0, bx1-bx0), np.float32)
+    y0, y1, x0, x1 = matte_box(matte) if matte is not None else holdout_box(track, t, h, w)
+    y0, y1, x0, x1 = max(y0, by0), min(y1, by1), max(x0, bx0), min(x1, bx1)
+    if y1 <= y0 or x1 <= x0:
+        return visibility
+    patch = (slice(y0-by0, y1-by0), slice(x0-bx0, x1-bx0))
+    if geo is None:
+        visibility[patch] -= root_holdout(track, t, h, w, matte, (y0, y1, x0, x1))
+        return visibility
+    p, u, s = emitter_at(track, t)
+    yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+    along = (xx - p[0]) * u[0] + (yy - p[1]) * u[1]
+    fire_z = z0 - .055 * s - .24 * np.maximum(along, 0.)
+    hide = geo["valid"][y0:y1, x0:x1] * _smooth(-.07*s, .07*s, fire_z - geo["depth"][y0:y1, x0:x1])
+    bury = matte[y0:y1, x0:x1] * _smooth(-.015*s, .045*s, -along)
+    visible = 1. - np.maximum(hide, bury)
+    if contact:
+        # Only the contact surface softens the root; no full-frame half-plane clips a thrown fireball.
+        visible *= 1. - matte[y0:y1, x0:x1] * (1. - _smooth(-.015*s, .10*s, along))
+    visibility[patch] = visible
+    return visibility
+
+
+def fire_over(plate: np.ndarray, emission: np.ndarray, opacity: np.ndarray) -> np.ndarray:
+    """Luminous gas cannot remove more luminance than it adds, even over an HDR wall."""
+    lum = fx._lum(emission)
+    alpha = np.minimum(np.clip(opacity, 0., 1.), .72 * lum)
+    alpha = np.minimum(alpha, .98 * lum / np.maximum(fx._lum(plate), 1e-5))
+    return plate * (1. - alpha[..., None]) + emission
+
+
+def finish_fire(plate: np.ndarray, emission: np.ndarray, opacity: np.ndarray,
+                out: np.ndarray | None = None) -> np.ndarray:
+    """The validated optical over, bloom and shoulder, evaluated only on their finite support.
+
+    Quarter-resolution bloom retains its original full-canvas sampling grid. On the usual multiple-of-four
+    plate dimensions, resizing a grid-aligned crop is exactly the same interpolation as resizing the canvas.
+    """
+    h, w = plate.shape[:2]
+    if out is None:
+        out = plate.copy()
+    elif out is not plate:
+        out[...] = plate
+    low = cv2.resize(emission, (max(1, w//4), max(1, h//4)), interpolation=cv2.INTER_AREA)
+    low = cv2.GaussianBlur(low, (0, 0), max(.0035*min(h, w), .5))
+    if h % 4 == 0 and w % 4 == 0:
+        x, y, bw, bh = cv2.boundingRect(np.any(low != 0., axis=-1).astype(np.uint8))
+        if bw == 0 or bh == 0:
+            return out
+        lx0, ly0 = max(0, x-1), max(0, y-1)
+        lx1, ly1 = min(low.shape[1], x+bw+1), min(low.shape[0], y+bh+1)
+        x0, y0, x1, y1 = 4*lx0, 4*ly0, 4*lx1, 4*ly1
+        glow = cv2.resize(low[ly0:ly1, lx0:lx1], (x1-x0, y1-y0))
+    else:
+        x0, y0, x1, y1 = 0, 0, w, h
+        glow = cv2.resize(low, (w, h))
+    sl = (slice(y0, y1), slice(x0, x1))
+    room, E = plate[sl], emission[sl]
+    result = fire_over(room, E, opacity[sl])
+    result += glow*.035
+    high = np.maximum(result-.78, 0.)
+    rolled = np.where(result > .78, .78+.22*(1.-np.exp(-high/.22)), result)
+    lum = fx._lum(E)
+    share = (lum/np.maximum(lum+fx._lum(room), 1e-6))[..., None]
+    out[sl] = result*(1.-share)+rolled*share
+    return out
+
+
+def blend_element_frames(source, picks: list[tuple[int, float]], boxes: dict,
+                         shape: tuple[int, int]) -> np.ndarray:
+    """Blend a held source in the original weight order, without multiplying its black canvas."""
+    if len(picks) == 1 and picks[0][1] == 1.:
+        return source(picks[0][0])
+    out = np.zeros((*shape, 3), np.float32)
+    for k, weight in picks:
+        frame = source(k)  # populates its cached lit box on first access
+        if boxes[k] is not None:
+            y0, y1, x0, x1 = boxes[k]
+            out[y0:y1, x0:x1] += weight*frame[y0:y1, x0:x1]
+    return out
+
+
 def left_frame(track: dict, w: int, h: int) -> tuple[dict, np.ndarray]:
     """(track, gone): where the emitter has gone more than half a hand past the frame's edge, the hand has left the
     shot and the trackers only guess at it (their guesses swung a pointing hand round as it went out, and the fire
@@ -1147,7 +1302,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     fires it on every hit of the take, carried on the hand, each as big and as bright as that hit is loud.
     ``element_from``: an earlier bending shot's folder whose element plays this take instead (perform it again: a new
     rhythm or another voice on the same hand take, no new render). ``tap_frame``: the frame ``spec.point`` was tapped
-    on (default: the strike); ``aim``: the aim arrow drawn there, degrees clockwise from up (default: the hand's own).
+    on (default: the strike); ``aim``: the aim arrow drawn there, degrees clockwise from up. Without an arrow,
+    plumes and non-pointing fireballs rise upward; directional jets keep the tracked hand's aim.
     ``only_hits``: which of the take's hits (their order in time) this hand fires, the rest left to another hand (two
     hands answering each other: run it once per hand, each on the other's composite); every hit keeps its Foley."""
     import dataclasses
@@ -1192,9 +1348,6 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     snap = snaps[hits.index(hero)]
     k_launch = snap["frame"]
     tap_k = k_launch if tap_frame is None else int(np.clip(tap_frame, 0, n - 1))
-    arrow = aim  # the aim arrow you drew, if you did (kept in the receipt: performing again keeps it)
-    track = anchored(track, tap_k, (spec.point[0] * w, spec.point[1] * h), aim)  # where you tapped, carried on the hand
-
     auto = None
     old = json.loads((Path(element_from) / "receipt.json").read_text()) if element_from is not None else None
     # performing your own take again: as big as it is loud against the take it was rendered for (not a library's)
@@ -1212,14 +1365,21 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                                      longest_s=h_.get("longest_s", 0.0))
         effect = effect or "fire_burst"
         auto = h_ | {"heard": h_["kind"], "hand": g, "picked": effect, "why": why}
+    arrow = aim if aim is not None else spec.direction
+    aim_mode = "explicit" if arrow is not None else "tracked"
+    if arrow is None and (effect == "flame_plume" or
+                          (effect == "fire_burst" and gesture_at(track, k_launch) not in POINTING)):
+        # A side-on palm can project its wrist-to-knuckle axis downward. That axis
+        # carries the tapped point, but does not give a rising flame its direction.
+        arrow, aim_mode = 0.0, "upward_default"
+    track = anchored(track, tap_k, (spec.point[0] * w, spec.point[1] * h), arrow)
+    track["aim_mode"] = aim_mode
+    if aim_mode == "upward_default":
+        track["dir"] = [[0.0, -1.0]] * len(track["dir"])
     if effect in MADE:  # lightning, water, air, an explosion: made here, not rendered over black
         return made_shot(spec, out_dir, effect, plate, track, mask, c, env_all, snaps, looks, k_launch, tap_k, arrow,
                          auto or picked, old, element_from, instant, track_path, mask_path, say, t0)
     eff = load_effect(effect)
-    if eff.behaviour == "plume":  # a flame standing on the hand burns straight up, however the hand turns (it tipped over
-        # sideways on a turning fist, like a lighter's never does)
-        track = track | {"dir": [[0.0, -1.0]] * len(track["dir"])}
-
     lib_k = 1.0  # an element made ahead for another hand, played as big as a render for this one (library_size)
     if old:  # perform it again: the element as rendered for the earlier take, where its hand was then
         ref = (np.asarray(old["bending"]["ref"]["xy"], np.float64), np.asarray(old["bending"]["ref"]["dir"], np.float64),
@@ -1332,6 +1492,22 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         del yy_, xx_, along_
     fade = fade[..., None]
     cam = camera_path(plate, mask, track)  # a handheld camera: what was thrown moves with the room
+    views = palm_views(track, k_launch) if eff.fluid == "fire" else None
+
+    def volume_source(S: np.ndarray, t: int, source_frames: list[int]) -> np.ndarray:
+        if eff.fluid != "fire":
+            return S
+        # Carry RGB and extinction through exactly the same camera/hand transform.
+        boxes = [lit_box[f] for f in source_frames if lit_box[f] is not None]
+        bounds = ((min(b[2] for b in boxes), min(b[0] for b in boxes),
+                   max(b[3] for b in boxes), max(b[1] for b in boxes)) if boxes else (0, 0, 0, 0))
+        E, T, info = volume_element(S, t / FPS, float(views[t]) if t < len(views) else 0., FIRE_VOLUME,
+                                     active_bounds=bounds, crop_output=True)
+        packed = np.zeros((h, w, 4), np.float32)
+        x0, y0, x1, y1 = info["crop"]
+        packed[y0:y1, x0:x1, :3] = E
+        packed[y0:y1, x0:x1, 3] = 1. - T
+        return packed
 
     if charge:  # the hum's energy: quick to rise, slow to let go (the ember keeps a little between breaths)
         a_, r_ = charge
@@ -1355,8 +1531,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         size = EMBER_SIZE[0] + (EMBER_SIZE[1] - EMBER_SIZE[0]) * en ** 0.7  # (grows early: the hum is heard building)
         gain = (0.45 + 1.0 * en) * float(flicker[i])  # a hot core, brighter than the fire it becomes
         gain *= 1.0 if t < charge[1] else (charge[1] + 3 - t) / 4
-        E = warp_element(source(k), track, ref, t, 0, size * play, blur=False)
-        return E * gain
+        E = warp_element(volume_source(source(k), t, [k]), track, ref, t, 0, size * play, blur=False)
+        E *= gain
+        return E
 
     lit_box: dict[int, tuple[int, int, int, int] | None] = {}
 
@@ -1382,6 +1559,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         drawn = drawn_extent((source(e) for e in range(ign, len(element), 2)), ref)
         play, fit = fit_play(eff.behaviour, drawn, track, k_launch, w, h, least=0.3 if instant else 1.0)
     thrown = eff.behaviour == "burst"  # a fireball leaves the fist at the strike (thrown_pose)
+    if thrown and old is not None and not instant and "thrown" in old["bending"]:
+        # Reperform the saved motion intent; a library's source pose does not decide a new hand's release.
+        # An absent legacy field is not an explicit anchored choice.
+        thrown = old["bending"]["thrown"] is not None
 
     faded: dict[int, float] = {}  # plate frame -> its element's strength as played (a held flame dying down: under 1)
 
@@ -1405,8 +1586,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             grow = min(1.0, GROW_FROM + (1.0 - GROW_FROM) * max(0.0, e - ign + pre) / (pre + GROW_FRAMES))
             if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
                 grow = 1.0
-            S = source(picks[0][0]) if picks == [(picks[0][0], 1.0)] else sum(wt * source(f) for f, wt in picks)
-            E = warp_element(S, track, ref, t, lag, size * grow * play, since=off + ign, cam=cam, thrown=thrown) * gain
+            S = blend_element_frames(source, picks, lit_box, (h, w))
+            S = volume_source(S, t, [f for f, _ in picks])
+            E = warp_element(S, track, ref, t, lag, size * grow * play, since=off + ign, cam=cam, thrown=thrown)
+            E *= gain
             if thrown and t > off + ign + RELEASE_AFTER:  # in flight: smeared along its path over the shutter (on the
                 # fist, the fist's smear; thrown, it was crisp at its fastest)
                 a_pose = thrown_pose(ref, track, off + ign, t, size * play, cam)
@@ -1418,7 +1601,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 # dim grey haze before the flame catches showed as a grey blob on the palm)
                 warm = np.clip(3.0 * (E[..., 0] - E[..., 2]) / np.maximum(E[..., 0], 1e-4) - 1.0, 0.0, 1.0)
                 E *= ((e - (ign - pre) + 1) / (pre + 1)
-                      * np.maximum(warm, np.clip((fx._lum(E) - 0.35) / 0.3, 0.0, 1.0)))[..., None]
+                      * np.maximum(warm, np.clip((fx._lum(E[..., :3]) - 0.35) / 0.3, 0.0, 1.0)))[..., None]
             elif ign < pre and e < pre:  # a render lit from its first frame: bring it up rather than pop it on
                 E *= (e + 1) / (pre + 1)
             acc = E if acc is None else np.maximum(acc, E)  # two plays overlapping: the brighter shows, not both added
@@ -1444,7 +1627,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         m_t = None if mask is None else mask[min(t, len(mask) - 1)]
         y0, y1, x0, x1 = box = holdout_box(track, t, h, w) if m_t is None else matte_box(m_t)
         hold = None
-        if y1 > y0 and x1 > x0:
+        if eff.fluid != "fire" and y1 > y0 and x1 > x0:
             hold = (1.0 - root_holdout(track, t, h, w, None if m_t is None else m_t.astype(np.float32) / 255.0,
                                        box))[..., None]
         for E in (acc, free):
@@ -1458,40 +1641,63 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     q = 8  # the light (cuesync.fx_light) needs only a small copy of each frame's element
     # the camera's exposure jumps by what the fire adds to the room's light: a stop or more in the dark, nothing to
     # speak of in a sunlit room (where the flash washed the whole frame out)
-    k_full = int(np.clip(ign + 4, 0, len(element) - 1))
-    fire_mean = float(fx._lum(np.clip(lin(element[k_full][::4, ::4]) - (floor_lin[::4, ::4] if np.ndim(floor_lin)
-                                                                         else floor_lin), 0, None)).mean())
-    flash_k = float(min(1.0, np.log2(1.0 + fire_mean / max(float(fx._lum(lin(plate[n // 2][::4, ::4])).mean()), 1e-4))))
-    some = np.stack([lin(plate[i]) for i in np.linspace(0, n - 1, 8).astype(int)])
-    white, tint = fx.plate_white(some), fx.plate_tint(some)
-    del some
+    if eff.fluid != "fire":
+        k_full = int(np.clip(ign + 4, 0, len(element) - 1))
+        fire_mean = float(fx._lum(np.clip(lin(element[k_full][::4, ::4]) - (floor_lin[::4, ::4] if np.ndim(floor_lin)
+                                                                             else floor_lin), 0, None)).mean())
+        flash_k = float(min(1.0, np.log2(1.0 + fire_mean / max(float(fx._lum(lin(plate[n // 2][::4, ::4])).mean()), 1e-4))))
+        some = np.stack([lin(plate[i]) for i in np.linspace(0, n - 1, 8).astype(int)])
+        white, tint = fx.plate_white(some), fx.plate_tint(some)
+        del some
     noise = fx.shadow_noise(plate)
+    # Robust clip exposure prevents auto gains from pumping as the emitting hand moves.
+    ambient_hand, ambient_room = [], []
+    if eff.fluid == "fire":
+        for i in np.linspace(0, n - 1, min(n, 12)).astype(int):
+            y = fx._lum(lin(plate[i][::8, ::8]))
+            p_, _, s_ = emitter_at(track, i)
+            yy, xx = np.mgrid[:y.shape[0], :y.shape[1]]
+            near = ((8 * xx - p_[0])**2 + (8 * yy - p_[1])**2) < (2.5 * s_)**2
+            mm = np.zeros_like(y) if mask is None else mask[i][::8, ::8] / 255.
+            for values, keep in ((ambient_hand, (mm > .65) & near & (y > .0015)),
+                                 (ambient_room, (mm < .05) & near & (y > .002))):
+                if keep.sum() > 20:
+                    values.append(float(np.percentile(y[keep], 60)))
+    light_cfg = {}
+    if ambient_hand:
+        light_cfg["hand_ambient"] = float(np.median(ambient_hand))
+    if ambient_room:
+        light_cfg["room_ambient"] = float(np.median(ambient_room))
     out = np.empty_like(plate)
-    CHUNK = 12  # frames lit at a time (a whole 10 s 1080p clip in float32 is 6 GB), overlapping a frame each side
+    CHUNK = 1 if eff.fluid == "fire" else 12  # depth and lighting are per-frame; never cache a chunk of hand surfaces
     made: dict[int, np.ndarray | None] = {}  # each frame's element, carried once (it was carried twice: small, then full)
-    behind: dict[int, float] = {}  # each frame's room behind its fire (room_behind), and its fire brightened by it once
-    fires: dict[int, np.ndarray] = {}  # each frame's fire as composited, for the camera's overexposure (bleed)
     for a in range(0, n, CHUNK):
         b = min(n, a + CHUNK)
-        a0, b1 = max(0, a - 1), min(n, b + 1)
+        a0, b1 = (a, b) if eff.fluid == "fire" else (max(0, a - 1), min(n, b + 1))
         for i in range(a0, b1):
             if i not in made:
                 made[i] = element_at(i)
-        P = np.stack([lin(plate[i]) for i in range(a0, b1)])
-        if eff.fluid == "fire":  # over a bright room the flame is brighter than rendered (its light on the skin is not:
-            # boosted, it blew the skin out in a sunlit room)
+        if eff.fluid == "fire":
+            E0 = made[a]
+            x0, y0, bw, bh = ((0, 0, 0, 0) if E0 is None else
+                              cv2.boundingRect(cv2.bitwise_not(cv2.inRange(E0, (0.,)*4, (0.,)*4))))
+            if bw == 0 or bh == 0:
+                out[a] = plate[a]  # lin/gam is identity for the uint8 plate; no fire means no work or change
+                made.clear()
+                say("compositing", 0.7 + 0.14*b/n, f"Carrying the element on your hand: frame {b} of {n}")
+                continue
+            fire_box = (y0, y0+bh, x0, x0+bw)
+            P = lin(plate[a])[None]
+            small = None
+        else:
+            P = np.stack([lin(plate[i]) for i in range(a0, b1)])
+            small = np.zeros((b1 - a0, h // q, w // q, 3), np.float32)
             for i in range(a0, b1):
-                if made[i] is not None and i not in behind:
-                    behind[i] = room_behind(made[i], P[i - a0])
-        small = np.zeros((b1 - a0, h // q, w // q, 3), np.float32)
-        for i in range(a0, b1):
-            if made[i] is not None:
-                small[i - a0] = cv2.resize(made[i], (w // q, h // q), interpolation=cv2.INTER_AREA)
-                if eff.fluid == "fire":  # it lights the room as brightly as the camera sees it burn (its clipped
-                    # render's light undersold a core blown to white; LIGHT_CAP keeps the skin from blowing out)
-                    small[i - a0] = fire_hdr(small[i - a0], behind.get(i, 0.0)) * np.float32(FIRE_LIGHT)
+                if made[i] is not None:
+                    small[i - a0] = cv2.resize(made[i], (w // q, h // q), interpolation=cv2.INTER_AREA)
         m = None if mask is None else mask[a0:b1].astype(np.float32) / 255.0
-        fx.light_plate(P, small, track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, tint=tint, out=P)
+        if eff.fluid != "fire":
+            fx.light_plate(P, small, track_slice(track, a0, b1), m, fluid=eff.fluid, white=white, tint=tint, out=P)
         for i in range(a, b):
             if made[i] is None:
                 continue
@@ -1499,11 +1705,22 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             E = E0
             j = i - a0
             if eff.fluid == "fire":
-                E = fire_hdr(E0, behind.get(i, 0.0))
-                cap_light(P[j], lin(plate[i]), E)
-                if eff.behaviour == "plume":  # its foot lights the palm it stands in
-                    p_, u_, s_ = emitter_at(track, i)
-                    contact_light(P[j], E, p_, u_, s_, None if m is None else m[j])
+                p_, u_, s_ = emitter_at(track, i)
+                lm = fire_landmarks(track, i)
+                matte = None if m is None else m[j]
+                geo = hand_surface.surface(lm, matte, s_) if lm is not None and matte is not None else None
+                z0 = hand_surface.emission_depth(lm, p_) if lm is not None else 0.
+                # Camera occlusion does not extinguish the source lighting the hand.
+                P[j], _, _ = fire_light.relight(P[j], E0[..., :3], matte, lm, p_, s_, geo, z0,
+                                               light_cfg | {"direction": u_, "hand_motion_px": hand_motion_px(track, i)})
+                visibility = fire_visibility(track, i, matte, geo, z0, contact=eff.behaviour == "plume", box=fire_box)
+                y0, y1, x0, x1 = fire_box
+                E0[y0:y1, x0:x1] *= visibility[..., None]
+                E, opacity = E0[..., :3], E0[..., 3]
+                # Heat distorts the room before emission is added; preserve foreground skin after field smoothing.
+                alpha = np.clip(fx._lum(E) * 4., 0., 1.)[None]
+                fx.heat_haze(P[j:j+1], alpha, seed=spec.seed, out=P[j:j+1], frame0=i,
+                             foreground=None if matte is None else matte[None])
             look = E[::4, ::4].max(-1) > 1e-4  # grain only where the element is
             ys_, xs_ = np.nonzero(look)
             if ys_.size:
@@ -1516,44 +1733,13 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
             elif eff.fluid == "steam":  # steam scatters the room's light: laid over, never brighter than its white
                 al = np.clip(fx._lum(E) / 0.6, 0.0, 0.55)[..., None]  # translucent: a dense render read as cotton wool
                 P[j] = P[j] * (1.0 - al) + np.minimum(E / np.maximum(al, 1e-3), max(0.9 * white, 0.45)) * al
-            else:  # fire is light, added, and where it outshines the room behind it, it hides it: measured against
-                # the room as a whole (pixel by pixel, a jet changed from pale to orange where it crossed a skirting)
-                side = min(h, w)  # by the flame's body, not its strands (pixel by pixel, the wall showed through the
-                # dim gaps between bright strands: a jet like orange lace)
-                body = cv2.GaussianBlur(fx._lum(E), (0, 0), SOOT_BODY * side)
-                a_ = np.clip(body / (behind.get(i, 0.0) + SOOT_DARK), 0.0, 1.0)
-                # ... and never more than it outshines what is there: a dim edge of the flame over a lit palm in a dark
-                # room hid the palm, a dark rim round the fireball's foot
-                there = cv2.GaussianBlur(fx._lum(np.maximum(P[j], 0.0)), (0, 0), SOOT_EDGE * side)
-                a_ = np.minimum(a_, np.clip(cv2.GaussianBlur(fx._lum(E), (0, 0), SOOT_EDGE * side) / (there + SOOT_DARK),
-                                            0.0, 1.0))
-                a_ *= cv2.GaussianBlur(np.clip(fx._lum(E) / 0.02, 0.0, 1.0), (0, 0), 3.0 * side / 1080)  # where flame is
-                lo, hi, c0, c1 = DAY_CORE
-                day = float(np.clip((behind.get(i, 0.0) - lo) / (hi - lo), 0.0, 1.0))
-                if day > 0:  # a bright room: the flame's dense body covers it (its edges stay light)
-                    core = np.clip((cv2.GaussianBlur(fx._lum(E0), (0, 0), h / 1080) - c0) / (c1 - c0), 0.0, 1.0)
-                    core = cv2.erode(core * core * (3.0 - 2.0 * core), np.ones((3, 3), np.uint8))
-                    a_ = a_ + day * day * (3.0 - 2.0 * day) * core * (1.0 - a_)
-                a_ *= faded.get(i, 1.0)  # (the soot dies down with its flame: a flame faded to a tenth still hid the
-                # palm in full, and that darkening under its last faint yellow read as a grey-green ghost)
-                if RIM > 0:  # its dim edge hides at most what it gives back (inside its body, as before)
-                    give = fx._lum(E) / (SOOT * np.maximum(fx._lum(np.maximum(P[j], 0.0)), 1e-4))
-                    inner = cv2.GaussianBlur(_smooth(0.1, 0.35, fx._lum(E0) / FIRE_PEAK).astype(np.float32), (0, 0),
-                                             0.006 * side)
-                    a_ = a_ * (1.0 - RIM) + RIM * np.minimum(a_, np.maximum(inner, give))
-                a_ = cv2.GaussianBlur(a_, (0, 0), 1.5 * h / 1080)
-                dark = 1.0 - float(_smooth(DAY[0], DAY[1], behind.get(i, 0.0)))
-                P[j] = P[j] * (1.0 - SOOT * a_)[..., None] + E + bloom(E, dark)
-                fires[i] = E
-        if eff.fluid == "fire":  # the hot air above and around the flame shimmers
-            alpha = np.stack([cv2.resize(np.clip(fx._lum(small[i - a0]) * 4.0, 0, 1), (w, h)) for i in range(a0, b1)])
-            fx.heat_haze(P, alpha, seed=spec.seed, out=P, frame0=a0)
-        fx.flash(P, [off + ign - a0 for off, _, _ in plays], [g * flash_k for _, g, _ in plays], out=P)
-        if eff.fluid == "fire":  # a shoulder, not a clip: the root over a lit palm went flat white
-            for i in [k for k in fires if a0 <= k < b1]:
-                bleed(P[i - a0], fires.pop(i))
-            shoulder(P)
+            else:
+                finish_fire(P[j], E, opacity, out=P[j])
+        if eff.fluid != "fire":
+            fx.flash(P, [off + ign - a0 for off, _, _ in plays], [g * flash_k for _, g, _ in plays], out=P)
         out[a:b] = gam(P[a - a0: b - a0])
+        if eff.fluid == "fire":
+            made.clear()  # each fire frame is consumed once; the next frame never needs its occluded emission
         for i in [k for k in made if k < b - 1]:  # the next chunk starts a frame back: keep that one and the next
             del made[i]
         say("compositing", 0.7 + 0.14 * b / n, f"Carrying the element on your hand: frame {b} of {n}")
@@ -1586,6 +1772,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         "render": {"seconds": round(seconds, 1), "prompt": prompt, "guide_scale": round(scale, 3)},
         "bending": {"track": str(track_path), "mask": None if mask is None else str(mask_path), "k_hit": int(k_launch),
                     "tap_frame": int(tap_k), "aim": None if arrow is None else round(float(arrow), 2),
+                    "aim_mode": track.get("aim_mode", "explicit" if arrow is not None else "tracked"),
                     "k_launch": int(k_launch), "ignition": int(ign), "offset": int(offset), "lag_frames": lag,
                     "snap": snap, "hits": [{"frame": int(off + ign), "gain": round(g, 3), "size": round(sz, 3),
                                             "snap": sn} for (off, g, sz), sn in zip(plays, snaps)],
@@ -1597,6 +1784,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                     "performed_again": None if old is None or instant else {"from": str(element_from), "no_new_render": True},
                     "instant": None if not instant else {"library": str(element_from), "no_gpu": True},
                     "camera": "locked" if cam is None else "handheld: thrown fire moves with the room",
+                    "fire_look": None if eff.fluid != "fire" else {
+                        "method": "image-based 2.5D: coherent depth slabs and landmark hand surface",
+                        "volume": FIRE_VOLUME, "lighting": "exposure-aware three-band local relight",
+                        "ambient": light_cfg, "foreground_safe_heat": True},
                     "charge": None if not charge else {"from": int(charge[0]), "release": int(charge[1]),
                                                        "seconds": round((charge[1] - charge[0]) / FPS, 2)}},
         "auto": auto or picked, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
@@ -1673,6 +1864,7 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
         "render": {"seconds": 0.0, "prompt": f"(made, not rendered: cuesync.{module})", "guide_scale": 1.0},
         "bending": {"track": str(track_path), "mask": None if mask is None else str(mask_path), "k_hit": int(k_launch),
                     "tap_frame": int(tap_k), "aim": None if arrow is None else round(float(arrow), 2),
+                    "aim_mode": track.get("aim_mode", "explicit" if arrow is not None else "tracked"),
                     "k_launch": int(k_launch),
                     "snap": snaps[int(np.argmax([sz for _, sz in looks]))] if snaps else {"used": "cue", "mismatch": False},
                     "hits": [{"frame": int(f), "gain": round(g, 3), "size": round(sz, 3),
@@ -2072,7 +2264,8 @@ def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
         track.write_text(json.dumps(moved))
         return make_bending_shot(spec, None, out_dir, track, here("hand_mask.npz", b["mask"]), progress,
                                  tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)
+    saved_aim = None if b.get("aim_mode") == "upward_default" else b.get("aim")
     return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),
                              progress, element_from=first, tap_frame=spec.extra.get("tap_frame"),
-                             aim=spec.direction if spec.direction is not None else b.get("aim"),
+                             aim=spec.direction if spec.direction is not None else saved_aim,
                              instant=bool(b.get("instant")))
