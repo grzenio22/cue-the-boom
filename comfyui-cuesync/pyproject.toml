@@ -5,7 +5,7 @@ version = "0.1.0"
 license = { file = "LICENSE" }
 dependencies = [
   "transformers>=4.56",
-  "cuesync @ git+https://github.com/grzenio22/cue-the-boom#subdirectory=cuesync",
+  "cuesync @ git+https://github.com/grzenio22/cue-the-boom@f08c0936073cc5542f8a20814068a050ba44d37e#subdirectory=cuesync",
 ]
 
 [project.urls]

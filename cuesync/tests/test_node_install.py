@@ -1,7 +1,9 @@
 """The standalone ComfyUI pack must request its declared core dependency, even over an old install."""
 
+import ast
 import importlib.util
 from pathlib import Path
+import re
 import runpy
 import subprocess
 import sys
@@ -10,6 +12,21 @@ import pytest
 
 
 INSTALL_SCRIPT = Path(__file__).resolve().parents[2] / "comfyui-cuesync" / "install.py"
+
+
+def test_standalone_metadata_and_installer_pin_the_same_immutable_core():
+    tree = ast.parse(INSTALL_SCRIPT.read_text(encoding="utf-8"))
+    requirement = next(
+        ast.literal_eval(node.value)
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "CUESYNC" for target in node.targets)
+    )
+    assert re.fullmatch(
+        r"cuesync @ git\+https://github\.com/grzenio22/cue-the-boom@[0-9a-f]{40}#subdirectory=cuesync",
+        requirement,
+    ), "Pin the tested core commit; branches and tags can move"
+    assert f'"{requirement}"' in INSTALL_SCRIPT.with_name("pyproject.toml").read_text(encoding="utf-8")
 
 
 @pytest.fixture
