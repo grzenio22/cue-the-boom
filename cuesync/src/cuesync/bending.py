@@ -1855,11 +1855,13 @@ MADE = {  # effect -> (its module, its form): elements made from the plate, the 
     "lightning_arc": ("lightning", "arc"), "lightning_ball": ("lightning", "ball"),
     "water_orb": ("water", "orb"), "water_whip": ("water", "whip"),
     "air_ball": ("air", "ball"), "air_blast": ("air", "blast"),
+    "earth_rock": ("earth", "rock"), "earth_shatter": ("earth", "shatter"),
     "explosion": ("explosion", "fist"),  # (a palm's when the hand is open on its strike)
 }
 MADE_FOLEY = {"explosion": ("fire", "burst"), "lightning_arc": ("electric", "arc"), "lightning_ball": ("electric", "ball"),
               "water_orb": ("water", "orb"), "water_whip": ("water", "whip"), "air_ball": ("air", "ball"),
-              "air_blast": ("air", "blast")}  # each one's Foley (cuesync.sfx_synth's fluid and behaviour)
+              "air_blast": ("air", "blast"), "earth_rock": ("earth", "rock"),
+              "earth_shatter": ("earth", "shatter")}  # each one's Foley
 
 
 def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, mask: np.ndarray | None, c, env_all,
@@ -1938,7 +1940,8 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
 
 EMITTER_OF = {"fire_breath": "two_finger", "fire_burst": "palm", "flame_plume": "palm", "steam_jet": "palm",
               "smoke_puff": "palm", "lightning_arc": "two_finger", "lightning_ball": "palm", "water_orb": "palm",
-              "water_whip": "palm", "air_ball": "palm", "air_blast": "palm", "explosion": "palm"}  # the point on the
+              "water_whip": "palm", "air_ball": "palm", "air_blast": "palm", "explosion": "palm",
+              "earth_rock": "palm", "earth_shatter": "palm"}  # the point on the
 # hand cuesync.hand_track follows for each element
 
 
@@ -2278,7 +2281,7 @@ SAMPLE_HELD_S = 1.2  # ...and a noise held this long lets go there too...
 SAMPLE_LEAD_S = 0.3  # ...but a held noise moves at most this much earlier, unless its loudest hit would miss the clip
 
 
-def sample_noise_offset(voice: Path, plate_s: float, frame: int) -> float:
+def sample_noise_offset(voice: Path, plate_s: float, frame: int, *, fit_held: bool = False) -> float:
     """Where a sample noise starts on a hand's clip (s): its loudest hit on ``frame``, the hand's strike,
     moved earlier as far as it takes for its last sound to land in the clip,
     and a held noise (a sound over SAMPLE_HELD_S) to let go there too, though by no more than SAMPLE_LEAD_S; a hit's
@@ -2293,6 +2296,10 @@ def sample_noise_offset(voice: Path, plate_s: float, frame: int) -> float:
     end = max(cue.onsets_s[-1], max(b_ for _, b_ in spans) / FPS if held else 0.0)
     on = frame / FPS - cue.hero_onset_s
     off = max(0.0, on - SAMPLE_LEAD_S, min(on, plate_s - SAMPLE_TAIL_S - end))
+    if held and fit_held:
+        # A held procedural element needs time to form and release. Its renderer
+        # gates on observed hand presence; a late marked strike need not truncate it.
+        off = min(off, max(0.0, plate_s - SAMPLE_TAIL_S - end))
     return float(max(0.0, min(off, plate_s - SAMPLE_TAIL_S - cue.hero_onset_s)))
 
 

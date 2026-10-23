@@ -245,7 +245,8 @@ def test_the_balls_middle_is_a_swirling_puff_not_more_stripes():
     assert np.abs(moved - core)[r < 0.5].mean() > 0.1 * core[r < 0.5].mean()  # ... turning with the spin
 
 
-def test_refraction_does_not_paint_a_featureless_wall():
+def test_refraction_does_not_paint_a_featureless_wall(monkeypatch):
+    monkeypatch.setattr(air, "_wind_curls", lambda *args: None)  # isolate refraction from carried condensation
     # Without carried dust, a uniform wall supplies no image for refraction to change.
     S, R = 420, 140.0
     P0 = np.full((S, S, 3), 0.25, np.float32)
@@ -391,7 +392,7 @@ def test_the_fingers_seen_through_the_ball_ripple_and_never_swell():
     assert np.hypot(*(D[1:] - D[:-1]).transpose(1, 0, 2)).mean() > 0.8  # ... rippling as it spins
 
 
-def test_the_balls_near_half_crosses_in_front_of_the_fingers():
+def test_the_balls_near_half_crosses_in_front_of_the_fingers(monkeypatch):
     # cut to a third over the skin and its haze to nothing, the swirl sat behind the fingertips like a decal on the wall
     S, R = 780, 260.0
     skin, wall_ = np.array([0.62, 0.33, 0.27], np.float32), np.array([0.2, 0.18, 0.11], np.float32)
@@ -417,6 +418,7 @@ def test_the_balls_near_half_crosses_in_front_of_the_fingers():
     assert (toward[:, 2] > toward[:, 0]).mean() > 0.6  # warm room dust is less red than skin, rather than merely
     # multiplying the palm's own colour
 
+    monkeypatch.setattr(air, "_wind_curls", lambda *args: None)  # isolate rear dust from front condensation
     far_ball = air._Ball(2, 0)
     far_ball.tracer[:] = 0  # isolate rear grains from the separate near tracer paths
     B = far_ball.turn_axes(a)
@@ -928,7 +930,8 @@ def edge_rows(P, cols, lo, hi, level):
 
 
 def test_the_balls_bend_wobbles_a_bright_edge_gently_and_never_folds_it():
-    # A bright switch plate supplies a small moving edge cue without appearing to soften or sag.
+    # Measure refraction before carried particles: condensation may cover an edge,
+    # but must not change the bounded, continuous image displacement beneath it.
     S, R = 700, 240.0
     P0 = np.full((S, S, 3), 0.05, np.float32)
     P0[470:] = 0.6  # a straight edge across the ball, half a radius under its middle
@@ -937,9 +940,9 @@ def test_the_balls_bend_wobbles_a_bright_edge_gently_and_never_folds_it():
     shifts = []
     for t in range(16):
         P = P0.copy()
-        ball.draw(P, (0, 0), np.array([350.0, 350.0]), R, a, 1.0, 0.0, 0.0, 0.0, 1.0, 0.25, 0.6, t, None, None, 0.0,
+        refracted = ball.draw(P, (0, 0), np.array([350.0, 350.0]), R, a, 1.0, 0.0, 0.0, 0.0, 1.0, 0.25, 0.6, t, None, None, 0.0,
                   1.0)
-        rows = edge_rows(P, range(180, 520, 5), 380, 560, 0.33)
+        rows = edge_rows(refracted, range(180, 520, 5), 380, 560, 0.33)
         assert all(len(r) == 1 for r in rows)  # one crossing in every column: bent, never folded over itself
         shifts.append(np.array([r[0] + 0.5 - 470 for r in rows]))
     dev = np.abs(np.array(shifts))
@@ -1565,3 +1568,27 @@ def test_slow_a_phone_frame_takes_about_half_a_second(form):
     out = air.render(plate, tr, None, tl, form, seed=1)
     touched = sum(not np.array_equal(out[t], plate[t]) for t in range(n))
     assert (time.perf_counter() - t0) / touched < 1.0
+
+
+def test_condensation_reveals_depth_on_a_plain_wall_without_emitting_light():
+    p = np.full((160,160,3),.25,np.float32)
+    before = p.copy()
+    basis = air._Ball(3,0).turn_axes(air.spin_axis(np.array([0.,-.78,.62])))
+    air._wind_curls(p,(80,80),50,basis,1.2,1,tone=np.array([.6,.57,.5]))
+    delta = np.max(abs(p-before),axis=-1)
+    assert np.count_nonzero(delta>.01)>200
+    assert np.mean(delta>.01)<.18  # open, with most of the room still clear
+    assert not delta[:15].any()
+    dark=np.zeros_like(p)
+    air._wind_curls(dark,(80,80),50,basis,1.2,1,tone=np.zeros(3))
+    assert not dark.any()  # condensation reflects the room; it cannot light it
+
+
+def test_condensation_behind_the_hand_is_hidden_and_front_is_transparent():
+    base=np.full((160,160,3),.2,np.float32)
+    basis=air._Ball(3,0).turn_axes(air.spin_axis(np.array([0.,-.78,.62])))
+    room=np.array([.6,.57,.5])
+    clear=base.copy();covered=base.copy()
+    air._wind_curls(clear,(80,80),50,basis,1.2,1,tone=room)
+    air._wind_curls(covered,(80,80),50,basis,1.2,1,hand=np.ones((160,160),np.float32),tone=room)
+    assert 0<np.abs(covered-base).sum()<.3*np.abs(clear-base).sum()

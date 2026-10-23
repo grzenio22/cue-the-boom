@@ -2,13 +2,13 @@
 
 **Generate the effect once. Perform it again with your voice.**
 
-**Film your hand. Make the noise. Throw fire, lightning and water.**
+**Film your hand. Make the noise. Bend fire, air, water, lightning and earth.**
 
-Start with **Perform this fire with your voice**: record a rhythm over the prepared palm clip, then download your newly composed shot. No camera, tracker setup or GPU is needed for this prepared sample.
+Choose one of the five elements, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
 
 Below the creation flow, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render with three voice-driven performances: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
 
-For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning and water are procedural CPU effects.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
+For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning, water, air and earth are procedural CPU effects.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
 
 ![The author's own hand: BOOM lights a flame in the palm, a held fffff carries a flame through a walking take, and closing the fist releases a fireball](media/hand_hero.jpg)
 <sub>The author's own hand and voice, filmed on a phone. One stored LTX generation, adapted on CPU into a palm flame, a walking flame, and a released fireball.</sub>
@@ -43,12 +43,12 @@ cuesync studio
 
 The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that port is taken). In it:
 
-1. Click **Perform this fire with your voice** to select the prepared palm.
-2. Click **Use my microphone**, then **Record & make fire**. Say BOOM or a few short pops as the clip plays. Microphone access starts only when you request it.
-3. When recording ends, the app automatically composes the stored fire using your timing and loudness. **Download** saves the finished shot.
-4. **Perform again** gives the same fire a new rhythm. **Try a sample voice instead** works without microphone access and is explicitly labelled as a recorded example.
+1. Choose **Fire**, **Air**, **Water**, **Lightning** or **Earth**, then a form. Click **Perform this … with your voice** to select its prepared hand clip.
+2. Click **Use my microphone**, then **Record & make …**. Make the suggested sound as the clip plays. Microphone access starts only when you request it.
+3. When recording ends, the app automatically makes your performance. Fire reuses the stored generated element; the other four elements are composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
+4. **Perform again** gives the same element a new performance. **Try a sample voice instead** works without microphone access and is explicitly labelled as a recorded example.
 
-This prepared-sample path always reuses the stored element, even when a GPU is connected. Three local full-quality palm runs with a single-hit recording took 14.8–16.8 seconds from HTTP submission through MP4 download on a Ryzen 9 7900X; the bundled three-hit author rhythm took 26.6 seconds (84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
+The prepared fire path always reuses the stored element, even when a GPU is connected. Three local full-quality palm runs with a single-hit recording took 14.8–16.8 seconds from HTTP submission through MP4 download on a Ryzen 9 7900X; the bundled three-hit author rhythm took 26.6 seconds (84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
 
 Under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen, and the flame stays in the palm. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff".
 
@@ -81,19 +81,20 @@ For scene renders, Cue the Boom measures where the effect starts and moves it on
 
 The details (the pipeline step by step, the timing evaluation, the matte, the light) are in [TECHNICAL.md](TECHNICAL.md).
 
-## Beyond fire: lightning, water and an explosion
+## All five elements
 
-The gallery includes an explosion on a closing fist, lightning from a pointing finger, lightning and ball lightning in the dark bathroom, and a water orb. These are the author's phone footage, cued with synthetic sample noises:
+The short recording flow includes two forms for each procedural element, alongside the existing generated fire. The refreshed gallery uses the author's bright and dim iPhone takes:
 
-![Gallery frames: BOOOOM makes an explosion on a closing fist; zzzzz makes pointing-finger lightning, bathroom lightning and bathroom ball lightning; shhhhh holds a water orb](media/elements.jpg)
+![Air, water, lightning and earth on the author's hand](media/elements-polished.jpg)
 
-Pick **Your hand: palm to fist**, **Your hand: open palm, lit room**, or another sample hand, then a noise:
+- **Air — vortex / blast:** a transparent, rotating condensation volume, moving refraction, dust and a pressure front.
+- **Water — orb / whip:** circulating liquid, refraction, moving surface folds, droplets and a wet palm.
+- **Lightning — arcs / ball:** branching channels, a turbulent blue volume, finger occlusion and light on the hand and room.
+- **Earth — floating stone / shatter:** rotating textured geometry, depth-sorted fragments, a contact shadow and falling grit.
 
-- **zzzzz · tsst!**: lightning channels or ball lightning, with light on the hand and room.
-- **BOOOOM**: the stored LTX fireball, with CPU blast, shock front, light and smoke compositing.
-- **shhhhh · sploosh**: a water orb or whip that refracts the room.
+Choose the element explicitly, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The sample cues for air, water and lightning are synthetic. Earth uses the bundled sustained cue or the author's edited pf/pf/BOOM recording; the suggested rrrr/CRACK sounds can be performed with your own microphone. All four elements run locally without a GPU. The live webcam preview still supports fire and lightning; the complete five-element set is available in finished shots.
 
-Use **Choose it yourself** under Make the shot to pick a form, or record your own noise. It also offers experimental air effects: their look is unfinished and they have no gallery shot. A buzz can select lightning, and a long BOOM with a punch can select an explosion. These run on your own clip without a GPU or another generation. [How the CPU effects work](TECHNICAL.md#lightning-water-air-and-an-explosion).
+Reproduce the bright/dim suite with `python tools/render_element_suite.py --out runs/my-element-review --width 1080`. It records source and input hashes, render timings and full audio/video decode checks. To compare older air/water/lightning code on the same current inputs, add `--baseline-ref <commit> --effects air_ball water_orb lightning_ball`.
 
 ## The entry at a glance
 

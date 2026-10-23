@@ -16,6 +16,8 @@ Scene mode (the default):
 | `transfer` | A moving plate keeps its own pixels: only what changed is added, in linear light, and checked. |
 | `server`, `cli`, `precompute` | The studio's render API, the command line, the sample shots made ahead of time. |
 
+Hand mode also provides procedural `lightning`, `water`, `air` and `earth` renderers. Each takes the same tracked hand, matte and voice `Timeline`, and returns an RGB video with deterministic seeded geometry, motion and compositing. Earth supports floating stone and shatter; the other procedural families each offer two forms. No GPU is needed for these effects.
+
 Element mode (the effect rendered alone on black and composited onto the untouched plate) is `guide`, `score`,
 `align`, `matte` and `composite`.
 

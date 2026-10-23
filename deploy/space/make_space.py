@@ -36,7 +36,7 @@ two rhythms are edited from their recorded pf and BOOM sounds.
 
 Pick one of the author's sample hands and a noise (or make your own), then **Perform it again** with another one. The
 fire and the explosion's fireball were rendered ahead of time with LTX-2.5 and the ainvfx-fluid IC-LoRA; lightning,
-water and the explosion's blast are made on this CPU from the hand and the voice. **Use your own clip** to film or upload
+water, air, earth and the explosion's blast are made on this CPU from the hand and the voice. **Use your own clip** to film or upload
 your hand: tap your palm or fingertips, drag to aim, make the noise. Processing time depends on your clip, effect
 and the available CPU.
 

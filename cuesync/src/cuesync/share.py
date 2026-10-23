@@ -15,7 +15,8 @@ TAG = "Cue the Boom"
 WORDS = {"fire_burst": "BOOM", "fireball": "BOOM", "fire_breath": "fwoooOOOM", "flame_plume": "fwoooOOOM",
          "wick_flare": "fwoooOOOM", "steam_jet": "hissss", "smoke_puff": "pf", "blow_out": "pf",
          "explosion": "BOOM", "lightning_arc": "zzzzz", "lightning_ball": "zzzzz",
-         "water_orb": "sploosh", "water_whip": "shhhhh", "air_ball": "hoooooo", "air_blast": "HOO!"}
+         "water_orb": "sploosh", "water_whip": "shhhhh", "air_ball": "hoooooo", "air_blast": "HOO!",
+         "earth_rock": "rrrrr", "earth_shatter": "CRACK"}
 
 
 def _font(size: int):

@@ -88,7 +88,7 @@ function HandChips({ job }: { job: JobStatus }) {
 }
 
 /** Step 4: pick the effect and how to make it, then the shot. */
-export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], hand = null, initialJob, initialEffect, replayOf = null, replayWith = [], siblings = [], quick = false, onReplay, onBusy, onJobChange, onDone }: {
+export default function ShotPanel({ plate, point, direction, performance, effects, modes, madeAheadScene, strokes, sources = [], hand = null, initialJob, initialEffect, replayOf = null, replayWith = [], siblings = [], quick = false, quickEffect = "fire_burst", onReplay, onBusy, onJobChange, onDone }: {
   plate: PickedPlate;
   point: [number, number];
   direction: number | null;
@@ -105,12 +105,14 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   replayOf?: string | null; // play this take on that finished shot's render (no new render)
   replayWith?: string[]; // and those other shots on the plate with it, as one scene
   siblings?: string[]; // the other finished shots on this still plate that could be performed with this one
-  quick?: boolean; // prepared palm: compose its existing fire with this recorded performance automatically
+  quick?: boolean; // compose this recorded performance automatically
+  quickEffect?: string;
   onReplay?: (jobId: string, together: string[]) => void; // the performer wants to perform this shot (and those) again
   onBusy?: (busy: boolean) => void;
   onJobChange?: (job: JobStatus, effect: string) => void; // retain submitted and latest status when this panel is reopened
   onDone: (job: JobStatus, effect: string) => void;
 }) {
+  const quickName = quickEffect.split("_")[0];
   const drawn = strokes.length > 0;
   const several = sources.length >= 2;
   const sceneOnly = drawn || several; // a drawing, or a source per hit, is something only a render into the scene can do
@@ -125,7 +127,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
   // ... a sample noise made for one of the elements made here picks it (a "shhhhh" is water, not steam)
   const madeFor = !quick && hand && MADE_EFFECTS.includes(performance.suggested) ? performance.suggested : null;
-  const [effect, setEffect] = useState(quick ? "fire_burst" : madeFor ?? AUTO_EFFECT);
+  const [effect, setEffect] = useState(quick ? quickEffect : madeFor ?? AUTO_EFFECT);
   const [pickOwn, setPickOwn] = useState(!!madeFor); // a hand shot: the cue decides unless you open the list
   const [previousMadeFor, setPreviousMadeFor] = useState(madeFor);
   // A new suggested cue resets the choice; ordinary rerenders keep the performer's manual pick.
@@ -149,7 +151,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       setEffect(AUTO_EFFECT);
     }
   };
-  const [seed] = useState(1); // one seed per session: retakes differ only by the performance
+  const [seed] = useState(quick && MADE_EFFECTS.includes(quickEffect) ? 17 : 1); // one seed per session: retakes differ only by the performance
   const [busy, setBusyState] = useState(false);
   const setBusy = (b: boolean) => { setBusyState(b); onBusy?.(b); };
   const [event, setEvent] = useState<JobEvent | null>(null);
@@ -241,7 +243,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing,
           together: replayWith })
         : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
-          timing: performance.timing, effect: eff, point, seed, mode, performanceMode: quick ? "reuse" : undefined,
+          timing: performance.timing, effect: eff, point, seed, mode, performanceMode: quick && !MADE_EFFECTS.includes(eff) ? "reuse" : undefined,
           direction, frame: hand?.frame ?? null, reuse: reuse ?? hand?.prep ?? null, subject: subject.trim() || null, object: kind,
           cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
           describe: describe.trim() || null, sources: several ? sources : null });
@@ -272,8 +274,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
 
   return (
     <section className={quick ? "quick-shot" : undefined}>
-      <h2>{quick ? job?.status === "done" ? "Your fire is ready" : "Make your fire" : "4. Make the shot"}</h2>
-      {quick && job?.status !== "done" && <p className="muted">Composing the prepared fire on your voice. Your recording sets the hits and their strength; no new AI generation.</p>}
+      <h2>{quick ? job?.status === "done" ? `Your ${quickName} is ready` : `Make your ${quickName}` : "4. Make the shot"}</h2>
+      {quick && job?.status !== "done" && <p className="muted">{MADE_EFFECTS.includes(quickEffect) ? `Shaping ${quickName} from the hand and your voice.` : "Composing the prepared fire on your voice."} Your recording sets the timing and strength.</p>}
       {performance.warnings.map((w) => <p key={w} className="chip warn">{w}</p>)}
       {!replayOf && !quick && <div className="row" role="radiogroup" aria-label="Effect">
         <span className="muted">Effect</span>
@@ -380,7 +382,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       {(!quick || job?.status !== "done") && <div className="row">
         {pending
           ? <button disabled={busy} onClick={() => void resume()}>Check existing shot</button>
-          : <button disabled={busy || effects.length === 0 || (!hand && sceneOnly && mode !== "scene")} onClick={() => void make()}>{quick ? job?.status === "error" ? "Try again" : "Making your fire…" : job?.status === "done" ? "Make it again" : "Make the shot"}</button>}
+          : <button disabled={busy || effects.length === 0 || (!hand && sceneOnly && mode !== "scene")} onClick={() => void make()}>{quick ? job?.status === "error" ? "Try again" : `Making your ${quickName}…` : job?.status === "done" ? "Make it again" : "Make the shot"}</button>}
       </div>}
 
       {monitorError && <p className="chip warn" role="status">Could not check shot {job?.id}: {monitorError}</p>}

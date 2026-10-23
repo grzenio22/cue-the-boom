@@ -87,7 +87,7 @@ describe("Studio prepared palm shortcut", () => {
     Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia } });
     try {
       await act(async () => { root.render(<Studio />); });
-      expect(host.querySelector("button")?.textContent).toBe("Perform this fire with your voice");
+      expect(button("Perform this fire with your voice")).toBeDefined();
       expect(button("Candle")).toBeUndefined();
       await click("Perform this fire with your voice");
       expect(host.textContent).toContain("Record your rhythm");
@@ -140,6 +140,56 @@ describe("Studio prepared palm shortcut", () => {
     expect(submitted).toHaveLength(1);
     expect(replayed).toHaveLength(1);
     expect(replayed[0].get("voice_sample")).toBe("pf-pf-boom-author.wav");
+  });
+});
+
+describe("All-element quick flow", () => {
+  it("previews the chosen prepared hand instead of an older shot with the same effect", async () => {
+    const apiFetch=fetch;
+    vi.stubGlobal("fetch",async (url:string,init?:RequestInit)=> {
+      if(url==="/api/gallery")return Response.json([
+        {...job,effect:"lightning_arc",files:{"final.mp4":"/old-point.mp4"},receipt:{...job.receipt,inputs:{point:[.83,.31]}}},
+        {...job,effect:"lightning_arc",files:{"final.mp4":"/new-palm.mp4"},receipt:{...job.receipt,inputs:{point:[.509,.654]}}},
+      ]);
+      return apiFetch(url,init);
+    });
+    await act(async()=>{root.render(<Studio/>);});
+    await click("Lightning");
+    expect(host.querySelector(".quick-preview video")?.getAttribute("src")).toBe("/new-palm.mp4");
+  });
+
+  it.each([
+    ["Air", "Vortex", "air_ball", "hoooo.wav", "hand_open.mp4"],
+    ["Air", "Blast", "air_blast", "hoo-hoo-HOO.wav", "hand_open.mp4"],
+    ["Water", "Orb", "water_orb", "shhhhh-sploosh.wav", "hand_open.mp4"],
+    ["Water", "Whip", "water_whip", "shhhhh-sploosh.wav", "hand_open.mp4"],
+    ["Lightning", "Arcs", "lightning_arc", "zzzzz-tsst.wav", "hand_palm.mp4"],
+    ["Lightning", "Ball", "lightning_ball", "zzzzz-tsst.wav", "hand_palm.mp4"],
+    ["Earth", "Floating stone", "earth_rock", "hoooo.wav", "hand_open.mp4"],
+    ["Earth", "Shatter", "earth_shatter", "pf-pf-boom-author.wav", "hand_open.mp4"],
+  ])("makes %s / %s directly without fire reuse", async (element, variant, effect, voice, plate) => {
+    vi.useFakeTimers();
+    const apiFetch = fetch;
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/samples") return Response.json({
+        plates: ["hand_open.mp4", "hand_palm.mp4"].map(name => ({ name, url: `/${name}`, point: [0.5,0.6], hand: { frame: 30 } })),
+        voices: [{ name: voice, title: "Element cue", url: "/cue.wav", effect, hand: true }],
+      });
+      return apiFetch(url, init);
+    });
+    await act(async () => { root.render(<Studio />); });
+    await click(element);
+    await click(variant);
+    await click(`Perform this ${element.toLowerCase()} with your voice`);
+    expect(host.textContent).not.toContain("make fire");
+    expect(host.querySelector("video")?.getAttribute("src")).toBe(`/${plate}`);
+    await click("Element cue");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0].get("effect")).toBe(effect);
+    expect(submitted[0].get("mode")).toBe("bending");
+    expect(submitted[0].get("plate_sample")).toBe(plate);
+    expect(submitted[0].get("performance_mode")).toBeNull();
   });
 });
 

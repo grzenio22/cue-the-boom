@@ -2,8 +2,8 @@
 
 export interface EffectInfo {
   id: string;
-  fluid: "fire" | "smoke" | "steam";
-  behaviour: "burst" | "plume" | "puff" | "jet" | "extinguish";
+  fluid: "fire" | "smoke" | "steam" | "lightning" | "water" | "air" | "earth" | "explosion";
+  behaviour: "burst" | "plume" | "puff" | "jet" | "extinguish" | "arc" | "ball" | "orb" | "whip" | "blast" | "rock" | "shatter" | "fist";
   stops_with_voice: boolean;
   scene?: boolean; // can be rendered into the scene
   direction?: number | null; // its default direction in the scene, degrees clockwise from up
@@ -33,7 +33,7 @@ export function effectStart(r: Receipt | null | undefined): number {
 export function handMade(r: Receipt | null | undefined): string {
   const e = typeof r?.effect === "object" ? r.effect : undefined;
   if (e?.made === "explosion") return "on a real hand: an LTX-2.5 fireball, its blast made from the hand";
-  if (e?.made) return `on a real hand: ${e.made} made from the hand and the voice (no render, no GPU)`;
+  if (e?.made) return `on a real hand: ${e.made} made from the hand and the voice (procedural CPU)`;
   return "carried on a real hand (an LTX-2.5 element, rendered once)";
 }
 
@@ -54,7 +54,7 @@ export interface Receipt {
   alignment?: { model_onset?: number | null; auto_shift?: number; hit_frame?: number; retime_frames?: number };
   render: { seconds: number; renderer: string; prompt: string; model: string; library?: { entry: string; performance: string; scale: number } };
   warnings?: string[];
-  inputs?: { cue?: CueKind; drawn?: boolean; describe?: string | null; sources?: [number, number][] | null };
+  inputs?: { point?: [number, number]; cue?: CueKind; drawn?: boolean; describe?: string | null; sources?: [number, number][] | null };
   effect?: { id?: string; made?: string } | string; // made: the module an element made here came from (no render)
   // hit_error_frames: an element shot's hit, measured on the shot; residual_frames: what a scene shot's re-time
   // could not take out (older scene receipts call it hit_error_frames)
@@ -74,14 +74,32 @@ export type Mode = "instant" | "render" | "scene" | "bending";
 
 /** What a hand can throw (element bending), in the order the badge cycles them. */
 export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "explosion", "lightning_arc", "lightning_ball",
-  "water_orb", "water_whip", "air_ball", "air_blast", "steam_jet"];
+  "water_orb", "water_whip", "air_ball", "air_blast", "earth_rock", "earth_shatter", "steam_jet"];
 export const HAND_LABELS: Record<string, string> = {
   fire_breath: "Flamethrower", fire_burst: "Fireball", flame_plume: "Flame in the palm", steam_jet: "Steam", smoke_puff: "Air blast",
   explosion: "Explosion", lightning_arc: "Lightning", lightning_ball: "Ball lightning", water_orb: "Water orb",
   water_whip: "Water whip", air_ball: "Air ball", air_blast: "Air blast",
+  earth_rock: "Floating stone", earth_shatter: "Stone shatter",
 };
 /** The elements made on your computer from your hand and your voice (cuesync.bending.MADE): no render, no GPU. */
-export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball", "water_orb", "water_whip", "air_ball", "air_blast"];
+export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball", "water_orb", "water_whip", "air_ball", "air_blast", "earth_rock", "earth_shatter"];
+
+/** One short route for every element. Only fire reuses generated pixels; the
+ * others are freshly drawn from the tracked hand and the recorded performance. */
+export const QUICK_PERFORMANCES = [
+  { effect: "fire_burst", element: "Fire", form: "Fireball", plate: "hand_palm.mp4", cue: "BOOM", voices: ["ka-boom.wav", "pf-pf-boom-author.wav", "pf-x4-author.wav"] },
+  { effect: "air_ball", element: "Air", form: "Vortex", plate: "hand_open.mp4", cue: "hooooo", voices: ["hoooo.wav"] },
+  { effect: "air_blast", element: "Air", form: "Blast", plate: "hand_open.mp4", cue: "hoo · HOO!", voices: ["hoo-hoo-HOO.wav"] },
+  { effect: "water_orb", element: "Water", form: "Orb", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
+  { effect: "water_whip", element: "Water", form: "Whip", plate: "hand_open.mp4", cue: "shhhhh", voices: ["shhhhh-sploosh.wav"] },
+  { effect: "lightning_arc", element: "Lightning", form: "Arcs", plate: "hand_palm.mp4", cue: "zzzzz · tsst!", voices: ["zzzzz-tsst.wav"] },
+  { effect: "lightning_ball", element: "Lightning", form: "Ball", plate: "hand_palm.mp4", cue: "zzzzz", voices: ["zzzzz-tsst.wav"] },
+  { effect: "earth_rock", element: "Earth", form: "Floating stone", plate: "hand_open.mp4", cue: "rrrrrr", voices: ["hoooo.wav"] },
+  { effect: "earth_shatter", element: "Earth", form: "Shatter", plate: "hand_open.mp4", cue: "CRACK!", voices: ["pf-pf-boom-author.wav"] },
+];
+export function quickPerformance(effect = "fire_burst") {
+  return QUICK_PERFORMANCES.find((p) => p.effect === effect) ?? QUICK_PERFORMANCES[0];
+}
 
 /** A drawn stroke: points in normalised video coordinates, brush width as a share of the frame width. */
 export interface Stroke { points: [number, number][]; width: number }
@@ -204,6 +222,8 @@ export const EFFECT_LABELS: Record<string, { name: string; cue: string }> = {
   water_whip: { name: "Water whip", cue: "shhhhh" },
   air_ball: { name: "Air ball", cue: "hoooooo" },
   air_blast: { name: "Air blast", cue: "hoo · HOO!" },
+  earth_rock: { name: "Floating stone", cue: "rrrrrr" },
+  earth_shatter: { name: "Stone shatter", cue: "CRACK!" },
 };
 
 export const AUTO_EFFECT = "auto";

@@ -7,7 +7,7 @@ import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
 import ShotPanel from "@/components/ShotPanel";
 import TapPoint, { MAX_SOURCES } from "@/components/TapPoint";
-import { atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
+import { QUICK_PERFORMANCES, quickPerformance, atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
 interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null; replayOf?: string | null; replayWith?: string[] }
 
@@ -41,7 +41,12 @@ export default function Studio() {
   const [health, setHealth] = useState<Health | null>(null);
   const [effects, setEffects] = useState<EffectInfo[]>([]);
   const [samples, setSamples] = useState<Samples>({ plates: [], voices: [] });
-  const [hero, setHero] = useState<JobStatus | null>(null);
+  const [gallery, setGallery] = useState<JobStatus[]>([]);
+  const [quickEffect, setQuickEffect] = useState("fire_burst");
+  const choice = quickPerformance(quickEffect);
+  const elementName = choice.element.toLowerCase();
+  const previewPoint = samples.plates.find((p) => p.name === choice.plate)?.point;
+  const hero = gallery.find((s) => (s.effect ?? (typeof s.receipt?.effect === "object" ? s.receipt.effect.id : s.receipt?.effect)) === choice.effect && (choice.element === "Fire" ? s.again === 0 : atSampleSpot(previewPoint, s.receipt?.inputs?.point ?? null)) && s.files?.["final.mp4"]);
   const [apiError, setApiError] = useState<string | null>(null);
   const [plate, setPlate] = useState<PickedPlate | null>(null);
   const [quick, setQuick] = useState(false);
@@ -79,7 +84,7 @@ export default function Studio() {
   useEffect(() => {
     let active = true;
     fetch("/api/gallery").then((r) => r.ok ? r.json() : []).then((shots: JobStatus[]) => {
-      if (active && Array.isArray(shots)) setHero(shots.find((s) => s.again === 0 && s.files?.["final.mp4"]) ?? null);
+      if (active && Array.isArray(shots)) setGallery(shots);
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
@@ -183,7 +188,7 @@ export default function Studio() {
 
   const current = takes.at(-1);
   const sceneLive = health?.modes.includes("scene") ?? false;
-  const palm = samples.plates.find((s) => s.name === "hand_palm.mp4" && s.hand && s.point);
+  const palm = samples.plates.find((s) => s.name === choice.plate && s.hand && s.point);
   const startQuick = () => {
     if (!palm) return;
     pick({ source: { sample: palm.name }, url: palm.url, title: palm.title ?? "Prepared palm",
@@ -232,14 +237,25 @@ export default function Studio() {
         <section className="quick-start" aria-label="Try it with your voice">
           <div className="quick-intro">
             <div>
-              <p>Start with our hand clip. Record a <strong>BOOM</strong> or a few quick pops, and make your own fire performance.</p>
-              <button type="button" className="quick-cta" disabled={!palm} onClick={startQuick}>Perform this fire with your voice</button>
-              <p className="muted quick-note">Your voice controls a new composition of an existing LTX-2.5 fire effect. No camera or GPU needed.</p>
+              <div className="element-picker" role="group" aria-label="Element">
+                {["Fire", "Air", "Water", "Lightning", "Earth"].map((element) => <button key={element} type="button"
+                  className={choice.element === element ? "element-choice selected" : "element-choice secondary"}
+                  aria-pressed={choice.element === element}
+                  onClick={() => setQuickEffect(QUICK_PERFORMANCES.find((p) => p.element === element)!.effect)}>{element}</button>)}
+              </div>
+              {choice.element !== "Fire" && <div className="row element-forms" role="group" aria-label="Form">
+                {QUICK_PERFORMANCES.filter((p) => p.element === choice.element).map((p) => <button key={p.effect} type="button"
+                  aria-pressed={choice.effect === p.effect} className={choice.effect === p.effect ? "" : "secondary"}
+                  onClick={() => setQuickEffect(p.effect)}>{p.form}</button>)}
+              </div>}
+              <p>Start with our hand clip. Say <strong>{choice.cue}</strong> as it plays, and shape your own {elementName} performance.</p>
+              <button type="button" className="quick-cta" disabled={!palm} onClick={startQuick}>Perform this {elementName} with your voice</button>
+              <p className="muted quick-note">{choice.element === "Fire" ? "Your voice controls a new composition of an existing LTX-2.5 fire effect." : "Your voice controls the timing, movement and strength of the element."} No camera or GPU needed.</p>
             </div>
             {hero && <figure className="quick-preview">
               <video src={hero.files["final.mp4"]} poster={hero.files["poster.jpg"]} controls playsInline preload="none"
-                aria-label="Prepared palm fire example, with the author's voice" />
-              <figcaption className="muted">This fire. Your rhythm.</figcaption>
+                aria-label={`${choice.form} example on a real hand`} />
+              <figcaption className="muted">{choice.form}. Your rhythm.</figcaption>
             </figure>}
           </div>
           {!health && <p className="muted" role="status">Getting the studio ready…</p>}
@@ -252,7 +268,7 @@ export default function Studio() {
 
       {plate && quick && <section ref={stepTwo} className="quick-selected">
         <div className="row">
-          <span className="muted">Prepared palm · your voice · new fire performance</span>
+          <span className="muted">{choice.form} · your voice · new performance</span>
           <button className="secondary" disabled={rendering} onClick={() => { setPlate(null); setQuick(false); }}>Different shot</button>
         </div>
       </section>}
@@ -394,7 +410,7 @@ export default function Studio() {
       {plate && where && pointSet && performing && (
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
           scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
-          drawn={drawing && strokes.length > 0} hand={hand} filmed={!!plate.filmed} replay={!!replayOf} quick={quick}
+          drawn={drawing && strokes.length > 0} hand={hand} filmed={!!plate.filmed} replay={!!replayOf} quick={quick} quickEffect={quickEffect}
           onDone={(p) => {
             setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null, replayOf, replayWith }]);
             setReplayOf(null);
@@ -418,7 +434,7 @@ export default function Studio() {
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
           strokes={drawing ? strokes : []} sources={sources} hand={hand ? { frame: aim?.frame ?? aimFrame, prep: shown?.track ? shown.id : null } : null}
-          initialJob={current.job} initialEffect={current.effect} onBusy={setRendering} quick={quick}
+          initialJob={current.job} initialEffect={current.effect} onBusy={setRendering} quick={quick} quickEffect={quickEffect}
           replayOf={current.replayOf ?? null} replayWith={current.replayWith ?? []}
           siblings={siblings}
           onReplay={(id, together) => { setReplayOf(id); setReplayWith(together); setPerforming(true); }}

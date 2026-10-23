@@ -346,7 +346,7 @@ CLOUD_SHADE = (0.5, 0.3)  # its colour: what it covers, lit a little by the room
 # face towards the room's light, the light looked for this many lump sizes towards it (its core as blurred: by the core
 # alone, a blurred lump's slope was too weak to read at phone size), the shadowed side only this share as dark as the
 # lit side is bright (as dark, a thin band's shadow half sank to the wall's tone and the ring broke up) ...
-CLOUD_LIFT = (1.2, 0.5)  # ... as bright as what it covers times the first, plus or minus up to the second towards or
+CLOUD_LIFT = (1.4, 0.65)  # ... as bright as what it covers times the first, plus or minus up to the second towards or
 # away from the light, never darker than what it covers: never cream, never a stain, in any room (in the room's lit
 # tone going towards white, a ring was a cream torus over a beige wall) ...
 CLOUD_TONE = 0.25  # ... its hue moved this share towards the room's lit tone's
@@ -360,7 +360,7 @@ DUST_N, FLAKES = 600, 30  # a body of dust and grit thrown off the hand behind t
 # frame 50; 1400 read as sensor snow; 50 soft round flakes, a sixth of the burst, read as snow out of focus)
 DUST_R = (3.0, 5.0)  # px at 1080 at the palm's depth: a speck of the room's dust's core (1.1-2.4, and 2-4 at 20 grey
 # levels, too fine to read at phone size) ...
-DUST_SEEN = (0.43, 0.52)  # ... and it shows this much of itself (SPECK_LEVELS: 22-26 grey levels lighter or darker
+DUST_SEEN = (0.34, 0.42)  # ... and it shows this much of itself (SPECK_LEVELS: 22-26 grey levels lighter or darker
 # than the wall), more of it as it moves fast, and 0.75 of that as it hangs
 DEBRIS = (0.64, 0.85)  # of the burst's specks (its flakes aside) this share fine, the rest medium; and this share of
 # all of it thrown off the hand's outline, most from its side the push goes out of, the rest out of the palm (all out
@@ -1457,9 +1457,61 @@ class _Ball:
                 soft=DUST_NEAR[1] * near)
         _lay_specks(P, lit_s, drk_s, sc, None if noise is None else (lambda y0, y1, x0, x1: noise[y0:y1, x0:x1]),
                     code, k, behind=behind, levels=SHELL_LEVELS, front=before_hand)
+        _wind_curls(P, (cx, cy), R, B, self.spin, vis, hand, tone)
         if matte is not None:
             _reedge(P, bent, matte, k)
         return bent
+
+
+def _wind_curls(P, center, radius, basis, phase, strength, hand=None, tone=None):
+    """Integrate a wispy, helical condensation volume from its rear to its front.
+
+    A rotating three-dimensional density field leaves clear pockets between curls.
+    It scatters existing room light, with rear parcels hidden by the photographed
+    hand and foreground parcels softened over skin. No outlined rings or glow.
+    """
+    if radius < 1 or strength <= 0:
+        return
+    h,w=P.shape[:2]
+    cx,cy=center
+    x0,x1=max(0,int(cx-1.3*radius)),min(w,int(cx+1.3*radius)+1)
+    y0,y1=max(0,int(cy-1.3*radius)),min(h,int(cy+1.3*radius)+1)
+    if x0>=x1 or y0>=y1:
+        return
+    room=np.asarray(tone if tone is not None else np.percentile(P,80,axis=(0,1)),np.float32)
+    light=np.clip(room*.35+room.max()*.85,0,.94)
+    # Density varies over tens of pixels at export size. Integrate that field
+    # at half resolution; sample the original plate only once at full resolution.
+    step=2 if radius>60 else 1
+    gh,gw=math.ceil((y1-y0)/step),math.ceil((x1-x0)/step)
+    yy,xx=np.mgrid[:gh,:gw].astype(np.float32)
+    xx=(xx+.5)*((x1-x0)/gw)+x0-.5
+    yy=(yy+.5)*((y1-y0)/gh)+y0-.5
+    x,y=(xx-cx)/radius,(yy-cy)/radius
+    patch=P[y0:y1,x0:x1]
+    cover=0 if hand is None else cv2.resize(hand[y0:y1,x0:x1],(gw,gh),interpolation=cv2.INTER_AREA)
+    transmission=np.ones((gh,gw),np.float32)
+    scattered=np.zeros((gh,gw,3),np.float32)
+    for z in np.linspace(-1.1,1.1,20):
+        u,v,a=(x*basis[i,0]+y*basis[i,1]+z*basis[i,2] for i in range(3))
+        rho=np.hypot(u,v)
+        theta=np.arctan2(v,u)
+        radial=.52+.12*np.sin(a*3.2+phase*.25)
+        tube=np.exp(-((rho-radial)/.15)**2)
+        cap=np.maximum(0,1-(a/1.06)**4)
+        curl=(.5+.5*np.sin(2*theta-5.5*a-phase))**4
+        turbulence=.5+.5*np.sin(15*u+4*a+phase*.45)*np.sin(11*v-5*a-phase*.31)
+        wisps=(.20+.80*turbulence)*curl
+        alpha=tube*cap*wisps*.105*strength
+        # A soft cut at the hand depth keeps a continuous near curl across gaps.
+        front=float(np.clip(z/.3,0,1))
+        alpha*=1-cover*(1-.33*front)
+        alpha=cv2.GaussianBlur(alpha.astype(np.float32),(0,0),max(.5,.009*radius/step))
+        shade=.68+.32*np.clip(-.45*u-.65*v+.45*z+.5,0,1)
+        scattered=scattered*(1-alpha[...,None])+light*shade[...,None]*alpha[...,None]
+        transmission*=1-alpha
+    size=(x1-x0,y1-y0)
+    patch[:]=patch*cv2.resize(transmission,size)[...,None]+cv2.resize(scattered,size)
 
 
 def _ball_shot(plate: np.ndarray, out: np.ndarray, track: dict, mask: np.ndarray | None, tl: Timeline, seed: int,

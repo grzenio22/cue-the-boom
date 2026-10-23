@@ -22,7 +22,8 @@ def sound(effect, fluid, behaviour, env=None, hits=(24,), seed=3):
 
 
 @pytest.mark.parametrize("effect,fluid,behaviour", [("explosion", "fire", "burst"), ("lightning_arc", "electric", "arc"),
-                                                     ("water_orb", "water", "orb"), ("air_blast", "air", "blast")])
+                                                     ("water_orb", "water", "orb"), ("air_blast", "air", "blast"),
+                                                     ("earth_rock", "earth", "rock"), ("earth_shatter", "earth", "shatter")])
 def test_each_made_element_sounds_on_its_hit(effect, fluid, behaviour):
     x = sound(effect, fluid, behaviour)
     assert x.size == N * SR // FPS and x.dtype == np.float32

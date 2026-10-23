@@ -917,7 +917,12 @@ def test_a_hit_squashes_the_held_orb_along_the_aim_flings_drops_and_flares_its_l
     for k in (30, 31):  # squashed along the aim by a third for two frames (a marble that sat still on the beat)...
         assert 0.9 * q ** 1.5 < along_over_across(k) / before < 0.85
     assert max(along_over_across(k) for k in range(32, 38)) > 1.05 * before  # ... springing back through a stretch...
-    assert abs(along_over_across(50) / before - 1.0) < 0.1  # ... and settling
+    # Compare against the circulating water at the same instant, not its earlier
+    # shape: the hit settles while the underlying liquid continues to move.
+    _, control = scenes("orb", voice(n, hum=(4, 58), hits=(), aim=0.0), track_of(n))
+    shape = np.reshape(max((q for q in control[50].blobs if not q.free),key=lambda q:q.r).shape,(2,2))
+    resting = np.linalg.norm(shape.T @ [0.,1.]) / np.linalg.norm(shape.T @ [1.,0.])
+    assert abs(along_over_across(50) / resting - 1.0) < 0.1
     free = [sum(b.free for b in sc[k].blobs) for k in (29, 31)]
     assert free[1] - free[0] >= 10  # drops flung out round it
     assert sc[30].flare > 1.3 and 1.0 < sc[31].flare < sc[30].flare and sc[33].flare == 1.0  # its light flares

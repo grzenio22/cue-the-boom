@@ -1670,7 +1670,7 @@ function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: num
   const bulk = smoothBulk(swirl, n);
   const hotRegions = [[-0.2, -0.08, 0.3, 0.23], [0.18, 0.14, 0.3, 0.23], [0.04, 0.28, 0.25, 0.19]]
     .map(([x, y, sx, sy], i) => [x + 0.07 * Math.sin(1.3 * phase + 2.1 * i),
-      y + 0.07 * Math.cos(1.1 * phase + 1.7 * i), sx * 0.3 / 0.36, sy * 0.3 / 0.36]);
+      y + 0.07 * Math.cos(1.1 * phase + 1.7 * i), sx, sy]);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const x = (((i + 0.5) / n) * 2 - 1) * PLASMA_EXTENT, y = (((j + 0.5) / n) * 2 - 1) * PLASMA_EXTENT;
     const phi = Math.atan2(y, x), contour = 1 + 0.06 * Math.sin(2 * phi + 0.3 * phase) +
@@ -1686,19 +1686,19 @@ function plasmaLayer(ctx: CanvasRenderingContext2D, seconds: number, amount: num
     const edge = Math.max(0, Math.min(1, (r - 0.55) / 0.3));
     const open = 1 - 0.4 * Math.exp(-(((phi - 2.1) / 0.65) ** 2)) * edge;
     const cloud = 0.5 + 0.5 * Math.sin(3.1 * x + 1.6 * y + 0.4 * phase) * Math.sin(2.7 * y - 1.3 * x - 0.3 * phase);
-    const density = 0.28 + 0.2 * cloud + 0.54 * Math.max(s + 0.1, 0);
+    const density = 0.38 + 0.27 * cloud + 0.54 * Math.max(s + 0.1, 0);
     const near = support?.[j * n + i] ?? 1;
-    const body = 0.5 * chord * density * (1 - 0.25 * edge) * open * Math.max(1 - (r / 1.04) ** 2, 0) ** 0.65 *
+    const body = 0.85 * chord * density * (1 - 0.25 * edge) * open * Math.max(1 - (r / 1.04) ** 2, 0) ** 0.65 *
       (0.4 + 0.6 * near);
     let hotShape = 0;
     for (const [ox, oy, sx, sy] of hotRegions) hotShape += 0.5 * Math.exp(-0.5 * (((x - ox) / sx) ** 2 + ((y - oy) / sy) ** 2));
-    const hot = 0.95 * hotShape * chord * (0.5 + 0.8 * Math.max(s, -0.45)) * open * (0.5 + 0.5 * near);
+    const hot = 0.78 * hotShape * chord * (0.5 + 0.8 * Math.max(s, -0.45)) * open * (0.5 + 0.5 * near);
     const energy = body + hot;
     const cover = hand ? fingerCoverage([hand.center[0] + x * hand.radius, hand.center[1] + y * hand.radius],
       hand.landmarks, hand.scale) : 0;
     const alpha = (1 - Math.exp(-0.45 * energy)) * amount * (1 - 0.96 * cover);
     const o = 4 * (j * n + i);
-    img.data.set([...rgb.map((v, axis) => Math.round((body * v + hot * [224, 237, 255][axis]) / Math.max(energy, 1e-9))),
+    img.data.set([...rgb.map((v, axis) => Math.round((body * v + hot * [182, 220, 255][axis]) / Math.max(energy, 1e-9))),
       Math.round(255 * Math.min(1, alpha))], o);
   }
   t.putImageData(img, 0, 0);
@@ -1828,7 +1828,7 @@ export function drawBall(ctx: CanvasRenderingContext2D, b: Ball, palm: P2, scale
         const z = depth / run.length;
         const opticalDepth = far ? 1 : 0.35;
         const focusGain = (far ? 0.45 : 1.35 + 0.6 * Math.max(0, z)) * Math.exp(-4 * opticalDepth * body * thickness / run.length);
-        const gain = focusGain * shellGain * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade * (leaders.has(k) ? 0.24 : 0.09);
+        const gain = focusGain * shellGain * (0.65 + 0.35 * b.level) * s.flash * s.inten * b.fade * (leaders.has(k) ? 0.24 : 0.14);
         (far ? rear : front).push([{ pts: run, width: width * (far ? 0.5 : 1), inten: 0.85, forks: [], at: 0, filament: true,
           depth: opticalDepth, softness: (far ? 1.8 + 1.4 * Math.max(0, -z) : 1.3) * px }, gain]);
       }

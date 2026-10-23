@@ -214,3 +214,13 @@ def test_an_explosions_foley_only_fires_on_its_visible_hero(tmp_path, monkeypatc
     spf = SR // FPS
     assert np.max(np.abs(audio[0][:50 * spf])) < 1e-6
     assert np.sqrt(np.mean(audio[0][50 * spf:54 * spf] ** 2)) > 0.05
+
+
+def test_held_procedural_sample_fits_before_the_end_of_a_short_take(tmp_path, make_wav):
+    from cuesync.bending import SAMPLE_TAIL_S, sample_noise_offset
+    sr=48000
+    held=np.random.default_rng(8).normal(0,.3,3*sr).astype(np.float32)
+    held[int(2.3*sr):]=0
+    voice=make_wav(tmp_path,held,sr)
+    offset=sample_noise_offset(voice,3.5,78,fit_held=True)
+    assert 0<=offset and offset+2.3<=3.5-SAMPLE_TAIL_S+.06

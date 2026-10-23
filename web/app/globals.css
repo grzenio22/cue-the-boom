@@ -91,6 +91,10 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .quick-start { margin: 20px 0 28px; padding: 16px 0 0; }
 .quick-intro { display: flex; align-items: center; gap: 24px; }
 .quick-intro > div { flex: 1; min-width: 0; }
+.element-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.element-choice { min-height: 44px; padding-inline: 16px; }
+.element-forms { margin-bottom: 16px; }
+.element-forms button { min-height: 44px; }
 .quick-intro > div > p:first-child { margin-top: 0; max-width: 540px; line-height: 1.5; }
 .quick-preview { margin: 0 0 12px; width: 150px; flex: none; }
 .quick-preview video { display: block; width: 100%; aspect-ratio: 1080 / 1984; border-radius: 12px; background: #000; }
@@ -111,6 +115,8 @@ summary { cursor: pointer; }
 button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--fg); outline-offset: 4px; }
 
 @media (max-width: 520px) {
+  .element-picker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .element-choice { font-size: .8rem; padding-inline: 4px; min-width: 0; }
   .again-row { grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 360px; margin-inline: auto; }
   .quick-cta { width: 100%; }
   .quick-intro { flex-direction: column; align-items: stretch; gap: 6px; }

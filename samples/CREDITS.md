@@ -138,3 +138,16 @@ The cupped-hand shot's original cue recording also ships as
 `made_ahead/bending/hand_cupped__kaboom__fire_burst/source_voice.wav` so its CPU
 rebuild can reproduce the original two hits. The receipt records its SHA-256
 and placement offset; it is the credited unfa recording, not a synthetic preset.
+
+
+### Five-element gallery refresh (October 23, 2026)
+
+The `elements_20261023__*` gallery shots use the author's prepared `hand_open.mp4`
+(bright room) and `hand_palm.mp4` (dim room) phone footage. Air, water, lightning
+and earth are rendered procedurally by the Apache-2.0-licensed CueSync code; no new
+model-generated pixels or outside stock elements are used in these shots.
+`hoooo.wav`, `hoo-hoo-HOO.wav`, `shhhhh-sploosh.wav` and `zzzzz-tsst.wav` are the
+bundled synthetic example cues. Earth shatter uses `pf-pf-boom-author.wav`, an
+edited rhythm made from the author's own pf and BOOM recordings. Earth rock
+uses the synthetic held cue, not a new human "rrrrr" recording. Procedural Foley
+is mixed with those cues. Each shot includes input/source hashes in its provenance.

@@ -117,7 +117,7 @@ RIM_LIT = (0.5, (0.6, 0.9))  # on its side towards the key light the rim mirrors
 # light), coming on over this range of 1 - n_z (Fresnel: a grazing surface mirrors nearly all of the light it faces),
 # so the rim is at least twice as bright towards the light as away from it
 RIM_BREAK = 0.8  # how much the waves running round the rim break up the room mirrored in it
-HELD_RIM = (0.18, (0.82, 0.98), 0.08)  # the held body's rim light: strength, grazing band, and least facet share;
+HELD_RIM = (0.12, (0.82, 0.98), 0.08)  # the held body's rim light: strength, grazing band, and least facet share;
 # a narrow reflection broken by moving slopes leaves clear gaps instead of a solid glass collar
 ROUND = (0.5, 0.85)  # a ray leaving the water this far off its way (the sine of the turn) sees the room round the
 # water, by its direction, not the plate behind: near a ball's rim, bright towards the lights over it and dark
@@ -307,7 +307,7 @@ ZCAM = 4.5  # hand sizes: how far the camera is from the hand (a first-person sh
 NOISE_SIZE, NOISE_CELL = 256, 4.0  # px: the tiling noise textures, and their features' sigma
 
 # ---- the orb --------------------------------------------------------------------------------------------------------
-ORB_R = 0.45  # hand sizes: its radius (a ball 8 cm across over a palm 9 cm long; at 6 cm it was a fifth of a phone
+ORB_R = 0.50  # hand sizes: its radius (a ball 8 cm across over a palm 9 cm long; at 6 cm it was a fifth of a phone
 # screen's width, a marble)
 ORB_GAP = 0.25  # hand sizes between its underside and the palm: it floats (at 0.1 its shadow and its focus sat under
 # its own rim, and it read as set into the palm)
@@ -609,11 +609,11 @@ WHIP_NODES = 40  # the stream's nodes, root to tail
 WHIP_HEIGHT = 2.6  # hand sizes: the stream rises this far out of the palm, along its normal...
 WHIP_UP = 1.4  # ... bent this much towards the picture's up (a palm facing the camera sent it straight at it, a palm
 # facing up sent it along the fingers, foreshortened away from the camera)...
-WHIP_COIL = 0.26  # ... and coils round that way as it rises, this far out (hand sizes): with its rise, one and a half
+WHIP_COIL = 0.38  # ... and coils round that way as it rises, this far out (hand sizes): with its rise, one and a half
 # to two palms long (swirled round the whole hand 1.1 hand sizes out, most of it behind and beside the hand, it read as
 # a puddle with a faint hoop; round the palm 0.42 out, as a ring of water lying on it)...
 WHIP_SWEEP = (0.6, 0.85)  # ... wrapping this many turns round it, quiet and at the voice's loudest...
-WHIP_FLAT = 0.3  # ... its coil this much as deep towards and away from the camera as it is wide across the picture (as
+WHIP_FLAT = 0.48  # ... its coil this much as deep towards and away from the camera as it is wide across the picture (as
 # deep, where it came towards the camera end on it piled up into a wide, twisting fold: a cellophane ribbon)...
 WHIP_RISE = 0.3  # ... its coil opening over this much of its length from the root
 WHIP_SPIN = (0.45, 0.5)  # turns a second its coil turns at, quiet, and more at the voice's loudest
@@ -621,7 +621,7 @@ WHIP_WOBBLE = (0.14, 3.0, 1.3)  # its coil's lobes: how far in and out (of its c
 WHIP_HZ = (3.0, 0.9)  # how stiffly it holds its swirl at the root and at the tail: the tail trails a moving hand,
 # as a ribbon does (one stiffness throughout and the stream moved with the hand as one piece, a hoop)
 WHIP_DAMP = 0.55  # their damping ratio
-WHIP_R = (0.10, 0.026)  # hand sizes: the stream's radius at its root and at its tail (blobs weighted, as thick as
+WHIP_R = (0.13, 0.038)  # hand sizes: the stream's radius at its root and at its tail (blobs weighted, as thick as
 # designed: summed unweighted, they drew a hose 1.7 times as thick; at 0.1 at its root, a thick glass sculpture; at
 # 0.07, lost on a phone's screen)
 WHIP_TIP = 0.35  # its last fifth thins by this much to its end
@@ -663,7 +663,7 @@ WHIP_MIST = (0.3, 0.1, (0.004, 0.014), (0.8, 2.0))  # turning, the stream sprays
 # row of beads all along its edge)
 WHIP_LIES = 0.15  # only its first this share, flowing out of the pool, lies on the skin (lying wherever it came near
 # the skin, where its swirl carried it past a finger it spread into a wide, faint fold: cellophane)
-WHIP_FOAM = (0.45, 0.6, 0.9, 0.45)  # how aerated it is all along, more at its tail, its head churning into the air (a
+WHIP_FOAM = (0.30, 0.45, 0.65, 0.35)  # how aerated it is all along, more at its tail, its head churning into the air (a
 # bright leading edge), more where it is fast (a fast jet goes white), and more at its root where it churns out of the
 # pool (clear all along, a glass rod; at 0.14 standing up out of the palm, a glass sculpture)...
 WHIP_AERATE = (0.3, (0.5, 0.85), (0.12, 0.12), (0.45, 1.0), 0.5)  # ... held, its froth lying in white threads along
@@ -840,7 +840,7 @@ def hand_presence(track: dict, n: int, plate: np.ndarray | None = None) -> np.nd
     presence = np.ones(n)
     first = next((t for t in range(n) if src[t] not in ("hold", "lost")), None)
     if first is None:
-        return presence
+        return np.zeros(n)  # no observation exists to justify a copied position
     here = track
     if plate is not None:
         h, w = plate.shape[1:3]
@@ -1905,6 +1905,14 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         rim_open = 0.18 * big * (1.0 - pool) * _ss(0.40, 0.92, rr) * (1.0 - 0.65 * rim_facets)
     col += rim_open[:, None] * (direct - col)
     col += (spec + cres + net).astype(np.float32)[:, None] * lit[None, :]
+    if held_liquid:
+        # Sparse entrained microbubbles reveal moving water inside the reservoir.
+        # Scatter existing room light through its thick interior, leaving the
+        # thin edge and most of the transmitted hand clear.
+        churn = noise.flow(12, X, Y, fvx, fvy, k, .22*s)
+        suspended = (.12 + .20*np.maximum(churn, 0)) * deep * (1-pool)
+        scatter = lit[None,:] * np.array([.35,.72,.90],np.float32)
+        col += suspended[:,None] * (scatter-col)
     # froth: sparse entrained air lit by the room, carried in streaks along a stream. The airborne body remains clear
     fn = 0.55 + 0.45 * noise.flow(5, X, Y, fvx, fvy, k, FOAM_SIZE * s)
     fn += big * (1.0 - fn)
@@ -3760,6 +3768,10 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                 # from inside its rim, they sat on it like seeds)
             w2 = 2 * math.pi * MODE_HZ[2]
             drive = -acc[:2] / max(s, 1.0) * MODE2_DRIVE
+            # Circulating water deforms even over a stationary hand. A slow forcing
+            # of the existing damped bulk mode preserves volume and liquid inertia.
+            circulate = .10 + .08 * float(e[k])
+            drive += circulate * np.array([math.cos(t * 4.1 + seed), .7 * math.sin(t * 3.3 + seed)])
             m2v += (-(w2 ** 2) * m2 - 2 * MODE2_DAMP * w2 * m2v + drive * w2 ** 2) / FPS
             m2 += m2v / FPS
             if k < g1:  # a seed when the first drops reach it, growing evenly as the rest come in

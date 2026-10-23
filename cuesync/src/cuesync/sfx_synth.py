@@ -30,10 +30,11 @@ _PROFILES = {
     "lightning": (0.050, 0.060, 0.090, 9.0, 61.0, 140.0, 0.45, 0.0004, 0.08, 0.80),
     "water": (0.060, 0.110, 0.030, 1.2, 9.0, 0.0, 0.90, 0.004, 0.25, 0.75),
     "air": (0.070, 0.120, 0.050, 0.9, 7.0, 0.0, 0.70, 0.020, 0.22, 0.80),
+    "earth": (0.105, 0.065, 0.012, 2.0, 13.0, 22.0, 1.1, 0.004, 0.35, 0.85),
 }
-_FLUIDS = ("fire", "smoke", "steam", "electric", "water", "air")
-_BEHAVIOURS = ("burst", "jet", "plume", "puff", "flare", "extinguish", "arc", "ball", "orb", "whip", "blast")
-_MADE = {"electric": "lightning", "water": "water", "air": "air"}  # the made elements' fluids: their profiles
+_FLUIDS = ("fire", "smoke", "steam", "electric", "water", "air", "earth")
+_BEHAVIOURS = ("burst", "jet", "plume", "puff", "flare", "extinguish", "arc", "ball", "orb", "whip", "blast", "rock", "shatter")
+_MADE = {"electric": "lightning", "water": "water", "air": "air", "earth": "earth"}
 # The next float below 0.85 prevents float32 rounding exceeding the API bound.
 _PEAK = float(np.nextafter(np.float32(0.85), np.float32(0.0)))
 
@@ -221,6 +222,14 @@ def _accent(rng, size, sr, name, profile):
         snaps = np.zeros(size, dtype=np.float32)
         _crackle(rng, snaps, sr, 260.0, True, _decay(t, 0.001, 0.08, profile[6]))
         accent += 2.0 * snaps
+    elif name == "earth":
+        # Weight first, then dry fracture and falling grit; no electric or watery pitch.
+        accent = .65 * _band_noise(rng, size, sr, 40, 220) * _decay(t, .004, .18, .8)
+        accent += .32 * _band_noise(rng, size, sr, 400, 4500) * _decay(t, .002, .045, .22)
+        debris = np.zeros(size, dtype=np.float32)
+        falling = _decay(t, .03, .28, 1.1)
+        _crackle(rng, debris, sr, 95, False, falling)
+        accent += 1.3 * debris * falling
     elif name == "water":
         # A splash: the slap, a burst of spray, then bubbles and drops falling back.
         accent = 0.45 * _band_noise(rng, size, sr, 180.0, 1400.0) * _decay(t, 0.003, 0.05, 0.25)

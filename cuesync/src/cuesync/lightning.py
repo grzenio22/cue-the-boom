@@ -240,10 +240,10 @@ BALL_TURN = 0.05  # radians a frame: it turns slowly (its arcs' far ends move, b
 BALL_PULSE = 0.12  # a hit swells it by this share, gone over 3 frames
 BALL_FLARE = 1.0  # a hit flares its distributed hot core by this share, its white-hot
 # glow by at most INNER_FLARE: the sound's sync, now that the ball grows rather than pops into being
-PLASMA_RGB = np.array([0.75, 0.85, 1.0], np.float32)  # linear: the colour of its white-hot middle, a cool near-white
+PLASMA_RGB = np.array([0.48, 0.72, 1.0], np.float32)  # linear: the colour of its white-hot middle, a cool near-white
 # (lightning and an electric arc glow at about 7000-10000 K); the light it throws is LIGHT_RGB's
-BALL_HOT = (0.95, 0.30)  # gain, scale in radii: distributed hot pockets retain the charge's luminous interior
-BODY = (0.5, 1.04)  # gain, radius: bulk emission fills the sphere between softer channels at several depths
+BALL_HOT = (0.78, 0.36)  # gain, scale in radii: distributed hot pockets retain the charge's luminous interior
+BODY = (0.85, 1.04)  # gain, radius: bulk emission fills the sphere between softer channels at several depths
 BODY_RGB = np.array([0.12, 0.5, 1.0], np.float32)  # a cyan-blue. Green in it matters: added to pink skin, a blue with
 # little green made lavender and mauve
 HALO = (0.025, 0.62)  # gain, sigma in radii: restrained scatter leaves gaps between the discharges visible
@@ -2050,7 +2050,7 @@ def ball_frames(hand: _Hand, timeline: Timeline, seed: int = 0,
         leading = set(np.argsort(scores)[-2:].tolist())
         for slot, (p, flash) in enumerate(shells):
             gain = flash * (0.4 + 0.6 * lv) * pres * dying
-            gain *= 0.24 if slot in leading else 0.09
+            gain *= 0.24 if slot in leading else 0.14
             if gain <= 0.02:
                 continue
             for q, w_, it in p.tree:
@@ -2585,7 +2585,7 @@ def _sphere(out: np.ndarray, veil: np.ndarray, box: tuple, ball: Ball, seed: int
         (0.5 + np.float32(PLASMA[5]) * np.maximum(bulk, -0.45))
     # Integrating turbulent emission through the interior fills the gaps without drawing another filament web.
     cloud = 0.5 + 0.5 * np.sin(3.1 * nx + 1.6 * ny + phase * 0.4) * np.sin(2.7 * ny - 1.3 * nx - phase * 0.3)
-    density = 0.28 + 0.20 * cloud + np.float32(0.6 * PLASMA[0]) * np.maximum(bulk + 0.1, 0.0)
+    density = 0.38 + 0.27 * cloud + np.float32(0.6 * PLASMA[0]) * np.maximum(bulk + 0.1, 0.0)
     body = chord * np.float32(BODY[0]) * density
     body *= np.maximum(1.0 - (radius / np.float32(BODY[1])) ** 2, 0.0) ** 0.65
     body *= 1.0 - 0.25 * np.clip((radius - 0.55) / 0.3, 0.0, 1.0)
