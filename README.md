@@ -4,7 +4,9 @@
 
 **Film your hand. Make the noise. Throw fire, lightning and water.**
 
-Near the top of the studio, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render with three voice-driven performances: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
+Start with **Perform this fire with your voice**: record a rhythm over the prepared palm clip, then download your newly composed shot. No camera, tracker setup or GPU is needed for this prepared sample.
+
+Below the creation flow, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render with three voice-driven performances: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
 
 For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning and water are procedural CPU effects.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
 
@@ -20,7 +22,7 @@ An entry for Comfy's **[Open Source Higgsfield](https://comfy.org/open-source-hi
 The contribution is separating generation from performance: one generated effect becomes a reusable instrument.
 Your voice controls when it hits, how big it plays and how long it burns.
 A new take reuses the same element while the CPU tracks, masks, lights and composites it on your hand.
-The three performances above the studio let you hear and see that separation.
+The three performances below the creation flow let you hear and see that separation.
 
 ## Try it in two minutes, no GPU
 
@@ -41,14 +43,16 @@ cuesync studio
 
 The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that port is taken). In it:
 
-1. Pick **Your hand: open palm** (the author's hand).
-2. Cue it: pick the sample noise **pf, pf, KA-BOOM** (synthetic), or **Use my microphone** and make your own noise while the clip plays.
-3. **Make the shot**: the stored fire is timed and sized by your take. Processing time depends on the clip, effect and your computer.
-4. **Perform it again** with another rhythm: the same fire, no new render.
+1. Click **Perform this fire with your voice** to select the prepared palm.
+2. Click **Use my microphone**, then **Record & make fire**. Say BOOM or a few short pops as the clip plays. Microphone access starts only when you request it.
+3. When recording ends, the app automatically composes the stored fire using your timing and loudness. **Download** saves the finished shot.
+4. **Perform again** gives the same fire a new rhythm. **Try a sample voice instead** works without microphone access and is explicitly labelled as a recorded example.
+
+This prepared-sample path always reuses the stored element, even when a GPU is connected. Three local full-quality palm runs with a single-hit recording took 14.8–16.8 seconds from HTTP submission through MP4 download on a Ryzen 9 7900X; the bundled three-hit author rhythm took 26.6 seconds (84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
 
 Under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen, and the flame stays in the palm. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff".
 
-**Your own hand:** use **Film it here** or **Use your own clip**, then **Set up the hand tracker** once (needs Python 3.12 or `uv`). Tap your palm or fingertips, drag to aim, and confirm **That's my hand**. Record your noise and **Make the shot**. **Try it live** previews stored fire and procedural lightning through your webcam. It needs internet access to load its hand model and runtime from a CDN. **Record this** turns the take into a finished shot. [Tracking and live-preview details](TECHNICAL.md#the-hand-element-bending).
+**Your own hand:** open **Use your own clip or explore effects**, then use **Film it here** or **Use your own clip** and **Set up the hand tracker** once (needs Python 3.12 or `uv`). Tap your palm or fingertips, drag to aim, and confirm **That's my hand**. Record your noise and **Make the shot**. **Try it live** previews stored fire and procedural lightning through your webcam. It needs internet access to load its hand model and runtime from a CDN. **Record this** turns the take into a finished shot. [Tracking and live-preview details](TECHNICAL.md#the-hand-element-bending).
 
 The same from the command line (the shot lands in `runs/bend/final.mp4`):
 
@@ -101,8 +105,11 @@ Use **Choose it yourself** under Make the shot to pick a form, or record your ow
 
 The app is written to the Comfy Python SDK and Comfy API v2 exposed by the Comfy Developer Platform. The [runner](cuesync/src/cuesync/runner.py) submits workflow JSON through the SDK.
 
-- **Hosted platform:** set `COMFY_API_KEY`. With `COMFY_BASE_URL` unset, the SDK defaults to `https://cloud.comfy.org`. For `cuesync studio`, also set `COMFY_BASE_URL=https://cloud.comfy.org`; GPU rendering is offered only if the endpoint's unauthenticated `/api/v2/health` check returns HTTP 200.
-- **Self-hosted ComfyUI:** run comfy-api-proxy in front of ComfyUI and set `COMFY_BASE_URL` to the proxy URL, for example `http://127.0.0.1:8189`. `COMFY_API_KEY` supplies the SDK's authentication and can be unset for a proxy that needs none.
+- **Comfy Cloud:** set `COMFY_API_KEY`. With `COMFY_BASE_URL` unset, the SDK defaults to `https://cloud.comfy.org`. For `cuesync studio`, also set `COMFY_BASE_URL=https://cloud.comfy.org`. GPU options appear only after the API and Cloud's documented node/model inventory confirm the configured workflow's required resources.
+- **Self-hosted ComfyUI:** run comfy-api-proxy in front of ComfyUI and set `COMFY_BASE_URL` to the proxy URL, for example `http://127.0.0.1:8189`. The standard local setup checks native ComfyUI at `http://127.0.0.1:8188`; for a different upstream, also set `COMFYUI_BASE_URL` to its native URL. `COMFY_API_KEY` authenticates the proxy; a separately protected native endpoint uses `COMFYUI_API_KEY`. Leave keys unset when their endpoints need none.
+- **Managed Comfy API deployments:** v2 alone has no documented node/model inventory route. The app reports an accessible endpoint as **unverified**, without submitting a paid probe. Set `COMFYUI_BASE_URL` only if the deployment exposes its native ComfyUI inventory; otherwise use the SDK/CLI generation route and the app's CPU reuse flow. The app does not advertise unverified GPU modes as ready.
+
+Preflight results are cached for 15 seconds and refresh immediately when the workflow or connection settings change. `/api/health` includes the missing node/model names and setup guidance. This verifies availability, not model loading or sufficient GPU memory.
 
 The renders here ran on self-hosted ComfyUI to load the ainvfx-fluid IC-LoRA and install the [CueSync node pack](comfyui-cuesync). A target server needs the models and nodes used by the workflow.
 

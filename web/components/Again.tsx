@@ -103,7 +103,7 @@ export default function Again() {
             {listening !== null ? `Hearing performance ${listening + 1} of 3: ${CUES[listening]}` : playing ? "Playing together, muted." : "Paused."}
           </p>
         </>}
-      <p className="muted"><a href="#studio">Perform it again yourself</a>: below, pick <strong>Your hand: open palm</strong>, then <strong>Use my microphone</strong>.</p>
+      <p className="muted"><a href="#studio">Make your own performance</a> with the prepared palm and your microphone.</p>
     </section>
   );
 }

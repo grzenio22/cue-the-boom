@@ -61,6 +61,9 @@ def beats_of(board: dict | list) -> list[dict]:
 
 def structure_check(board: dict | list, baseline: dict | list) -> tuple[dict, list[str]]:
     """Compare unchanged beat fields, with explicit exceptions for this edit."""
+    if isinstance(board, dict) and board.get("version") == 18:
+        from v18_edit import editorial_structure_check
+        return editorial_structure_check(board, baseline)
     if isinstance(board, dict) and board.get("version", 15) >= 16:
         return integration_structure_check(board, baseline)
     beats, previous = beats_of(board), beats_of(baseline)
@@ -346,6 +349,19 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
     current_manifest = Path(board["provenance"]) if isinstance(board, dict) and board.get("provenance") else (
         ROOT / "runs/demo_v11/clips/manifest.json")
     candidates = {current_manifest}
+    # An editorial-only cut can reuse a verified earlier render without claiming
+    # that unrelated subsequent server/export changes generated those pixels.
+    preserved_manifest = None
+    if isinstance(board, dict) and board.get("version") == 18:
+        reuse = board.get("source_reuse", {})
+        if (reuse.get("manifest") != str(current_manifest)
+                or not current_manifest.is_file()
+                or reuse.get("manifest_sha256") != digest(current_manifest)
+                or reuse.get("new_model_generations") != 0
+                or reuse.get("composites_rebuilt_for_this_edit") is not False):
+            errors.append("v18 editorial reuse must bind the immutable prior source manifest and disclose no rebuild")
+        else:
+            preserved_manifest = current_manifest
     for p in paths:
         for ancestor in p.parents:
             if ancestor.name == "clips" and (ancestor / "manifest.json").exists():
@@ -366,7 +382,7 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
             source = CHECKOUT / relative
             good = source.is_file() and digest(source) == expected
             checked_code.append(dict(source=str(source), matches=good))
-            if not good and not historical:
+            if not good and not historical and path != preserved_manifest:
                 errors.append(f"Rebuilt clips do not match current code: {source}")
         missing = sorted(set(JOBS) - set(data.get("jobs", {})))
         if not historical and path.parent == ROOT / "runs/demo_v11/clips" and missing:
@@ -401,7 +417,9 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
             proof_lineage, proof_errors = proof_provenance_check(data.get("jobs", {}), board["version"], digest)
             errors.extend(proof_errors)
         manifests.append(dict(path=str(path),
-                              policy="Historical retained media: referenced output hashes preserved; no claim of a rebuild by current code"
+                              policy="Editorial reuse of an immutable verified source manifest: original code fingerprints retained; all inputs and outputs verified; no claim of a rebuild by current code"
+                                     if path == preserved_manifest else
+                                     "Historical retained media: referenced output hashes preserved; no claim of a rebuild by current code"
                                      if historical else "Current production composites: current code, input and output hashes required",
                               code=checked_code, inputs=checked_inputs, outputs=checked_outputs,
                               proof_lineage=proof_lineage))
@@ -438,7 +456,10 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
                 receipt = path.parent / "provenance.json"
                 if not receipt.is_file() or str(path) not in read_json(receipt).get("outputs_sha256", {}):
                     errors.append(f"Storyboard recap has no derived-output provenance: {path}")
-    return dict(method="Current checkout code and rebuilt source/output SHA-256 digests; approved beat dictionaries and valid source windows",
+    method = ("Editorial reuse: immutable prior manifest, original input/output SHA-256 digests and element ancestry; approved beat dictionaries and valid source windows"
+              if preserved_manifest else
+              "Current checkout code and rebuilt source/output SHA-256 digests; approved beat dictionaries and valid source windows")
+    return dict(method=method,
                 manifests=manifests, storyboard_assets=assets, derived_cards=derived), errors
 
 
@@ -641,9 +662,11 @@ def chip_header_layout_check(video: Path, schedule: list[dict], out: Path,
                 break
             image = frame.to_ndarray(format="rgb24")
             differences.append(float(np.abs(image[:170].astype(np.float32) - reference)[compare_mask].mean()))
-            for target in {"upload": (76., 77., 78.), "perform": (84., 86., 87.), "make": (88., 89.)}[identity]:
-                if abs(at - target) < .001:
-                    path = out / f"{identity}-{int(target)}s.jpg"
+            targets = [entry["start"] + fraction * (entry["end"] - entry["start"])
+                       for fraction in (.15, .5, .85)]
+            for target in targets:
+                if abs(at - target) < .5 / FPS:
+                    path = out / f"{identity}-{at:.3f}s.jpg"
                     Image.fromarray(image).save(path, quality=95)
                     samples.append(str(path))
     if len(differences) != entry["frames"]:
@@ -678,6 +701,11 @@ def main() -> int:
     structure, errors = structure_check(board, baseline)
     provenance, source_errors = source_provenance_check(board)
     errors.extend(source_errors)
+    fresh_capture = None
+    if version == 18:
+        from v18_edit import capture_provenance_check
+        fresh_capture, capture_errors = capture_provenance_check(board)
+        errors.extend(capture_errors)
     narrations, narration_errors = narration_check(schedule, total, out)
     errors.extend(narration_errors)
     voices, voice_errors = voice_provenance_check(schedule)
@@ -690,6 +718,7 @@ def main() -> int:
                   metadata_only=args.metadata_only, structure=structure, source_provenance=provenance,
                   narration=narrations, narration_provenance=voices, source_windows=windows,
                   own_nodes=nodes,
+                  fresh_browser_capture=fresh_capture,
                   errors=errors, review=[],
                   limitations="Waveform presence, word timing, caption pixels and levels require a companion listening and visual review for intelligibility and edit quality.")
     if not args.metadata_only:
@@ -731,7 +760,8 @@ def main() -> int:
         report["source_picture_comparison"] = source_pictures
         errors.extend(source_picture_errors)
         if version >= 16:
-            for identity in ("upload", "perform", "make"):
+            identities = ("try_sample", "perform", "make", "download") if version == 18 else ("upload", "perform", "make")
+            for identity in identities:
                 layout, layout_errors = chip_header_layout_check(args.video, schedule, out, identity)
                 report[f"{identity}_layout"] = layout
                 errors.extend(layout_errors)

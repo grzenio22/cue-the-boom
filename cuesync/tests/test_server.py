@@ -93,15 +93,6 @@ def test_bad_effect_is_rejected(client, tmp_path, make_video, make_wav):
     assert r.status_code == 400
 
 
-def wait(client, job_id):
-    for _ in range(600):
-        job = client.get(f"/api/jobs/{job_id}").json()
-        if job["status"] in ("done", "error"):
-            return job
-        time.sleep(0.1)
-    return job
-
-
 @pytest.fixture
 def instant_client(tmp_path, make_video, make_wav):
     """An instant-only server (no GPU renderer) with one sample plate and one sample noise."""
@@ -288,6 +279,96 @@ def test_a_held_drawn_scene_shot_needs_no_voice(scene_client, tmp_path, make_vid
     assert rc["inputs"]["cue"] == "hold" and rc["inputs"]["drawn"] and rc["voice"]["source"] == "hold"
     assert rc["inputs"]["holds"] == [[0.8, 1.6]]  # so a re-time is cued the same way
     assert r.prompts[-1].startswith("ainvfxfluid, smoke pours out of the box,")
+
+
+def test_health_reports_model_preflight_and_observes_new_configuration_immediately(scene_client, monkeypatch):
+    from dataclasses import dataclass, replace
+
+    @dataclass(frozen=True)
+    class Readiness:
+        ready: bool = False
+        scene_ready: bool = False
+        connected: bool = True
+        status: str = "missing_models"
+        message: str = "Install the configured checkpoint"
+        missing_nodes: tuple = ()
+        missing_models: tuple = ("model.safetensors",)
+
+    client, renderer = scene_client
+    state = Readiness()
+    monkeypatch.setattr(renderer, "preflight", lambda: state, raising=False)
+    health = client.get("/api/health").json()
+    assert health["render_backend"]["missing_models"] == ["model.safetensors"]
+    assert "render" not in health["modes"] and "scene" not in health["modes"]
+    state = replace(state, ready=True, status="ready", missing_models=(), missing_nodes=("LoadImage",))
+    health = client.get("/api/health").json()
+    assert "render" in health["modes"] and "scene" not in health["modes"]
+    state = replace(state, scene_ready=True, missing_nodes=())
+    assert "scene" in client.get("/api/health").json()["modes"]
+
+
+def test_scene_generation_rejects_backend_missing_scene_nodes(scene_client, tmp_path, make_video, monkeypatch):
+    from types import SimpleNamespace
+
+    client, renderer = scene_client
+    monkeypatch.setattr(renderer, "preflight", lambda: SimpleNamespace(ready=True, scene_ready=False), raising=False)
+    plate = make_video(tmp_path, n=12, fps=24, w=128, h=256, color_fn=lambda i: (60, 50, 40))
+    with plate.open("rb") as source:
+        result = client.post("/api/jobs", files={"plate": ("plate.mp4", source, "video/mp4")},
+                             data={"effect": "fire_burst", "mode": "scene", "cue": "hold", "holds": "[[0.1, 0.2]]"})
+    assert result.status_code == 503, result.text
+    assert not renderer.prompts
+
+
+@pytest.mark.parametrize("prepared_sample", [False, True])
+def test_bending_generation_only_needs_element_readiness(tmp_path, monkeypatch, prepared_sample):
+    from dataclasses import dataclass
+
+    import cuesync.bending as bending
+    from cuesync.server import JobQueue
+
+    @dataclass(frozen=True)
+    class Readiness:
+        ready: bool = True
+        scene_ready: bool = False
+
+    renderer = FakeElementRenderer()
+    monkeypatch.setattr(renderer, "preflight", lambda: Readiness(), raising=False)
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
+    monkeypatch.setattr(bending, "library_dir", lambda: None)
+    queued = []
+
+    def capture(queue, job):
+        queued.append(job)
+        queue.jobs[job.id] = job
+        return job
+
+    monkeypatch.setattr(JobQueue, "submit", capture)
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "plates" / "hand.mp4").write_bytes(b"prepared plate")
+    (samples / "samples.json").write_text(json.dumps({"plates": {"hand.mp4": {
+        "point": [0.4, 0.6], "hand": {"frame": 10}}}}))
+    shot = samples / "made_ahead" / "bending" / "sample"
+    shot.mkdir(parents=True)
+    (shot / "final.mp4").write_bytes(b"prepared result")
+    (shot.parent / "index.json").write_text(json.dumps({"hand": {
+        "dir": "sample", "title": "Hand", "plate": "hand.mp4", "mode": "bending", "effect": "fire_burst"}}))
+    client = TestClient(create_app(renderer, tmp_path / "jobs", samples_dir=samples,
+                                   precomputed=samples / "made_ahead"))
+    modes = client.get("/api/health").json()["modes"]
+    assert "render" in modes and "bending" in modes and "scene" not in modes
+    data = {"mode": "bending", "effect": "fire_burst", "x": "0.4", "y": "0.6"}
+    files = {"voice": ("mic.wav", b"recorded voice", "audio/wav")}
+    if prepared_sample:
+        data["plate_sample"] = "hand.mp4"
+    else:
+        files["plate"] = ("hand.mp4", b"uploaded plate", "video/mp4")
+    response = client.post("/api/jobs", data=data, files=files)
+    assert response.status_code == 200, response.text
+    assert response.json()["mode"] == "bending"
+    assert len(queued) == 1 and JobQueue.queue_of(queued[0].mode) == "render"
+    assert queued[0].replay is None
 
 
 def test_call_and_response_sources_go_through_the_api(scene_client, tmp_path, make_video):
@@ -821,6 +902,131 @@ def sample_hand(tmp_path, make_video, make_wav):
 def hand_client(samples, jobs, renderer=None):
     return TestClient(create_app(renderer, jobs, samples_dir=samples, precomputed=samples / "made_ahead",
                                  shot_defaults={"plate_size": (256, 128), "max_plate_s": 3.0}))
+
+
+def test_explicit_sample_reuse_ignores_ready_gpu_and_tracker_and_can_replay(sample_hand, tmp_path, monkeypatch):
+    import cuesync.bending as bending
+
+    renderer = FakeElementRenderer()
+    monkeypatch.setattr(bending, "helpers_ready", lambda: True)
+    monkeypatch.setattr(renderer, "ready", lambda: pytest.fail("reuse must not probe or use the GPU"))
+    monkeypatch.setattr(bending, "prepare_hand", lambda *a, **kw: pytest.fail("the prepared hand must be reused"))
+    client = hand_client(sample_hand, tmp_path / "jobs", renderer)
+    with (sample_hand / "voices" / "pf.wav").open("rb") as voice:
+        first = client.post("/api/jobs", data={"mode": "bending", "performance_mode": "reuse",
+                            "plate_sample": "hand.mp4", "effect": "fire_burst"},
+                            files={"voice": ("microphone.wav", voice, "audio/wav")})
+    assert first.status_code == 200, first.text
+    assert first.json()["mode"] == "replay" and not first.json()["cached"]
+    done = wait(client, first.json()["id"])
+    assert done["status"] == "done", done
+    assert done["receipt"]["inputs"]["point"] == [0.4, 0.6]
+    assert done["receipt"]["bending"]["tap_frame"] == 10
+    assert done["receipt"]["bending"]["performed_again"]["no_new_render"]
+    again = client.post(f"/api/jobs/{done['id']}/replay", data={"voice_sample": "pf.wav"})
+    assert again.status_code == 200, again.text
+    twice = wait(client, again.json()["id"])
+    assert twice["status"] == "done", twice
+    assert twice["receipt"]["bending"]["performed_again"]["no_new_render"]
+    assert not renderer.prompts
+
+
+def test_explicit_reuse_composes_even_an_exact_cached_sample_voice(sample_hand, tmp_path):
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "performance_mode": "reuse",
+                         "plate_sample": "hand.mp4", "effect": "fire_burst", "voice_sample": "pf.wav",
+                         "x": "0.4", "y": "0.6"})
+    assert first.status_code == 200, first.text
+    assert not first.json()["cached"] and first.json()["mode"] == "replay"
+    assert wait(client, first.json()["id"])["status"] == "done"
+
+
+@pytest.mark.parametrize("changes", [
+    {"performance_mode": "silent-gpu-fallback"}, {"mode": "scene"}, {"effect": "auto"},
+    {"effect": "flame_plume"}, {"plate_sample": "missing.mp4"}, {"reuse": "another-job"},
+])
+def test_explicit_reuse_rejects_invalid_requests_without_fallback(sample_hand, tmp_path, changes):
+    renderer = FakeElementRenderer()
+    client = hand_client(sample_hand, tmp_path / "jobs", renderer)
+    first = client.post("/api/jobs", data={"mode": "bending", "performance_mode": "reuse",
+                         "plate_sample": "hand.mp4", "effect": "fire_burst", "voice_sample": "pf.wav", **changes})
+    assert first.status_code in (400, 409), first.text
+    assert not renderer.prompts
+    assert not list((tmp_path / "jobs").iterdir())
+
+
+@pytest.mark.parametrize("missing", ["element.mp4", "hand_track.json", "receipt.json", "hand_mask.npz"])
+def test_explicit_reuse_rejects_incomplete_prepared_resources(sample_hand, tmp_path, missing):
+    shot = next((sample_hand / "made_ahead").rglob("receipt.json")).parent
+    if missing == "hand_mask.npz":
+        receipt = json.loads((shot / "receipt.json").read_text())
+        receipt["bending"]["mask"] = "hand_mask.npz"
+        (shot / "receipt.json").write_text(json.dumps(receipt))
+    else:
+        (shot / missing).unlink()
+    renderer = FakeElementRenderer()
+    client = hand_client(sample_hand, tmp_path / "jobs", renderer)
+    first = client.post("/api/jobs", data={"mode": "bending", "performance_mode": "reuse",
+                         "plate_sample": "hand.mp4", "effect": "fire_burst", "voice_sample": "pf.wav"})
+    assert first.status_code == 409, first.text
+    assert "prepared" in first.json()["detail"].lower()
+    assert not renderer.prompts
+
+
+def test_result_file_mime_types_and_raw_scene_download(tmp_path):
+    shot = tmp_path / "pre" / "scene" / "sample"
+    shot.mkdir(parents=True)
+    for name in ("final.mp4", "render.mp4", "poster.jpg", "receipt.json"):
+        (shot / name).write_bytes(b"{}" if name.endswith(".json") else b"result bytes")
+    (shot.parent / "index.json").write_text(json.dumps({"sample": {
+        "dir": "sample", "title": "Sample", "plate": "sample.mp4", "mode": "scene"}}))
+    client = TestClient(create_app(None, tmp_path / "jobs", precomputed=tmp_path / "pre"))
+    job = client.get("/api/gallery").json()[0]
+    for name, media_type in (("render.mp4", "video/mp4"), ("final.mp4", "video/mp4"),
+                             ("poster.jpg", "image/jpeg"), ("receipt.json", "application/json")):
+        assert name in job["files"]
+        result = client.get(job["files"][name])
+        assert result.status_code == 200
+        assert result.headers["content-type"] == media_type
+    assert client.get(f"/api/jobs/{job['id']}/files/secret.txt").status_code == 404
+
+
+def test_raw_scene_render_stays_private_until_job_finishes(instant_client, monkeypatch):
+    from cuesync.server import JobQueue
+
+    def hold(queue, job):
+        queue.jobs[job.id] = job
+        (job.dir / "render.mp4").write_bytes(b"partial video")
+        return job
+
+    monkeypatch.setattr(JobQueue, "submit", hold)
+    job = instant_client.post("/api/jobs", data={"mode": "instant", "plate_sample": "mug.mp4",
+                              "voice_sample": "pf.wav", "effect": "fireball"}).json()
+    assert "render.mp4" not in job["files"]
+    assert instant_client.get(f"/api/jobs/{job['id']}/files/render.mp4").status_code == 404
+
+
+def test_job_public_keeps_terminal_status_files_and_receipt_consistent(tmp_path, monkeypatch):
+    from cuesync.server import Job
+
+    (tmp_path / "final.mp4").write_bytes(b"finished result")
+    (tmp_path / "cue.json").write_text("{}")
+    (tmp_path / "receipt.json").write_text(json.dumps({"seconds_total": 1.0}))
+    job = Job(id="transition", dir=tmp_path, spec=None, status="running")
+    exists = Path.exists
+
+    def finish_during_snapshot(path):
+        if path == tmp_path / "cue.json":
+            job.status = "done"
+        return exists(path)
+
+    monkeypatch.setattr(Path, "exists", finish_during_snapshot)
+    first = job.public()
+    assert first["status"] == "running"
+    assert "final.mp4" not in first["files"] and first["receipt"] is None
+    second = job.public()
+    assert second["status"] == "done"
+    assert "final.mp4" in second["files"] and second["receipt"] == {"seconds_total": 1.0}
 
 
 def test_a_cached_sample_hand_can_be_performed_again_on_its_strike(sample_hand, tmp_path):

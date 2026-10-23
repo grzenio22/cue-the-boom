@@ -1,7 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dragDirection, failure, followJob, hitAnchor, madeAhead, pollUntilDone, type JobStatus, type Receipt, replayable, sameStrokes, sceneEffect, suggestEffect } from "./shot";
+import { dragDirection, failure, followJob, hitAnchor, madeAhead, pollUntilDone, type JobStatus, type Receipt, replayable, sameStrokes, sceneEffect, submitShot, suggestEffect } from "./shot";
 
 const SR = 48000;
+
+describe("submitShot", () => {
+  it.each([undefined, "reuse"] as const)("forwards explicit CPU reuse only when selected: %s", async (performanceMode) => {
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "new-shot" })));
+    vi.stubGlobal("fetch", request);
+    try {
+      await submitShot({ plate: { sample: "hand_palm.mp4" }, voice: { file: new Blob(["pcm"]), filename: "mic.wav" },
+        face: null, faceExt: "webm", timing: null, effect: "fire_burst", point: [0.509, 0.654], seed: 1,
+        mode: "bending", performanceMode });
+      const [url, init] = request.mock.calls[0];
+      expect(url).toBe("/api/jobs");
+      expect(init.body.get("performance_mode")).toBe(performanceMode ?? null);
+      expect(init.body.get("voice").name).toBe("mic.wav");
+      expect(init.body.get("plate_sample")).toBe("hand_palm.mp4");
+    } finally { vi.unstubAllGlobals(); }
+  });
+});
 
 /** 0.5 s of silence, then `dur` s of either a voiced tone (low zero-crossing rate) or noise (high). */
 function noise(dur: number, kind: "voiced" | "noisy"): Float32Array {

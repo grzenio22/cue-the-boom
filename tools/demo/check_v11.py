@@ -214,7 +214,8 @@ def source_bounds_check(schedule: list[dict]) -> tuple[list[dict], list[str]]:
             if hold:
                 row["classification"] = "designed_tail_hold" if media == "video" else "designed_silent_tail"
                 row["tail_duration"] = round(start + duration - available, 6)
-                row["reason"] = entry["beat"].get("hold_reason", "Designed source tail")
+                row["reason"] = entry["beat"].get("audio_tail_reason" if media == "audio" else "hold_reason",
+                                                "Designed source tail")
             else:
                 issues.append(f"{media.title()} source ends before selected window: {entry['id']} "
                               f"({start+duration:.3f}s > {available:.3f}s)")
@@ -230,8 +231,11 @@ def source_bounds_check(schedule: list[dict]) -> tuple[list[dict], list[str]]:
             check(b["src"], float(b.get("start", 0)), duration * speed, entry, "video",
                   entry["id"] == "cold_open" or bool(b.get("hold_tail") and b.get("hold_reason")))
             if b.get("audio_src"):
+                if b.get("audio_tail_silence") and not b.get("audio_tail_reason"):
+                    issues.append(f"Audio silent tail lacks an editorial reason: {entry['id']}")
                 check(b["audio_src"], float(b.get("audio_from", 0)),
-                      max(0, duration - float(b.get("audio_at", 0))), entry, "audio", entry["id"] == "cold_open")
+                      max(0, duration - float(b.get("audio_at", 0))), entry, "audio",
+                      entry["id"] == "cold_open" or bool(b.get("audio_tail_silence") and b.get("audio_tail_reason")))
         elif kind == "triptych":
             for src in b["srcs"]:
                 check(src, float(b.get("start", 0)), duration * float(b.get("speed", 1)), entry, "video")

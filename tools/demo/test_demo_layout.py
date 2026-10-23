@@ -22,14 +22,25 @@ class ScreenClip:
 
 
 class HeaderLayoutTest(unittest.TestCase):
-    def test_later_integration_cut_preserves_edit_and_audio(self):
+    def test_v17_integration_cut_preserves_edit_and_audio(self):
         from check_v15 import structure_check
 
-        baseline = json.loads(Path(__file__).with_name("storyboard.json").read_text(encoding="utf-8"))
+        # This historical contract must not depend on the latest editorial cut,
+        # which intentionally replaces the old introduction and Studio order.
+        baseline = {"version": 16, "duration": 6, "beats": [
+            {"id": "intro_raw", "type": "clip", "dur": 1, "stamp": "Raw LTX fire", "start": 2.4, "speed": .225},
+            {"id": "how", "type": "triptych", "dur": 1, "labels": ["Raw LTX fire", "Carried"]},
+            {"id": "upload", "type": "clip", "dur": 1, "chip_header": True},
+            {"id": "perform", "type": "clip", "dur": 1, "chip_header": True, "wave_box": [.54, .025, .4, .115]},
+            {"id": "make", "type": "clip", "dur": 1, "chip_header": True},
+            {"id": "workflow_fire", "type": "clip", "dur": 1, "start": 2.4, "speed": .45},
+        ]}
         board = copy.deepcopy(baseline)
         board["version"] = 17
         next(b for b in board["beats"] if b["id"] == "intro_raw")["stamp"] = (
             "LTX-2.5 fire · CPU temporal derivative · slow motion")
+        next(b for b in board["beats"] if b["id"] == "intro_raw").update(start=2.65, speed=.2)
+        next(b for b in board["beats"] if b["id"] == "workflow_fire").update(start=2.65, speed=.4)
         next(b for b in board["beats"] if b["id"] == "how")["labels"][0] = "LTX fire · CPU derivative"
         _, errors = structure_check(board, baseline)
         self.assertEqual(errors, [])
@@ -39,7 +50,7 @@ class HeaderLayoutTest(unittest.TestCase):
 
     def test_chip_header_keeps_entire_source_below_chip(self):
         board = json.loads(Path(__file__).with_name("storyboard.json").read_text(encoding="utf-8"))
-        for beat in (b for b in board["beats"] if b["id"] in {"upload", "perform", "make"}):
+        for beat in (b for b in board["beats"] if b.get("chip_header")):
             with self.subTest(chip=beat["chip"]), patch.object(demo, "Clip", ScreenClip):
                 configuration = dict(type="clip", src="screen.mp4", dur=1 / demo.FPS,
                                      fill=beat["fill"], chip=beat["chip"], chip_header=beat["chip_header"])

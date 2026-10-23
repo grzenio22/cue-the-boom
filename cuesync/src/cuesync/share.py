@@ -13,7 +13,9 @@ SIZE = (720, 1280)  # (w, h): a phone's reel
 POP_FRAMES = 14  # the word on screen after each hit, popping in and settling
 TAG = "Cue the Boom"
 WORDS = {"fire_burst": "BOOM", "fireball": "BOOM", "fire_breath": "fwoooOOOM", "flame_plume": "fwoooOOOM",
-         "wick_flare": "fwoooOOOM", "steam_jet": "hissss", "smoke_puff": "pf", "blow_out": "pf"}
+         "wick_flare": "fwoooOOOM", "steam_jet": "hissss", "smoke_puff": "pf", "blow_out": "pf",
+         "explosion": "BOOM", "lightning_arc": "zzzzz", "lightning_ball": "zzzzz",
+         "water_orb": "sploosh", "water_whip": "shhhhh", "air_ball": "hoooooo", "air_blast": "HOO!"}
 
 
 def _font(size: int):
@@ -53,7 +55,8 @@ def share_reel(shot_dir: Path, out: Path) -> Path:
     cw = min(w, int(round(h * SIZE[0] / SIZE[1])))
     px = float(((rc.get("inputs") or {}).get("point") or [0.5, 0.5])[0])
     x0 = int(np.clip(px * w - cw / 2, 0, w - cw))
-    word = WORDS.get((rc.get("effect") or {}).get("id", ""), "BOOM")
+    # Custom effects have no known sound: keep their picture and audio without inventing a fire caption.
+    word = WORDS.get((rc.get("effect") or {}).get("id", ""))
     hits = hits_of(rc)
     small = _font(int(SIZE[0] * 0.05))
     reel = np.empty((n, SIZE[1], SIZE[0], 3), np.uint8)
@@ -61,7 +64,7 @@ def share_reel(shot_dir: Path, out: Path) -> Path:
         im = Image.fromarray(cv2.resize(frames[t, :, x0:x0 + cw], SIZE, interpolation=cv2.INTER_AREA))
         d = ImageDraw.Draw(im)
         since = [t - k for k in hits if 0 <= t - k < POP_FRAMES]
-        if since:  # pops in a little big, settles, fades
+        if since and word:  # pops in a little big, settles, fades
             a = min(since) / POP_FRAMES
             font = _font(int(SIZE[0] * (0.2 - 0.04 * min(1.0, a * 3))))
             alpha = 1.0 if a < 0.6 else 1.0 - (a - 0.6) / 0.4

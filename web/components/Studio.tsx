@@ -41,8 +41,11 @@ export default function Studio() {
   const [health, setHealth] = useState<Health | null>(null);
   const [effects, setEffects] = useState<EffectInfo[]>([]);
   const [samples, setSamples] = useState<Samples>({ plates: [], voices: [] });
+  const [hero, setHero] = useState<JobStatus | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [plate, setPlate] = useState<PickedPlate | null>(null);
+  const [quick, setQuick] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const [point, setPoint] = useState<[number, number] | null>(null);
   const [pointSet, setPointSet] = useState(false);
   const [direction, setDirection] = useState<number | null>(null);
@@ -73,8 +76,16 @@ export default function Studio() {
       setSamples(s);
     }, (err: Error) => setApiError(err.message));
   }, []);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/gallery").then((r) => r.ok ? r.json() : []).then((shots: JobStatus[]) => {
+      if (active && Array.isArray(shots)) setHero(shots.find((s) => s.again === 0 && s.files?.["final.mp4"]) ?? null);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
-  const pick = (p: PickedPlate) => {
+  const pick = (p: PickedPlate, quickStart = false) => {
+    setQuick(quickStart);
     setPlate(p);
     setPoint(p.point);
     setDirection(p.direction);
@@ -172,6 +183,13 @@ export default function Studio() {
 
   const current = takes.at(-1);
   const sceneLive = health?.modes.includes("scene") ?? false;
+  const palm = samples.plates.find((s) => s.name === "hand_palm.mp4" && s.hand && s.point);
+  const startQuick = () => {
+    if (!palm) return;
+    pick({ source: { sample: palm.name }, url: palm.url, title: palm.title ?? "Prepared palm",
+      point: palm.point ?? null, direction: palm.direction ?? null, subject: palm.subject ?? null,
+      scene: palm.scene, sample: true, sound: !!palm.sound, hand: palm.hand }, true);
+  };
   const madeAheadScene = !sceneLive && (health?.made_ahead?.includes("scene") ?? false);
   // with the GPU offline, the sample noises whose scene shot was made ahead of time (at the sample's own spot)
   const ready = madeAheadScene && plate?.sample && more.length === 0 && atSampleSpot(plate.point, point, plate.direction, direction)
@@ -210,9 +228,36 @@ export default function Studio() {
 
   return (
     <>
-      {!plate && <PlatePicker samples={samples.plates} onPick={pick} />}
+      {!plate && <>
+        <section className="quick-start" aria-label="Try it with your voice">
+          <div className="quick-intro">
+            <div>
+              <p>Start with our hand clip. Record a <strong>BOOM</strong> or a few quick pops, and make your own fire performance.</p>
+              <button type="button" className="quick-cta" disabled={!palm} onClick={startQuick}>Perform this fire with your voice</button>
+              <p className="muted quick-note">Your voice controls a new composition of an existing LTX-2.5 fire effect. No camera or GPU needed.</p>
+            </div>
+            {hero && <figure className="quick-preview">
+              <video src={hero.files["final.mp4"]} poster={hero.files["poster.jpg"]} controls playsInline preload="none"
+                aria-label="Prepared palm fire example, with the author's voice" />
+              <figcaption className="muted">This fire. Your rhythm.</figcaption>
+            </figure>}
+          </div>
+          {!health && <p className="muted" role="status">Getting the studio ready…</p>}
+          {health && !palm && <p className="chip warn">The prepared palm is unavailable on this server. Choose another clip below.</p>}
+          <button className="secondary" aria-expanded={advanced} aria-controls="studio-options"
+            onClick={() => setAdvanced(!advanced)}>{advanced ? "Hide other options" : "Use your own clip or explore effects"}</button>
+        </section>
+        {advanced && <div id="studio-options"><PlatePicker samples={samples.plates} onPick={pick} /></div>}
+      </>}
 
-      {plate && (
+      {plate && quick && <section ref={stepTwo} className="quick-selected">
+        <div className="row">
+          <span className="muted">Prepared palm · your voice · new fire performance</span>
+          <button className="secondary" disabled={rendering} onClick={() => { setPlate(null); setQuick(false); }}>Different shot</button>
+        </div>
+      </section>}
+
+      {plate && !quick && (
         <section ref={stepTwo}>
           <h2>2. Where does it come from?</h2>
           <div className="row">
@@ -349,7 +394,7 @@ export default function Studio() {
       {plate && where && pointSet && performing && (
         <Performer plateUrl={plate.url} point={where} voices={samples.voices} takes={takes.length} clipSound={plate.sound}
           scene={plate.sample ? plate.scene : undefined} ready={drawing ? drawnReady(plate, strokes) : ready} live={sceneLive}
-          drawn={drawing && strokes.length > 0} hand={hand} filmed={!!plate.filmed} replay={!!replayOf}
+          drawn={drawing && strokes.length > 0} hand={hand} filmed={!!plate.filmed} replay={!!replayOf} quick={quick}
           onDone={(p) => {
             setTakes((t) => [...t, { id: t.length + 1, performance: p, job: null, effect: null, replayOf, replayWith }]);
             setReplayOf(null);
@@ -360,20 +405,20 @@ export default function Studio() {
 
       {plate && where && pointSet && !performing && cue && (
         <section>
-          <h2>3. Cue it</h2>
+          <h2>{quick ? "Your recording" : "3. Cue it"}</h2>
           <div className="row">
             <span className="chip">{cue.cue === "clip" ? "the clip's own sound" : cue.cue === "hold" ? cue.label : cue.voice && "sample" in cue.voice ? `sample noise: ${cue.label}` : `your ${cue.label}`}</span>
             {cue.cue === "voice" && cue.previewUrl && <audio src={cue.previewUrl} controls preload="metadata" className="cue-audio" />}
             <button className="secondary" disabled={rendering} onClick={() => { setReplayOf(null); setPerforming(true); }}>Cue it differently</button>
           </div>
-          <p className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</p>
+          {!quick && <p className="muted">Same shot, same seed: a shorter, louder or different noise makes a different shot.</p>}
         </section>
       )}
 
       {plate && where && pointSet && !performing && current && (
         <ShotPanel key={current.id} plate={plate} point={where} direction={direction} performance={current.performance}
           strokes={drawing ? strokes : []} sources={sources} hand={hand ? { frame: aim?.frame ?? aimFrame, prep: shown?.track ? shown.id : null } : null}
-          initialJob={current.job} initialEffect={current.effect} onBusy={setRendering}
+          initialJob={current.job} initialEffect={current.effect} onBusy={setRendering} quick={quick}
           replayOf={current.replayOf ?? null} replayWith={current.replayWith ?? []}
           siblings={siblings}
           onReplay={(id, together) => { setReplayOf(id); setReplayWith(together); setPerforming(true); }}

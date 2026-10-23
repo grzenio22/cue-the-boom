@@ -31,6 +31,7 @@ from .effects import load_effect
 from .guide import GuidePlan, paint_guide, write_guide, write_guide_preview
 from .matte import grabcut_matte
 from .media import probe_video, read_audio, read_video, write_video
+from .readiness import Readiness, WorkflowPreflight
 from .score import measure_composite_end, measure_composite_onset, measure_element
 
 FPS = 24
@@ -56,6 +57,7 @@ class ComfyRenderer:
     name: str = "comfy"
 
     scenes: bool = True  # can render into the scene (the graph has the image-to-video node)
+    _preflight: WorkflowPreflight = field(default_factory=WorkflowPreflight, init=False, repr=False)
 
     def __call__(self, guide_path: Path, prompt: str, seed: int, out_path: Path, image: Path | None = None) -> float:
         from .runner import render_element
@@ -64,18 +66,12 @@ class ComfyRenderer:
                               out_path=out_path, timeout=self.timeout, image_path=image).seconds
 
     def ready(self) -> bool:
-        """Does the Comfy API behind COMFY_BASE_URL answer its health check?"""
-        import os
-        import urllib.request
+        """Are the configured workflow's required nodes and model files available?"""
+        return self.preflight().ready
 
-        base = os.environ.get("COMFY_BASE_URL", "").rstrip("/")
-        if not base:
-            return True  # Comfy Cloud defaults: trust the SDK
-        try:
-            with urllib.request.urlopen(f"{base}/api/v2/health", timeout=2.0) as r:
-                return r.status == 200
-        except Exception:
-            return False
+    def preflight(self) -> Readiness:
+        """Cached read-only API/inventory check; never submits a GPU job."""
+        return self._preflight.check(self.workflow, scenes=self.scenes)
 
     def matte(self, frame: np.ndarray, point: tuple[float, float]) -> np.ndarray | None:
         """SAM 2.1 on the server (CueSync node pack) checked against GrabCut: a single point can make SAM

@@ -148,6 +148,30 @@ describe("Performer microphone lifecycle", () => {
     else click(button(how));
   };
 
+  it("requires explicit microphone intent in the shortcut and emits the newly recorded WAV once", async () => {
+    const source = capture();
+    getUserMedia.mockResolvedValueOnce(source.stream);
+    const onDone = show({ quick: true, takes: 0 });
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+    expect(host.querySelector('input[type="checkbox"]')).toBeNull();
+    await arm();
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    expect(startPcmRecorder).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+    const recorder = pcmRecorder();
+    vi.mocked(startPcmRecorder).mockResolvedValue(recorder);
+    const plate = host.querySelector("video")!;
+    vi.spyOn(plate, "play").mockResolvedValue(undefined);
+    await act(async () => { button("Record & make fire").click(); button("Record & make fire").click(); });
+    expect(startPcmRecorder).toHaveBeenCalledTimes(1);
+    await act(async () => { plate.dispatchEvent(new Event("ended")); plate.dispatchEvent(new Event("ended")); });
+    expect(onDone).toHaveBeenCalledTimes(1);
+    expect(onDone.mock.calls[0][0].voice).toEqual({ file: expect.any(Blob), filename: "mic.wav" });
+    expect(recorder.stop).toHaveBeenCalledTimes(1);
+    URL.revokeObjectURL(onDone.mock.calls[0][0].previewUrl);
+  });
+
   // Missing invalidation must not leave a device live when its permission prompt resolves after departure.
   it.each(["unmount", "Press and hold", "The clip's own sound"] as const)("stops a stream acquired after %s", async (how) => {
     const pending = deferred<MediaStream>(), late = capture(Promise.resolve(), true);

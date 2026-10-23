@@ -32,7 +32,7 @@ const MAX_SHOT_S = 10;
  * Step 3: cue it. Say it (perform the noise over the playing plate: mic, optional face camera, or a sample
  * noise), use a sound already in the clip (a snap, a click, a slam), or press and hold while it plays.
  */
-export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, drawn = false, hand = false, filmed = false, replay = false, onDone }: {
+export default function Performer({ plateUrl, point, voices, takes, clipSound, scene, ready, live = true, drawn = false, hand = false, filmed = false, replay = false, quick = false, onDone }: {
   plateUrl: string;
   point: [number, number];
   voices: SampleVoice[];
@@ -40,6 +40,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   clipSound: boolean; // the plate is the user's own clip (it may carry a sound to lock to)
   filmed?: boolean; // filmed in the studio with its noise in it: its own sound is the cue to start with
   replay?: boolean; // performing a finished shot again accepts a new voice or hold cue
+  quick?: boolean; // prepared fire: record a voice and compose as soon as the clip ends
   scene?: SceneMap; // a sample plate's map: what each noise does to it
   ready?: string[]; // sample noises whose scene shot was made ahead of time (the GPU is offline)
   live?: boolean; // the GPU renders into the scene right now
@@ -384,9 +385,10 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   };
 
   return (
-    <section>
-      <h2>3. Cue it</h2>
-      <div className="row" role="radiogroup" aria-label="How to cue it">
+    <section className={quick ? "quick-performer" : undefined}>
+      <h2>{quick ? "Record your rhythm" : "3. Cue it"}</h2>
+      {quick && <p className="muted">Allow your microphone, then press Record &amp; make fire. Say <strong>BOOM</strong> once or a few times as the clip plays. We make your shot when it ends.</p>}
+      {!quick && <div className="row" role="radiogroup" aria-label="How to cue it">
         <button role="radio" aria-checked={kind === "voice"} className={kind === "voice" ? "" : "secondary"}
           disabled={busy || holdPlaying} onClick={() => changeKind("voice")}>Say it</button>
         <button role="radio" aria-checked={kind === "clip"} className={kind === "clip" ? "" : "secondary"}
@@ -395,7 +397,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         <button role="radio" aria-checked={kind === "hold"} className={kind === "hold" ? "" : "secondary"}
           disabled={busy || holdPlaying || onlyReady} onClick={() => changeKind("hold")}
           title={onlyReady ? why : undefined}>Press and hold</button>
-      </div>
+      </div>}
       <div className="perform">
         <video ref={plateRef} src={plateUrl} playsInline muted preload="auto" className={plateWide ? "plate wide" : "plate"}
           onLoadedMetadata={(e) => setPlateWide(e.currentTarget.videoWidth > e.currentTarget.videoHeight)} />
@@ -425,7 +427,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
         <>
           <div className="row">
             <button disabled={onlyReady} title={onlyReady ? why : undefined} onClick={() => void arm()}>Use my microphone</button>
-            <label className="muted"><input type="checkbox" checked={withFace} onChange={(e) => { release(); setWithFace(e.target.checked); }} /> add my face to the shot</label>
+            {!quick && <label className="muted"><input type="checkbox" checked={withFace} onChange={(e) => { release(); setWithFace(e.target.checked); }} /> add my face to the shot</label>}
           </div>
           <p className="muted">{onlyReady ? `${why}: pick it below.` : withFace ? "Your face video is uploaded with your noise and shown as an inset in the final shot." : "Only your noise is uploaded."}</p>
         </>
@@ -435,7 +437,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
           <div className="meter" aria-label="microphone level"><span style={{ width: `${Math.round(level * 100)}%` }} /></div>
           {notes.map((n) => <span key={n} className="chip warn">{n}</span>)}
           <div className="row">
-            <button disabled={busy} onClick={() => void perform()}>{takes > 0 ? "Perform again" : "Perform"}</button>
+            <button disabled={busy} onClick={() => void perform()}>{quick ? "Record & make fire" : takes > 0 ? "Perform again" : "Perform"}</button>
             <span className="muted">{step === "starting" ? "Starting the microphone…" : step === "finishing" ? "Saving your recording…" : step === "performing" ? "Recording: make the noise when it should hit!" : "The clip plays muted. Make your noise at the moment it should happen."}</span>
           </div>
         </>
@@ -460,9 +462,9 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             </button>
           );
         };
-        const offered = voices.filter((v) => hand || !v.hand); // (a hand's lightning, water, air: not a pumpkin's)
+        const offered = voices.filter((v) => quick ? ["ka-boom.wav", "pf-pf-boom-author.wav", "pf-x4-author.wav"].includes(v.name) : hand || !v.hand);
         const real = live ? [] : offered.filter(isReady);
-        return (
+        const samples = (
           <>
             {real.length > 0 && (
               <div className="row">
@@ -476,6 +478,8 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             </div>
           </>
         );
+        return quick ? <details className="quick-fallback"><summary>Try a sample voice instead</summary>
+          <p className="muted">These are recorded examples, not your microphone. Choosing one makes a new composition with that sample.</p>{samples}</details> : samples;
       })()}
     </section>
   );

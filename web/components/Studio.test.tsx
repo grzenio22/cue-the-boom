@@ -32,11 +32,16 @@ beforeEach(() => {
       case "/api/effects":
         data = [{ id: "fireball", fluid: "fire", behaviour: "burst", stops_with_voice: false, scene: true }];
         break;
+      case "/api/gallery":
+        data = [];
+        break;
       case "/api/samples":
         data = {
           plates: [{ name: "candle_snap.mp4", url: "/candle.mp4", title: "Candle", point: [0.5, 0.5], sound: true,
-            scene: { "pop.wav": "fireball" } }],
-          voices: [{ name: "pop.wav", url: "/pop.wav", title: "Pop", effect: "fireball" }],
+            scene: { "pop.wav": "fireball" } },
+            { name: "hand_palm.mp4", url: "/palm.mp4", title: "Prepared palm", point: [0.509, 0.654], hand: { frame: 54 } }],
+          voices: [{ name: "pop.wav", url: "/pop.wav", title: "Pop", effect: "fireball" },
+            { name: "pf-pf-boom-author.wav", url: "/rhythm.wav", title: "pf, pf, BOOM", effect: "fire_burst" }],
         };
         break;
       case "/api/jobs":
@@ -75,9 +80,73 @@ afterEach(() => {
 const button = (text: string) => [...host.querySelectorAll("button")].find((b) => b.textContent === text)!;
 const click = async (text: string) => { await act(async () => { button(text).click(); }); };
 
+describe("Studio prepared palm shortcut", () => {
+  it("offers creation first and selects the prepared palm without requesting microphone permission or submitting", async () => {
+    const getUserMedia = vi.fn();
+    const original = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia } });
+    try {
+      await act(async () => { root.render(<Studio />); });
+      expect(host.querySelector("button")?.textContent).toBe("Perform this fire with your voice");
+      expect(button("Candle")).toBeUndefined();
+      await click("Perform this fire with your voice");
+      expect(host.textContent).toContain("Record your rhythm");
+      expect(host.textContent).not.toContain("Where does it come from?");
+      expect(host.querySelector("video")?.getAttribute("src")).toBe("/palm.mp4");
+      expect(button("Use my microphone").disabled).toBe(false);
+      expect(getUserMedia).not.toHaveBeenCalled();
+      expect(submitted).toHaveLength(0);
+      await click("Different shot");
+      await click("Use your own clip or explore effects");
+      expect(button("Candle")).toBeDefined();
+      expect(host.textContent).toContain("Use your own clip");
+    } finally {
+      if (original) Object.defineProperty(navigator, "mediaDevices", original);
+      else Reflect.deleteProperty(navigator, "mediaDevices");
+    }
+  });
+
+  it("composes the selected sample explicitly and performs again through the existing replay route", async () => {
+    vi.useFakeTimers();
+    const apiFetch = fetch;
+    const replayed: FormData[] = [];
+    const palmJob: JobStatus = { ...job, id: "fresh-palm", cached: false, mode: "bending", files: { "final.mp4": "/fresh-palm.mp4" },
+      receipt: { ...job.receipt!, mode: "bending", bending: { mask: null, snap: { used: "cue", mismatch: false },
+        hits: [{ frame: 24, gain: 1, size: 1 }], performed_again: { from: "prepared-palm", no_new_render: true } } } };
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/jobs") { submitted.push(init!.body as FormData); return Response.json(palmJob); }
+      if (url === "/api/jobs/fresh-palm/replay") { replayed.push(init!.body as FormData); return Response.json({ ...palmJob, id: "second-palm" }); }
+      return apiFetch(url, init);
+    });
+    await act(async () => { root.render(<Studio />); });
+    await click("Perform this fire with your voice");
+    expect(host.querySelector("details")?.open).toBe(false);
+    expect(host.textContent).toContain("These are recorded examples, not your microphone");
+    await click("pf, pf, BOOM");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(submitted).toHaveLength(1);
+    const form = submitted[0];
+    expect(form.get("plate_sample")).toBe("hand_palm.mp4");
+    expect(form.get("mode")).toBe("bending");
+    expect(form.get("performance_mode")).toBe("reuse");
+    expect(form.get("effect")).toBe("fire_burst");
+    expect(form.get("voice_sample")).toBe("pf-pf-boom-author.wav");
+    expect(form.get("frame")).toBe("54");
+    expect(host.querySelector('a[download="cue-the-boom.mp4"]')?.textContent).toBe("Download");
+    await click("Perform again");
+    expect(host.textContent).toContain("Record your rhythm");
+    await click("pf, pf, BOOM");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(submitted).toHaveLength(1);
+    expect(replayed).toHaveLength(1);
+    expect(replayed[0].get("voice_sample")).toBe("pf-pf-boom-author.wav");
+  });
+});
+
 describe("Studio replay cues", () => {
   it("limits Perform it again to replay cues after making an offline sample from its own sound", async () => {
     await act(async () => { root.render(<Studio />); });
+    await click("Use your own clip or explore effects");
     await click("Candle");
     expect(button("The clip's own sound").disabled).toBe(false);
     await click("The clip's own sound");
@@ -124,6 +193,7 @@ describe("Studio interrupted render recovery", () => {
       return apiFetch(url, init);
     });
     await act(async () => { root.render(<Studio />); });
+    await click("Use your own clip or explore effects");
     await click("Candle");
     await click("The clip's own sound");
     await click("Lock it to my clip's sound");

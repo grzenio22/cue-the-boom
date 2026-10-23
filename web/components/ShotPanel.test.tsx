@@ -82,6 +82,56 @@ const finishedHand = (effect: string): JobStatus => ({
   },
 });
 
+describe("ShotPanel prepared fire shortcut", () => {
+  const quickPlate: Props["plate"] = { ...plate, source: { sample: "hand_palm.mp4" }, hand: { frame: 54 } };
+
+  it("automatically submits the recorded voice once, prevents duplicate taps, and retries a failed request", async () => {
+    vi.useFakeTimers();
+    let finishRequest!: (response: Response) => void;
+    const recorded = { ...autoPerformance, voice: { file: new Blob(["new microphone PCM"], { type: "audio/wav" }), filename: "mic.wav" } };
+    const done = { ...finishedHand("fire_burst"), files: { "final.mp4": "/fresh-fire.mp4" } };
+    const onReplay = vi.fn();
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      expect(url).toBe("/api/jobs");
+      sent.push(init!.body as FormData);
+      if (sent.length === 1) return new Promise<Response>((resolve) => { finishRequest = resolve; });
+      return Response.json(done);
+    });
+    await show({ quick: true, plate: quickPlate, performance: recorded, modes: ["bending", "scene", "instant"], onReplay });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].get("voice")).toBeInstanceOf(File);
+    expect(sent[0].get("voice_sample")).toBeNull();
+    expect(sent[0].get("performance_mode")).toBe("reuse");
+    expect(sent[0].get("effect")).toBe("fire_burst");
+    expect(sent[0].get("mode")).toBe("bending");
+    expect(radios()).toHaveLength(0);
+    expect(button("Making your fire…").disabled).toBe(true);
+    await tap(button("Making your fire…"));
+    expect(sent).toHaveLength(1);
+    await act(async () => { finishRequest(new Response("Temporary service failure", { status: 503 })); });
+    expect(host.textContent).toContain("Temporary service failure");
+    expect(button("Try again").disabled).toBe(false);
+    await tap(button("Try again"));
+    expect(sent).toHaveLength(2);
+    expect((sent[1].get("voice") as File).name).toBe("mic.wav");
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/fresh-fire.mp4");
+    expect(host.querySelector('a[download="cue-the-boom.mp4"]')?.textContent).toBe("Download");
+    await tap(button("Perform again"));
+    expect(onReplay).toHaveBeenCalledWith("finished-hand", []);
+  });
+
+  it("does not resubmit a pending quick take after the panel remounts", async () => {
+    vi.useFakeTimers();
+    const pending: JobStatus = { ...finishedHand("fire_burst"), status: "running", stage: "compositing", progress: 0.4, files: {}, receipt: null };
+    await show({ quick: true, plate: quickPlate, initialJob: pending, initialEffect: "fire_burst" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(sent).toHaveLength(0);
+    expect(button("Check existing shot").disabled).toBe(false);
+    expect(host.textContent).toContain("Last known status: running");
+  });
+});
+
 describe("ShotPanel offline sample hand", () => {
   it("lets an automatic cue reveal the available made effects without offering rendered hand effects", async () => {
     await show({ performance: autoPerformance });
@@ -222,7 +272,7 @@ describe("ShotPanel monitoring recovery", () => {
     close() { this.closed = true; }
   }
 
-  it("checks the existing shot after monitoring fails instead of submitting another render", async () => {
+  it.each([false, true])("checks the existing shot after monitoring fails instead of submitting another render (quick=%s)", async (quick) => {
     vi.useFakeTimers();
     vi.stubGlobal("EventSource", ProgressStream);
     let online = false;
@@ -238,8 +288,9 @@ describe("ShotPanel monitoring recovery", () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     const completed: { id: string; effect: string }[] = [];
-    await show({ onDone: (job, effect) => completed.push({ id: job.id, effect }) });
-    await tap(button("Make the shot"));
+    await show({ quick, onDone: (job, effect) => completed.push({ id: job.id, effect }) });
+    if (quick) await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    else await tap(button("Make the shot"));
     await act(async () => {
       ProgressStream.latest.onerror?.();
       await vi.advanceTimersByTimeAsync(6000);
@@ -248,14 +299,14 @@ describe("ShotPanel monitoring recovery", () => {
     expect(host.textContent).not.toContain("The shot failed");
     expect(host.textContent).toContain("submitted-shot");
     expect(button("Check existing shot").disabled).toBe(false);
-    await tap(radio("Air ball"));
+    if (!quick) await tap(radio("Air ball"));
     online = true;
     await tap(button("Check existing shot"));
     await act(async () => { ProgressStream.latest.onerror?.(); });
 
     expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/shot.mp4");
     expect(sent).toHaveLength(1);
-    expect(completed).toEqual([{ id: "submitted-shot", effect: "water_orb" }]);
+    expect(completed).toEqual([{ id: "submitted-shot", effect: quick ? "fire_burst" : "water_orb" }]);
   });
 
   it("stops observing a submitted shot when the panel unmounts", async () => {

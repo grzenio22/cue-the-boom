@@ -23,11 +23,15 @@ It talks to the render API (`cuesync serve`, see the root README) through this o
 ## Pages
 
 - `/` is the studio:
-  1. Pick a sample shot or your own clip.
-  2. Tap or draw where the effect comes from.
-  3. Cue it: the microphone, the clip's own sound, or press-and-hold.
-  4. Make it **Instant** (no GPU) or **Into the scene** (GPU), then drag the hit to re-time it.
+  1. **Perform this fire with your voice** selects the prepared palm clip. Selecting it does not request microphone access.
+  2. **Use my microphone** grants access; **Record & make fire** starts the recording and clip playback.
+  3. Say BOOM or a few quick pops. When the clip ends, the studio uploads the new WAV and automatically composes the existing fire with its timing and strength.
+  4. **Download** the result or **Perform again** with another rhythm. Sample voices are a clearly labeled, collapsed alternative.
+
+  **Use your own clip or explore effects** opens the full flow: choose or film a clip, tap or draw the source, and cue it with a microphone, the clip's own sound, or press-and-hold. Effects can be carried on a tracked hand, placed as an instant element, or generated into the scene when the required GPU resources are ready.
 - `/dub` is the older recorder. You download `mic.wav`, `face.<mp4|webm>` and `timing.json`; nothing is uploaded.
+
+The prepared-palm shortcut sends `mode=bending`, `effect=fire_burst`, and `performance_mode=reuse` to `/api/jobs`. This explicitly composes the saved source on the CPU even when GPU generation is available. It cannot silently fall back to a fresh generation or a prerecorded final video. The server validates the prepared resources and returns an ordinary queued job; interrupted monitoring resumes that job instead of submitting another one. A completed performance uses `/api/jobs/{id}/replay` for its next take.
 
 ## `timing.json` (v1)
 

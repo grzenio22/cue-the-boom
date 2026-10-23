@@ -44,8 +44,10 @@ To install this folder on its own instead, copy it into `custom_nodes/` and inst
 
 ```bash
 pip install -r custom_nodes/comfyui-cuesync/requirements.txt
-pip install "git+https://github.com/grzenio22/cue-the-boom#subdirectory=cuesync"
+python custom_nodes/comfyui-cuesync/install.py
 ```
+
+The standalone installer and package metadata select the same tested core revision. The installer resolves its dependencies, then replaces only `cuesync` so an older checkout with the same version number cannot be retained. It does not force-reinstall ComfyUI's dependency stack. A full repository checkout uses its adjacent core instead.
 
 The effects (fireball, fire breath, fire burst, flame plume, flare-up, blow it out, smoke puff, steam) are the JSON files in the repository's `effects/` folder, and the install above ships them inside `cuesync`. To add your own, put JSON files in a folder and point `CUESYNC_EFFECTS` at it; name each file after the `id` inside it (`my_fire.json` holds `"id": "my_fire"`).
 

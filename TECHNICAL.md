@@ -241,6 +241,8 @@ Your own renders, for your hand's pose or into the scene, need ComfyUI with LTX-
 - **Your own GPU:** run ComfyUI with this repository and ComfyUI-LTXVideo in `custom_nodes/` ([installation below](#in-comfyui)), run comfy-api-proxy in front of it, and point `COMFY_BASE_URL` at the proxy.
 - **A rented GPU:** [`infra/pod/`](infra/pod/README.md) creates, sets up and terminates a disposable Runpod pod (it needs `RUNPOD_API_KEY` and `HF_TOKEN`; the models live on a network volume, about 120 GB). A watchdog terminates the pod when it is idle.
 
+The studio's GPU preflight ([`readiness.py`](cuesync/src/cuesync/readiness.py)) checks API access and the configured graph's node classes/model filename choices, rather than the proxy-only health route. Native inventory comes from `COMFYUI_BASE_URL/object_info` (automatic for the standard local 8189→8188 setup), or Cloud's documented `/api/object_info`. Checks expire after 15 seconds; workflow/connection changes invalidate them immediately. Missing scene-only support disables scene generation without disabling an otherwise valid element workflow. Optional SAM matting nodes are not required. A managed v2-only deployment with no exposed native inventory is reported as **unverified** and retains the CPU reuse flow; no paid job is submitted by preflight. A passing check does not establish GPU memory capacity or model-load success.
+
 ```bash
 python infra/pod/podctl.py volume create
 python infra/pod/podctl.py up

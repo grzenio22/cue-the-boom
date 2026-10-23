@@ -4,7 +4,7 @@
     cuesync serve --instant-only                                # no GPU: the pre-rendered library only
 
 POST /api/jobs (multipart): plate (or plate_sample), voice (or voice_sample) (+ optional face, timing.json from
-     Dub Mode), effect, x, y, seed, mode ("render" | "instant").
+     Dub Mode), effect, x, y, seed, mode; performance_mode="reuse" explicitly performs a prepared hand on the CPU.
 GET  /api/jobs/{id}         status, stage, progress, result URLs
 GET  /api/jobs/{id}/events  the same as server-sent events
 POST /api/hands/prepare     your tapped hand followed through your clip before a shot (its path, where it was lost)
@@ -35,7 +35,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # the `serve
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
-RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "receipt.json", "poster.jpg", "share.mp4",
+RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "render.mp4", "receipt.json", "poster.jpg", "share.mp4",
                 "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4", "hand_track.json")
 EARLY_FILES = ("guide_preview.mp4", "cue.json", "hand_track.json")  # shown while the shot is still being made
 # the checkout's samples/: from the current folder or any folder above it (started from web/), or next to the source
@@ -64,14 +64,17 @@ class Job:
     events: list = field(default_factory=list)
 
     def public(self) -> dict:
-        names = RESULT_FILES if self.status == "done" else EARLY_FILES
+        # The worker can finish while file existence checks release the GIL. A terminal status must never
+        # be paired with the earlier nonterminal file list, or the browser stops polling without downloads.
+        status = self.status
+        names = RESULT_FILES if status == "done" else EARLY_FILES
         files = {n: f"/api/jobs/{self.id}/files/{n}" for n in names if (self.dir / n).exists()}
         receipt = None
-        if self.status == "done" and (self.dir / "receipt.json").exists():
+        if status == "done" and (self.dir / "receipt.json").exists():
             receipt = json.loads((self.dir / "receipt.json").read_text())
         spec_extra = getattr(self.spec, "extra", None) or {}
         return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "again": self.again,
-                "status": self.status,
+                "status": status,
                 "effect": getattr(self.spec, "effect", None) or ((receipt or {}).get("effect") or {}).get("id"),
                 "gesture": spec_extra.get("gesture"),
                 "heard": (spec_extra.get("auto") or {}).get("heard"),  # effect "auto": the sound's kind ("whoosh")
@@ -227,10 +230,14 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         gallery.append(job)
     ready = {"t": 0.0, "ok": False}
 
-    def render_ready() -> bool:
-        """Is the GPU backend actually answering? (checked at most every 15 s)"""
+    def render_ready(scene: bool = False) -> bool:
+        """Comfy preflight validates models/nodes and owns its configuration-aware cache."""
         if renderer is None:
             return False
+        preflight = getattr(renderer, "preflight", None)
+        if callable(preflight):
+            checked = preflight()
+            return bool(checked.scene_ready if scene else checked.ready)
         probe = getattr(renderer, "ready", None)
         if probe is None:
             return True
@@ -245,7 +252,10 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         if scenes and "render" in modes:
             from .bending import helpers_ready
 
-            modes += ["scene"] + (["bending"] if helpers_ready() else [])  # (a hand needs the tracker installed)
+            if render_ready(scene=True):
+                modes.append("scene")
+            if helpers_ready():  # the hand's element is generated over black; no scene LoadImage node is needed
+                modes.append("bending")
         if "bending" not in modes:  # no GPU: your hand still gets an element rendered ahead of time, with the tracker
             from .bending import helpers_ready, library_dir
 
@@ -269,7 +279,10 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     def health():
         from .bending import helpers_ready, library_dir
 
+        preflight = getattr(renderer, "preflight", None)
+        backend = dataclasses.asdict(preflight()) if callable(preflight) else None
         return {"ok": True, "renderer": getattr(renderer, "name", None), "modes": available_modes(),
+                "render_backend": backend,
                 "made_ahead": sorted({e["mode"] for e in cache.values()}), "queued": jq.queued("render"),
                 "hand": {"tracker": helpers_ready(), "library": library_dir() is not None,  # what a hand of your own needs
                          "can_install": local, "installing": setup["running"], "install_error": setup["error"]}}
@@ -455,11 +468,19 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      direction: float | None = Form(None), subject: str | None = Form(None),
                      cue: str = Form("voice"), holds: str | None = Form(None), strokes: str | None = Form(None),
                      describe: str | None = Form(None), object: str | None = Form(None),  # noqa: A002
-                     sources: str | None = Form(None), frame: int | None = Form(None), reuse: str | None = Form(None)):
+                     sources: str | None = Form(None), frame: int | None = Form(None), reuse: str | None = Form(None),
+                     performance_mode: str | None = Form(None)):
         from .bending import BENDING_PROMPTS, MADE, helpers_ready  # the elements a hand can throw (rendered, or made here)
         from .cues import SOURCES
         from .scene import Strokes
 
+        if performance_mode not in (None, "reuse"):
+            raise HTTPException(400, "performance_mode must be 'reuse' or omitted")
+        reuse_performance = performance_mode == "reuse"
+        if reuse_performance and (mode != "bending" or plate_sample is None or plate is not None or cue != "voice"
+                                  or effect == "auto" or effect in MADE or reuse or element):
+            raise HTTPException(400, "reuse needs a prepared hand sample, its generated effect and a voice; "
+                                "use mode='bending' without an element or another hand job")
         if cue not in SOURCES:
             raise HTTPException(400, f"cue must be one of {list(SOURCES)}")
         hold_list = None
@@ -527,8 +548,9 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 raise HTTPException(400, "Into the scene needs the GPU render API, which this server doesn't have" + ahead)
             if mode != "scene" and mode not in jq.renderers:
                 raise HTTPException(400, f"mode {mode!r} is not available here (available: {available_modes()})")
-            if mode in ("render", "scene") and not render_ready():
-                raise HTTPException(503, "the GPU is offline right now; instant mode still works" + ahead)
+            if mode in ("render", "scene") and not render_ready(scene=mode == "scene"):
+                raise HTTPException(503, "the GPU workflow is not ready; check /api/health for missing models or nodes; "
+                                    "instant mode still works" + ahead)
         if direction is not None and not -180 <= direction <= 180:
             raise HTTPException(400, "direction must be in [-180, 180] degrees")
         subject = (subject or "").strip()[:120] or None
@@ -546,6 +568,34 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         d = jq.root / job_id
         meta = sample_meta()
         pm = meta.get("plates", {}).get(plate_sample, {}) if plate_sample else {}
+        prepared_hand = None
+        if reuse_performance:
+            candidates = [e for e in cache.values() if e.get("mode") == "bending"
+                          and e.get("plate") == plate_sample and e.get("effect") == effect]
+            if not candidates or not pm.get("hand"):
+                raise HTTPException(409, "no prepared hand and generated element are available for that sample and effect")
+            # Prefer the original performance when a gallery also contains alternative rhythms.
+            prepared_hand = min(candidates, key=lambda e: e.get("again") or 0)
+            src = Path(prepared_hand["path"])
+            try:
+                rc = json.loads((src / "receipt.json").read_text())
+                b = rc["bending"]
+                first = (Path(b["performed_again"]["from"]) if b.get("performed_again") else
+                         Path(b["instant"]["library"]) if b.get("instant") else src)
+                track = json.loads((first / "hand_track.json").read_text())
+                valid = (rc.get("mode") == "bending" and rc["effect"]["id"] == effect
+                         and (first / "element.mp4").is_file() and (first / "element.mp4").stat().st_size > 0
+                         and (first / "receipt.json").is_file() and track["W"] > 0 and track["H"] > 0
+                         and bool(track["xy"]) and (not b.get("mask") or (first / "hand_mask.npz").is_file()))
+                if not valid:
+                    raise ValueError("missing source, tracking or mask")
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                raise HTTPException(409, "the prepared hand resources are incomplete; restore the sample's "
+                                    "element, receipt, tracking and mask before performing it") from exc
+            if x is None and y is None:
+                x, y = pm.get("point", rc["inputs"]["point"])
+            if x is None or y is None:
+                raise HTTPException(400, "send both x and y, or omit both for the prepared hand's point")
         if object is not None and not plate_sample:  # your own clip, and what it is
             from .gestures import OBJECTS
 
@@ -583,7 +633,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                                  and describe in (None, e.get("describe"))), None)
             if drawn_sample:
                 describe = drawn_sample.get("describe")  # rendered live, it says what the sample said
-        if (plate_sample and sample_voice and face is None and timing is None and offset_s is None and scale is None
+        if (not reuse_performance and plate_sample and sample_voice and face is None and timing is None and offset_s is None and scale is None
                 and element is None and x is not None and y is not None and not auto and not source_list
                 and (not stroke_data or drawn_sample) and (not describe or drawn_sample)):
             hit = cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
@@ -617,11 +667,12 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             return [e for k, e in cache.items() if e.get("mode") == "scene" and e.get("plate") == plate_sample
                     and spot in k and not e.get("drawn")]
 
-        offline = mode == "scene" and not (scenes and "render" in jq.renderers and render_ready())
+        offline = mode == "scene" and not (scenes and "render" in jq.renderers and render_ready(scene=True))
         ahead_scene = made_ahead_scene() if offline and not (stroke_data or describe or source_list or face) else []
         # a sample hand with its element made ahead: with the GPU offline, your take plays that render on the hand; an
         # element made here is made on the sample's own track and matte, GPU or not (no tracker needed)
-        ahead_hand = [e for e in cache.values() if e.get("mode") == "bending" and e.get("plate") == plate_sample] \
+        ahead_hand = [prepared_hand] if prepared_hand else \
+            [e for e in cache.values() if e.get("mode") == "bending" and e.get("plate") == plate_sample] \
             if mode == "bending" and plate_sample and (made or not render_ready() or not helpers_ready()) else []
         if ahead_hand:  # (a fire made ahead replays; an element made here takes a shot's track, the fire's first)
             fire_ahead = [e for e in ahead_hand if e["effect"] not in MADE]
@@ -681,7 +732,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                 auto_effect(spec, pm, voice_sample)
             except Exception as exc:
                 raise HTTPException(400, f"couldn't read the cue: {exc}") from None
-        if ahead_hand:  # the GPU is offline: the sample hand's element made ahead plays this take on it (no new render)
+        if ahead_hand:  # explicit reuse, or the GPU is offline: perform the prepared element without a new render
             sample_frame = int(pm.get("hand", {}).get("frame", ahead_hand[0].get("tap_frame", 0)))
             if frame is None:
                 spec.extra["tap_frame"] = sample_frame
@@ -919,7 +970,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             raise HTTPException(404, "no such file")
         if job.status != "done" and name not in EARLY_FILES:
             raise HTTPException(404, "not ready yet")
-        return FileResponse(job.dir / name, media_type="application/json" if name.endswith(".json") else "video/mp4")
+        media_type = {".json": "application/json", ".jpg": "image/jpeg", ".mp4": "video/mp4"}[Path(name).suffix]
+        return FileResponse(job.dir / name, media_type=media_type)
 
     if studio is not None and (Path(studio) / "index.html").exists():  # the studio itself, beside the API
         from fastapi.staticfiles import StaticFiles

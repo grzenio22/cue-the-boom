@@ -1,51 +1,25 @@
 {
-  "version": 17,
-  "duration": 113.375,
+  "version": 18,
+  "duration": 99.125,
   "beats": [
     {
-      "id": "cold_open",
+      "id": "hero_open",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\explosion_palm\\composite.mp4",
-      "start": 0,
-      "dur": 7.083333333333333,
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
+      "start": 2.8,
+      "dur": 4.75,
+      "speed": 0.125,
       "fill": true,
       "portrait_backdrop": true,
-      "pops": [
-        [
-          1.46,
-          "BOOM"
-        ]
-      ],
-      "pop_x": 1.35,
-      "pop_y": 0.55,
-      "cue_text": "the author's recorded voice: BOOM",
-      "cue_at": 1.32,
-      "cue_dur": 2.3,
-      "source_gain": 0.2,
-      "audio_src": "D:\\openHiggsfield\\runs\\takes\\plates\\IMG_6666.mp4",
-      "audio_gain": 10,
-      "stamp": "Author's hand + voice · LTX-2.5 fireball · CPU compositing, lighting and shock effects"
-    },
-    {
-      "id": "intro_raw",
-      "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
-      "start": 2.65,
-      "dur": 4.0,
-      "speed": 0.2,
-      "fill": true,
-      "portrait_backdrop": true,
-      "crop": [
-        0.22,
-        0.06,
-        0.82,
-        0.94
-      ],
       "headline": "Cue the Boom",
       "subline": "Generate once. Perform again.",
-      "stamp": "LTX-2.5 fire · CPU temporal derivative · slow motion",
+      "stamp": "Author's hand · stored LTX fire + CPU compositing and lighting · slow motion",
+      "audio_src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\intro_finished.wav",
+      "audio_from": 0,
+      "audio_gain": 0.8,
+      "audio_replace": true,
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\once12.wav",
-      "vo_at": 0.2,
+      "vo_at": 0.15,
       "vo_gain": 1.3,
       "vo_text": "Generate the effect once. Perform it again with your voice.",
       "vo_captions": [
@@ -55,23 +29,6 @@
           "Generate the effect once. Perform it again with your voice."
         ]
       ]
-    },
-    {
-      "id": "intro_finished",
-      "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
-      "start": 2.4,
-      "dur": 6.0,
-      "speed": 0.15,
-      "fill": true,
-      "portrait_backdrop": true,
-      "headline": "Cue the Boom",
-      "subline": "Your voice performs the effect.",
-      "stamp": "The same fire, carried on the hand · slow motion",
-      "audio_src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\intro_finished.wav",
-      "audio_from": 0,
-      "audio_gain": 0.8,
-      "audio_replace": true
     },
     {
       "id": "performance_turns",
@@ -162,7 +119,7 @@
       "headline": "1 LTX generation · 3 performances · 0 additional AI generations",
       "element_src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
       "element_at": 2.92,
-      "stamp": "Same hand footage + one LTX-2.5 element · author's recorded pf and BOOM"
+      "stamp": "Author's recorded voice, edited rhythms · same footage + one LTX element"
     },
     {
       "id": "small_and_big",
@@ -255,7 +212,7 @@
       "headline": "1 LTX generation · 3 performances · 0 additional AI generations",
       "element_src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
       "element_at": 2.92,
-      "stamp": "Same hand footage + one LTX-2.5 element · author's recorded pf and BOOM",
+      "stamp": "Author's recorded voice, edited rhythms · same footage + one LTX element",
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\size12.wav",
       "vo_at": 0,
       "vo_gain": 1.3,
@@ -267,6 +224,113 @@
           "A quiet puff plays small. A loud boom plays big."
         ]
       ]
+    },
+    {
+      "id": "try_sample",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
+      "start": 2.8,
+      "dur": 1.5,
+      "fill": true,
+      "chip_header": true,
+      "crop": [
+        0.3,
+        0.03,
+        0.7,
+        0.57
+      ],
+      "chip": "1. Start with the prepared palm",
+      "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
+      "source_gain": 0
+    },
+    {
+      "id": "perform",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
+      "start": 4.3,
+      "dur": 5.083333333333333,
+      "fill": true,
+      "chip_header": true,
+      "crop": [
+        0.3,
+        0.03,
+        0.7,
+        0.6
+      ],
+      "chip": "2. Record & make fire",
+      "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
+      "source_gain": 0,
+      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\jobs\\32777818fbb6\\in\\voice.wav",
+      "audio_at": 1.3544291992187505,
+      "audio_from": 0,
+      "audio_gain": 2.5,
+      "audio_replace": true,
+      "author_voice": true,
+      "wave": true,
+      "wave_box": [
+        0.6,
+        0.025,
+        0.35,
+        0.115
+      ],
+      "audio_tail_silence": true,
+      "audio_tail_reason": "The complete uploaded recording ends before the automatic composition view; remaining screen time is silent."
+    },
+    {
+      "id": "make",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
+      "start": 9.383333333333333,
+      "dur": 2.5,
+      "fill": true,
+      "chip_header": true,
+      "crop": [
+        0.3,
+        0.03,
+        0.7,
+        0.46
+      ],
+      "chip": "18.4s CPU composition · wait shortened",
+      "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
+      "source_gain": 0
+    },
+    {
+      "id": "download",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
+      "start": 27.75,
+      "dur": 5,
+      "fill": true,
+      "chip_header": true,
+      "crop": [
+        0.3,
+        0.025,
+        0.7,
+        0.78
+      ],
+      "chip": "3. Download · or perform again",
+      "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
+      "source_gain": 0,
+      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\jobs\\32777818fbb6\\final.mp4",
+      "audio_at": 0.22,
+      "audio_from": 0,
+      "audio_gain": 1,
+      "audio_replace": true,
+      "audio_tail_silence": true,
+      "audio_tail_reason": "The complete exported sound ends before the Download action; remaining screen time is silent."
+    },
+    {
+      "id": "result",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\jobs\\32777818fbb6\\final.mp4",
+      "start": 0,
+      "dur": 3.5,
+      "fill": true,
+      "portrait_backdrop": true,
+      "source_gain": 1,
+      "chip": "The actual downloaded shot",
+      "stamp_top": true,
+      "stamp": "Fresh browser recording + prepared palm · same stored LTX element · CPU composition"
     },
     {
       "id": "comfy_model",
@@ -528,166 +592,6 @@
       "stamp": "Real stock footage (Pexels) · sample noise (synthetic) · LTX-2.5 render"
     },
     {
-      "id": "upload",
-      "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
-      "start": 1,
-      "dur": 4.0,
-      "fill": true,
-      "crop": [
-        0,
-        0.03,
-        1,
-        0.78
-      ],
-      "chip": "1. Upload a clip",
-      "chip_header": true,
-      "stamp": "Recorded Studio · author's clip + voice · included LTX effect · GPU offline",
-      "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\upload12.wav",
-      "vo_at": 0.2,
-      "vo_gain": 1.3,
-      "vo_text": "Upload a clip.",
-      "vo_captions": [
-        [
-          0.0,
-          1.825,
-          "Upload a clip."
-        ]
-      ]
-    },
-    {
-      "id": "tap",
-      "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
-      "start": 6.5,
-      "dur": 4.0,
-      "fill": true,
-      "crop": [
-        0.078,
-        0.208,
-        0.578,
-        0.583
-      ],
-      "chip": "2. Tap the palm, drag to aim",
-      "stamp": "Recorded Studio · author's clip + voice · included LTX effect · GPU offline",
-      "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\tap12.wav",
-      "vo_at": 0.2,
-      "vo_gain": 1.3,
-      "vo_text": "Tap the palm, and aim.",
-      "vo_captions": [
-        [
-          0.0,
-          2.275,
-          "Tap the palm, and aim."
-        ]
-      ]
-    },
-    {
-      "id": "perform",
-      "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
-      "start": 31.5,
-      "dur": 5.0,
-      "fill": true,
-      "crop": [
-        0.078,
-        0.5,
-        0.634,
-        0.917
-      ],
-      "chip": "3. Record your voice",
-      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio_say_own.wav",
-      "audio_from": 1.73,
-      "audio_gain": 4,
-      "audio_replace": true,
-      "wave": true,
-      "wave_box": [
-        0.54,
-        0.025,
-        0.4,
-        0.115
-      ],
-      "pops": [
-        [
-          2.37,
-          "pf"
-        ],
-        [
-          2.77,
-          "pf"
-        ],
-        [
-          3.77,
-          "BOOM"
-        ]
-      ],
-      "pop_x": 0.76,
-      "pop_y": 0.57,
-      "stamp": "Recorded Studio · author's clip + voice · included LTX effect · GPU offline",
-      "chip_header": true
-    },
-    {
-      "id": "make",
-      "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
-      "start": 36.5,
-      "dur": 2.5,
-      "fill": true,
-      "crop": [
-        0.06,
-        0.27,
-        0.79,
-        0.82
-      ],
-      "chip": "4. Make the shot",
-      "stamp": "Recorded Studio · author's clip + voice · included LTX effect · GPU offline",
-      "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\make12.wav",
-      "vo_at": 0.15,
-      "vo_gain": 1.3,
-      "vo_text": "Make the shot.",
-      "vo_captions": [
-        [
-          0.0,
-          1.725,
-          "Make the shot."
-        ]
-      ],
-      "chip_header": true
-    },
-    {
-      "id": "result",
-      "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio_result.mp4",
-      "start": 2.5,
-      "dur": 4.0,
-      "fill": true,
-      "portrait_backdrop": true,
-      "crop": [
-        0,
-        0.18,
-        1,
-        0.84
-      ],
-      "audio_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\studio_say_own.wav",
-      "audio_from": 5.272875,
-      "audio_gain": 4,
-      "audio_replace": true,
-      "author_voice": true,
-      "hold_tail": true,
-      "hold_reason": "Bright finished fire held for three seconds after the complete recorded BOOM",
-      "wave": true,
-      "pops": [
-        [
-          0.2916666666666667,
-          "BOOM"
-        ]
-      ],
-      "pop_x": 1.1,
-      "pop_y": 0.45,
-      "chip": "The finished shot",
-      "stamp": "Recorded Studio · author's clip + voice · included LTX effect · GPU offline"
-    },
-    {
       "id": "innovation",
       "type": "clip",
       "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
@@ -823,182 +727,183 @@
   ],
   "schedule": [
     {
-      "id": "cold_open",
+      "id": "hero_open",
       "start": 0.0,
-      "end": 7.083333333333333
-    },
-    {
-      "id": "intro_raw",
-      "start": 7.083333333333333,
-      "end": 11.083333333333334
-    },
-    {
-      "id": "intro_finished",
-      "start": 11.083333333333334,
-      "end": 17.083333333333332
+      "end": 4.75
     },
     {
       "id": "performance_turns",
-      "start": 17.083333333333332,
-      "end": 27.083333333333332
+      "start": 4.75,
+      "end": 14.75
     },
     {
       "id": "small_and_big",
-      "start": 27.083333333333332,
-      "end": 31.083333333333332
+      "start": 14.75,
+      "end": 18.75
     },
     {
-      "id": "comfy_model",
-      "start": 31.083333333333332,
-      "end": 33.583333333333336
-    },
-    {
-      "id": "comfy_lora",
-      "start": 33.583333333333336,
-      "end": 36.083333333333336
-    },
-    {
-      "id": "comfy_sampler",
-      "start": 36.083333333333336,
-      "end": 38.583333333333336
-    },
-    {
-      "id": "comfy_output",
-      "start": 38.583333333333336,
-      "end": 41.083333333333336
-    },
-    {
-      "id": "comfy_cuesync",
-      "start": 41.083333333333336,
-      "end": 44.083333333333336
-    },
-    {
-      "id": "workflow_fire",
-      "start": 44.083333333333336,
-      "end": 46.083333333333336
-    },
-    {
-      "id": "how",
-      "start": 46.083333333333336,
-      "end": 52.083333333333336
-    },
-    {
-      "id": "light",
-      "start": 52.083333333333336,
-      "end": 55.083333333333336
-    },
-    {
-      "id": "walk",
-      "start": 55.083333333333336,
-      "end": 58.333333333333336
-    },
-    {
-      "id": "flamethrower",
-      "start": 58.333333333333336,
-      "end": 60.333333333333336
-    },
-    {
-      "id": "lightning_point",
-      "start": 60.333333333333336,
-      "end": 62.333333333333336
-    },
-    {
-      "id": "water",
-      "start": 62.333333333333336,
-      "end": 64.33333333333333
-    },
-    {
-      "id": "lanterns",
-      "start": 64.33333333333333,
-      "end": 70.83333333333333
-    },
-    {
-      "id": "dino",
-      "start": 70.83333333333333,
-      "end": 74.20833333333333
-    },
-    {
-      "id": "upload",
-      "start": 74.20833333333333,
-      "end": 78.20833333333333
-    },
-    {
-      "id": "tap",
-      "start": 78.20833333333333,
-      "end": 82.20833333333333
+      "id": "try_sample",
+      "start": 18.75,
+      "end": 20.25
     },
     {
       "id": "perform",
-      "start": 82.20833333333333,
-      "end": 87.20833333333333
+      "start": 20.25,
+      "end": 25.333333333333332
     },
     {
       "id": "make",
-      "start": 87.20833333333333,
-      "end": 89.70833333333333
+      "start": 25.333333333333332,
+      "end": 27.833333333333332
+    },
+    {
+      "id": "download",
+      "start": 27.833333333333332,
+      "end": 32.833333333333336
     },
     {
       "id": "result",
-      "start": 89.70833333333333,
-      "end": 93.70833333333333
+      "start": 32.833333333333336,
+      "end": 36.333333333333336
+    },
+    {
+      "id": "comfy_model",
+      "start": 36.333333333333336,
+      "end": 38.833333333333336
+    },
+    {
+      "id": "comfy_lora",
+      "start": 38.833333333333336,
+      "end": 41.333333333333336
+    },
+    {
+      "id": "comfy_sampler",
+      "start": 41.333333333333336,
+      "end": 43.833333333333336
+    },
+    {
+      "id": "comfy_output",
+      "start": 43.833333333333336,
+      "end": 46.333333333333336
+    },
+    {
+      "id": "comfy_cuesync",
+      "start": 46.333333333333336,
+      "end": 49.333333333333336
+    },
+    {
+      "id": "workflow_fire",
+      "start": 49.333333333333336,
+      "end": 51.333333333333336
+    },
+    {
+      "id": "how",
+      "start": 51.333333333333336,
+      "end": 57.333333333333336
+    },
+    {
+      "id": "light",
+      "start": 57.333333333333336,
+      "end": 60.333333333333336
+    },
+    {
+      "id": "walk",
+      "start": 60.333333333333336,
+      "end": 63.583333333333336
+    },
+    {
+      "id": "flamethrower",
+      "start": 63.583333333333336,
+      "end": 65.58333333333333
+    },
+    {
+      "id": "lightning_point",
+      "start": 65.58333333333333,
+      "end": 67.58333333333333
+    },
+    {
+      "id": "water",
+      "start": 67.58333333333333,
+      "end": 69.58333333333333
+    },
+    {
+      "id": "lanterns",
+      "start": 69.58333333333333,
+      "end": 76.08333333333333
+    },
+    {
+      "id": "dino",
+      "start": 76.08333333333333,
+      "end": 79.45833333333333
     },
     {
       "id": "innovation",
-      "start": 93.70833333333333,
-      "end": 94.45833333333333
+      "start": 79.45833333333333,
+      "end": 80.20833333333333
     },
     {
       "id": "innovation_asset",
-      "start": 94.45833333333333,
-      "end": 95.91666666666667
+      "start": 80.20833333333333,
+      "end": 81.66666666666667
     },
     {
       "id": "innovation_track",
-      "start": 95.91666666666667,
-      "end": 97.04166666666667
+      "start": 81.66666666666667,
+      "end": 82.79166666666667
     },
     {
       "id": "innovation_voice",
-      "start": 97.04166666666667,
-      "end": 97.79166666666667
+      "start": 82.79166666666667,
+      "end": 83.54166666666667
     },
     {
       "id": "innovation_result",
-      "start": 97.79166666666667,
-      "end": 99.625
+      "start": 83.54166666666667,
+      "end": 85.375
     },
     {
       "id": "innovation_hits",
-      "start": 99.625,
-      "end": 103.125
+      "start": 85.375,
+      "end": 88.875
     },
     {
       "id": "try",
-      "start": 103.125,
-      "end": 108.875
+      "start": 88.875,
+      "end": 94.625
     },
     {
       "id": "credits",
-      "start": 108.875,
-      "end": 113.375
+      "start": 94.625,
+      "end": 99.125
     }
   ],
   "provenance": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\manifest.json",
   "narration": "D:\\openHiggsfield\\runs\\demo_v15\\vo15\\provenance.json",
-  "source_policy": "Current production CPU compositor and approved playback assets; proof trio uses one CPU temporal derivative of one existing LTX generation; exact original/derivative ancestry retained. Five unaffected procedural/scene pictures retain historical output provenance. No new model generation; narration and edit timing preserved.",
-  "baseline": "D:\\openHiggsfield\\runs\\demo_v16\\storyboard.json",
+  "source_policy": "Editorial reuse of final verified v17 composites and their original LTX/CPU derivative lineage; fresh actual Chromium virtual-microphone job and download. No new model generation. Earlier composites are preserved bytes, not claimed to be rebuilt by this edit.",
+  "baseline": "D:\\openHiggsfield\\runs\\demo_v17\\storyboard.json",
   "room_tone": {
     "src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\room_tone.wav",
     "target_dbfs": -45,
     "threshold_dbfs": -50
   },
-  "edit_timing": "D:\\openHiggsfield\\runs\\demo_v15\\edit_timing.json",
   "retained_beats": {
-    "cold_open": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline",
     "dino": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline",
     "lanterns": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline",
     "lightning_point": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline",
     "water": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline"
   },
-  "standalone_source_window_note": "Intro, workflow fire display and derived recap use active derivative interval 2.65-3.45s. Beat durations, audio, narration and phase-aligned proof comparisons remain unchanged."
+  "standalone_source_window_note": "The opening starts on the active final dark-palm composite at2.8s in disclosed slow motion. All complete proof performances, downstream workflow, narration and technical source intervals remain unchanged. The new Studio capture is real time within each selected segment; composition wait is shortened and its measured duration is displayed.",
+  "source_reuse": {
+    "manifest": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\manifest.json",
+    "manifest_sha256": "bc32de77225cae094b1b5acd0b5f0a7283467d0415b31ea79d6efe314996a5bd",
+    "new_model_generations": 0,
+    "composites_rebuilt_for_this_edit": false
+  },
+  "browser_capture": {
+    "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\capture-manifest.json",
+    "manifest_sha256": "a806b3851c2f6b0a305d3fb8453a817fcc31b9ba96d37c64bdea68d9fab60725",
+    "audio_alignment": "Actual uploaded microphone PCM, aligned using first-sample browser-clock estimate; screen-clock correspondence is approximate, not sample-exact.",
+    "shortened_wait": true,
+    "actual_cpu_composition_seconds": 18.4
+  }
 }

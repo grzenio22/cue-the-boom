@@ -95,7 +95,7 @@ export interface JobStatus {
   effect?: string | null; // the effect actually used (the noise may have decided it)
   gesture?: string | null; // how the cue was read: hit, rhythm, sustained, breath, hiss
   heard?: string | null; // effect "auto" on a plate with no map: what the sound is (boom, whoosh, hiss, pop, puff, crackle)
-  mode?: Mode | "compare";
+  mode?: Mode | "compare" | "replay";
   cached?: boolean;
   title?: string;
   status: "queued" | "running" | "done" | "error";
@@ -280,6 +280,7 @@ export async function submitShot(args: {
   point: [number, number];
   seed: number;
   mode: Mode;
+  performanceMode?: "reuse"; // always perform a prepared hand on the CPU, even with a GPU backend available
   direction?: number | null;
   subject?: string | null;
   object?: string | null; // your own clip: what it is (a candle, a jack-o'-lantern, ...)
@@ -308,6 +309,7 @@ export async function submitShot(args: {
   form.append("y", String(args.point[1]));
   form.append("seed", String(args.seed));
   form.append("mode", args.mode);
+  if (args.performanceMode) form.append("performance_mode", args.performanceMode);
   if ((args.mode === "scene" || args.mode === "bending") && args.direction != null) form.append("direction", String(args.direction));
   if (args.mode === "bending" && args.frame != null) form.append("frame", String(args.frame));
   if (args.mode === "bending" && args.reuse) form.append("reuse", args.reuse);
