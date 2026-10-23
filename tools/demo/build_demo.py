@@ -53,6 +53,7 @@ import argparse
 import hashlib
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -66,6 +67,42 @@ BG = (11, 11, 15)
 ACCENT = (255, 176, 32)
 FG = (244, 241, 234)
 MUTED = (163, 159, 151)
+
+
+class DiskFrameBuffer:
+    """Keep rendered RGB frames on disk while their decoded source is in memory.
+
+    A ten-second 1080p beat otherwise adds 1.5 GB of anonymous memory on top of
+    its source frames. TemporaryFile also cleans up automatically on failure.
+    """
+
+    def __init__(self):
+        self.file = tempfile.TemporaryFile()
+        self.count = 0
+        self.frame_shape = None
+        self.frame_bytes = 0
+
+    def append(self, frame: np.ndarray) -> None:
+        frame = np.asarray(frame, dtype=np.uint8)
+        if self.frame_shape is None:
+            self.frame_shape = frame.shape
+            self.frame_bytes = frame.size
+        if frame.shape != self.frame_shape:
+            raise ValueError("A rendered beat must use one frame shape")
+        self.file.seek(0, 2)
+        self.file.write(frame.tobytes())
+        self.count += 1
+
+    def __len__(self):
+        return self.count
+
+    def __iter__(self):
+        self.file.seek(0)
+        for _ in range(self.count):
+            yield np.frombuffer(self.file.read(self.frame_bytes), dtype=np.uint8).reshape(self.frame_shape)
+
+    def close(self) -> None:
+        self.file.close()
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -236,6 +273,7 @@ def read_window(src: str | Path, t0: float, t1: float, every: float = 0.0) -> tu
     with av.open(str(src)) as c:
         st = c.streams.video[0]
         st.thread_type = "AUTO"
+        st.codec_context.thread_count = 2
         if every:  # keep frames closer than the step shown, minus one source frame, so none it shows is dropped
             rate = float(st.average_rate or st.guessed_rate or 24)
             every = max(0.0, every - 1.0 / rate)
@@ -321,10 +359,11 @@ def proof_header(img: Image.Image, b: dict, element: Image.Image | None) -> None
         d.rectangle([x - 2, y - 2, x + element.width + 2, y + element.height + 2], outline=ACCENT, width=2)
 
 
-def render_beat(b: dict) -> tuple[list[np.ndarray], np.ndarray]:
+def render_beat(b: dict, *, disk_frames: bool = False) -> tuple[list[np.ndarray] | DiskFrameBuffer, np.ndarray]:
     kind, dur = b["type"], float(b.get("dur", 3))
     n = int(round(dur * FPS))
-    frames, audio = [], np.zeros(int(n / FPS * SR), np.float32)
+    frames = DiskFrameBuffer() if disk_frames else []
+    audio = np.zeros(int(n / FPS * SR), np.float32)
     if kind == "title":
         img = Image.new("RGB", (W, H), BG)
         d = ImageDraw.Draw(img)
@@ -661,12 +700,12 @@ def build(storyboard: Path, out: Path) -> float:
     with av.open(str(out), "w") as container:
         vs = container.add_stream("libx264", rate=Fraction(FPS))
         vs.width, vs.height, vs.pix_fmt = W, H, "yuv420p"
-        vs.options = {"crf": "20", "preset": "medium"}
+        vs.options = {"crf": "20", "preset": "medium", "threads": "4"}
         cc = vs.codec_context
         cc.colorspace, cc.color_primaries, cc.color_trc, cc.color_range = 1, 1, 1, 1  # BT.709, limited range
         astream = container.add_stream("aac", rate=SR, layout="mono")
         for k, b in enumerate(beats):
-            frames, audio = render_beat(b)
+            frames, audio = render_beat(b, disk_frames=True)
             parts = [(0, carry)] if carry.size else []
             if b.get("vo"):
                 parts.append((int(float(b.get("vo_at", 0.15)) * SR), read_audio(b["vo"], SR) * float(b.get("vo_gain", 1.0))))
@@ -681,6 +720,8 @@ def build(storyboard: Path, out: Path) -> float:
             n_frames += len(frames)
             all_audio.append(audio)
             print(f"beat {k + 1}/{len(beats)} {b['type']}: {len(frames) / FPS:.1f} s", flush=True)
+            if isinstance(frames, DiskFrameBuffer):
+                frames.close()
             del frames
         for packet in vs.encode():
             container.mux(packet)

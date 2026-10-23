@@ -7,6 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import numpy as np
+
+from build_demo import DiskFrameBuffer, render_beat
 from check_v11 import timeline
 from check_v15 import sha256, source_provenance_check, structure_check
 from v18_edit import PROOF_STAMP, STUDIO_IDS, capture_provenance_check, hero_beat
@@ -168,6 +171,35 @@ class ActualBrowserCaptureTest(unittest.TestCase):
             board = copy.deepcopy(self.board)
             next(beat for beat in board["beats"] if beat["id"] == "perform")[field] = value
             self.assertTrue(capture_provenance_check(board)[1])
+
+
+class BoundedFrameBufferTest(unittest.TestCase):
+    def test_disk_frames_snapshot_pixels_in_order_without_retaining_arrays(self):
+        buffer = DiskFrameBuffer()
+        self.addCleanup(buffer.close)
+        source = np.arange(36, dtype=np.uint8).reshape(3, 4, 3)
+        first = source[:, ::2].copy()
+        buffer.append(source[:, ::2])
+        source[:] = 255
+        second = source[:, ::2].copy()
+        buffer.append(second)
+        self.assertEqual(len(buffer), 2)
+        actual = list(buffer)
+        np.testing.assert_array_equal(actual[0], first)
+        np.testing.assert_array_equal(actual[1], second)
+        self.assertEqual(buffer.file.tell(), first.nbytes + second.nbytes)
+
+    def test_disk_rendering_preserves_exact_pixels_and_audio(self):
+        from test_demo_layout import ScreenClip
+        beat = {"type": "clip", "src": "fixture.mp4", "dur": 1 / 24,
+                "fill": True, "chip_header": True, "chip": "Record your voice"}
+        with patch("build_demo.Clip", ScreenClip):
+            memory, memory_audio = render_beat(beat)
+            disk, disk_audio = render_beat(beat, disk_frames=True)
+        self.addCleanup(disk.close)
+        self.assertIsInstance(disk, DiskFrameBuffer)
+        np.testing.assert_array_equal(list(disk)[0], memory[0])
+        np.testing.assert_array_equal(disk_audio, memory_audio)
 
 
 if __name__ == "__main__":
