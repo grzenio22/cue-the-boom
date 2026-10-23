@@ -36,7 +36,9 @@ def test_faint_and_tiny_fire_does_not_pop_to_black_or_nan(volume, size):
     assert emission.shape == source.shape and trans.shape == size
     assert np.isfinite(emission).all() and np.isfinite(trans).all()
     assert np.min(emission) >= 0 and 0 <= trans.min() <= trans.max() <= 1
-    assert (emission@LUMA).sum() == pytest.approx((source@LUMA).sum(), rel=2e-5)
+    assert (emission@LUMA).sum() == pytest.approx(.95*(source@LUMA).sum(), rel=2e-5)
+    # Absolute faintness must not become an opaque volume after normalization.
+    np.testing.assert_array_equal(trans, np.ones(size, np.float32))
 
 
 @pytest.mark.parametrize("config", [None, {"energy": 8.}, {"energy": .4}])
@@ -45,19 +47,49 @@ def test_volume_partitions_energy_instead_of_stacking_brighter_copies(volume, co
     original = source.copy()
     emission, _, _ = volume(source, 1.3, -.15, config)
     ratio = (emission@LUMA).sum()/(source@LUMA).sum()
-    expected = .4 if config and config["energy"] == .4 else 1.
+    expected = .95 if config is None else .4 if config["energy"] == .4 else 1.
     assert ratio == pytest.approx(expected, rel=2e-5)
     np.testing.assert_array_equal(source, original)
 
 
-def test_faint_fire_cannot_draw_a_dark_rim_on_bright_wall(volume):
+def test_luminous_body_keeps_extinction_until_the_background_is_known(volume):
+    source = fire()
+    emission, trans, _ = volume(source, 1.3, .12)
+    body = (source@LUMA) > .15
+    # A mid-bright wall may be chromatically attenuated by a dense flame body.
+    # The earlier assumed-white-background cap discarded this optical depth.
+    assert np.percentile((1-trans)[body], 90) > .4
+    assert np.mean((1-trans)[body]) > .25
+    assert (emission@LUMA).sum() == pytest.approx(.95*(source@LUMA).sum(), rel=2e-5)
+
+
+@pytest.mark.parametrize("background", [.65, .98])
+def test_faint_fire_cannot_draw_a_dark_rim_on_bright_wall(volume, background):
+    from cuesync.bending import finish_fire, fire_over
+
     source = fire()*.01
     emission, trans, _ = volume(source, 2., .15, {"optical_depth": 2.})
     opacity = 1.-trans
-    assert np.all(opacity <= .72*(emission@LUMA)+7e-8)
-    plate = np.full_like(emission, .98)
-    result = plate*trans[..., None]+emission
-    assert ((result-plate)@LUMA).min() >= -1e-7
+    plate = np.full_like(emission, background)
+    # Transmission is intrinsic to the source; actual plate-aware composition
+    # provides the faint-edge guard, including after its display shoulder.
+    for result in (fire_over(plate, emission, opacity), finish_fire(plate, emission, opacity)):
+        assert ((result-plate)@LUMA).min() >= -2e-7
+        assert np.isfinite(result).all()
+
+
+def test_very_faint_gas_has_negligible_intrinsic_extinction(volume):
+    source = fire()*.001
+    emission, trans, _ = volume(source, 1.7)
+    assert (1-trans).max() < .01
+    assert emission.max() < .002
+
+
+@pytest.mark.parametrize("energy", [0., 1e-6])
+def test_attenuated_emission_cannot_leave_invisible_opaque_gas(volume, energy):
+    emission, trans, _ = volume(fire(), 1.7, config={"energy": energy})
+    assert emission.max() < 2e-6
+    np.testing.assert_array_equal(trans, np.ones_like(trans))
 
 
 def test_view_changes_depth_continuously_without_a_global_shift(volume):
@@ -84,13 +116,40 @@ def test_advected_structure_is_reproducible_and_has_no_frame_noise(volume):
     assert 0 < change < .03
 
 
+@pytest.mark.parametrize("time", [0., 1.3, 13/24])
+def test_cached_depth_field_preserves_float32_phase_and_advection(time):
+    from cuesync.fx_volume import _prepare_noise
+
+    # Reference the unhoisted field arithmetic: even a small phase change can
+    # move a remapped filament across a subpixel interpolation boundary.
+    yy, xx = np.mgrid[:17, :23].astype(np.float32)
+    x, y = (xx-11)/7., yy/17.*3.
+    field = _prepare_noise(x, y, time)
+    for z in (-1.8, -.37, 0., .82, 1.8):
+        advected_y = y+time*.40
+        expected = (np.sin(x*5.3+advected_y*3.6+z*3.1)*.25
+                    + np.sin(x*10.1-advected_y*7.9+z*5.7+time*.24)*.18
+                    + np.sin(x*18.4+advected_y*11.2-z*8.8-time*.19)*.11
+                    + np.sin(x*34.7-advected_y*20.5+z*13.4)*.055)
+        np.testing.assert_array_equal(field(z), expected)
+
+
 def test_thermal_core_does_not_fill_large_turbulent_gaps(volume):
+    from cuesync.bending import finish_fire, fire_over
+
     source = fire()
     source[40:72, 40:56] = 0.
     emission, trans, _ = volume(source, 1., .15)
     assert np.max(emission[45:67, 45:51]) < 1e-7
     assert np.min(trans[45:67, 45:51]) == 1.
     assert emission.sum() > 0
+    plate = np.full_like(emission, .85)
+    gap = (slice(45, 67), slice(45, 51))
+    np.testing.assert_array_equal(fire_over(plate, emission, 1.-trans)[gap], plate[gap])
+    # Optical bloom may reach a real dark gap, but neither extinction nor the
+    # camera response can turn that absent source into a dark stripe.
+    finished = finish_fire(plate, emission, 1.-trans)
+    assert ((finished[gap]-plate[gap])@LUMA).min() >= -2e-7
 
 
 def test_invalid_pixels_do_not_poison_the_rest_of_the_fire(volume):

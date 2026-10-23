@@ -27,8 +27,11 @@ const tracker = () => ({ close: vi.fn(), detectForVideo: vi.fn(() => ({ landmark
 
 class FakeAudioContext {
   state = "running";
+  sampleRate = 48000;
   close = vi.fn(async () => { this.state = "closed"; });
-  createAnalyser = () => ({ fftSize: 1024, frequencyBinCount: 512 });
+  createAnalyser = () => ({ fftSize: 1024, frequencyBinCount: 512,
+    getFloatTimeDomainData: (data: Float32Array) => data.fill(0.1),
+    getFloatFrequencyData: (data: Float32Array) => data.fill(-100) });
   createMediaStreamSource = () => ({ connect: () => undefined });
 }
 
@@ -168,5 +171,48 @@ describe("Live resource cleanup", () => {
     expect(current.microphone.stop).toHaveBeenCalledTimes(1);
     expect(hands.close).toHaveBeenCalledTimes(1);
     expect(audio[0].close).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Live library source profile", () => {
+  it.each([
+    ["a legacy entry", undefined, 1.1],
+    ["a dimmed source", { scale: 0.5, exposure: 0.25 }, 0.58577],
+    ["a brighter source", { scale: 0.5, exposure: 4 }, 2.06565],
+    ["an invalid exposure", { scale: 0.5, exposure: NaN }, 1.1],
+  ])("draws %s with preview brightness and the already calibrated fit", async (_, sourceProfile, expectedBrightness) => {
+    getUserMedia.mockResolvedValueOnce(capture().stream);
+    const landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5 }));
+    landmarks[0].y = 0.75; // a 120 px open hand; the element's reference uses the same scale
+    vision.create.mockResolvedValueOnce({ close: vi.fn(), detectForVideo: () => ({ landmarks: [landmarks] }) });
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => [{
+      effect: "fire_burst", behaviour: "burst", url: "/library/fire.mp4", size: [640, 480], fps: 24,
+      ignition: 2, release: 36, end: 48, floor: 0,
+      ref: { xy: [320, 240], dir: [0, -1], scale: 120 }, fit: { palm: 0.5, tip: 0.75 },
+      ...(sourceProfile ? { source_profile: sourceProfile } : {}),
+    }] } as Response);
+    vi.spyOn(HTMLVideoElement.prototype, "videoWidth", "get").mockReturnValue(640);
+    vi.spyOn(HTMLVideoElement.prototype, "videoHeight", "get").mockReturnValue(480);
+    const filters: string[] = [];
+    const ctx = {
+      filter: "none", save: vi.fn(), restore: vi.fn(), translate: vi.fn(), scale: vi.fn(), rotate: vi.fn(),
+      beginPath: vi.fn(), arc: vi.fn(), stroke: vi.fn(), fillRect: vi.fn(), fillText: vi.fn(),
+      createRadialGradient: () => ({ addColorStop: vi.fn() }),
+      drawImage: (image: HTMLVideoElement) => {
+        if (image.getAttribute("src") === "/library/fire.mp4") filters.push(ctx.filter);
+      },
+    };
+    vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    await show();
+    await click("Try it live");
+    await waitForTracker();
+    await act(async () => {
+      vi.mocked(requestAnimationFrame).mock.calls[0][0](performance.now());
+    });
+
+    expect(filters).toHaveLength(1);
+    expect(filters[0]).toContain("contrast(1.3)");
+    expect(Number(filters[0].match(/brightness\(([^)]+)\)/)?.[1])).toBeCloseTo(expectedBrightness, 4);
+    expect(ctx.scale).toHaveBeenLastCalledWith(0.5, 0.5); // fit includes source scale: never multiply it twice
   });
 });

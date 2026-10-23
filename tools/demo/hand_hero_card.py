@@ -2,8 +2,8 @@
 
     python tools/demo/hand_hero_card.py [--output path/to/hand_hero.jpg]
 
-To reproduce the README card with a fitted walk panel:
-    python tools/demo/hand_hero_card.py --frames 68 120 29 --tops 0.16 0.38 0.39 --contain-crop 2 0 500 1080 1500
+To reproduce the README card with the complete flame and hand in each panel:
+    python tools/demo/hand_hero_card.py --frames 70 120 41 --contain-crop 1 0 700 1080 1600 --contain-crop 2 0 400 1080 1500 --contain-crop 3 0 100 1080 1550
 
 Paths default to this checkout, regardless of the working directory. Frame
 numbers are zero-based. Only crop, resize and optional dark bars affect pixels.
@@ -19,11 +19,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
 SHOTS = [
-    ("hand_punch__boom__fire_burst", "BOOM  (a fireball off your fist)"),
+    ("hand_palm__boom__fire_burst", "BOOM  (fire in your palm)"),
     ("hand_walk__fffff__flame_plume", "fffff  (a flame in your palm, one take)"),
-    ("hand_palm__pfx4__again", "pf pf pf PF  (one render, performed again)"),
+    ("hand_fist__boom__fire_burst", "BOOM  (a fireball as your hand closes)"),
 ]
 W, LABEL, GAP = 645, 40, 2
+DEFAULT_CONTAIN = [(1, 0, 700, 1080, 1600), (2, 0, 400, 1080, 1500), (3, 0, 100, 1080, 1550)]
 
 
 def font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -49,17 +50,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gallery", type=Path, default=ROOT / "samples/made_ahead/bending")
     parser.add_argument("--output", type=Path, default=ROOT / "media/hand_hero.jpg")
-    parser.add_argument("--frames", type=int, nargs=3, default=(66, 120, 64),
-                        metavar=("PUNCH", "WALK", "AGAIN"))
+    parser.add_argument("--frames", type=int, nargs=3, default=(70, 120, 41),
+                        metavar=("PALM", "WALK", "FIST"))
     parser.add_argument("--tops", type=float, nargs=3, default=(0.27, 0.38, 0.36),
-                        metavar=("PUNCH", "WALK", "AGAIN"),
+                        metavar=("PALM", "WALK", "FIST"),
                         help="Top of each 16:9 crop, as a fraction of source height")
-    parser.add_argument("--contain-crop", type=int, nargs=5, action="append", default=[],
+    parser.add_argument("--contain-crop", type=int, nargs=5, action="append",
                         metavar=("PANEL", "LEFT", "TOP", "RIGHT", "BOTTOM"),
                         help="Fit this source-pixel crop inside panel 1, 2 or 3 with dark bars; repeat per panel")
     args = parser.parse_args()
     contained = {}
-    for panel, left, top, right, bottom in args.contain_crop:
+    for panel, left, top, right, bottom in (args.contain_crop if args.contain_crop is not None else DEFAULT_CONTAIN):
         if panel not in range(1, len(SHOTS) + 1) or panel in contained:
             parser.error("--contain-crop requires a unique panel number from 1 to 3")
         contained[panel] = (left, top, right, bottom)

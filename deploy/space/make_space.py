@@ -70,7 +70,9 @@ def main() -> int:
 
     for part in parts:
         shutil.copytree(ROOT / part, out / part, ignore=skip)
-    for name in ("LICENSE", "NOTICE.md", "build/model-files.md"):
+    # Media credits link this standalone recipe helper; keep the rest of the
+    # development tools outside the Space context.
+    for name in ("LICENSE", "NOTICE.md", "build/model-files.md", "tools/derive_fire_element.py"):
         (out / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, out / name)
     for name in ("Dockerfile", "start.sh"):

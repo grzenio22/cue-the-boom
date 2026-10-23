@@ -3,7 +3,7 @@
     python tools/demo/pipeline_card.py [--frame 70] [--output path/to/pipeline.jpg]
 
 The plate, track, matte and composite use the same zero-based frame. For the
-single-hit base shot, the raw element frame is derived from the receipt offset.
+single-hit base shot, the stored element frame is derived from the receipt offset.
 No generation, relighting or enhancement is done here: only crop/resize, a
 labelled matte/landmark overlay, and explanatory text.
 """
@@ -97,6 +97,8 @@ def main() -> None:
     parser.add_argument("--shot", type=Path, default=ROOT / "samples/made_ahead/bending/hand_palm__boom__fire_burst")
     parser.add_argument("--plate", type=Path, default=ROOT / "samples/plates/hand_palm.mp4")
     parser.add_argument("--frame", type=int, default=70)
+    parser.add_argument("--element-source", choices=("generated", "cpu-derivative"), default="generated",
+                        help="Label whether element.mp4 is the generated source or a documented CPU derivative")
     parser.add_argument("--output", type=Path, default=ROOT / "media/pipeline.jpg")
     args = parser.parse_args()
     receipt = json.loads((args.shot / "receipt.json").read_text(encoding="utf-8"))
@@ -123,11 +125,13 @@ def main() -> None:
     sources = set(track.get("src", []))
     tracker = "MediaPipe + RTMPose tracking" if {"mp", "rtm"} <= sources else "Stored hand tracking"
     matte_label = "SAM 2.1 matte" if mask_source == "sam2" else f"Hand matte ({mask_source})"
+    derivative = args.element_source == "cpu-derivative"
     stages = [
         (portrait(plate), "Your clip, your noise", "phone footage; your sound sets\nwhen, how big and how long"),
         (portrait(np.asarray(matte)), "Your hand, found", f"{tracker}\n{matte_label} + landmarks"),
-        (element_detail(frame(args.shot / "element.mp4", element_index)), "The fire, rendered once",
-         "LTX-2.5 + ainvfx-fluid IC-LoRA\nin ComfyUI, over black"),
+        (element_detail(frame(args.shot / "element.mp4", element_index)),
+         "The reusable fire" if derivative else "The fire, rendered once",
+         "LTX-2.5 + ainvfx-fluid IC-LoRA\n" + ("CPU temporal derivative" if derivative else "in ComfyUI, over black")),
         (portrait(composite), "Carried, lit, timed", "tracked fire and local lighting\ncomposited on the CPU"),
     ]
     img = Image.new("RGB", (W, H), BG)
@@ -156,7 +160,7 @@ def main() -> None:
             draw.polygon(((ax + GAP - 28, ay - 16), (ax + GAP - 6, ay), (ax + GAP - 28, ay + 16)), fill=FG)
     draw.text((W / 2, 985), "2.5D approximation: tracked placement, a hand matte and local lighting.",
               font=font(27), fill=MUTED, anchor="mm")
-    draw.text((W / 2, 1030), f"Matching source frame {args.frame}  |  raw fire frame {element_index} (detail)",
+    draw.text((W / 2, 1030), f"Matching source frame {args.frame}  |  fire element frame {element_index} (detail)",
               font=font(23), fill=MUTED, anchor="mm")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     img.save(args.output, quality=92, subsampling=0)

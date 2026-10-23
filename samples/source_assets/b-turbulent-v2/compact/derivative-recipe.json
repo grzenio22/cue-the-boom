@@ -1,0 +1,169 @@
+{
+  "kind": "CPU temporal derivative; no new model generation",
+  "original_element_sha256": "073a3e69cbfd65041d6f43942a441298efe47d0e022ba692721c30c6b72f454c",
+  "derivative_sha256": "270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1",
+  "derivative_frames": 30,
+  "fps": 24,
+  "spatial_transform": "none; original pixels and canvas geometry retained",
+  "time_mapping": [
+    {
+      "frame": 0,
+      "source_frame": 0,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 1,
+      "source_frame": 0,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 2,
+      "source_frame": 0,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 3,
+      "source_frame": 0,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 4,
+      "source_frame": 12,
+      "linear_radiance_gain": 0.2
+    },
+    {
+      "frame": 5,
+      "source_frame": 17,
+      "linear_radiance_gain": 0.85
+    },
+    {
+      "frame": 6,
+      "source_frame": 20,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 7,
+      "source_frame": 23,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 8,
+      "source_frame": 26,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 9,
+      "source_frame": 29,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 10,
+      "source_frame": 32,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 11,
+      "source_frame": 35,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 12,
+      "source_frame": 38,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 13,
+      "source_frame": 41,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 14,
+      "source_frame": 44,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 15,
+      "source_frame": 47,
+      "linear_radiance_gain": 1.0
+    },
+    {
+      "frame": 16,
+      "source_frame": 50,
+      "linear_radiance_gain": 0.95
+    },
+    {
+      "frame": 17,
+      "source_frame": 53,
+      "linear_radiance_gain": 0.9
+    },
+    {
+      "frame": 18,
+      "source_frame": 56,
+      "linear_radiance_gain": 0.8
+    },
+    {
+      "frame": 19,
+      "source_frame": 59,
+      "linear_radiance_gain": 0.65
+    },
+    {
+      "frame": 20,
+      "source_frame": 62,
+      "linear_radiance_gain": 0.45
+    },
+    {
+      "frame": 21,
+      "source_frame": 65,
+      "linear_radiance_gain": 0.3
+    },
+    {
+      "frame": 22,
+      "source_frame": 68,
+      "linear_radiance_gain": 0.18
+    },
+    {
+      "frame": 23,
+      "source_frame": 71,
+      "linear_radiance_gain": 0.08
+    },
+    {
+      "frame": 24,
+      "source_frame": 74,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 25,
+      "source_frame": 80,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 26,
+      "source_frame": 80,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 27,
+      "source_frame": 80,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 28,
+      "source_frame": 80,
+      "linear_radiance_gain": 0.0
+    },
+    {
+      "frame": 29,
+      "source_frame": 80,
+      "linear_radiance_gain": 0.0
+    }
+  ],
+  "detected_burst_ignition": 5,
+  "encoding": {
+    "codec": "libx264",
+    "crf": 12,
+    "preset": "fast"
+  },
+  "purpose": "Compact timed burst using existing detailed flame middle followed by original natural collapse",
+  "new_model_renders": 0,
+  "gpu_used": false
+}

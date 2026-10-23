@@ -7,3 +7,7 @@
 Dockerfile text eol=lf
 # The built studio (tools/build_static_studio.py) ships byte for byte
 cuesync/src/cuesync/studio_static/** -text
+# Curated playback evidence is hashed byte for byte; preserve JSON and recipes too.
+samples/source_assets/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+samples/library/bending/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+samples/made_ahead/bending/** -text whitespace=trailing-space,space-before-tab,cr-at-eol

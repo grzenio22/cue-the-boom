@@ -1,0 +1,32 @@
+{
+  "effect": "B-turbulent-v2",
+  "size": [
+    1280,
+    768
+  ],
+  "point": [
+    0.5,
+    0.7812
+  ],
+  "scale": 1.0,
+  "length": 81,
+  "anchor_frame": 0,
+  "voice_end": 49,
+  "tail": "fade",
+  "canvas": true,
+  "keyframes": [
+    0,
+    1,
+    9,
+    17,
+    25,
+    33,
+    41,
+    49,
+    57,
+    65,
+    73,
+    80
+  ],
+  "blobs": []
+}

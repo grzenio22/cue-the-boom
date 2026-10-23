@@ -71,7 +71,7 @@ def outputs(job: str, clips: Path) -> list[Path]:
     return result
 
 
-def input_paths(job: str, root: Path, gallery: Path | None = None) -> list[Path]:
+def recipe_input_paths(job: str, root: Path, gallery: Path | None = None) -> list[Path]:
     takes = root / "runs" / "takes"
     samples = root / "samples"
     ahead = gallery or samples / "made_ahead" / "bending"
@@ -115,6 +115,54 @@ def input_paths(job: str, root: Path, gallery: Path | None = None) -> list[Path]
     }[job]
     return [samples / "plates" / plate, samples / "voices" / voice, samples / "samples.json",
             *[ahead / element / n for n in ("receipt.json", "hand_track.json", "hand_mask.npz")]]
+
+
+def source_lineage(element: Path, root: Path, gallery: Path | None = None) -> dict | None:
+    """Bind playback bytes to the installed original generation and CPU recipe."""
+    provenance = element.with_name("source-provenance.json")
+    if not provenance.is_file():
+        receipt = element.with_name("receipt.json")
+        if receipt.is_file() and json.loads(receipt.read_text(encoding="utf-8")).get("source_provenance"):
+            raise FileNotFoundError(f"Playback source declares a missing provenance sidecar: {provenance}")
+        return None
+    data = json.loads(provenance.read_text(encoding="utf-8"))
+    adapter = element.with_name("source-adapter.json")
+    if sha(element) != data["element_sha256"] or sha(adapter) != data["playback_adapter_sha256"]:
+        raise ValueError(f"Playback element or adapter differs from its source provenance: {element}")
+    assets = gallery.parent / "source-assets" if gallery and element.is_relative_to(gallery) else root
+    source_files = {}
+    for relative, expected in data["source_files"].items():
+        path = (assets / relative).resolve()
+        if not path.is_relative_to(assets.resolve()) or not path.is_file() or sha(path) != expected:
+            raise ValueError(f"Original-generation source asset is missing or changed: {path}")
+        source_files[relative] = dict(path=str(path), sha256=expected)
+    original_sha, derivative = data["element_sha256"], None
+    for item in source_files.values():
+        path = Path(item["path"])
+        if path.name == "derivative-recipe.json":
+            recipe = json.loads(path.read_text(encoding="utf-8"))
+            if recipe.get("derivative_sha256") == data["element_sha256"]:
+                if derivative is not None:
+                    raise ValueError(f"Ambiguous derivative recipes for {element}")
+                derivative = str(path)
+                original_sha = recipe["original_element_sha256"]
+    originals = [item["path"] for item in source_files.values()
+                 if item["sha256"] == original_sha and Path(item["path"]).name == "element.mp4"]
+    if len(originals) != 1:
+        raise ValueError(f"Exactly one original generation must establish playback ancestry: {element}")
+    return dict(provenance_path=str(provenance.resolve()), source_adapter_path=str(adapter.resolve()),
+                source_files=source_files, original_generation_element=originals[0],
+                original_generation_sha256=original_sha, derivative_recipe=derivative)
+
+
+def input_paths(job: str, root: Path, gallery: Path | None = None) -> list[Path]:
+    inputs = recipe_input_paths(job, root, gallery)
+    for element in [p for p in inputs if p.name == "element.mp4"]:
+        lineage = source_lineage(element, root, gallery)
+        if lineage:
+            inputs.extend(Path(lineage[key]) for key in ("provenance_path", "source_adapter_path"))
+            inputs.extend(Path(item["path"]) for item in lineage["source_files"].values())
+    return list(dict.fromkeys(inputs))
 
 
 def read_mono(path: Path, sr: int = 48000):
@@ -321,7 +369,7 @@ def main() -> None:
     code[str(SCRIPT.relative_to(CHECKOUT))] = sha(SCRIPT)
     manifest.update({"input_root": str(root), "output_root": str(out), "source_root": str(SOURCE),
                      "source_sha256": code,
-                     "claims": {"proof": "one shared LTX-2.5 render, three performances, zero new model renders",
+                     "claims": {"proof": "one shared playback element from one LTX-2.5 generation, three performances, zero new model renders; original and CPU-derivative ancestry recorded where applicable",
                                 "explosion": "LTX-2.5 fireball plus CPU lighting, smoke treatment and compositing",
                                 "lightning_and_water": "procedural CPU effects, synthetic sample noise",
                                 "narration": "Kokoro-82M, a synthetic voice"}})
@@ -376,9 +424,19 @@ def main() -> None:
                  "concurrent_workers": args.workers, "timing_is_benchmark": False,
                  "method": "existing studio recording; resulting shot recomposited by current checkout" if job == "studio" else
                            "current checkout CPU render/composite from cached model render; no new model render"}
-        elements = {str(p): source_hashes[str(p)] for p in ins if p.name == "element.mp4"}
+        # An original-generation chain can contain several element.mp4 files.
+        # Identify playback from the actual render recipe, never its basename alone.
+        elements = {str(p): source_hashes[str(p)] for p in recipe_input_paths(job, root, gallery)
+                    if p.name == "element.mp4"}
         if len(elements) == 1:
-            entry["element_sha256"] = next(iter(elements.values()))
+            playback = next(iter(elements))
+            entry["playback_element"] = playback
+            entry["element_sha256"] = elements[playback]
+            lineage = source_lineage(Path(playback), root, gallery)
+            if lineage:
+                entry["source_lineage"] = lineage
+                if lineage["derivative_recipe"]:
+                    entry["method"] = "Current checkout CPU composite from one existing generation's CPU temporal derivative; no new model generation"
         receipt = clips / ("studio_result_current" if job == "studio" else job) / "receipt.json"
         if receipt.exists():
             entry["receipt"] = json.loads(receipt.read_text(encoding="utf-8"))

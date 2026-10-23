@@ -37,6 +37,10 @@
       "variants": []
     }
   },
+  "source_profile": {
+    "scale": 1.0,
+    "exposure": 1.0
+  },
   "inputs": {
     "point": [
       0.532,
@@ -55,6 +59,7 @@
     "track": "hand_track.json",
     "mask": "hand_mask.npz",
     "k_hit": 90,
+    "poster_frame": 102,
     "tap_frame": 30,
     "aim": 0.0,
     "aim_mode": "upward_default",
@@ -123,7 +128,9 @@
       "drawn": 1.37,
       "target": 2.8,
       "room": 2.81,
-      "play": 2.04
+      "play": 2.041,
+      "base_play": 2.041,
+      "source_scale": 1.0
     },
     "thrown": null,
     "loud_ref": 0.7494,
@@ -143,12 +150,14 @@
       "method": "image-based 2.5D: coherent depth slabs and landmark hand surface",
       "volume": {
         "slabs": 9,
-        "optical_depth": 0.3,
-        "density_contrast": 0.34,
-        "temperature": 0.18,
         "thickness": 0.9,
         "parallax": 0.6,
         "flow": 0.04,
+        "optical_depth": 0.85,
+        "tau_cap": 1.25,
+        "density_contrast": 0.34,
+        "foreground_cooling": 0.34,
+        "filament_relief": 0.32,
         "energy": 0.95
       },
       "lighting": "exposure-aware three-band local relight",
@@ -166,14 +175,14 @@
     "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
     "foley_gain": 0.65
   },
-  "seconds_total": 60.9,
+  "seconds_total": 51.1,
   "element_sha256": "d0d29ee13e1616f906d53ec8657c754c7ec0d614b1b924ffb6996f4ed0407b0b",
   "recomposite": {
     "method": "CPU compositing from the existing LTX element, track and matte",
     "no_new_render": true,
     "no_gpu": true,
     "element_sha256": "d0d29ee13e1616f906d53ec8657c754c7ec0d614b1b924ffb6996f4ed0407b0b",
-    "source_receipt_sha256": "df68228155061c4a757d9cda31a88708fc7923da73e7ca6ed9a78b3ec26c33af",
+    "source_receipt_sha256": "e128b86f12ef329d284e3e4c484b4df35687e6681f7a3f99732a74e440f0d359",
     "raw_audio_hit_frames": [
       24,
       57,
@@ -186,18 +195,18 @@
     ],
     "charge_window": null,
     "cue_voice_end_frame": 102,
-    "utc": "2026-10-22T22:07:47.059916+00:00",
-    "seconds": 60.954,
+    "utc": "2026-10-23T01:02:47.128909+00:00",
+    "seconds": 51.172,
     "renderer_sources": {
       "cuesync/src/cuesync/audio.py": "ebee363eb6ee02050dee9bf24134039b25d45da9f6a2bdd67402ea7278442c4e",
-      "cuesync/src/cuesync/bending.py": "24387e3afeb307ac2ec497830e7b4f3d0e13e74b2ab5ece391f9e7658ed2c729",
+      "cuesync/src/cuesync/bending.py": "b1fcebe9b1ed12e721822fd5b21949716c8fd08fee188021cd81948db70af9c8",
       "cuesync/src/cuesync/composite.py": "41b9b4ae9e200697c9e8e4f3e781efa7b158e5188a9c4a11aad41520683927be",
       "cuesync/src/cuesync/conform.py": "e1ec3595b2f6053c7c43634ba08ab0d792c29db62d3b463c30e088002f913c01",
       "cuesync/src/cuesync/cues.py": "a5e68e16e64a017dcb72411fa12b611487101c106941d47c25daf885a59ca295",
       "cuesync/src/cuesync/effects.py": "5a4f0db620c51d6eb12fef1eadd38b660fbea2b44170003a982cef2b8b446e43",
       "cuesync/src/cuesync/fire_relight.py": "fa04c1336ebac9c3403ae9625c4710aa36bf9fbab3e50b19022b0d6cef6247ca",
       "cuesync/src/cuesync/fx_light.py": "efcd00ea9bc716173498ea3a6f495590ae261c55bb3c3b9a671de33351c92f9d",
-      "cuesync/src/cuesync/fx_volume.py": "267a5c788959397a178a086ae51e6a0fdc6209dabc7c1d53323eac2d97f097fb",
+      "cuesync/src/cuesync/fx_volume.py": "7e7827c0beb8c19a8486ccb6bf21a380e624b688c185a4b440bcecd77d96d5bd",
       "cuesync/src/cuesync/gestures.py": "32f16444bf05758c689e2a112768260279f319fbfdb99b039aede05fff01c620",
       "cuesync/src/cuesync/hand_surface.py": "deb28a961babc12641f3db8580c1a81f0958db419982fa5193ee93f8b6082f36",
       "cuesync/src/cuesync/hand_track.py": "9b321930626d98523e7d5631a1ed256b9a9548c812a5b24b3cf98f4ebd345fd6",
@@ -215,6 +224,6 @@
       "effects/steam_jet.json": "2bf8aff189dc089d6da8b8ac14c8c41862a4eb2c34c9c5b39cb6029f8af2e706",
       "effects/wick_flare.json": "8c04ae37ec06d149f3fdabd6391ba16ae602091bec61486a04d478ebcda6ae13"
     },
-    "rebuild_recipe_sha256": "bb3c65d88f5e563ad7af9b30d86c84eaa5961e64295783000c22d0c35922280c"
+    "rebuild_recipe_sha256": "7d9a9be1a88246e2f54a9711531f70ec476f7ac65f105172bf040b1fa81e3f20"
   }
 }

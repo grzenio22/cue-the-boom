@@ -47,7 +47,8 @@ def portrait(frame: np.ndarray) -> Image.Image:
 
 
 def recap(root: Path, run: Path, *, stages=STAGES, duration=DURATION,
-          source_card: Path | None = None, source_clip: Path | None = None) -> Path:
+          source_card: Path | None = None, source_clip: Path | None = None,
+          source_start: float = 2.4, source_span: float = .9) -> Path:
     original = Image.open(source_card or root / "runs/demo_v13/cards/pipeline_overview.png").convert("RGB")
     if original.size != (W, H):
         raise ValueError(f"Unexpected recap card size: {original.size}")
@@ -56,8 +57,10 @@ def recap(root: Path, run: Path, *, stages=STAGES, duration=DURATION,
     border(draw, 2, BG, 6)
     border(draw, 2, LINE, 3)
     title(draw, 2, FG)
-    # Keep the original 2.4--3.3 s source window, slowed over the shorter recap.
-    source = Clip(str(source_clip or root / "runs/demo_v11/clips/how_raw.mp4"), 2.4, duration, speed=.9 / duration)
+    # Source selection can follow a derivative's active interval without changing
+    # the narration, beat holds, or phase-aligned proof comparisons.
+    source = Clip(str(source_clip or root / "runs/demo_v11/clips/how_raw.mp4"), source_start, duration,
+                  speed=source_span / duration)
     path = run / "cards/pipeline_motion.mp4"
     path.parent.mkdir(parents=True, exist_ok=True)
     with av.open(str(path), "w") as container:

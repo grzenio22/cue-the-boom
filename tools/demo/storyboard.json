@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "duration": 113.375,
   "beats": [
     {
@@ -29,10 +29,10 @@
     {
       "id": "intro_raw",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_raw.mp4",
-      "start": 2.4,
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
+      "start": 2.65,
       "dur": 4.0,
-      "speed": 0.225,
+      "speed": 0.2,
       "fill": true,
       "portrait_backdrop": true,
       "crop": [
@@ -43,7 +43,7 @@
       ],
       "headline": "Cue the Boom",
       "subline": "Generate once. Perform again.",
-      "stamp": "Raw LTX-2.5 fire · ainvfx-fluid IC-LoRA · shown in slow motion",
+      "stamp": "LTX-2.5 fire · CPU temporal derivative · slow motion",
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\once12.wav",
       "vo_at": 0.2,
       "vo_gain": 1.3,
@@ -59,7 +59,7 @@
     {
       "id": "intro_finished",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_boom\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
       "start": 2.4,
       "dur": 6.0,
       "speed": 0.15,
@@ -81,7 +81,7 @@
       "subline": "Listen to each complete performance",
       "panels": [
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
           "start": 0.5,
           "dur": 3,
           "crop": [
@@ -101,7 +101,7 @@
           "audio_from": 0.5
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_pf_boom\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -128,7 +128,7 @@
           ]
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_pf_x4\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_x4\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -160,7 +160,7 @@
         }
       ],
       "headline": "1 LTX generation · 3 performances · 0 additional AI generations",
-      "element_src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_raw.mp4",
+      "element_src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
       "element_at": 2.92,
       "stamp": "Same hand footage + one LTX-2.5 element · author's recorded pf and BOOM"
     },
@@ -175,7 +175,7 @@
       "subline": "Quiet pf → small. Loud BOOM → big.",
       "panels": [
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -194,7 +194,7 @@
           ]
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_pf_boom\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -221,7 +221,7 @@
           ]
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_pf_x4\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_x4\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -253,7 +253,7 @@
         }
       ],
       "headline": "1 LTX generation · 3 performances · 0 additional AI generations",
-      "element_src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_raw.mp4",
+      "element_src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
       "element_at": 2.92,
       "stamp": "Same hand footage + one LTX-2.5 element · author's recorded pf and BOOM",
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\size12.wav",
@@ -330,10 +330,10 @@
     {
       "id": "workflow_fire",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_raw.mp4",
-      "start": 2.4,
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
+      "start": 2.65,
       "dur": 2.0,
-      "speed": 0.45,
+      "speed": 0.4,
       "crop": [
         0.22,
         0.06,
@@ -353,16 +353,16 @@
       "id": "how",
       "type": "triptych",
       "srcs": [
-        "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_raw.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_carried.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_light_off\\composite.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_boom\\composite.mp4"
+        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_carried.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_light_off\\composite.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4"
       ],
       "start": 2.4,
       "dur": 6.0,
       "speed": 0.15,
       "labels": [
-        "LTX-2.5 over black",
+        "LTX fire · CPU derivative",
         "Carried on the hand",
         "Light off",
         "Finished + light"
@@ -388,8 +388,8 @@
       "id": "light",
       "type": "triptych",
       "srcs": [
-        "D:\\openHiggsfield\\runs\\demo_v16\\clips\\how_light_off\\composite.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_boom\\composite.mp4"
+        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_light_off\\composite.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4"
       ],
       "labels": [
         "Light off",
@@ -407,7 +407,7 @@
     {
       "id": "walk",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\flame_walk\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\flame_walk\\composite.mp4",
       "start": 3,
       "dur": 3.25,
       "fill": true,
@@ -418,7 +418,7 @@
     {
       "id": "flamethrower",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\flamethrower\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\flamethrower\\composite.mp4",
       "start": 1.3,
       "dur": 2.0,
       "fill": true,
@@ -530,7 +530,7 @@
     {
       "id": "upload",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\studio.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
       "start": 1,
       "dur": 4.0,
       "fill": true,
@@ -558,7 +558,7 @@
     {
       "id": "tap",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\studio.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
       "start": 6.5,
       "dur": 4.0,
       "fill": true,
@@ -585,7 +585,7 @@
     {
       "id": "perform",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\studio.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
       "start": 31.5,
       "dur": 5.0,
       "fill": true,
@@ -629,7 +629,7 @@
     {
       "id": "make",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\studio.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio.mp4",
       "start": 36.5,
       "dur": 2.5,
       "fill": true,
@@ -657,7 +657,7 @@
     {
       "id": "result",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\studio_result.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\studio_result.mp4",
       "start": 2.5,
       "dur": 4.0,
       "fill": true,
@@ -690,7 +690,7 @@
     {
       "id": "innovation",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
       "start": 0.0,
       "dur": 0.75,
       "fill": true,
@@ -720,7 +720,7 @@
     {
       "id": "innovation_asset",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
       "start": 0.75,
       "dur": 1.4583333333333333,
       "fill": true,
@@ -729,7 +729,7 @@
     {
       "id": "innovation_track",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
       "start": 2.2083333333333335,
       "dur": 1.125,
       "fill": true,
@@ -738,7 +738,7 @@
     {
       "id": "innovation_voice",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
       "start": 3.3333333333333335,
       "dur": 0.75,
       "fill": true,
@@ -747,7 +747,7 @@
     {
       "id": "innovation_result",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
       "start": 4.083333333333333,
       "dur": 1.8333333333333333,
       "fill": true,
@@ -756,7 +756,7 @@
     {
       "id": "innovation_hits",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\proof_pf_pf_boom\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_pf_boom\\composite.mp4",
       "start": 0,
       "dur": 3.5,
       "fill": true,
@@ -983,10 +983,10 @@
       "end": 113.375
     }
   ],
-  "provenance": "D:\\openHiggsfield\\runs\\demo_v16\\clips\\manifest.json",
+  "provenance": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\manifest.json",
   "narration": "D:\\openHiggsfield\\runs\\demo_v15\\vo15\\provenance.json",
-  "source_policy": "Affected hand-fire sources rebuilt with current production CPU compositor from immutable existing element/track/matte snapshots; five unaffected procedural/scene pictures retained with historical output provenance; no new model renders; narration and edit timing preserved",
-  "baseline": "D:\\openHiggsfield\\runs\\demo_v15\\storyboard.json",
+  "source_policy": "Current production CPU compositor and approved playback assets; proof trio uses one CPU temporal derivative of one existing LTX generation; exact original/derivative ancestry retained. Five unaffected procedural/scene pictures retain historical output provenance. No new model generation; narration and edit timing preserved.",
+  "baseline": "D:\\openHiggsfield\\runs\\demo_v16\\storyboard.json",
   "room_tone": {
     "src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\room_tone.wav",
     "target_dbfs": -45,
@@ -999,5 +999,6 @@
     "lanterns": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline",
     "lightning_point": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline",
     "water": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline"
-  }
+  },
+  "standalone_source_window_note": "Intro, workflow fire display and derived recap use active derivative interval 2.65-3.45s. Beat durations, audio, narration and phase-aligned proof comparisons remain unchanged."
 }

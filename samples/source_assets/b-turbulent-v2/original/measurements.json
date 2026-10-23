@@ -1,0 +1,20 @@
+{
+  "peak_frame": 24,
+  "ignition_frame": 2,
+  "last_lit_frame": 67,
+  "peak_bounds_px": [
+    516,
+    94,
+    794,
+    674
+  ],
+  "measured_foot_px": [
+    646.0,
+    648.0
+  ],
+  "guide_emitter_px": [
+    640,
+    600
+  ],
+  "pixel_measurement_threshold": 90
+}

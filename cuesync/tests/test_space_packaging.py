@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 
@@ -23,9 +24,10 @@ def source_tree(tmp_path):
                 "effect_files", ".pytest_cache", ".ruff_cache", "tests",
             ),
         )
-    for part in ("samples", "workflows", "web", "build"):
+    for part in ("samples", "workflows", "web", "build", "tools"):
         (source / part).mkdir()
-    for name in ("LICENSE", "NOTICE.md", "samples/CREDITS.md", "workflows/LICENSE-LTX-2.x", "build/model-files.md"):
+    for name in ("LICENSE", "NOTICE.md", "samples/CREDITS.md", "workflows/LICENSE-LTX-2.x", "build/model-files.md",
+                 "tools/derive_fire_element.py"):
         shutil.copy2(ROOT / name, source / name)
     return source
 
@@ -66,6 +68,55 @@ def test_assembled_space_preserves_license_notices(source_tree, tmp_path):
                  "workflows/LICENSE-LTX-2.x", "build/model-files.md"):
         assert (out / name).is_file(), f"Missing redistribution notice: {name}"
         assert (out / name).read_bytes() == (source_tree / name).read_bytes()
+
+
+def test_assembled_space_includes_only_the_documented_derivation_tool(source_tree, tmp_path):
+    # The public media credits link this helper. Copying all of tools/ would
+    # also expose unrelated development utilities or local files.
+    (source_tree / "tools/private_notes.txt").write_text("local fixture", encoding="utf-8")
+    (source_tree / "tools/unrelated.py").write_text("raise RuntimeError('not shipped')", encoding="utf-8")
+    out = tmp_path / "space"
+    result = assemble(source_tree, out)
+    assert result.returncode == 0, result.stderr
+    helper = out / "tools/derive_fire_element.py"
+    assert helper.is_file()
+    assert helper.read_bytes() == (source_tree / "tools/derive_fire_element.py").read_bytes()
+    assert sorted(p.name for p in (out / "tools").iterdir()) == ["derive_fire_element.py"]
+    result = subprocess.run([sys.executable, "-I", str(helper), "--help"],
+                            cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "--recipe" in result.stdout
+
+
+def test_docker_copy_stage_preserves_the_documented_reproduction_command(source_tree, tmp_path):
+    # Materialize this Dockerfile's local COPY instructions without building an
+    # image or downloading dependencies. Then exercise the packaged entrypoint.
+    context, image = tmp_path / "space", tmp_path / "image/app"
+    result = assemble(source_tree, context)
+    assert result.returncode == 0, result.stderr
+    image.mkdir(parents=True)
+    for line in (context / "Dockerfile").read_text(encoding="utf-8").splitlines():
+        if not line.lstrip().startswith("COPY "):
+            continue
+        tokens = shlex.split(line, comments=True)
+        arguments = [token for token in tokens[1:] if not token.startswith("--")]
+        *sources, destination = arguments
+        for name in sources:
+            source, target = context / name, image / destination
+            if source.is_dir():
+                shutil.copytree(source, target, dirs_exist_ok=True)
+            else:
+                if destination.endswith("/") or len(sources) > 1:
+                    target /= source.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
+    helper = image / "tools/derive_fire_element.py"
+    assert helper.is_file()
+    assert sorted(p.name for p in (image / "tools").iterdir()) == ["derive_fire_element.py"]
+    result = subprocess.run([sys.executable, "-I", str(helper), "--help"],
+                            cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "--recipe" in result.stdout
 
 
 def test_assembled_space_excludes_stale_packaging_outputs(source_tree, tmp_path):

@@ -23,6 +23,7 @@ COPY --chown=user workflows workflows
 COPY --chown=user web web
 COPY --chown=user LICENSE NOTICE.md ./
 COPY --chown=user build/model-files.md build/model-files.md
+COPY --chown=user tools/derive_fire_element.py tools/derive_fire_element.py
 COPY --chown=user start.sh start.sh
 
 # the core, and the hand tracker's own environment (MediaPipe's opencv-contrib clashes with the core's opencv-python)

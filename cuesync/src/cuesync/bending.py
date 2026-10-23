@@ -849,6 +849,21 @@ def root_fade(h: int, w: int, ref: tuple, length: float, rounded: float = ROOT_R
     return np.clip((along - rounded * across * across / length) / length, 0, 1).astype(np.float32)
 
 
+def source_profile(value: dict | None = None) -> dict[str, float]:
+    """Validate optional authored source calibration; absent fields preserve the original playback."""
+    if value is None:
+        value = {}
+    if not isinstance(value, dict) or set(value) - {"scale", "exposure"}:
+        raise ValueError("source_profile must be an object with only scale and exposure")
+    profile = {}
+    for key, low, high in (("scale", .25, 2.), ("exposure", .25, 4.)):
+        v = value.get(key, 1.)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not low <= v <= high or not math.isfinite(v):
+            raise ValueError(f"source_profile.{key} must be a finite number between {low} and {high}")
+        profile[key] = float(v)
+    return profile
+
+
 def library_size(behaviour: str, s_ref: float, short_ref: int, s_hand: float, short: int) -> float:
     """How much bigger to play an element made ahead for another hand (the library's: a hand ``s_ref`` px in a frame
     ``short_ref`` px on its short side) than its hand-for-hand scale, so it is as big on this hand (``s_hand`` px, in a
@@ -1062,8 +1077,8 @@ def root_holdout(track: dict, t: int, h: int, w: int, mask: np.ndarray | None,
     return disc * np.clip(back / max(0.3 * s, 1.0), 0, 1)
 
 
-FIRE_VOLUME = dict(slabs=9, optical_depth=.30, density_contrast=.34, temperature=.18,
-                   thickness=.9, parallax=.60, flow=.040, energy=.95)
+FIRE_VOLUME = dict(slabs=9, thickness=.9, parallax=.60, flow=.040, optical_depth=.85, tau_cap=1.25,
+                   density_contrast=.34, foreground_cooling=.34, filament_relief=.32, energy=.95)
 
 
 def fire_landmarks(track: dict, t: int) -> np.ndarray | None:
@@ -1154,18 +1169,32 @@ def fire_visibility(track: dict, t: int, matte: np.ndarray | None, geo: dict | N
     return visibility
 
 
+def _fire_over_floor(plate: np.ndarray, emission: np.ndarray,
+                     opacity: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Optical over and its permitted background luminance floor, on the supplied patch."""
+    lum, plate_lum = fx._lum(emission), fx._lum(plate)
+    alpha = np.clip(opacity, 0., 1.)
+    body = _smooth(.04, .28, lum)*_smooth(.12, .45, alpha)
+    floor = plate_lum*(1.-.28*body)
+    np.minimum(alpha, (.98*lum+plate_lum-floor)/np.maximum(plate_lum, 1e-5), out=alpha)
+    result = plate*(1.-alpha[..., None])
+    result += emission
+    return result, floor
+
+
 def fire_over(plate: np.ndarray, emission: np.ndarray, opacity: np.ndarray) -> np.ndarray:
-    """Luminous gas cannot remove more luminance than it adds, even over an HDR wall."""
-    lum = fx._lum(emission)
-    alpha = np.minimum(np.clip(opacity, 0., 1.), .72 * lum)
-    alpha = np.minimum(alpha, .98 * lum / np.maximum(fx._lum(plate), 1e-5))
-    return plate * (1. - alpha[..., None]) + emission
+    """Dense gas can attenuate a wall by at most 28%; faint edges cannot darken it."""
+    return _fire_over_floor(plate, emission, opacity)[0]
 
 
 def finish_fire(plate: np.ndarray, emission: np.ndarray, opacity: np.ndarray,
                 out: np.ndarray | None = None) -> np.ndarray:
-    """The validated optical over, bloom and shoulder, evaluated only on their finite support.
+    """Optical over and bloom with a bounded, plate-anchored camera response in each channel.
 
+    Compress the whole luminous result, not a mixture with an unbounded linear result: the latter clipped a
+    broad white core after display conversion. Separate channel shoulders let hot filaments approach warm
+    yellow above their orange body. Each knee stays above its photographed channel; a calibrated luminance
+    floor permits depth in dense gas while preventing faint edges from cutting a dark rim into a wall.
     Quarter-resolution bloom retains its original full-canvas sampling grid. On the usual multiple-of-four
     plate dimensions, resizing a grid-aligned crop is exactly the same interpolation as resizing the canvas.
     """
@@ -1176,10 +1205,10 @@ def finish_fire(plate: np.ndarray, emission: np.ndarray, opacity: np.ndarray,
         out[...] = plate
     low = cv2.resize(emission, (max(1, w//4), max(1, h//4)), interpolation=cv2.INTER_AREA)
     low = cv2.GaussianBlur(low, (0, 0), max(.0035*min(h, w), .5))
+    x, y, bw, bh = cv2.boundingRect(np.any(low != 0., axis=-1).astype(np.uint8))
+    if bw == 0 or bh == 0:
+        return out
     if h % 4 == 0 and w % 4 == 0:
-        x, y, bw, bh = cv2.boundingRect(np.any(low != 0., axis=-1).astype(np.uint8))
-        if bw == 0 or bh == 0:
-            return out
         lx0, ly0 = max(0, x-1), max(0, y-1)
         lx1, ly1 = min(low.shape[1], x+bw+1), min(low.shape[0], y+bh+1)
         x0, y0, x1, y1 = 4*lx0, 4*ly0, 4*lx1, 4*ly1
@@ -1189,13 +1218,18 @@ def finish_fire(plate: np.ndarray, emission: np.ndarray, opacity: np.ndarray,
         glow = cv2.resize(low, (w, h))
     sl = (slice(y0, y1), slice(x0, x1))
     room, E = plate[sl], emission[sl]
-    result = fire_over(room, E, opacity[sl])
+    result, floor = _fire_over_floor(room, E, opacity[sl])
     result += glow*.035
-    high = np.maximum(result-.78, 0.)
-    rolled = np.where(result > .78, .78+.22*(1.-np.exp(-high/.22)), result)
-    lum = fx._lum(E)
-    share = (lum/np.maximum(lum+fx._lum(room), 1e-6))[..., None]
-    out[sl] = result*(1.-share)+rolled*share
+    knee = np.maximum(.78, room)
+    ceiling = np.maximum(1., room)
+    span = np.maximum(ceiling-knee, 1e-6)
+    mapped = np.minimum(ceiling, knee+span*(-np.expm1(-np.maximum(result-knee, 0.)/span)))
+    np.copyto(result, mapped, where=result > knee)
+    need = np.maximum(floor-fx._lum(result), 0.)
+    headroom = np.maximum(ceiling-result, 0.)
+    fraction = np.minimum(need/np.maximum(fx._lum(headroom), 1e-6), 1.)
+    result += headroom*fraction[..., None]
+    out[sl] = result
     return out
 
 
@@ -1350,6 +1384,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     tap_k = k_launch if tap_frame is None else int(np.clip(tap_frame, 0, n - 1))
     auto = None
     old = json.loads((Path(element_from) / "receipt.json").read_text()) if element_from is not None else None
+    profile = source_profile(old.get("source_profile") if old is not None else None)
     # performing your own take again: as big as it is loud against the take it was rendered for (not a library's)
     loud_ref = old["bending"].get("loud_ref") if old is not None and not instant else None
     looks = hit_looks(loud, loud_ref)
@@ -1494,9 +1529,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     cam = camera_path(plate, mask, track)  # a handheld camera: what was thrown moves with the room
     views = palm_views(track, k_launch) if eff.fluid == "fire" else None
 
-    def volume_source(S: np.ndarray, t: int, source_frames: list[int]) -> np.ndarray:
+    def volume_source(S: np.ndarray, t: int, source_frames: list[int], source_weight: float = 1.) -> np.ndarray:
         if eff.fluid != "fire":
-            return S
+            return S if profile["exposure"] == 1. else S * profile["exposure"]
         # Carry RGB and extinction through exactly the same camera/hand transform.
         boxes = [lit_box[f] for f in source_frames if lit_box[f] is not None]
         bounds = ((min(b[2] for b in boxes), min(b[0] for b in boxes),
@@ -1505,8 +1540,14 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                                      active_bounds=bounds, crop_output=True)
         packed = np.zeros((h, w, 4), np.float32)
         x0, y0, x1, y1 = info["crop"]
-        packed[y0:y1, x0:x1, :3] = E
-        packed[y0:y1, x0:x1, 3] = 1. - T
+        # Calibrate radiance and optical depth together, once per source frame.
+        # Relighting receives this same calibrated emission after placement.
+        exposure = profile["exposure"]
+        packed[y0:y1, x0:x1, :3] = E if exposure == 1. else E * exposure
+        # RGB already contains the held-release fade. Relative density reconstruction
+        # normalizes that fade away, so carry it explicitly into optical depth only.
+        optical_scale = exposure * max(0., min(float(source_weight), 1.))
+        packed[y0:y1, x0:x1, 3] = 1. - T if optical_scale == 1. else 1. - np.clip(T, 0., 1.) ** optical_scale
         return packed
 
     if charge:  # the hum's energy: quick to rise, slow to let go (the ember keeps a little between breaths)
@@ -1558,6 +1599,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     if eff.fluid == "fire" and eff.behaviour in FIT:  # (a render made for another hand, a library's, may play smaller)
         drawn = drawn_extent((source(e) for e in range(ign, len(element), 2)), ref)
         play, fit = fit_play(eff.behaviour, drawn, track, k_launch, w, h, least=0.3 if instant else 1.0)
+    base_play = play
+    play *= profile["scale"]
+    if fit is not None:
+        fit = fit | {"base_play": round(base_play, 3), "source_scale": profile["scale"], "play": round(play, 3)}
     thrown = eff.behaviour == "burst"  # a fireball leaves the fist at the strike (thrown_pose)
     if thrown and old is not None and not instant and "thrown" in old["bending"]:
         # Reperform the saved motion intent; a library's source pose does not decide a new hand's release.
@@ -1582,12 +1627,13 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 if not max(0, ign - pre) <= e < len(element):  # (a negative frame would wrap round to the render's end)
                     continue
                 picks = [(e, 1.0)]
-            strength = max(strength, min(1.0, sum(wt for _, wt in picks)))
+            source_weight = min(1.0, sum(wt for _, wt in picks))
+            strength = max(strength, source_weight)
             grow = min(1.0, GROW_FROM + (1.0 - GROW_FROM) * max(0.0, e - ign + pre) / (pre + GROW_FRAMES))
             if eff.behaviour == "burst":  # (a burst is the blast itself: no growing into it)
                 grow = 1.0
             S = blend_element_frames(source, picks, lit_box, (h, w))
-            S = volume_source(S, t, [f for f, _ in picks])
+            S = volume_source(S, t, [f for f, _ in picks], source_weight)
             E = warp_element(S, track, ref, t, lag, size * grow * play, since=off + ign, cam=cam, thrown=thrown)
             E *= gain
             if thrown and t > off + ign + RELEASE_AFTER:  # in flight: smeared along its path over the shutter (on the
@@ -1669,6 +1715,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     if ambient_room:
         light_cfg["room_ambient"] = float(np.median(ambient_room))
     out = np.empty_like(plate)
+    k_poster, poster_energy = int(np.clip(k_launch + 8, 0, n - 1)), 0.
     CHUNK = 1 if eff.fluid == "fire" else 12  # depth and lighting are per-frame; never cache a chunk of hand surfaces
     made: dict[int, np.ndarray | None] = {}  # each frame's element, carried once (it was carried twice: small, then full)
     for a in range(0, n, CHUNK):
@@ -1717,6 +1764,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 y0, y1, x0, x1 = fire_box
                 E0[y0:y1, x0:x1] *= visibility[..., None]
                 E, opacity = E0[..., :3], E0[..., 3]
+                # Rank visible emission, not the unoccluded source or its reflected light.
+                # A strict improvement keeps the first frame when multiple peaks are equal.
+                visible_energy = float(fx._lum(E[y0:y1:4, x0:x1:4]).sum(dtype=np.float64))
+                if visible_energy > poster_energy:
+                    k_poster, poster_energy = i, visible_energy
                 # Heat distorts the room before emission is added; preserve foreground skin after field smoothing.
                 alpha = np.clip(fx._lum(E) * 4., 0., 1.)[None]
                 fx.heat_haze(P[j:j+1], alpha, seed=spec.seed, out=P[j:j+1], frame0=i,
@@ -1760,7 +1812,6 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     audio = soundtrack(place_audio(c.samples, c.offset_s, n), eff, n, env, [off + ign for off, _, _ in every],
                        [g for _, g, _ in every], cue.voice_end_frame, spec.seed)
     comp_path, final_path = out_dir / "composite.mp4", out_dir / "final.mp4"
-    k_poster = int(np.clip(k_launch + 8, 0, len(frames) - 1))  # the player's still: the fire at its fullest, not a dark frame
     cv2.imwrite(str(out_dir / "poster.jpg"), cv2.cvtColor(np.ascontiguousarray(frames[k_poster]), cv2.COLOR_RGB2BGR),
                 [cv2.IMWRITE_JPEG_QUALITY, 85])
     write_video(comp_path, frames, fps=FPS, audio=audio, crf=14, preset=FINISH_PRESET)
@@ -1768,9 +1819,11 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                 crf=16, preset=FINISH_PRESET)
     receipt = {
         "cuesync": __version__, "mode": "bending", "effect": eff.to_json(),
+        "source_profile": profile,
         "inputs": {"point": list(spec.point), "seed": spec.seed, "offset_s": spec.offset_s, "cue": c.source},
         "render": {"seconds": round(seconds, 1), "prompt": prompt, "guide_scale": round(scale, 3)},
         "bending": {"track": str(track_path), "mask": None if mask is None else str(mask_path), "k_hit": int(k_launch),
+                    "poster_frame": int(k_poster),
                     "tap_frame": int(tap_k), "aim": None if arrow is None else round(float(arrow), 2),
                     "aim_mode": track.get("aim_mode", "explicit" if arrow is not None else "tracked"),
                     "k_launch": int(k_launch), "ignition": int(ign), "offset": int(offset), "lag_frames": lag,

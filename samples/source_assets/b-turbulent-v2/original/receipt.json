@@ -1,0 +1,37 @@
+{
+  "title": "Photographic turbulent fire plume",
+  "seed": 2026102222,
+  "prompt": "ainvfxfluid, a turbulent roiling plume of realistic photographed orange fire rising from a compact source, dense fine-scale chaotic curling flame tongues and constantly breaking textured eddies, a real large gas flame photographed with a fast camera shutter, highly detailed ragged flame fronts, intricate hot golden filaments inside translucent deep orange turbulent combustion, interwoven flames with many dark air gaps, unstable buoyant convection and irregular fast flicker, the flame grows from a tiny flicker into a lively plume then dies down, isolated on a pure black background, the fire alone in empty space, stationary camera",
+  "width": 1280,
+  "height": 768,
+  "frames": 81,
+  "fps": 24.0,
+  "model": "LTX-2.5 22B distilled int8 + ainvfx-fluid",
+  "seconds": 74.0471376000005,
+  "started_epoch": 1792687897.8250308,
+  "finished_epoch": 1792687972.4407675,
+  "source": "fresh ComfyUI LTX generation",
+  "intent": "Less smooth ribbon-like fire than B-v1",
+  "peak_frame": 24,
+  "ignition_frame": 2,
+  "last_lit_frame": 67,
+  "peak_bounds_px": [
+    516,
+    94,
+    794,
+    674
+  ],
+  "measured_foot_px": [
+    646.0,
+    648.0
+  ],
+  "guide_emitter_px": [
+    640,
+    600
+  ],
+  "pixel_measurement_threshold": 90,
+  "sha256": "073a3e69cbfd65041d6f43942a441298efe47d0e022ba692721c30c6b72f454c",
+  "prompt_id": "b90c9934-a55e-4528-b70a-4ea3dbd099b1",
+  "server_status": "success",
+  "server_execution_seconds": 52.459
+}

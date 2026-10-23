@@ -88,6 +88,10 @@
       ]
     }
   },
+  "source_profile": {
+    "scale": 0.7,
+    "exposure": 1.5
+  },
   "inputs": {
     "point": [
       0.5092592592592593,
@@ -99,19 +103,20 @@
   },
   "render": {
     "seconds": 0.0,
-    "prompt": "ainvfxfluid, a short explosive ball of clean bright flame bursting upwards from a point, a white-hot core, quickly dissipating into embers, isolated on a pure black background",
-    "guide_scale": 1.125
+    "prompt": "ainvfxfluid, a turbulent roiling plume of realistic photographed orange fire rising from a compact source, dense fine-scale chaotic curling flame tongues and constantly breaking textured eddies, a real large gas flame photographed with a fast camera shutter, highly detailed ragged flame fronts, intricate hot golden filaments inside translucent deep orange turbulent combustion, interwoven flames with many dark air gaps, unstable buoyant convection and irregular fast flicker, the flame grows from a tiny flicker into a lively plume then dies down, isolated on a pure black background, the fire alone in empty space, stationary camera",
+    "guide_scale": 1.0
   },
   "bending": {
     "track": "hand_track.json",
     "mask": "hand_mask.npz",
     "k_hit": 64,
+    "poster_frame": 65,
     "tap_frame": 54,
     "aim": 0.0,
     "aim_mode": "explicit",
     "k_launch": 64,
-    "ignition": 19,
-    "offset": 45,
+    "ignition": 5,
+    "offset": 59,
     "lag_frames": 2,
     "snap": {
       "cue": 64,
@@ -136,26 +141,25 @@
     ],
     "ref": {
       "xy": [
-        1038.07,
-        770.12
+        646.0,
+        648.0
       ],
       "dir": [
-        -0.32129,
-        -0.94698
+        0.0,
+        -1.0
       ],
-      "scale": 300.42
+      "scale": 203.57
     },
     "fit": {
       "as": "burst",
-      "drawn": 1.0,
+      "drawn": 1.53,
       "target": 2.2,
-      "room": 1.58,
-      "play": 1.58
+      "room": 1.37,
+      "play": 0.957,
+      "base_play": 1.367,
+      "source_scale": 0.7
     },
-    "thrown": {
-      "after": 1,
-      "hands": 1.0
-    },
+    "thrown": null,
     "loud_ref": 0.7654,
     "held": null,
     "performed_again": null,
@@ -165,12 +169,14 @@
       "method": "image-based 2.5D: coherent depth slabs and landmark hand surface",
       "volume": {
         "slabs": 9,
-        "optical_depth": 0.3,
-        "density_contrast": 0.34,
-        "temperature": 0.18,
         "thickness": 0.9,
         "parallax": 0.6,
         "flow": 0.04,
+        "optical_depth": 0.85,
+        "tau_cap": 1.25,
+        "density_contrast": 0.34,
+        "foreground_cooling": 0.34,
+        "filament_relief": 0.32,
         "energy": 0.95
       },
       "lighting": "exposure-aware three-band local relight",
@@ -188,14 +194,18 @@
     "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
     "foley_gain": 0.65
   },
-  "seconds_total": 29.0,
-  "element_sha256": "990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765",
+  "seconds_total": 15.6,
+  "source_provenance": {
+    "file": "source-provenance.json",
+    "sha256": "584d0ed0321538dd6ba27f7dc9f009d50c390f9b4a318439546972b35eeea844"
+  },
+  "element_sha256": "270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1",
   "recomposite": {
     "method": "CPU compositing from the existing LTX element, track and matte",
     "no_new_render": true,
     "no_gpu": true,
-    "element_sha256": "990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765",
-    "source_receipt_sha256": "1104fb2c92f3c271a854e804b032b61020f06b1a46c22c07531208eb9daf68e0",
+    "element_sha256": "270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1",
+    "source_receipt_sha256": "a76edef12ffc6eb629594bec626c4d57dc389a2d04e42c1ee91189c2f31a53c0",
     "raw_audio_hit_frames": [
       64
     ],
@@ -204,18 +214,18 @@
     ],
     "charge_window": null,
     "cue_voice_end_frame": 69,
-    "utc": "2026-10-22T22:01:54.095721+00:00",
-    "seconds": 29.067,
+    "utc": "2026-10-23T01:00:13.241910+00:00",
+    "seconds": 15.68,
     "renderer_sources": {
       "cuesync/src/cuesync/audio.py": "ebee363eb6ee02050dee9bf24134039b25d45da9f6a2bdd67402ea7278442c4e",
-      "cuesync/src/cuesync/bending.py": "24387e3afeb307ac2ec497830e7b4f3d0e13e74b2ab5ece391f9e7658ed2c729",
+      "cuesync/src/cuesync/bending.py": "b1fcebe9b1ed12e721822fd5b21949716c8fd08fee188021cd81948db70af9c8",
       "cuesync/src/cuesync/composite.py": "41b9b4ae9e200697c9e8e4f3e781efa7b158e5188a9c4a11aad41520683927be",
       "cuesync/src/cuesync/conform.py": "e1ec3595b2f6053c7c43634ba08ab0d792c29db62d3b463c30e088002f913c01",
       "cuesync/src/cuesync/cues.py": "a5e68e16e64a017dcb72411fa12b611487101c106941d47c25daf885a59ca295",
       "cuesync/src/cuesync/effects.py": "5a4f0db620c51d6eb12fef1eadd38b660fbea2b44170003a982cef2b8b446e43",
       "cuesync/src/cuesync/fire_relight.py": "fa04c1336ebac9c3403ae9625c4710aa36bf9fbab3e50b19022b0d6cef6247ca",
       "cuesync/src/cuesync/fx_light.py": "efcd00ea9bc716173498ea3a6f495590ae261c55bb3c3b9a671de33351c92f9d",
-      "cuesync/src/cuesync/fx_volume.py": "267a5c788959397a178a086ae51e6a0fdc6209dabc7c1d53323eac2d97f097fb",
+      "cuesync/src/cuesync/fx_volume.py": "7e7827c0beb8c19a8486ccb6bf21a380e624b688c185a4b440bcecd77d96d5bd",
       "cuesync/src/cuesync/gestures.py": "32f16444bf05758c689e2a112768260279f319fbfdb99b039aede05fff01c620",
       "cuesync/src/cuesync/hand_surface.py": "deb28a961babc12641f3db8580c1a81f0958db419982fa5193ee93f8b6082f36",
       "cuesync/src/cuesync/hand_track.py": "9b321930626d98523e7d5631a1ed256b9a9548c812a5b24b3cf98f4ebd345fd6",
@@ -233,6 +243,45 @@
       "effects/steam_jet.json": "2bf8aff189dc089d6da8b8ac14c8c41862a4eb2c34c9c5b39cb6029f8af2e706",
       "effects/wick_flare.json": "8c04ae37ec06d149f3fdabd6391ba16ae602091bec61486a04d478ebcda6ae13"
     },
-    "rebuild_recipe_sha256": "bb3c65d88f5e563ad7af9b30d86c84eaa5961e64295783000c22d0c35922280c"
+    "rebuild_recipe_sha256": "7d9a9be1a88246e2f54a9711531f70ec476f7ac65f105172bf040b1fa81e3f20",
+    "authored_reuse_intent": {
+      "field": "bending.thrown",
+      "authored_value": null,
+      "historical_field_present": true,
+      "historical_value": null,
+      "original_source_receipt_sha256": "a76edef12ffc6eb629594bec626c4d57dc389a2d04e42c1ee91189c2f31a53c0",
+      "basis": "Current authored anchored palm contact for the selected compact CPU derivative; historical throw behavior is not presented as unchanged.",
+      "authored_as_current_choice": true
+    },
+    "reuse_input_snapshot": {
+      "path": "runs/fire-final-20261023/final-gallery-v2/reuse-inputs/hand_palm__boom__fire_burst",
+      "receipt_sha256": "fda0ef3133b372b280002705302932fc13eb9e982f3c5571cde350179acc85ff",
+      "element_sha256": "270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1"
+    },
+    "source_adoption": {
+      "schema": "cuesync.gallery-source-provenance.v1",
+      "element_sha256": "270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1",
+      "playback_adapter_sha256": "fda0ef3133b372b280002705302932fc13eb9e982f3c5571cde350179acc85ff",
+      "source_selection": "Existing generated source adopted for this gallery reconstruction",
+      "no_new_model_generation_this_rebuild": true,
+      "no_gpu_this_rebuild": true,
+      "historical_element_sha256": "270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1",
+      "source_files": {
+        "samples/source_assets/b-turbulent-v2/original/element.mp4": "073a3e69cbfd65041d6f43942a441298efe47d0e022ba692721c30c6b72f454c",
+        "samples/source_assets/b-turbulent-v2/original/receipt.json": "b826db69dc5ba3c151648b1c791a3d75f721cfba0ede4d73a20e1edc7b3842a7",
+        "samples/source_assets/b-turbulent-v2/original/request.json": "2b2ceb4b55269b866938112f310c1fd62ff1641651962b5a24f38724ceec148a",
+        "samples/source_assets/b-turbulent-v2/original/comfy-history.json": "6b541e0903f6e93442bc836bfdb9710e668e4bbf7d13040149324026287158f0",
+        "samples/source_assets/b-turbulent-v2/original/guide.mp4": "f9fd77bfd266a8dcda7cfa2c9ba561c8ee955c7da3e5a9b47c6b8bb124b8d388",
+        "samples/source_assets/b-turbulent-v2/original/guide-preview.mp4": "dfa5de14ed1f79b6802eb4d8cfdfdf0a67a70dc42e9512fbfa3e578bb9544e47",
+        "samples/source_assets/b-turbulent-v2/original/guide.json": "de5f42afbd72e2d2c022d58fa8cb9b5bb69f649fe731c5fe030d53fc2e21e900",
+        "samples/source_assets/b-turbulent-v2/original/measurements.json": "a34683b27529b8a9288090cbf7e97eb1f94d29bc6e4586429a492e3000bdedc6",
+        "samples/source_assets/b-turbulent-v2/compact/element.mp4": "270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1",
+        "samples/source_assets/b-turbulent-v2/compact/derivative-recipe.json": "17367168d1afd5a6c148aabe8cbe2e6352c273a5c9f3f87b610d30443d6e3a36",
+        "samples/source_assets/b-turbulent-v2/crown/element.mp4": "af71bf1c8cfcdbc74d61e0208587230f09cb6fe590cbf5e0329d4b0df4e574d1",
+        "samples/source_assets/b-turbulent-v2/crown/derivative-recipe.json": "7c446a7c49567a05dfea046594fb71671b6e16323274d764ef7551e7c9f188a0",
+        "samples/source_assets/b-turbulent-v2/crown/soft-mask.png": "8ec8b74c779739d97d6b2dfb939d1ca72650dccbeac265181da56c4b8f83f142",
+        "samples/source_assets/b-turbulent-v2/README.md": "513f35946a9b11345791a16a8092bcfc0a5c9342038f73fc6a8df738fd18a323"
+      }
+    }
   }
 }

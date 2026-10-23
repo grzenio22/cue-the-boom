@@ -5,7 +5,8 @@ export interface LiveElement {
   effect: string; behaviour: string; url: string; size: [number, number]; fps: number;
   ignition: number; release: number; end: number; floor: number;
   ref: { xy: [number, number]; dir: [number, number]; scale: number };
-  fit?: { palm: number; tip: number } | null; // how big it plays against hand for hand (cuesync.bending.library_fit)
+  fit?: { palm: number; tip: number } | null; // includes source_profile.scale (cuesync.bending.library_fit)
+  source_profile?: { scale: number; exposure: number } | null;
 }
 
 export const RELEASE_MS = 42; // a fireball leaves the hand a frame after its strike (cuesync.bending.RELEASE_AFTER)...

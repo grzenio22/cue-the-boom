@@ -1,4 +1,4 @@
-"""Check the final cut, regenerated sources, and the v15/v16 edit constraints.
+"""Check the final cut, regenerated sources, and the approved edit constraints.
 
     python tools/demo/check_v15.py
     python tools/demo/check_v15.py --metadata-only
@@ -8,8 +8,8 @@ timecoded contact sheets. Source hashes and storyboard dictionaries establish
 preservation after rebuilding the effects; old encoded pictures are not used
 as the reference. Waveform measurements establish presence and level, while a
 listening pass remains necessary to judge intelligibility and the edit.
-The default video follows the storyboard version; v16 preserves v15 timing and
-speech while refreshing production fire pictures and separating Studio step labels.
+The default video and baseline follow the storyboard version. Integration cuts
+preserve timing and speech while refreshing production pictures and approved disclosures.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def beats_of(board: dict | list) -> list[dict]:
 
 def structure_check(board: dict | list, baseline: dict | list) -> tuple[dict, list[str]]:
     """Compare unchanged beat fields, with explicit exceptions for this edit."""
-    if isinstance(board, dict) and board.get("version") == 16:
+    if isinstance(board, dict) and board.get("version", 15) >= 16:
         return integration_structure_check(board, baseline)
     beats, previous = beats_of(board), beats_of(baseline)
     errors, changed, unchanged = [], [], []
@@ -149,7 +149,7 @@ def integration_structure_check(board: dict, baseline: dict | list) -> tuple[dic
     beats, previous = beats_of(board), beats_of(baseline)
     errors, changed = [], []
     if [b["id"] for b in beats] != [b["id"] for b in previous]:
-        errors.append("The v16 integration cut changed the approved beat sequence")
+        errors.append("The integration cut changed the approved beat sequence")
 
     def editorial(value):
         if isinstance(value, dict):
@@ -159,6 +159,21 @@ def integration_structure_check(board: dict, baseline: dict | list) -> tuple[dic
 
     for beat, prior in zip(beats, previous):
         comparable = dict(beat)
+        if board.get("version") == 17 and beat["id"] in {"intro_raw", "workflow_fire"}:
+            speed = .2 if beat["id"] == "intro_raw" else .4
+            if beat.get("start") != 2.65 or beat.get("speed") != speed:
+                errors.append(f"The v17 {beat['id']} source window must use start 2.65 and speed {speed}")
+            comparable["start"], comparable["speed"] = prior.get("start"), prior.get("speed")
+        if board.get("version") == 17 and beat["id"] == "intro_raw":
+            if beat.get("stamp") != "LTX-2.5 fire · CPU temporal derivative · slow motion":
+                errors.append("The v17 source stamp must disclose the CPU temporal derivative")
+            comparable["stamp"] = prior.get("stamp")
+        if board.get("version") == 17 and beat["id"] == "how":
+            labels = beat.get("labels", [])
+            if not isinstance(labels, list) or labels[:1] != ["LTX fire · CPU derivative"]:
+                errors.append("The v17 source panel must disclose the CPU derivative")
+            if isinstance(labels, list) and labels:
+                comparable["labels"] = [prior["labels"][0], *labels[1:]]
         if beat["id"] == "perform":
             if beat.get("wave_box") != [.54, .025, .4, .115]:
                 errors.append("The Studio voice waveform must stay within the reserved header")
@@ -183,6 +198,124 @@ def integration_structure_check(board: dict, baseline: dict | list) -> tuple[dic
     return dict(permitted_changes=changed, baseline_duration=before[-1]["end"], duration=duration,
                 expected_frames=sum(b["frames"] for b in current),
                 timeline=[dict(id=e["id"], start=e["start"], end=e["end"]) for e in current]), errors
+
+
+def source_lineage_check(name: str, job: dict, digest=sha256) -> tuple[dict, list[str]]:
+    """Bind a playback element to its preserved generation and optional CPU recipe."""
+    errors = []
+    lineage = job.get("source_lineage")
+    if not isinstance(lineage, dict):
+        return dict(job=name), [f"{name}: missing source lineage for the playback element"]
+    inputs = {Path(path): value for path, value in job.get("inputs_sha256", {}).items()}
+
+    def bound(value, label, expected=None):
+        if not isinstance(value, str) or not value or not Path(value).is_absolute():
+            errors.append(f"{name}: {label} must identify an absolute source path")
+            return None
+        path = Path(value)
+        recorded = inputs.get(path)
+        if recorded is None or (expected is not None and recorded != expected):
+            errors.append(f"{name}: {label} is not bound to its expected input SHA-256: {path}")
+        if not path.is_file():
+            errors.append(f"{name}: missing {label}: {path}")
+            return None
+        actual = digest(path)
+        if actual != recorded or (expected is not None and actual != expected):
+            errors.append(f"{name}: {label} bytes differ from the recorded lineage: {path}")
+        return path
+
+    def document(path, label):
+        if path is None:
+            return {}
+        try:
+            data = read_json(path)
+            if isinstance(data, dict):
+                return data
+        except (OSError, ValueError) as exc:
+            errors.append(f"{name}: cannot read {label}: {exc}")
+            return {}
+        errors.append(f"{name}: {label} must contain a JSON object")
+        return {}
+
+    playback_sha = job.get("element_sha256")
+    playback = bound(job.get("playback_element"), "playback element", playback_sha)
+    sidecar_path = bound(lineage.get("provenance_path"), "source provenance sidecar")
+    sidecar = document(sidecar_path, "source provenance sidecar")
+    if sidecar.get("element_sha256") != playback_sha:
+        errors.append(f"{name}: source provenance sidecar names a different playback element")
+    adapter_sha = sidecar.get("playback_adapter_sha256")
+    if not adapter_sha:
+        errors.append(f"{name}: source provenance sidecar lacks the playback adapter SHA-256")
+    bound(lineage.get("source_adapter_path"), "playback adapter", adapter_sha)
+    if (sidecar.get("no_new_model_generation_this_rebuild") is not True
+            or sidecar.get("no_gpu_this_rebuild") is not True):
+        errors.append(f"{name}: source lineage does not document CPU reuse without new model generation")
+
+    sources = lineage.get("source_files", {})
+    expected_sources = sidecar.get("source_files", {})
+    if (not isinstance(sources, dict) or not isinstance(expected_sources, dict)
+            or not sources or set(sources) != set(expected_sources)):
+        errors.append(f"{name}: source lineage must cover exactly the sidecar source_files")
+    source_paths = {}
+    for relative, asset in sources.items() if isinstance(sources, dict) else []:
+        if not isinstance(asset, dict):
+            errors.append(f"{name}: invalid lineage entry for {relative}")
+            continue
+        expected = expected_sources.get(relative) if isinstance(expected_sources, dict) else None
+        if not expected or asset.get("sha256") != expected:
+            errors.append(f"{name}: lineage SHA-256 differs from the sidecar for {relative}")
+        path = bound(asset.get("path"), f"source asset {relative}", asset.get("sha256"))
+        if path is not None:
+            source_paths[path] = asset.get("sha256")
+
+    original_sha = lineage.get("original_generation_sha256")
+    original = bound(lineage.get("original_generation_element"), "original generation element", original_sha)
+    if (original is None or original.name != "element.mp4" or not original_sha
+            or source_paths.get(original) != original_sha):
+        errors.append(f"{name}: original generation element is not one of the verified source_files")
+    recipe_value = lineage.get("derivative_recipe")
+    if recipe_value is None:
+        if original_sha != playback_sha:
+            errors.append(f"{name}: adapted playback element lacks a derivative recipe")
+    else:
+        recipe_path = bound(recipe_value, "derivative recipe")
+        if recipe_path not in source_paths:
+            errors.append(f"{name}: derivative recipe is not one of the verified source_files")
+        recipe = document(recipe_path, "derivative recipe")
+        if recipe.get("original_element_sha256") != original_sha:
+            errors.append(f"{name}: derivative recipe ancestry differs from the original generation")
+        if recipe.get("derivative_sha256") != playback_sha:
+            errors.append(f"{name}: derivative recipe does not describe the playback element")
+        if recipe.get("new_model_renders") != 0 or recipe.get("gpu_used") is not False:
+            errors.append(f"{name}: derivative recipe does not document CPU processing without new model renders")
+    return dict(job=name, playback_element=str(playback) if playback else None,
+                element_sha256=playback_sha, original_generation_sha256=original_sha,
+                provenance_path=str(sidecar_path) if sidecar_path else None,
+                derivative_recipe=recipe_value, checked_source_files=len(source_paths)), errors
+
+
+def proof_provenance_check(jobs: dict, version: int, digest=sha256) -> tuple[list[dict], list[str]]:
+    """Check shared playback bytes; later cuts also prove their generation ancestry."""
+    names = ("proof_boom", "proof_pf_pf_boom", "proof_pf_x4")
+    proof = [jobs.get(name, {}) for name in names]
+    rows, errors = [], []
+    shared = {job.get("element_sha256") for job in proof}
+    if len(shared) != 1 or None in shared:
+        errors.append("Three demo performances do not prove reuse of the identical element SHA-256")
+    if version >= 17:
+        for name, job in zip(names, proof):
+            row, failures = source_lineage_check(name, job, digest)
+            rows.append(row)
+            errors.extend(failures)
+        originals = {row.get("original_generation_sha256") for row in rows}
+        if len(originals) != 1 or None in originals:
+            errors.append("Three demo performances do not prove reuse of the identical original generation SHA-256")
+    elif any({value for filename, value in job.get("inputs_sha256", {}).items()
+              if Path(filename).name == "element.mp4"} != {job.get("element_sha256")} for job in proof):
+        errors.append("Demo proof element receipt differs from its verified source element")
+    if not all(job.get("no_new_render") is True and job.get("no_gpu") is True for job in proof):
+        errors.append("Three demo performances lack explicit CPU/no-new-model-render provenance")
+    return rows, errors
 
 
 def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
@@ -263,21 +396,15 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
             expected_fingerprint = hashlib.sha256(json.dumps(input_code, sort_keys=True).encode()).hexdigest()
             if job.get("fingerprint") != expected_fingerprint:
                 errors.append(f"Job fingerprint does not use current code and recorded inputs: {name}")
+        proof_lineage = []
         if not historical and isinstance(board, dict) and board.get("version", 15) >= 16:
-            proof = [data.get("jobs", {}).get(name, {}) for name in
-                     ("proof_boom", "proof_pf_pf_boom", "proof_pf_x4")]
-            shared = {job.get("element_sha256") for job in proof}
-            if len(shared) != 1 or None in shared:
-                errors.append("Three demo performances do not prove reuse of the identical element SHA-256")
-            if any({sha for filename, sha in job.get("inputs_sha256", {}).items()
-                    if Path(filename).name == "element.mp4"} != {job.get("element_sha256")} for job in proof):
-                errors.append("Demo proof element receipt differs from its verified source element")
-            if not all(job.get("no_new_render") is True and job.get("no_gpu") is True for job in proof):
-                errors.append("Three demo performances lack explicit CPU/no-new-model-render provenance")
+            proof_lineage, proof_errors = proof_provenance_check(data.get("jobs", {}), board["version"], digest)
+            errors.extend(proof_errors)
         manifests.append(dict(path=str(path),
                               policy="Historical retained media: referenced output hashes preserved; no claim of a rebuild by current code"
                                      if historical else "Current production composites: current code, input and output hashes required",
-                              code=checked_code, inputs=checked_inputs, outputs=checked_outputs))
+                              code=checked_code, inputs=checked_inputs, outputs=checked_outputs,
+                              proof_lineage=proof_lineage))
     if isinstance(board, dict) and board.get("version", 15) >= 16:
         for path in paths:
             if path.is_relative_to(current_manifest.parent) and path not in production_outputs:
@@ -292,6 +419,10 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
     for receipt in sorted({p.parent / "provenance.json" for p in paths
                            if p.parent.name == "cards" and (p.parent / "provenance.json").is_file()}):
         data = read_json(receipt)
+        if (isinstance(board, dict) and board.get("version") == 17
+                and receipt.parent.is_relative_to(current_manifest.parent.parent / "cards")
+                and data.get("source_window") != {"start_seconds": 2.65, "span_seconds": .8}):
+            errors.append(f"The v17 recap source window must start at 2.65 seconds and span 0.8 seconds: {receipt}")
         checks = []
         for field in ("sources_sha256", "outputs_sha256"):
             for filename, expected in data.get(field, {}).items():
@@ -300,7 +431,7 @@ def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
                 checks.append(dict(path=filename, matches=good, kind=field))
                 if not good:
                     errors.append(f"Derived recap media differs from provenance: {path}")
-        derived.append(dict(path=str(receipt), checks=checks))
+        derived.append(dict(path=str(receipt), source_window=data.get("source_window"), checks=checks))
     if isinstance(board, dict) and board.get("version", 15) >= 16:
         for path in paths:
             if path.is_relative_to(current_manifest.parent.parent / "cards"):
@@ -538,7 +669,9 @@ def main() -> int:
     args.video = args.video or ROOT / f"runs/demo_v{version}/demo_v{version}.mp4"
     out = args.output or args.video.parent
     out.mkdir(parents=True, exist_ok=True)
-    args.baseline = args.baseline or ROOT / f"runs/demo_v{15 if version == 16 else 14}/storyboard.json"
+    declared_baseline = board.get("baseline") if isinstance(board, dict) else None
+    args.baseline = args.baseline or (Path(declared_baseline) if declared_baseline else
+                                      ROOT / f"runs/demo_v{version - 1 if version >= 16 else 14}/storyboard.json")
     baseline = read_json(args.baseline)
     schedule = timeline(beats_of(board))
     total = schedule[-1]["end"]

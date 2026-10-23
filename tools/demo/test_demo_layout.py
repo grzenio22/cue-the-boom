@@ -2,6 +2,7 @@
 
 import numpy as np
 import json
+import copy
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -21,6 +22,21 @@ class ScreenClip:
 
 
 class HeaderLayoutTest(unittest.TestCase):
+    def test_later_integration_cut_preserves_edit_and_audio(self):
+        from check_v15 import structure_check
+
+        baseline = json.loads(Path(__file__).with_name("storyboard.json").read_text(encoding="utf-8"))
+        board = copy.deepcopy(baseline)
+        board["version"] = 17
+        next(b for b in board["beats"] if b["id"] == "intro_raw")["stamp"] = (
+            "LTX-2.5 fire · CPU temporal derivative · slow motion")
+        next(b for b in board["beats"] if b["id"] == "how")["labels"][0] = "LTX fire · CPU derivative"
+        _, errors = structure_check(board, baseline)
+        self.assertEqual(errors, [])
+        board["beats"][0]["dur"] += 1 / demo.FPS
+        _, errors = structure_check(board, baseline)
+        self.assertTrue(any("timing" in error or "duration" in error for error in errors))
+
     def test_chip_header_keeps_entire_source_below_chip(self):
         board = json.loads(Path(__file__).with_name("storyboard.json").read_text(encoding="utf-8"))
         for beat in (b for b in board["beats"] if b["id"] in {"upload", "perform", "make"}):

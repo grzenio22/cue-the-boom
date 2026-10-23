@@ -291,8 +291,30 @@ def test_a_hand_that_leaves_the_frame_is_held_where_it_went_out():
     assert held["xy"][9] == held["xy"][3] and held["dir"][9] == [-1.0, 0.0]
 
 
-def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav):
-    """Optically thin fire retains a warm core over white without a dense orange soot decal."""
+def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav, monkeypatch, record_property):
+    """Fire retains a warm encoded core while its actual faint source edges do not darken the wall."""
+    from cuesync import bending
+
+    finish_fire = bending.finish_fire
+    faint_deltas = []
+    luma = np.array([.2126, .7152, .0722], np.float32)
+
+    def observe_finish(room, emission, opacity, out=None):
+        # Capture before the in-place finish. Classify physical source intensity, independently of the
+        # compositor's body function: encoded warmth also contains dense gas and H.264 chroma shifts.
+        before, source, alpha = room.copy(), emission.copy(), opacity.copy()
+        result = finish_fire(room, emission, opacity, out=out)
+        assert np.array_equal(emission, source)
+        assert np.array_equal(opacity, alpha)
+        if out is None or not np.shares_memory(out, room):
+            assert np.array_equal(room, before)
+        source_luminance = source @ luma
+        faint = (source_luminance > 0.) & (source_luminance <= .04)
+        if faint.any():
+            faint_deltas.append(((result @ luma)-(before @ luma))[faint])
+        return result
+
+    monkeypatch.setattr(bending, "finish_fire", observe_finish)
     w, h, n = 256, 128, 72
     plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (235, 235, 230))
     sr = 48000
@@ -307,15 +329,13 @@ def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav)
     k = res.receipt["bending"]["hits"][0]["frame"] + 4
     f = read_video(res.composite).frames[k].astype(int)
     assert (f[..., 0] - f[..., 2]).max() > 30  # a visible warm core against white
-    from cuesync.fx_light import _lum
-    from cuesync.transfer import lin
-    original = read_video(plate).frames[k]
-    warmth = f[..., 0] - f[..., 2]
-    edge = (warmth > 7) & (warmth < 25)
-    assert edge.sum() > 20
-    delta = _lum(lin(f.astype(np.uint8))) - _lum(lin(original))
-    # Allow a little chroma/codec ringing, but no persistent soot rim at faint edges.
-    assert np.percentile(delta[edge], 5) > -.015
+    assert faint_deltas, "the shot must exercise faint source edges"
+    delta = np.concatenate(faint_deltas)
+    assert delta.size > 20
+    record_property("faint_edge_pixels", int(delta.size))
+    record_property("minimum_faint_luminance_increment", float(delta.min()))
+    # Check every actual faint source pixel across the whole shot before codec loss, to float32 precision.
+    assert delta.min() >= -2e-7
 
 
 def test_the_fire_is_smeared_as_far_as_the_hand_moved():

@@ -14,7 +14,7 @@ from v13_contribution import PANEL_HEIGHT, PANEL_LEFTS, PANEL_TOP, PANEL_WIDTH
 from v14_contribution import recap
 
 
-def refresh(root: Path, run: Path) -> None:
+def refresh(root: Path, run: Path, *, source_start: float = 2.4, source_span: float = .9) -> None:
     cards, clips = run / "cards", run / "clips"
     cards.mkdir(parents=True, exist_ok=True)
     prior_card = root / "runs/demo_v15/cards/pipeline.png"
@@ -31,11 +31,12 @@ def refresh(root: Path, run: Path) -> None:
     card = cards / "pipeline.png"
     image.save(card)
     movie = recap(root, run, stages=timing["stages"], duration=timing["recap_duration"],
-                  source_card=card, source_clip=raw)
+                  source_card=card, source_clip=raw, source_start=source_start, source_span=source_span)
     sources = [prior_card, timing_path, raw, result, Path(__file__).resolve(),
                Path(__file__).with_name("v14_contribution.py"), Path(__file__).with_name("v11_cards.py")]
     receipt = dict(method="Existing recap layout and timing; production fire pictures replaced; no narration generation",
                    no_new_render=True, no_gpu=True,
+                   source_window=dict(start_seconds=source_start, span_seconds=source_span),
                    sources_sha256={str(p.resolve()): file_sha256(p) for p in sources},
                    outputs_sha256={str(p.resolve()): file_sha256(p) for p in [card, movie]})
     (cards / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
@@ -46,5 +47,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--run", type=Path)
+    parser.add_argument("--source-start", type=float, default=2.4)
+    parser.add_argument("--source-span", type=float, default=.9)
     args = parser.parse_args()
-    refresh(args.root, args.run or args.root / "runs/demo_v16")
+    refresh(args.root, args.run or args.root / "runs/demo_v16",
+            source_start=args.source_start, source_span=args.source_span)

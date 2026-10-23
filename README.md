@@ -8,8 +8,8 @@ Near the top of the studio, **One render. Three performances.** shows the author
 
 For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning and water are procedural CPU effects.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
 
-![The author's own hand: BOOM throws a fireball off the fist, a held fffff keeps a flame in the palm through a walk from a hallway into a kitchen in one take, and a render performed again as pf pf pf PF](media/hand_hero.jpg)
-<sub>The author's own hand and voice, filmed on a phone. The third is a render performed again in a new rhythm, with no new render.</sub>
+![The author's own hand: BOOM lights a flame in the palm, a held fffff carries a flame through a walking take, and closing the fist releases a fireball](media/hand_hero.jpg)
+<sub>The author's own hand and voice, filmed on a phone. One stored LTX generation, adapted on CPU into a palm flame, a walking flame, and a released fireball.</sub>
 
 An entry for Comfy's **[Open Source Higgsfield](https://comfy.org/open-source-higgsfield)** contest, on open weights only.
 

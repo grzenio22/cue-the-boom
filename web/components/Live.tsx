@@ -201,7 +201,11 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
           ctx.globalAlpha = Math.min(1, p.gain * fading);
-          ctx.filter = "contrast(1.3) brightness(1.1)"; // (the render's black, a few levels up, goes to black: added, it greyed the picture)
+          const sourceExposure = p.el.source_profile?.exposure ?? 1;
+          const exposure = Number.isFinite(sourceExposure) && sourceExposure > 0 ? sourceExposure : 1;
+          // Canvas brightness only approximates the source's linear exposure in display space; the final shot uses
+          // linear compositing. Contrast keeps the render's raised blacks from greying the camera image.
+          ctx.filter = `contrast(1.3) brightness(${1.1 * exposure ** (1 / 2.2)})`;
           ctx.translate(at[0], at[1]);
           ctx.rotate(turn);
           ctx.scale(k, k);

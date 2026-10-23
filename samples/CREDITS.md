@@ -21,8 +21,8 @@ beyond-fire gallery shots use synthetic cue sounds over the author's footage.
 
 ## The author's voice and the three performances
 
-**One render. Three performances.** uses the same palm footage and generated
-fire element for all three performances:
+**One render. Three performances.** uses the same palm footage and the same
+CPU derivative of one generated fire element for all three performances:
 
 | Performance | Audio source | Finished shot |
 |---|---|---|
@@ -32,9 +32,14 @@ fire element for all three performances:
 
 The two rhythm presets are assembled performances, rather than separate
 continuous voice takes. Their `receipt.json` files point back to the BOOM shot,
-record `no_new_render: true` and `no_gpu: true`, and identify the same generated
+record `no_new_render: true` and `no_gpu: true`, and identify the same compact
 element by SHA-256:
-`990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765`.
+`270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1`.
+This is a CPU temporal/radiance derivative of the original B-turbulent-v2 LTX
+render, SHA-256
+`073a3e69cbfd65041d6f43942a441298efe47d0e022ba692721c30c6b72f454c`.
+The three performances share that derivative; neither the derivation nor a
+new performance invokes the model or uses a GPU.
 The audio notes in [samples.json](samples.json) record the edits too.
 
 The other presets in `voices/` are synthetic. `tools/make_hand_noises.py` makes
@@ -49,6 +54,40 @@ separate synthetic voice made with Kokoro-82M; it is not the author's cue voice.
 `plates/candle_snap.mp4` uses the candle stand-in with a synthetic snap in its
 soundtrack. The element library in `library/` contains stored LTX renders;
 generated outputs have the model terms described in [NOTICE.md](../NOTICE.md).
+
+## Selected fire sources and CPU derivatives
+
+[source_assets/b-turbulent-v2](source_assets/b-turbulent-v2/README.md) preserves
+the original LTX-2.5 22B distilled int8 + ainvfx-fluid generation, seed
+`2026102222`, with its unmodified original element, receipt, request, ComfyUI
+history, guide and measurements. The historical generation time belongs to
+that earlier model call, not to the gallery rebuild.
+
+The palm and its two replays use the `compact/` derivative: documented frame
+selection and linear-radiance attenuation, with no spatial warp. Walk uses
+the unchanged original B-turbulent-v2 element. Fist uses the `crown/`
+derivative: documented temporal selection and a soft lower-stem mask, without
+spatial warping. Punch, pointing fire, open palm and cupped hands retain their
+previous source elements. Each newly selected-source shot carries
+`source-adapter.json` and `source-provenance.json` separately from its
+performance receipt; scale, exposure and authored motion are current playback
+choices, not generation settings. The source package includes exact hashes
+and derivative recipes.
+
+The default `library/bending/flame_plume` also uses the unchanged original
+B-turbulent-v2 element, with current playback scale `1.0` and exposure `1.5`.
+Its actual instant-mode render on the walking sample matched the corresponding
+gallery composite byte for byte. The library receipt is a playback adapter;
+`preserved-source-receipt.json` is an earlier adapter, while the original model
+generation evidence remains in `source_assets/b-turbulent-v2/original/`.
+`source-provenance.json` records their separate hashes. The default burst
+library retains its previous source.
+
+The public [CPU derivative helper](../tools/derive_fire_element.py) reproduces
+the two supplied derivatives from the preserved original. No model or network
+access is required. Hand fire uses a 2.5D approximation with tracked placement,
+hand segmentation and local lighting; these samples do not establish a full
+3D fluid or scene-lighting simulation.
 
 ## Stock footage and photos
 
@@ -72,7 +111,7 @@ Pexels clip itself (at 720p), so a hand of your own can be tried with no camera.
 | `made_ahead/scene/real_kuri_photo__fwoooom` | [Red kuri pumpkin centred on a counter (photo)](https://pixabay.com/photos/pumpkin-autumn-red-kuri-squash-1583767/) | sparparim | Pixabay Content License |
 | `made_ahead/scene/real_pumpkins_tap__fwoooom` | [Two Pumpkins Placed Near a Glass Window](https://www.pexels.com/video/two-pumpkins-placed-near-a-glass-window-5490678/) | olia danilevich | Pexels License |
 | `made_ahead/scene/real_jack_stacked__kaboom` | [Video of a Jack-O'-Lantern](https://www.pexels.com/video/video-of-a-jack-o-lantern-5604115/) | Yaroslav Shuraev | Pexels License |
-| `timing_set/real/kettle__hissss` | [Steam Rising from Boiling Kettle](https://www.pexels.com/video/steam-rising-from-boiling-kettle-32001622/) | Dominik Zítka | Pexels License |
+| `timing_set/real/kettle__hissss` | [Steam Rising from Boiling Kettle](https://www.pexels.com/video/steam-rising-from-boiling-kettle-32001622/) | Dominik ZÃ­tka | Pexels License |
 | `timing_set/real/table_pumpkin__fwoooom` | [Laying Down A Pumpkin Over The Wooden Table](https://www.pexels.com/video/laying-down-a-pumpkin-over-the-wooden-table-5692173/) | Monstera Production | Pexels License |
 | `timing_set/real/cacti_pumpkin__fwoooom` | [A Pumpkin next to Potted Cacti and Succulents](https://www.pexels.com/video/a-pumpkin-next-to-potted-cacti-and-succulents-9894140/) | Nathan J Hilton | Pexels License |
 | `timing_set/real/hot_drink__hissss` | [Close Up Video of a Hot Drink](https://www.pexels.com/video/close-up-video-of-a-hot-drink-6938926/) | cottonbro studio | Pexels License |

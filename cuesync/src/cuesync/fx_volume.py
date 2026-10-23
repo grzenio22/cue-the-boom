@@ -16,9 +16,9 @@ import cv2
 import numpy as np
 
 LUMA = np.array([.2126, .7152, .0722], np.float32)
-DEFAULTS = dict(slabs=9, thickness=.72, parallax=.30, flow=.027,
-                optical_depth=.12, temperature=.26, density_contrast=.16,
-                energy=1.0)
+DEFAULTS = dict(slabs=9, thickness=.9, parallax=.60, flow=.040,
+                optical_depth=.85, tau_cap=1.25, density_contrast=.34,
+                foreground_cooling=.34, filament_relief=.32, energy=.95)
 
 
 def _smooth(a, b, x):
@@ -26,21 +26,32 @@ def _smooth(a, b, x):
     return u*u*(3.-2.*u)
 
 
-def _noise(x, y, z, t):
-    """Smooth, deterministic 3D field advecting upward, with smaller eddies."""
+def _prepare_noise(x, y, t):
+    """Cache the depth-invariant phases of the advecting 3D field."""
     yy = y + t*.40
-    return (np.sin(x*5.3+yy*3.6+z*3.1) * .25
-            + np.sin(x*10.1-yy*7.9+z*5.7+t*.24) * .18
-            + np.sin(x*18.4+yy*11.2-z*8.8-t*.19) * .11
-            + np.sin(x*34.7-yy*20.5+z*13.4) * .055)
+    a = x*5.3+yy*3.6
+    b = x*10.1-yy*7.9
+    c = x*18.4+yy*11.2
+    d = x*34.7-yy*20.5
+
+    def evaluate(z):
+        # Keep the original operation order, including the time phase terms;
+        # reassociating float32 sums can alter subpixel remapping downstream.
+        return (np.sin(a+z*3.1) * .25
+                + np.sin(b+z*5.7+t*.24) * .18
+                + np.sin(c-z*8.8-t*.19) * .11
+                + np.sin(d+z*13.4) * .055)
+
+    return evaluate
 
 
 def volume_element(E, t, view=0.0, config=None, *, active_bounds=None, crop_output=False):
     """Return (emission, transmission, numeric diagnostics), source-sized.
 
     Cropping internally keeps work proportional to flame extent. RGB emission
-    remains bounded to source energy (``energy`` may only attenuate); extinction is
-    capped by emitted luminance so a gray/white wall cannot acquire a soot rim.
+    remains bounded to source energy (``energy`` may only attenuate). Transmission
+    represents intrinsic optical thickness; the final compositor must bound it
+    against the actual background. Only intrinsically faint gas is thinned here.
     ``view`` may be scalar or a two-value vector (horizontal component used).
 
     ``active_bounds`` is an optional trusted XYXY box containing ALL nonzero
@@ -104,13 +115,20 @@ def volume_element(E, t, view=0.0, config=None, *, active_bounds=None, crop_outp
     xn = (xx-center[:, None])/radius[:, None]
     yn = yy/max(h, 1)*3.
     support = _smooth(.0001, .003, lum)
+    # Place the source's existing bright filaments slightly nearer the viewer
+    # and its valleys behind them. No new texture or white core is invented.
+    local_lum = cv2.GaussianBlur(lum, (0, 0), max(w*.012, 1.))
+    relief = np.clip((lum+.004)/(local_lum+.004), .55, 1.65)
+    depth_bias = (relief-1.)*cfg['filament_relief']
     # Keep cross sections broad: a noisy source silhouette remains authoritative.
     thickness = np.sqrt(np.clip(1.-(xn/1.55)**2, .025, 1.))*cfg['thickness']
     zs = np.linspace(-1., 1., n, dtype=np.float32)
+    noise_field = _prepare_noise(xn, yn, t)
+    thickness_denom = np.maximum(thickness, .18)
     fields = []
     for z in zs:
-        field = np.maximum(.06, 1.+_noise(xn, yn, float(z)*1.8, t)*1.35)
-        envelope = np.exp(-1.8*(z/np.maximum(thickness, .18))**2)
+        field = np.maximum(.06, 1.+noise_field(float(z)*1.8)*1.35)
+        envelope = np.exp(-1.8*((z-depth_bias)/thickness_denom)**2)
         fields.append(field*envelope)
     weights = np.stack(fields).astype(np.float32)
     weights /= np.maximum(weights.sum(0), 1e-8)
@@ -125,24 +143,31 @@ def volume_element(E, t, view=0.0, config=None, *, active_bounds=None, crop_outp
     # wash over bright backgrounds. The source still controls all large forms.
     density_emission = np.clip(normlum, .015, 1.8)**cfg['density_contrast']
     tau = cfg['optical_depth']*np.clip(normlum, 0., 1.8)**.70*support
-    tau = np.minimum(tau, .22)
+    tau *= .78+.22*relief
+    tau = np.minimum(tau, cfg['tau_cap'])
     hot = _smooth(.20, .85, normlum)
     motion_weight = _smooth(0., .12, yy/max(h, 1))*(1.-_smooth(.88, 1., yy/max(h, 1)))
-    pale = np.array([1., .78, .45], np.float32)
-    target = (lum/(pale@LUMA))[..., None]*pale
+    amber = np.array([1., .39, .075], np.float32)
+    target = (lum/(amber@LUMA))[..., None]*amber
     eddy_x, eddy_y = xn*.72, yn*.70
+    eddy_field = _prepare_noise(eddy_x, eddy_y, t)
+    cooling_base = .35+.65*(1-hot)
+    cooling_relief = np.clip(relief, .7, 1.3)
     # Integrate back to front. A small thermal color change varies within volume;
     # light travels through cooler front sheets instead of opaque orange decals.
     for i, z in enumerate(zs):
-        eddy = _noise(eddy_x, eddy_y, float(z)*1.4, t)
+        eddy = eddy_field(float(z)*1.4)
         shift = z*radius[:, None]*(view*cfg['parallax'] + cfg['flow']*eddy)*motion_weight
         mapx = (xx-shift).astype(np.float32)
         mapy = (yy-z*cfg['flow']*radius[:, None]*eddy*.22*motion_weight).astype(np.float32)
         wt = weights[i]
         layer = src*wt[..., None]
-        warmth = cfg['temperature']*hot*(.65+.35*np.sin(z*2.+eddy*2.))
-        # Redistribute hue toward a warm white core while preserving luminance.
-        layer = layer*(1.-warmth[..., None])+target*wt[..., None]*warmth[..., None]
+        front = float((z+1.)*.5)
+        cooling = cfg['foreground_cooling']*front**1.4*cooling_base
+        cooling *= cooling_relief
+        # Cooler foreground ridges preserve their luminance; the unmodified
+        # source supplies the hot interior instead of a synthesized pale core.
+        layer = layer*(1.-cooling[..., None])+target*wt[..., None]*cooling[..., None]
         layer *= (density_emission*(1.+eddy*.16))[..., None]
         layer = cv2.remap(layer, mapx, mapy, cv2.INTER_LINEAR,
                           borderMode=cv2.BORDER_CONSTANT)
@@ -155,14 +180,17 @@ def volume_element(E, t, view=0.0, config=None, *, active_bounds=None, crop_outp
     out_energy = float((out@LUMA).sum(dtype=np.float64))
     if out_energy > 0.:
         out *= target_energy/out_energy
-    # Flame gas must not darken a bright wall outside its luminous footprint.
-    # This conservative scene-independent cap assumes plate luminance <= 1.
-    opacity = np.minimum(1.-trans, (out@LUMA)*.72)
+    # Preserve body thickness until the actual background is known. An assumed
+    # white background made almost every bright-wall body pixel transparent.
+    # Absolute faintness still removes extinction, including energy attenuation
+    # to zero; normalized source density must not leave opaque invisible gas.
+    opacity = (1.-trans)*_smooth(.0001, .003, out@LUMA)
     trans = 1.-opacity
     diagnostics = dict(slabs=n, energy_ratio=float((out@LUMA).sum(dtype=np.float64)/src_energy),
                        opacity_peak=float(opacity.max()), crop=[x0,y0,x1,y1],
                        view=view, max_parallax_px=float(np.max(radius)*abs(view)*cfg['parallax']),
-                       method='approximate reconstructed volume; correlated advecting depth slabs')
+                       tau_peak=float(tau.max()),
+                       method='approximate reconstructed volume; source-derived relief and cooler foreground slabs')
     if crop_output:
         return out, trans, diagnostics
     emission = np.zeros_like(E)
