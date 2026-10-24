@@ -12,6 +12,20 @@ from cuesync import water
 from cuesync.elements import Timeline
 from cuesync.transfer import gam, lin
 
+
+def test_liquid_refraction_follows_broad_travelling_waves_without_fine_glass_facets():
+    yy,xx=np.mgrid[:80,:80].astype(np.float32)
+    broad=np.maximum(0,1-((xx-40)**2+(yy-40)**2)/1600)
+    first=broad+.12*np.sin(xx/8)
+    later=broad+.12*np.sin(xx/8-1.2)
+    a=water._liquid_lens_height(broad,first,np.full_like(broad,24),np.ones_like(broad),60)
+    b=water._liquid_lens_height(broad,later,np.full_like(broad,24),np.ones_like(broad),60)
+    assert np.mean(abs(a-b)[20:60,20:60])>.30
+    rough=first+.04*(-1.)**(xx+yy)
+    smooth=water._liquid_lens_height(broad,rough,np.full_like(broad,24),np.ones_like(broad),60)
+    assert np.mean(abs(smooth-a)[20:60,20:60])<.05
+
+
 H, W = 192, 128
 S = 40.0  # the hand's size px
 
@@ -265,7 +279,8 @@ def test_a_broad_attached_fold_keeps_the_optical_depth_of_the_connected_water():
     fld = water.Field(sc[k].blobs, H, W)
     y0, y1, x0, x1 = fld.box
     yy, xx = np.mgrid[y0:y1, x0:x1]
-    outer = ((fld.f - fld.fm > water.TAU) & (fld.fm < 0.05)
+    # The broad root keeps its depth; the thin sheet peeling off it has its own.
+    outer = ((fld.f - fld.fm > water.TAU) & (fld.fm < 0.05) & (fld.sw < 0.1)
              & (np.hypot(xx - orb.x, yy - orb.y) > 1.1 * orb.r))
     assert outer.any()
     optical_radius = np.sqrt(fld.s2[outer]) / water.SIG_K
@@ -876,7 +891,9 @@ def test_an_orb_thrown_out_of_the_picture_does_not_burst_in_the_air():
     n = 60
     tl = voice(n, hum=(4, 40), hits=((40, 1.0),), aim=90.0)  # to the right, out of this narrow frame
     hand, sc = scenes("orb", tl, thrust_track(n))
-    xs = [max(b.x for b in sc[k].blobs) for k in range(40, 44)]
+    # Track the thrown body; a previously shed small drop may already be farther
+    # right at release and must not stand in for the reservoir's trajectory.
+    xs = [max(sc[k].blobs, key=lambda b: b.r).x for k in range(40, 44)]
     assert xs[-1] - xs[0] > 1.0 * S  # away along the aim...
     burst = {(l, a) for l, a in water.BURST_SWELL[2]}
     assert not any(b.flat < 1.0 or {(l, a) for l, a, _ in b.modes} == burst for k in range(40, n)
@@ -954,7 +971,9 @@ def test_a_thrown_orb_stays_clear_smeared_along_its_flight_and_trails_drops():
     assert long <= water.THROWN_LONG * 2.0 * ball[1].r + 1e-6  # ... a ball, not much longer than wide (smeared over
     # all its travel, a tall see-through capsule)...
     trail = [b for b in sc[43].blobs if b.free and b.r < 0.5 * ball[1].r]
-    assert len(trail) >= 2 and all(b.x < ball[1].x for b in trail)  # ... drops torn off its back, left behind it
+    # Previously shed circulating water can already be ahead at release. The
+    # aerodynamic trail must still contain distinct drops behind the body.
+    assert sum(b.x < ball[1].x for b in trail) >= 2
 
 
 def test_the_palm_where_the_orb_sat_is_left_wet_with_drops_on_it():
@@ -1470,13 +1489,14 @@ def test_the_orb_lights_the_palm_under_it():
     assert (on & off_orb).sum() > 50  # its focus and shade on the palm, outside the orb itself
     wall_far = (matte[k] == 0) & (np.hypot(xx - x, yy - y) > 2.0 * r)
     for b in sc[k].blobs:
-        if b.free:
+        if b.free or b.stream:
             box = water.Field([b], H, W).box
             if box is not None:
                 y0, y1, x0, x1 = box
                 pad = 3 + int(math.ceil(math.hypot(*b.move))) if b.move else 3
                 wall_far[max(0, y0 - pad):min(H, y1 + pad), max(0, x0 - pad):min(W, x1 + pad)] = False
-    # Detached water has its own image footprint; the orb's light still belongs only on the palm.
+    # Detached drops and attached sheets have their own image footprints;
+    # the orb's light still belongs only on the palm.
     assert np.array_equal(out[k][wall_far], plate[k][wall_far])  # and none on the wall off it
 
 
@@ -1770,7 +1790,7 @@ def test_a_thrown_orb_is_sharp_at_its_front_clear_in_its_core_and_torn_by_the_ai
     assert ball.lead == 1.0 and ball.foam <= 0.18  # sharp front, clear body
     before = {(round(b.x), round(b.y)) for b in sc[42].blobs if b.free}
     new = [b for b in sc[43].blobs if b.free and b.r < 0.5 * ball.r and (round(b.x), round(b.y)) not in before]
-    assert len(new) >= 3 and all(b.x < ball.x for b in new)  # ... visible drops torn off its back; smaller trail
+    assert sum(b.x < ball.x for b in new) >= 3  # new trailing drops, apart from water shed before the throw
     # fragments fall below half a pixel on this 128-pixel-wide fixture
     assert np.ptp([b.y for b in new]) > 0.3 * ball.r  # in a cone (in a line, a comet's tail)
     plate = np.full((n, H, W, 3), 128, np.uint8)

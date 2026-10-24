@@ -1463,6 +1463,20 @@ class _Ball:
         return bent
 
 
+def _condensation_light(tone):
+    """Estimate lit droplets from photographed surfaces, retaining a zero-light limit.
+
+    The room sample includes dark diffuse surfaces. A bounded exposure-dependent
+    reflectance correction keeps white condensation readable against those surfaces
+    without adding light to the hand or the rest of the scene.
+    """
+    room=np.maximum(np.asarray(tone,np.float32),0)
+    luminance=float(room @ fx._LUMA)
+    dim=1-float(_smooth((luminance-.015)/.18))
+    neutral=room*(1-.25*dim)+luminance*.25*dim
+    return np.clip((neutral*.35+neutral.max()*.85)*(1+3.8*dim),0,.94),dim
+
+
 def _wind_curls(P, center, radius, basis, phase, strength, hand=None, tone=None):
     """Integrate a wispy, helical condensation volume from its rear to its front.
 
@@ -1479,7 +1493,7 @@ def _wind_curls(P, center, radius, basis, phase, strength, hand=None, tone=None)
     if x0>=x1 or y0>=y1:
         return
     room=np.asarray(tone if tone is not None else np.percentile(P,80,axis=(0,1)),np.float32)
-    light=np.clip(room*.35+room.max()*.85,0,.94)
+    light,dim=_condensation_light(room)
     # Density varies over tens of pixels at export size. Integrate that field
     # at half resolution; sample the original plate only once at full resolution.
     step=2 if radius>60 else 1
@@ -1502,10 +1516,13 @@ def _wind_curls(P, center, radius, basis, phase, strength, hand=None, tone=None)
         curl=(.5+.5*np.sin(2*theta-5.5*a-phase))**4
         turbulence=.5+.5*np.sin(15*u+4*a+phase*.45)*np.sin(11*v-5*a-phase*.31)
         wisps=(.20+.80*turbulence)*curl
-        alpha=tube*cap*wisps*.105*strength
+        alpha=tube*cap*wisps*.105*strength*(1+.35*dim)
         # A soft cut at the hand depth keeps a continuous near curl across gaps.
         front=float(np.clip(z/.3,0,1))
-        alpha*=1-cover*(1-.33*front)
+        # Extra contrast belongs against the room; keep the photographed skin
+        # as clear as in a bright exposure even when the distant wisps are lifted.
+        near=.33*front/((1+3.8*dim)*(1+.35*dim))
+        alpha*=1-cover*(1-near)
         alpha=cv2.GaussianBlur(alpha.astype(np.float32),(0,0),max(.5,.009*radius/step))
         shade=.68+.32*np.clip(-.45*u-.65*v+.45*z+.5,0,1)
         scattered=scattered*(1-alpha[...,None])+light*shade[...,None]*alpha[...,None]
@@ -2603,6 +2620,10 @@ def _lay_cloud(P: np.ndarray, haze: _Haze, tone: np.ndarray, light: np.ndarray, 
     bl = np.maximum(behind @ fx._LUMA, 1e-4)
     tone_ = tone.astype(np.float32) / max(float(tone @ fx._LUMA), 1e-4)  # (the lit tone's hue, at luminance 1)
     col = (behind + CLOUD_TONE * (tone_ * bl[..., None] - behind)) * np.maximum(shade, 1.0)[..., None]
+    droplet_light,dim=_condensation_light(tone)
+    # Broken moving cloud parcels can catch the room light over a dark backdrop;
+    # multiplying the dark backdrop alone made the pressure front disappear.
+    col += (.20*dim)*(droplet_light*np.clip(shade[...,None]/2,.45,1)-col)
     spread = cv2.GaussianBlur(a_c, (0, 0), SCATTER[3] * SCATTER[0] * k / CLOUD_Q) * np.float32(1 / CLOUD_ALPHA) * (
         SCATTER[1] if hc is None else SCATTER[1] + (SCATTER[2] - SCATTER[1]) * hc)
     maps = [col, spread[..., None], a_room[..., None]] + ([] if hc is None else [a_hand[..., None]])

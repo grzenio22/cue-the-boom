@@ -1592,3 +1592,20 @@ def test_condensation_behind_the_hand_is_hidden_and_front_is_transparent():
     air._wind_curls(clear,(80,80),50,basis,1.2,1,tone=room)
     air._wind_curls(covered,(80,80),50,basis,1.2,1,hand=np.ones((160,160),np.float32),tone=room)
     assert 0<np.abs(covered-base).sum()<.3*np.abs(clear-base).sum()
+
+
+def test_dim_room_wind_has_readable_separated_wisps_and_no_light_in_blackness():
+    base=np.full((160,160,3),.006,np.float32)
+    basis=air._Ball(3,0).turn_axes(air.spin_axis(np.array([0.,-.78,.62])))
+    frames=[]
+    for phase in (1.2,2.0):
+        p=base.copy()
+        air._wind_curls(p,(80,80),50,basis,phase,1,tone=np.array([.012,.011,.010]))
+        frames.append(p)
+    lift=grey_lift(frames[0],base)
+    assert np.count_nonzero(lift>12)>350  # a visible moving volume at phone scale
+    assert np.mean(lift>4)<.20  # clear pockets and unchanged room around it
+    assert np.mean(abs(frames[1]-frames[0])[50:110,50:110])>.001
+    black=np.zeros_like(base)
+    air._wind_curls(black,(80,80),50,basis,1.2,1,tone=np.zeros(3))
+    assert not black.any()

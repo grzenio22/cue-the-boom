@@ -1451,6 +1451,18 @@ def _exit_surface(tx, ty, tz, X, Y, front_height, back_height, x0, y0):
     return path, X + tx * path, Y + ty * path
 
 
+def _liquid_lens_height(broad, surface, sigma, thickness, hand_size):
+    """Carry broad travelling waves into refraction, filtering capillary facets.
+
+    Reflection and transmission belong to the same moving liquid. Using only the
+    undeformed field for the transmitted room leaves a rigid glass lens underneath
+    animated highlights; passing every fine slope instead makes faceted crystal.
+    """
+    field=broad+.55*(surface-broad)
+    height=.42*sigma*np.float32(math.sqrt(2*LN_TAU))*thickness*np.maximum(field/LN_TAU,0)**(1-.5*thickness)
+    return cv2.GaussianBlur(height.astype(np.float32),(0,0),max(1.,.045*hand_size))
+
+
 def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, pyr: list, matte: np.ndarray | None,
           code: float, seed: int, falling: bool = False) -> Layer | None:
     """The water of ``fld`` as seen on frame ``k``: traced through to the plate (``pyr``, the frame's pyramid) and the
@@ -1512,6 +1524,16 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
             bump += skin0 * w_
             crest += w_ / max(total, 1e-9)
         crest = np.clip(crest * 2.5, -1.0, 1.0)
+        if held_liquid:
+            # Broad travelling swells carry the refraction and reflected room
+            # together. Fine bump noise alone leaves a rigid glass reservoir.
+            cx,cy,_,rr,_=sc.held
+            u,v=(X-cx)/max(rr,1),(Y-cy)/max(rr,1)
+            phase=k/FPS
+            swell=(.22*np.sin(3.8*u+2.6*v-4.6*phase)
+                   +.12*np.sin(-2.8*u+4.1*v+3.1*phase))
+            bump+=big0*thick0**.65*swell
+            crest=np.clip(crest+1.8*swell,-1,1)
     broad = lf.copy()  # its broad shape, its waves and ripples aside (the held orb's window glint is mirrored in it)
     lf[ys, xs] += bump.astype(np.float32)
     crest2 = np.zeros(lf.shape, np.float32)
@@ -1561,9 +1583,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     if held_liquid:
         # The thick reservoir transmits one coherent lens. Capillary slopes remain in its reflected light, while
         # the fingers seen through its body follow the broad flowing surface rather than many small glass facets.
-        lens_height = (sig[crop] * np.float32(math.sqrt(2.0 * LN_TAU)) * th
-                       * np.clip(broad[crop] / np.float32(LN_TAU), 0.0, None) ** (1.0 - 0.5 * th))
-        lens_height *= 0.65  # the held and pouring lenses share depth, without folding finger roots into a pink cap
+        lens_height = _liquid_lens_height(broad[crop],lf[crop],sig[crop],th,s)
         back_y, back_x = np.gradient(cv2.GaussianBlur(lens_height, (0, 0), max(1.0, 0.025 * s)))
         back_x, back_y = np.clip(back_x, -6, 6), np.clip(back_y, -6, 6)
     nd = np.sqrt(back_x * back_x + back_y * back_y + 1.0)
@@ -1733,8 +1753,8 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     direct = np.stack([_remap(pyr[0][c], X, Y) for c in range(3)], -1)
     rim_facets = _ss(*((-0.05, 0.45) if held_liquid else (-0.30, 0.40)), crest + 0.35 * inner)
     liquid_arcs = HELD_RIM[2] + (1.0 - HELD_RIM[2]) * rim_facets if held_liquid else 1.0
-    clear_face = (0.04 if held_liquid else 0.35) * nz ** 4
-    clear = big * (1.0 - pool) * (clear_face + (0.12 if held_liquid else 0.65)
+    clear_face = (.22 + .32*nz**2) if held_liquid else .35*nz**4
+    clear = big * (1.0 - pool) * (clear_face + (0.35 if held_liquid else 0.65)
                                 * _ss(0.45, 0.95, 1.0 - nz) * (1.0 - rim_facets))
     clear = np.minimum(clear, 0.90)  # overlapping clear facets cannot amplify the transmitted contrast
     col += clear[:, None] * (direct - col)
@@ -1770,7 +1790,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     F *= 1.0 - 0.4 * big
     if held_liquid:
         F *= 1.0 - _ss(0.3, 0.6, rr) * (1.0 - liquid_arcs)
-        F *= 0.65
+        F *= 0.45
     # by the waves running round it (its finest waves die out at the outline, and it was an even ring)
     flow_a = WHIP_FLOW * s / FPS
     whip = (_ss(0.4, 1.0, fast * FPS / WHIP_SHED) * np.clip(sw / 0.5, 0.0, 1.0)).astype(np.float32)  # a lashing stream
@@ -1916,7 +1936,7 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         # Scatter existing room light through its thick interior, leaving the
         # thin edge and most of the transmitted hand clear.
         churn = noise.flow(12, X, Y, fvx, fvy, k, .22*s)
-        suspended = (.12 + .20*np.maximum(churn, 0)) * deep * (1-pool)
+        suspended = (.03 + .09*np.maximum(churn, 0)) * deep * (1-pool)
         scatter = lit[None,:] * np.array([.35,.72,.90],np.float32)
         col += suspended[:,None] * (scatter-col)
     # froth: sparse entrained air lit by the room, carried in streaks along a stream. The airborne body remains clear
@@ -1936,6 +1956,10 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     torn = _ss(FOAM_TORN[0], FOAM_TORN[1], noise.flow(10, X, Y, fvx, fvy, k, FOAM_TORN[2] * FOAM_SIZE * s))
     fn *= 1.0 - whip * (1.0 - torn)  # only its torn bits white, clear water between (smeared, short white threads)
     fm = np.clip(foam * fn, 0.0, 1.0) * FOAM_MAX
+    if held_liquid:
+        # Small aerated crests travel with the same wave field that bends the room.
+        # Clear water remains between them; a uniform milky body reads as gel.
+        fm=np.maximum(fm,.28*_ss(.12,.65,crest)*_ss(-.35,.45,churn)*_ss(.15,.6,deep))
     fm *= 1.0 - THROWN_FOAM[1] * big * (1.0 - _ss(0.2, 0.65, deep))  # a body's froth is in its core, its rim clear
     fm = np.minimum(fm, FOAM_MAX - (FOAM_MAX - FOAM_LEAD[1]) * _ss(0.0, 0.5, front))
     if st.size:  # held, its froth lies in white threads along its outer edge, its core clearer
@@ -3389,26 +3413,50 @@ def _film(P: np.ndarray, items: list, matte: np.ndarray | None, room: Room, k: i
 
 def _orb_folds(sc: Scene, k: int, formed: int, c: np.ndarray, r: float, shape: np.ndarray,
                modes: list, seed: int, drops: Drops) -> None:
-    """Pull one continuous surface into a travelling fold, then narrow it and release a drop. Giving the root a
-    separate small blob makes its thickness switch to a small ball lens and draws a glass ring inside the body."""
-    cycle, age = divmod(k - formed + seed * 3, 20)
-    grow = float(_ss(0.0, 13.0, age))
-    relax = 1.0 - float(_ss(14.0, 20.0, age))
-    angle = (-2.5 if cycle % 2 == 0 else -0.25) + 0.22 * math.sin(0.10 * k + seed)
-    d = np.array([math.cos(angle), math.sin(angle)])
-    radius = 1.0 + sum(a * math.cos(l * angle - ph) for l, a, ph in modes)
-    reach = (0.12 + 0.45 * grow) * relax
-    width = 0.38 - 0.08 * grow
-    sc.blobs[0] = sc.blobs[0]._replace(folds=((angle, width, reach),))
-    tip = c.copy()
-    tip[:2] += shape @ d * r * (radius + reach + 0.07)
-    tip[2] -= 0.06 * r
-    rd = 0.10 * r
-    if age == 14:
-        velocity = np.r_[shape @ d * (0.05 * r) + np.array([0.0, -0.018 * r]), 0.0]
-        drops.add(k, tip, velocity, rd, life=9, fade=3, shutter=SHUTTER, g=0.012 * r)
-    if 10 <= age < 14:
-        sc.blobs.append(Blob(*tip, rd * float(_ss(9, 12, age))))
+    """Circulate two unequal crests into short, thinning sheets and shed their tips.
+
+    The thick root stays part of the body field. Only water outside that surface
+    gets a separate stream, avoiding a small glass lens embedded in the reservoir.
+    """
+    folds=[]
+    onset=float(_ss(formed,formed+5,k))
+    for j in range(2):
+        _,age=divmod(k-formed+seed*3+j*10,20)
+        grow=float(_ss(0.,13.,age))
+        relax=1-float(_ss(14.,20.,age))
+        angle=-2.1+1.6*(k-formed)/FPS+j*math.pi+.18*math.sin(.10*k+seed)
+        d=np.array([math.cos(angle),math.sin(angle)])
+        radius=1+sum(a*math.cos(l*angle-ph) for l,a,ph in modes)
+        reach=(.06+.46*grow)*relax*onset
+        folds.append((angle,.44-.20*grow,reach))
+        folds.append((angle+.60,.30,-.20*grow*relax*onset))
+        tip=c.copy();tip[:2]+=shape@d*r*(radius+reach+.045);tip[2]-=.06*r
+        # A curved sheet peels tangentially off the crest, thins under strain and
+        # necks before separating. Its path and the released drop share a tip.
+        sheet=float(_ss(2,9,age))*(1-float(_ss(14,19,age)))*onset
+        if sheet>.01:
+            u=np.linspace(0,1,24)
+            theta=angle+.80*u*sheet
+            rr=radius+reach-.10+.62*u*sheet
+            local=np.c_[np.cos(theta)*rr,np.sin(theta)*rr]
+            pts=np.c_[c[:2]+local@shape.T*r,c[2]+r*(-.06+.18*u)]
+            arc=np.r_[0,np.cumsum(np.linalg.norm(np.diff(pts[:,:2],axis=0),axis=1))]
+            tang=np.c_[-np.sin(theta),np.cos(theta)]@shape.T
+            vel=tang*(.065*r)
+            rad=r*sheet*(.18*(1-u)**.7+.035)
+            rad*=1-.28*np.sin(9*u-.6*k)**2
+            sc.blobs.extend(_stream(pts,vel,rad,.12*u,vel,arc,np.full_like(u,.45),
+                                    root_feather=.08*r))
+            tip=pts[-1]
+        rd=.075*r
+        if age==14 and onset>.5:
+            theta=angle+.80*sheet
+            velocity=np.r_[shape@np.array([math.cos(theta)-1.8*math.sin(theta),
+                                          math.sin(theta)+1.8*math.cos(theta)])*.035*r,0.]
+            drops.add(k,tip,velocity,rd,life=12,fade=3,shutter=SHUTTER,g=.012*r)
+        if 10<=age<14 and onset>.5:
+            sc.blobs.append(Blob(*tip,rd*float(_ss(9,12,age))))
+    sc.blobs[0]=sc.blobs[0]._replace(folds=tuple(folds))
 
 
 PALM_CHANNELS = ((2.35, 1.02, 0.090, 0.14), (0.95, 1.08, 0.065, -0.12), (-2.95, 0.80, 0.040, 0.10))
