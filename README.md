@@ -90,7 +90,7 @@ The short recording flow includes eleven procedural forms across air, water, lig
 - **Air — vortex / blast:** a transparent, rotating condensation volume, moving refraction, dust and a pressure front. Dim-room exposure lifts the separated wisps while preserving the photographed palm.
 - **Water — orb / whip / surge:** local refraction preserves the busy background. The surge opens into an asymmetric flowing curl with travelling aeration, changing thickness and detached spray; it gathers before a measured throw. Released water drains over the palm.
 - **Lightning — arcs / ball:** branching channels, a turbulent blue volume, finger occlusion and light on the hand and room.
-- **Earth — living stone / shatter / shard volley / stone lance:** fractured solids with photographed rock texture, surface normals, room lighting and falling grit. During a held cue, a measured sweep casts a shard fan, a downward stroke crumbles the stone, and a lift separates its layers. Projectiles retain their launch direction and continue after the hand leaves.
+- **Earth — living stone / shatter / shard volley / stone lance:** a compact scanned-rock surface with photographed colour, tight fractures, room lighting and falling grit. During a held cue, a measured sweep casts a shard fan, a downward stroke crumbles the stone, and a lift separates its layers. Projectiles retain their launch direction and continue after the hand leaves.
 
 With a ready LTX GPU connected, a finished living-stone or shatter performance also offers **Refine stone · GPU**. This explicit action adds fine LTX-2.5 mineral detail inside the tracked stone mask. Its bounded contrast retains the procedural shape, colour and broad shading, so generated background or fingers cannot replace a solid rock face. It preserves the photographed pixels outside that mask, the cue timing and the soundtrack. The original remains available, and **Perform again** returns to that original performance. The receipt records the fresh GPU pass, source hashes, fixed material recipe and overlapping 81-frame windows. This option is currently limited to earth: GPU trials on air, water and lightning did not consistently preserve their material or motion well enough.
 
@@ -99,6 +99,14 @@ With a ready LTX GPU connected, a finished living-stone or shatter performance a
 [Water before and after](media/water-before-after.mp4) · [Air in the dark before and after](media/air-dark-before-after.mp4). Both use identical tracking, cues and seeds, with no colour grade or speed change. Water shows the full original IMG_6668 and IMG_6658 clips with their phone sound plus procedural Foley. Air shows 3.5 seconds per form on the prepared dim phone take with the same bundled synthetic cue and Foley on both sides.
 
 [Water on IMG_6668: previous orb, refined orb and new surge](media/water-evolution.mp4) · [Earth: before/after, recorded movements and projectile treatments](media/earth-performance.mp4). The movement montage uses original hand motion with a clearly labelled scripted hold; it is not a live microphone demonstration. The new water and stone renders are procedural CPU results. Stone material maps are [Poly Haven CC0 photography](https://polyhaven.com/a/rock_boulder_dry), credited in [NOTICE.md](NOTICE.md).
+
+Latest material comparisons: [water before/after](media/water-materials.mp4) ·
+[earth before/after](media/earth-materials.mp4), on IMG_6668 and the prepared dim iPhone take.
+Water uses thinner changing sheets, bounded local refraction and moving aeration.
+Earth uses a closed radial approximation of [Rock 07](https://polyhaven.com/a/rock_07)
+with its photographed albedo, split into complementary fragments. These are local
+CPU composites at original speed; neither video is a live microphone test or an
+LTX fluid simulation. Full source attribution is in [NOTICE.md](NOTICE.md).
 
 Choose the element explicitly, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The sample cues for air, water and lightning are synthetic. Earth uses the bundled sustained cue or the author's edited pf/pf/BOOM recording; the suggested rrrr/CRACK sounds can be performed with your own microphone. All four elements run locally without a GPU. The live webcam preview still supports fire and lightning; the complete five-element set is available in finished shots.
 

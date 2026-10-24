@@ -253,7 +253,7 @@
   "rank": -86
  },
  "bending|hand_open.mp4|shhhhh-sploosh.wav|water_orb@made|0.53,0.71|17": {
-  "dir": "elements_liquid_earth_20261024__bright__water_orb",
+  "dir": "elements_materials_20261024__bright__water_orb",
   "title": "Water orb · bright room",
   "plate": "hand_open.mp4",
   "voice": "shhhhh-sploosh.wav",
@@ -264,20 +264,8 @@
   "real": true,
   "rank": -88
  },
- "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_orb@made|0.51,0.65|17": {
-  "dir": "elements_liquid_earth_20261024__dark__water_orb",
-  "title": "Water orb · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_orb",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -68
- },
  "bending|hand_open.mp4|shhhhh-sploosh.wav|water_surge@made|0.53,0.71|17": {
-  "dir": "elements_interaction_20261024__bright__water_surge",
+  "dir": "elements_materials_20261024__bright__water_surge",
   "title": "Water surge · bright room",
   "plate": "hand_open.mp4",
   "voice": "shhhhh-sploosh.wav",
@@ -288,8 +276,20 @@
   "real": true,
   "rank": -82
  },
+ "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_orb@made|0.51,0.65|17": {
+  "dir": "elements_materials_20261024__dark__water_orb",
+  "title": "Water orb · dim room",
+  "plate": "hand_palm.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_orb",
+  "mode": "bending",
+  "seed": 17,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -68
+ },
  "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_surge@made|0.51,0.65|17": {
-  "dir": "elements_interaction_20261024__dark__water_surge",
+  "dir": "elements_materials_20261024__dark__water_surge",
   "title": "Water surge · dim room",
   "plate": "hand_palm.mp4",
   "voice": "shhhhh-sploosh.wav",
@@ -301,7 +301,7 @@
   "rank": -62
  },
  "bending|hand_open.mp4|hoooo.wav|earth_rock@made|0.53,0.71|17": {
-  "dir": "elements_earth_final_20261024__bright__earth_rock",
+  "dir": "elements_materials_20261024__bright__earth_rock",
   "title": "Living stone · bright room",
   "plate": "hand_open.mp4",
   "voice": "hoooo.wav",
@@ -313,7 +313,7 @@
   "rank": -84
  },
  "bending|hand_open.mp4|pf-pf-boom-author.wav|earth_shatter@made|0.53,0.71|17": {
-  "dir": "elements_earth_final_20261024__bright__earth_shatter",
+  "dir": "elements_materials_20261024__bright__earth_shatter",
   "title": "Stone shatter · bright room",
   "plate": "hand_open.mp4",
   "voice": "pf-pf-boom-author.wav",
@@ -325,7 +325,7 @@
   "rank": -83
  },
  "bending|hand_open.mp4|pf-pf-boom-author.wav|earth_volley@made|0.53,0.71|17": {
-  "dir": "elements_earth_final_20261024__bright__earth_volley",
+  "dir": "elements_materials_20261024__bright__earth_volley",
   "title": "Shard volley · bright room",
   "plate": "hand_open.mp4",
   "voice": "pf-pf-boom-author.wav",
@@ -337,7 +337,7 @@
   "rank": -81
  },
  "bending|hand_open.mp4|pf-pf-boom-author.wav|earth_lance@made|0.53,0.71|17": {
-  "dir": "elements_earth_final_20261024__bright__earth_lance",
+  "dir": "elements_materials_20261024__bright__earth_lance",
   "title": "Stone lance · bright room",
   "plate": "hand_open.mp4",
   "voice": "pf-pf-boom-author.wav",
@@ -349,7 +349,7 @@
   "rank": -80
  },
  "bending|hand_palm.mp4|hoooo.wav|earth_rock@made|0.51,0.65|17": {
-  "dir": "elements_earth_final_20261024__dark__earth_rock",
+  "dir": "elements_materials_20261024__dark__earth_rock",
   "title": "Living stone · dim room",
   "plate": "hand_palm.mp4",
   "voice": "hoooo.wav",
@@ -361,7 +361,7 @@
   "rank": -64
  },
  "bending|hand_palm.mp4|pf-pf-boom-author.wav|earth_shatter@made|0.51,0.65|17": {
-  "dir": "elements_earth_final_20261024__dark__earth_shatter",
+  "dir": "elements_materials_20261024__dark__earth_shatter",
   "title": "Stone shatter · dim room",
   "plate": "hand_palm.mp4",
   "voice": "pf-pf-boom-author.wav",
@@ -373,7 +373,7 @@
   "rank": -63
  },
  "bending|hand_palm.mp4|pf-pf-boom-author.wav|earth_volley@made|0.51,0.65|17": {
-  "dir": "elements_earth_final_20261024__dark__earth_volley",
+  "dir": "elements_materials_20261024__dark__earth_volley",
   "title": "Shard volley · dim room",
   "plate": "hand_palm.mp4",
   "voice": "pf-pf-boom-author.wav",
@@ -385,7 +385,7 @@
   "rank": -61
  },
  "bending|hand_palm.mp4|pf-pf-boom-author.wav|earth_lance@made|0.51,0.65|17": {
-  "dir": "elements_earth_final_20261024__dark__earth_lance",
+  "dir": "elements_materials_20261024__dark__earth_lance",
   "title": "Stone lance · dim room",
   "plate": "hand_palm.mp4",
   "voice": "pf-pf-boom-author.wav",

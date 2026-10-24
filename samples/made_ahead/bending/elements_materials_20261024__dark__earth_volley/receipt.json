@@ -1,0 +1,134 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "earth_volley",
+  "made": "earth",
+  "form": "volley",
+  "fluid": "earth",
+  "behaviour": "volley"
+ },
+ "inputs": {
+  "point": [
+   0.509,
+   0.654
+  ],
+  "seed": 17,
+  "offset_s": 0.0173333333333332,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "(made, not rendered: cuesync.earth)",
+  "guide_scale": 1.0
+ },
+ "bending": {
+  "track": "samples/made_ahead/bending/elements_materials_20261024__dark__earth_volley/hand_track.json",
+  "mask": "samples/made_ahead/bending/elements_materials_20261024__dark__earth_volley/hand_mask.npz",
+  "k_hit": 64,
+  "tap_frame": 54,
+  "aim": null,
+  "aim_mode": "tracked",
+  "k_launch": 64,
+  "snap": {
+   "cue": 64,
+   "motion": 70,
+   "frame": 64,
+   "used": "cue",
+   "mismatch": true
+  },
+  "hits": [
+   {
+    "frame": 30,
+    "gain": 0.701,
+    "size": 0.587,
+    "snap": {
+     "cue": 30,
+     "motion": 38,
+     "frame": 30,
+     "used": "cue",
+     "mismatch": true
+    }
+   },
+   {
+    "frame": 38,
+    "gain": 0.701,
+    "size": 0.586,
+    "snap": {
+     "cue": 38,
+     "motion": 38,
+     "frame": 38,
+     "used": "motion",
+     "mismatch": false
+    }
+   },
+   {
+    "frame": 64,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 64,
+     "motion": 70,
+     "frame": 64,
+     "used": "cue",
+     "mismatch": true
+    }
+   }
+  ],
+  "holds": [
+   [
+    63,
+    70
+   ]
+  ],
+  "performed_again": null,
+  "camera": "handheld: what it leaves moves with the room",
+  "movement": {
+   "method": "camera-compensated 2D strokes; confidence and continuity gated",
+   "flow_bridge_frames": [],
+   "observed": [],
+   "actions": [
+    {
+     "frame": 36,
+     "action": "shard_fan",
+     "source": "voice",
+     "direction": [
+      0.0,
+      -1.0
+     ],
+     "strength": 0.5874467747835057,
+     "event_start": 30
+    },
+    {
+     "frame": 44,
+     "action": "shard_fan",
+     "source": "voice",
+     "direction": [
+      0.0,
+      -1.0
+     ],
+     "strength": 0.5864537834169156,
+     "event_start": 38
+    },
+    {
+     "frame": 70,
+     "action": "shard_fan",
+     "source": "voice",
+     "direction": [
+      0.0,
+      -1.0
+     ],
+     "strength": 1.0,
+     "event_start": 64
+    }
+   ]
+  }
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 52.7
+}

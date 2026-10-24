@@ -212,3 +212,15 @@ Earth uses the CC0 Rock Boulder Dry material from Poly Haven: photography by
 Dimitrios Savva, processing by Rico Cilliers. The bundled diffuse, normal and AO
 maps and their checksums are described in `cuesync/assets/stone/provenance.json`
 in an installed package; see the root NOTICE.md for source and licence links.
+
+
+`media/water-materials.mp4` and `media/earth-materials.mp4` compare the previous
+materials with the October 24 scanned-stone and flowing-water pass. Bright
+comparisons use the full original IMG_6668 with phone audio plus Foley. Dim
+comparisons use the prepared `hand_palm.mp4`, matched synthetic example cues and
+Foley. The three earth projectile demonstrations use the credited author
+pf-pf-BOOM sample. All play at normal speed; these are not live microphone tests.
+The water is procedural. Stone exteriors adapt Poly Haven's CC0 **Rock 07**
+by Jenelle van Heerden; fracture interiors use the credited Rock Boulder Dry
+photographs. See `NOTICE.md` and the bundled stone provenance JSON files.
+No GPU generation or additional GPU spend was used for this material pass.
