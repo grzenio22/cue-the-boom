@@ -88,6 +88,19 @@ def test_a_stationary_final_hit_does_not_send_water_up_the_wall():
     assert any(len(s.blobs) > 30 for s in sc[44:56])  # the cue still makes a local splash
 
 
+def test_an_uncertain_tracking_jump_cannot_throw_or_crack_held_water():
+    n = 100
+    track = thrust_track(n, frame=30)
+    track["conf"][30] = .59
+    tl = voice(n, hum=(4, 90), hits=())
+    plan = water.orb_plan(tl, track)
+    assert not plan.throw and plan.release >= 90
+    assert water.whip_plan(tl, track).cracks == []
+    track["conf"][30] = .95
+    assert water.orb_plan(tl, track).throw
+    assert water.whip_plan(tl, track).cracks[0][0] == 30
+
+
 def test_a_stationary_final_hit_keeps_a_spreading_sheet_on_the_palm_over_several_frames():
     n, release = 130, 44
     hand, sc = scenes("orb", voice(n, hum=(4, 40), hits=((release, 1.0),)), track_of(n))

@@ -151,3 +151,13 @@ bundled synthetic example cues. Earth shatter uses `pf-pf-boom-author.wav`, an
 edited rhythm made from the author's own pf and BOOM recordings. Earth rock
 uses the synthetic held cue, not a new human "rrrrr" recording. Procedural Foley
 is mixed with those cues. Each shot includes input/source hashes in its provenance.
+
+### Material and motion refresh (October 24, 2026)
+
+The `elements_20261024__*` gallery retains the same authored phone plates and
+credited sample cues. Its stone uses procedural mineral textures and an opaque,
+gravity-driven release. Water has more clearance above the fingers and ignores
+low-confidence tracking impulses. These gallery files remain procedural CPU
+results. The separately requested **Refine stone · GPU** action runs LTX-2.5 with
+ainvfx-fluid and transfers accepted surface detail only inside tracked stone
+coverage; its receipt identifies the new generation and the original performance.

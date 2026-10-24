@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -29,7 +30,10 @@ def sha(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--batch-name", default="elements_20261023")
     args = parser.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", args.batch_name):
+        raise SystemExit("batch-name must contain only letters, numbers, underscores or hyphens")
     source = args.source.resolve()
     manifest = json.loads((source / "manifest.json").read_text())
     wanted = {(case, effect) for case in ("bright", "dark") for effect in NAMES}
@@ -58,7 +62,7 @@ def main():
     installed = []
     for item in manifest["cases"]:
         case,effect = item["case"],item["effect"]
-        name = f"elements_20261023__{case}__{effect}"
+        name = f"{args.batch_name}__{case}__{effect}"
         target = gallery / name
         if target.exists():
             raise SystemExit(f"Refusing to overwrite existing gallery evidence: {target}")
@@ -66,6 +70,8 @@ def main():
         shot = source / f"{case}-{effect}"
         for filename in ("composite.mp4", "final.mp4", "poster.jpg"):
             shutil.copy2(shot / filename, target / filename)
+        if (shot / "effect_mask.npz").exists():
+            shutil.copy2(shot / "effect_mask.npz", target / "effect_mask.npz")
         for filename in ("hand_track.json", "hand_mask.npz"):
             shutil.copy2(source / "inputs" / case / filename, target / filename)
         receipt = json.loads((shot / "receipt.json").read_text())

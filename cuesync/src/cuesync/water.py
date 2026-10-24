@@ -925,7 +925,13 @@ def sounding(tl: Timeline) -> np.ndarray:
 
 
 def _thrusts(track: dict) -> list[int]:
-    return sorted(int(e["frame"]) for e in track.get("events") or [] if e.get("kind") == "extension")
+    # A fast jump while tracking is uncertain is not a physical palm thrust.
+    # IMG_6668 contains such a jump before the performer's main gesture; using
+    # it launched the water before the held performance could be seen.
+    confidence = track.get("conf")
+    return sorted(int(e["frame"]) for e in track.get("events") or [] if e.get("kind") == "extension"
+                  and (confidence is None or 0 <= int(e["frame"]) < len(confidence)
+                       and float(confidence[int(e["frame"])]) >= .7))
 
 
 @dataclass
@@ -3740,6 +3746,10 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
             zp = float(hand.depth(k, np.float32([p[0]]), np.float32([p[1]]))[0])
             bob = ORB_BOB[0] * s * math.sin(2 * math.pi * ORB_BOB[1] * t)
             target = np.array([p[0], p[1], zp]) + nrm * (R + ORB_GAP * s + bob)
+            # A camera-facing palm needs a visible vertical gap as well as depth.
+            # Keep the lift small on edge-on hands, whose normal already supplies it.
+            lift = 0.55 * s * float(_ss(0.2, 0.7, abs(nrm[2])))
+            target[1] -= lift
             if spring is None:
                 spring = _Spring(target, *ORB_SPRING)
             acc = spring.step(target)
@@ -3894,6 +3904,9 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                         break
                 left = (c.copy(), R)  # where it left the palm: its shade fades there
                 foot = c[:2] - nrm[:2] * (R + ORB_GAP * s)
+                # The suspended body's screen-space clearance must not move the
+                # wet contact patch off the palm when the hand throws it.
+                foot[1] += 0.55 * s * float(_ss(0.2, 0.7, abs(nrm[2])))
                 m = int(rng.integers(PALM_DROPS[0][0], PALM_DROPS[0][1] + 1))
                 d_off = rng.normal(size=(m, 2)) * np.array([0.35, 0.16]) * PALM_DROPS[2] * R
                 sat = (k, foot - p, R, d_off, s * rng.uniform(*PALM_DROPS[1], m))

@@ -105,6 +105,7 @@ def render_element(
     out_path: str | Path,
     timeout: float = 1200.0,
     image_path: str | Path | None = None,
+    material_finish: bool = False,
 ) -> RenderResult:
     """Render one fluid element from ``guide_path`` and download it to ``out_path``.
 
@@ -119,6 +120,19 @@ def render_element(
 
     graph = json.loads(Path(workflow_path).read_text(encoding="utf-8"))
     bound = bind_fluid_graph(graph, prompt=prompt, seed=seed, image=image_path is not None)
+    if material_finish:
+        from .material_finish import GUIDE_STRENGTH, MODEL_STRENGTH
+
+        if image_path is None:
+            raise GraphBindError("a material pass needs its source frame")
+        for kind, key, value in (("LTXICLoRALoaderModelOnly", "strength_model", MODEL_STRENGTH),
+                                 ("LTXAddVideoICLoRAGuide", "strength", GUIDE_STRENGTH)):
+            ids = _nodes_of(bound.graph, kind)
+            if len(ids) != 1:
+                raise GraphBindError(f"a material pass needs exactly one {kind}")
+            bound.graph[ids[0]]["inputs"][key] = value
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        (Path(out_path).parent / "material_workflow.json").write_text(json.dumps(bound.graph, indent=2))
     client = Comfy()  # COMFY_BASE_URL / COMFY_API_KEY from the environment
     started = time.perf_counter()
     wf = client.workflows.from_json(bound.graph)

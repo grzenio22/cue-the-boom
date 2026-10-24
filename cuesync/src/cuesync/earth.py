@@ -56,7 +56,36 @@ def stone(seed: int) -> Stone:
     pts/=np.linalg.norm(pts,axis=1,keepdims=True)
     pts*=rng.uniform(.77,1.13,(len(pts),1))*np.array([1.08,.87,.94])
     faces=np.array(refined)
-    return Stone(pts, faces, rng.uniform(0, 6.28, 5), np.array([.54, .49, .41]) * rng.uniform(.9, 1.1))
+    return Stone(pts, faces, rng.uniform(0, 6.28, 5), np.array([.56, .55, .52]) * rng.uniform(.9, 1.1))
+
+
+def _mineral_noise(position):
+    """Smooth isotropic value noise in stone coordinates, stable as it turns."""
+    cell = np.floor(position)
+    f = position - cell
+    f = f*f*f*(f*(f*6-15)+10)
+    value = np.zeros(position.shape[:-1], np.float32)
+    for x in (0, 1):
+        for y in (0, 1):
+            for z in (0, 1):
+                q = cell + np.array([x, y, z])
+                h = np.sin(q @ np.array([127.1, 311.7, 74.7])) * 43758.5453
+                weight = (f[...,0] if x else 1-f[...,0]) * (f[...,1] if y else 1-f[...,1]) * (f[...,2] if z else 1-f[...,2])
+                value += (weight * (h-np.floor(h))).astype(np.float32)
+    return value
+
+
+def _mineral_albedo(obj, phase):
+    """Granite-like mottling, quartz grains, mica and irregular fracture seams."""
+    p = obj + phase[:3]
+    broad = _mineral_noise(p*3.8)
+    grain = _mineral_noise(p*24.0)
+    fine = _mineral_noise(p*93.0)
+    cracks = np.exp(-((broad-.48)/.017)**2) * np.clip((grain-.28)*2, 0, 1)
+    quartz = np.clip((grain-.57)*4.8, 0, .75)
+    mica = np.clip((.38-fine)*3.2, 0, .6)
+    rock = np.clip(.64+.32*broad+.25*(fine-.5)-.34*cracks-.4*mica, .2, 1.1)
+    return rock[...,None] * np.array([.96,.98,1.0]) + quartz[...,None]*np.array([.40,.38,.33])
 
 
 def rotation(t: float) -> np.ndarray:
@@ -93,20 +122,14 @@ def raster(mesh: Stone, center, radius, turn, rgb, alpha, depth, light, irradian
         if not covered.any():
             continue
         obj=u[...,None]*mesh.vertices[face[0]]+v[...,None]*mesh.vertices[face[1]]+(1-u-v)[...,None]*mesh.vertices[face[2]]
-        X,Y,Z=np.moveaxis(obj,-1,0)
-        ph=mesh.phase
-        strata=np.sin(17*Y+3*np.sin(3*X+ph[0])+2*Z)
-        grain=(np.sin(53*X+31*Y+ph[1])*np.sin(47*Z-19*X+ph[2])+
-               .5*np.sin(137*X+81*Y-93*Z+ph[3]))/1.5
-        vein=np.exp(-((np.sin(7*X+5*Z+2*np.sin(4*Y)+ph[4]))/.10)**2)
-        material=np.clip(.83+.12*strata+.12*grain-.22*vein,.35,1.1)
+        material=_mineral_albedo(obj,mesh.phase)
         # Broad rounded normals and a smaller facet contribution preserve rugged
         # edges without making every triangle read as a low-poly game asset.
         smooth = obj @ turn.T
         smooth /= np.maximum(np.linalg.norm(smooth,axis=-1,keepdims=True),1e-8)
-        facing = np.maximum(0, .65*(smooth@light)+.35*float(normal@light))
+        facing = np.maximum(0, .45*(smooth@light)+.55*float(normal@light))
         shade=.32+.68*facing
-        colour=material[...,None]*mesh.colour*irradiance*shade[...,None]
+        colour=material*mesh.colour*irradiance*shade[...,None]
         rgb[y0:y1,x0:x1][covered]=colour[covered]
         alpha[y0:y1,x0:x1][covered]=1
         depth[y0:y1,x0:x1][covered]=z[covered]
@@ -133,19 +156,26 @@ def _flight_center(hand, anchor, k, camera, *, falling=True):
     velocity=(p-previous_in_frame[:2])*24
     velocity*=min(1.,3*s/max(float(np.linalg.norm(velocity)),1e-8))
     age=(k-anchor)/24
-    xy=p+np.array([.1*s*age,-.65*s+(1.8*s*age*age if falling else 0.)])+velocity*age
+    xy=p+np.array([.1*s*age,-.65*s+(10.0*s*age*age if falling else 0.)])+velocity*age
     transform=camera_between(camera,anchor,k)
     xy=(transform @ np.r_[xy,1.])[:2]
     zoom=math.sqrt(abs(float(np.linalg.det(transform[:2,:2]))))
-    return np.r_[xy,float(hand.depth(anchor,p[0],p[1],fingers=False))+.22*s],s*zoom
+    # Gravity releases the mass behind the open fingers instead of dissolving
+    # a translucent disc into photographed skin.
+    z = float(hand.depth(anchor,p[0],p[1],fingers=False)) + .22*s - (1.5*s*age if falling else 0.)
+    return np.r_[xy,z],s*zoom
 
 
-def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=None):
+def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=None, *, coverage=None):
     if form not in FORMS:
         raise ValueError(f"earth form must be one of {FORMS}")
     n,h,w=plate.shape[:3]
     if timeline.n!=n or (mask is not None and mask.shape!=(n,h,w)):
         raise ValueError("plate, timeline and mask dimensions must agree")
+    if coverage is not None:
+        if coverage.shape != (n, h, w) or coverage.dtype != np.uint8:
+            raise ValueError("coverage must be a uint8 array matching the plate")
+        coverage.fill(0)
     events=_events(timeline,form)
     out=plate.copy()
     if not events:
@@ -173,7 +203,7 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
         P=lin(plate[k])
         for event,(a,b,gain) in enumerate(live):
             s=float(hand.s[k]); age=(k-a)/24; release=max(0,(k-b)/24)
-            fade=max(0,1-release/1.6)*presence
+            fade=min(1.,max(0.,(1.6-release)/.2))*presence
             if fade<=0:
                 continue
             grow=min(1,(k-a+1)/7)
@@ -223,6 +253,9 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
             C*=A[...,None]
             A=cv2.GaussianBlur(A,(0,0),.55)
             C=cv2.GaussianBlur(C,(0,0),.55)
+            if coverage is not None:
+                region = coverage[k, y0:y1, x0:x1]
+                region[:] = np.maximum(region, np.rint(A * fade * 255).astype(np.uint8))
             P[y0:y1,x0:x1]=P[y0:y1,x0:x1]*(1-A[...,None]*fade)+C*fade
             # Falling motes give the mass a direction; distant grains yield to the hand.
             for j,v in enumerate(dust):
@@ -237,9 +270,9 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
                 opacity=.24*fade*grow*(1-life/1.2)
                 ymin,ymax=max(0,iy-rr),min(bh,iy+rr+1);xmin,xmax=max(0,ix-rr),min(bw,ix+rr+1)
                 dy,dx=np.mgrid[ymin:ymax,xmin:xmax]
-                coverage=np.exp(-((dx-ix)**2+(dy-iy)**2)/(rr*rr))*opacity
+                dust_coverage=np.exp(-((dx-ix)**2+(dy-iy)**2)/(rr*rr))*opacity
                 patch=P[y0+ymin:y0+ymax,x0+xmin:x0+xmax]
-                patch[:]=patch*(1-coverage[...,None])+irradiance*meshes[j%13].colour*.7*coverage[...,None]
+                patch[:]=patch*(1-dust_coverage[...,None])+irradiance*meshes[j%13].colour*.7*dust_coverage[...,None]
         out[k]=gam(P)
         if k%12==0:
             say("earth",k/n,f"Shaping stone: frame {k+1} of {n}")

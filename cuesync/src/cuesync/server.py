@@ -36,7 +36,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
 RESULT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "render.mp4", "receipt.json", "poster.jpg", "share.mp4",
-                "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4", "hand_track.json")
+                "compare.mp4", "cue.json", "guide.json", "guide_preview.mp4", "hand_track.json", "material_workflow.json")
 EARLY_FILES = ("guide_preview.mp4", "cue.json", "hand_track.json")  # shown while the shot is still being made
 # the checkout's samples/: from the current folder or any folder above it (started from web/), or next to the source
 SAMPLES = next((d / "samples" for d in (Path.cwd(), *Path.cwd().parents, Path(__file__).resolve().parents[3])
@@ -55,6 +55,7 @@ class Job:
     again: int | None = None
     retime: dict | None = None  # {"src": Path, "hit_shift": int, "stop": int | None}: re-time a finished shot
     replay: dict | None = None  # {"src": Path | [Path, ...]}: perform finished scene shots again, with no new render
+    finish: dict | None = None  # explicitly requested GPU material pass: source directory and parent job id
     status: str = "queued"  # queued | running | done | error
     stage: str = "queued"
     progress: float = 0.0
@@ -75,6 +76,8 @@ class Job:
         spec_extra = getattr(self.spec, "extra", None) or {}
         return {"id": self.id, "mode": self.mode, "cached": self.cached, "title": self.title, "again": self.again,
                 "status": status,
+                "can_finish": status == "done" and (receipt or {}).get("effect", {}).get("id") in ("earth_rock", "earth_shatter")
+                              and not (receipt or {}).get("material_finish") and (self.dir / "effect_mask.npz").exists(),
                 "effect": getattr(self.spec, "effect", None) or ((receipt or {}).get("effect") or {}).get("id"),
                 "gesture": spec_extra.get("gesture"),
                 "heard": (spec_extra.get("auto") or {}).get("heard"),  # effect "auto": the sound's kind ("whoosh")
@@ -115,7 +118,7 @@ class JobQueue:
     @staticmethod
     def queue_of(mode: str) -> str:
         """Scene renders and element renders share the one GPU worker; a replay is compositing, like a re-time."""
-        return "render" if mode in ("scene", "bending") else "retime" if mode in ("replay", "bending_instant", "hand_prep")             else mode
+        return "render" if mode in ("scene", "bending", "finish") else "retime" if mode in ("replay", "bending_instant", "hand_prep") else mode
 
     def queued(self, mode: str = "render") -> int:
         q = self._qs.get(self.queue_of(mode))
@@ -152,7 +155,12 @@ class JobQueue:
             job.status = "running"
             try:
                 say = lambda s, f, m: self._emit(job, s, f, m)  # noqa: E731
-                if job.retime:
+                if job.finish:
+                    from .material_finish import finish_shot
+
+                    finish_shot(job.finish["src"], self.renderers["render"], job.dir,
+                                parent_id=job.finish["parent_id"], progress=say)
+                elif job.retime:
                     retime_shot(job.retime["src"], job.spec, job.dir, job.retime["hit_shift"], job.retime["stop"], say)
                 elif job.replay and job.replay.get("bending"):
                     self._wait_for(job.spec.extra.pop("reuse_job", None))
@@ -229,6 +237,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         jq.jobs[gid] = job
         gallery.append(job)
     ready = {"t": 0.0, "ok": False}
+    finish_lock = threading.Lock()
 
     def render_ready(scene: bool = False) -> bool:
         """Comfy preflight validates models/nodes and owns its configuration-aware cache."""
@@ -254,6 +263,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
             if render_ready(scene=True):
                 modes.append("scene")
+                if callable(getattr(renderer, "refine", None)):
+                    modes.append("finish")
             if helpers_ready():  # the hand's element is generated over black; no scene LoadImage node is needed
                 modes.append("bending")
         if "bending" not in modes:  # no GPU: your hand still gets an element rendered ahead of time, with the tracker
@@ -770,6 +781,25 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
     @app.get("/api/jobs/{job_id}")
     def status(job_id: str):
         return get(job_id).public()
+
+    @app.post("/api/jobs/{job_id}/finish")
+    def finish_material(job_id: str):
+        """One explicit material render per original performance; repeated clicks reuse that job."""
+        src = get(job_id)
+        if not src.public()["can_finish"]:
+            raise HTTPException(409, "finish a new floating-stone or stone-shatter performance first")
+        with finish_lock:
+            prior = next((j for j in list(jq.jobs.values()) if j.finish and
+                          j.finish["parent_id"] == job_id and j.status != "error"), None)
+            if prior is not None:
+                return prior.public()
+            if not callable(getattr(renderer, "refine", None)) or not render_ready(scene=True):
+                raise HTTPException(409, "connect a ready LTX GPU to refine the stone material")
+            rid = uuid.uuid4().hex[:12]
+            job = Job(id=rid, dir=jq.root / rid, spec=src.spec, mode="finish", title=src.title,
+                      finish={"src": src.dir, "parent_id": job_id})
+            job.dir.mkdir(parents=True)
+            return jq.submit(job).public()
 
     @app.get("/api/jobs/{job_id}/events")
     async def events(job_id: str):

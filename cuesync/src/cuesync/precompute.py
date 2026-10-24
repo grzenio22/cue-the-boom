@@ -16,7 +16,7 @@ from .pipeline import ShotSpec, make_shot
 
 SHOT_FILES = ("final.mp4", "composite.mp4", "breakdown.mp4", "guide.mp4", "element.mp4", "render.mp4", "receipt.json",
               "cue.json", "guide.json", "guide_preview.mp4", "start_frame.png", "matte.png", "hand_track.json",
-              "hand_mask.npz", "poster.jpg")
+              "hand_mask.npz", "effect_mask.npz", "poster.jpg")
 
 
 def effect_signature(effect: str, subject: str | None = None, direction: float | None = None) -> str:

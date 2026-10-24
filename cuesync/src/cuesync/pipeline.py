@@ -69,6 +69,14 @@ class ComfyRenderer:
         """Are the configured workflow's required nodes and model files available?"""
         return self.preflight().ready
 
+    def refine(self, guide_path: Path, prompt: str, seed: int, out_path: Path, *, image: Path) -> float:
+        """An explicitly requested, guided LTX stone material pass."""
+        from .runner import render_element
+
+        return render_element(guide_path, prompt=prompt, seed=seed, workflow_path=self.workflow,
+                              out_path=out_path, timeout=self.timeout, image_path=image,
+                              material_finish=True).seconds
+
     def preflight(self) -> Readiness:
         """Cached read-only API/inventory check; never submits a GPU job."""
         return self._preflight.check(self.workflow, scenes=self.scenes)

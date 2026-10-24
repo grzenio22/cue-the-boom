@@ -31,6 +31,7 @@ export function effectStart(r: Receipt | null | undefined): number {
 
 /** What made a hand shot's element, said on its gallery tile. */
 export function handMade(r: Receipt | null | undefined): string {
+  if (r?.material_finish) return "tracked stone with a fresh LTX-2.5 material pass; original hand and room";
   const e = typeof r?.effect === "object" ? r.effect : undefined;
   if (e?.made === "explosion") return "on a real hand: an LTX-2.5 fireball, its blast made from the hand";
   if (e?.made) return `on a real hand: ${e.made} made from the hand and the voice (procedural CPU)`;
@@ -48,6 +49,7 @@ export interface BendingReceipt {
 }
 
 export interface Receipt {
+  material_finish?: { parent_id: string; recipe: string; new_gpu_render: boolean; native_size: number[] };
   mode?: "scene" | "bending";
   bending?: BendingReceipt;
   auto?: { heard: string; hand: string | null; picked: string; why: string } | null;
@@ -70,7 +72,7 @@ export interface Receipt {
   seconds_total: number;
 }
 
-export type Mode = "instant" | "render" | "scene" | "bending";
+export type Mode = "instant" | "render" | "scene" | "bending" | "finish";
 
 /** What a hand can throw (element bending), in the order the badge cycles them. */
 export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "explosion", "lightning_arc", "lightning_ball",
@@ -115,6 +117,7 @@ export interface JobStatus {
   heard?: string | null; // effect "auto" on a plate with no map: what the sound is (boom, whoosh, hiss, pop, puff, crackle)
   mode?: Mode | "compare" | "replay";
   cached?: boolean;
+  can_finish?: boolean;
   title?: string;
   status: "queued" | "running" | "done" | "error";
   stage: string;

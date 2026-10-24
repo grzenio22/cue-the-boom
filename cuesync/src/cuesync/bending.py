@@ -1891,8 +1891,12 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
                         holds=[(int(a), int(b)) for a, b in c.cue.intervals()], tap_frame=int(tap_k), aim=arrow,
                         camera=cam)
     say("compositing", 0.3, f"Making the {module} on your hand")
-    frames = importlib.import_module(f".{module}", __package__).render(plate, track, mask, timeline, form,
-                                                                        seed=spec.seed, progress=say)
+    coverage = np.zeros(plate.shape[:3], np.uint8) if module == "earth" else None
+    frames = importlib.import_module(f".{module}", __package__).render(
+        plate, track, mask, timeline, form, seed=spec.seed, progress=say,
+        **({"coverage": coverage} if coverage is not None else {}))
+    if coverage is not None:
+        np.savez_compressed(Path(out_dir) / "effect_mask.npz", alpha=coverage, fps=FPS, version=1)
     say("finishing", 0.85, "Adding the sound and the cue ribbon")
     audio = place_audio(c.samples, c.offset_s, n)
     if effect in MADE_FOLEY:

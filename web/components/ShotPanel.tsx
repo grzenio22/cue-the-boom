@@ -67,14 +67,17 @@ function HandChips({ job }: { job: JobStatus }) {
   if (!r || !b) return null;
   return (
     <div className="row">
-      <span className="chip">{b.instant ? "instant: an LTX-2.5 element rendered ahead of time, carried on your hand (no GPU)"
+      <span className="chip">{r.material_finish ? `stone material refined with LTX-2.5: a fresh ${r.render.seconds.toFixed(0)} s GPU render, inside the tracked stone only`
+        : b.instant ? "instant: an LTX-2.5 element rendered ahead of time, carried on your hand (no GPU)"
         : b.performed_again ? "performed again on the same render: no new render"
         : job.effect === "explosion" ? "a fireball rendered ahead with LTX-2.5, its blast made from your hand and your voice"
         : job.effect && MADE_EFFECTS.includes(job.effect) ? `made, not rendered: ${(HAND_LABELS[job.effect] ?? job.effect).toLowerCase()} from your hand and your voice, on this computer (no GPU)`
         : job.effect === "smoke_puff" || r.render.prompt?.startsWith("(made") ? "made, not rendered: an air blast"
         : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)`
         : "rendered over black ahead of time on open weights (LTX-2.5)"}</span>
-      <span className="chip">{job.effect?.startsWith("water") ? "on your hand frame by frame: the room seen through it and mirrored in it"
+      <span className="chip">{r.material_finish ? "original hand and room outside the stone; original voice timing and sound"
+        : job.effect?.startsWith("earth") ? "solid stone, tracked depth, finger occlusion and a soft shadow on your palm"
+        : job.effect?.startsWith("water") ? "on your hand frame by frame: the room seen through it and mirrored in it"
         : job.effect?.startsWith("air") ? "on your hand frame by frame: seen by what it bends and the dust it carries"
         : job.effect === "explosion" ? "set off ahead of your strike and left in the room, lighting your arm from where it is"
         : "carried on your hand frame by frame, and lighting it from where it is"}</span>
@@ -170,6 +173,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
 
   const [sharing, setSharing] = useState(false);
+  const [originalJob, setOriginalJob] = useState<JobStatus | null>(null);
+  const [finishError, setFinishError] = useState<string | null>(null);
   const share = async () => { // the shot as a 9:16 reel with your cue's word on each hit
     if (!job) return;
     setSharing(true);
@@ -227,6 +232,29 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     setBusy(true);
     await observe(job, submittedEffect, controller);
   };
+  const finishStone = async () => {
+    if (!job?.can_finish || monitor.current || pending) return;
+    const controller = new AbortController();
+    monitor.current = controller;
+    setBusy(true);
+    setFinishError(null);
+    const source = job;
+    try {
+      const response = await fetch(`/api/jobs/${source.id}/finish`, { method: "POST", signal: controller.signal });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.detail ?? "The material pass could not start. Your original shot is still here.");
+      }
+      const next = await response.json() as JobStatus;
+      if (controller.signal.aborted) return;
+      setOriginalJob(source);
+      await observe(next, source.effect ?? effect, controller);
+    } catch (error) {
+      if (!controller.signal.aborted) setFinishError((error as Error).message);
+    } finally {
+      if (monitor.current === controller) { controller.abort(); monitor.current = null; setBusy(false); }
+    }
+  };
   const make = async (pick?: string, reuse?: string) => {
     if (monitor.current || pending) return;
     const controller = new AbortController();
@@ -269,7 +297,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
     return () => clearTimeout(start);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const bent = job?.receipt?.mode === "bending";
-  const again = job?.status === "done" && ((job.receipt?.mode === "scene" && job.receipt.plate?.still) || bent) ? (replayOf ?? job.id) : null;
+  const again = job?.status === "done" && ((job.receipt?.mode === "scene" && job.receipt.plate?.still) || bent)
+    ? (job.receipt?.material_finish?.parent_id ?? replayOf ?? job.id) : null;
   const auto = job?.receipt?.auto;
 
   return (
@@ -405,6 +434,10 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         </div>
       )}
       {job?.status === "error" && <p className="chip bad">{job.stage !== "missing" && "The shot failed: "}{job.error}</p>}
+      {finishError && <p role="alert" className="chip bad">{finishError}</p>}
+      {originalJob && job?.id !== originalJob.id && !pending && !busy && <button className="secondary"
+        onClick={() => { setJob(originalJob); setView("final.mp4"); onJobChange?.(originalJob, originalJob.effect ?? effect); }}>
+        Back to the original performance</button>}
       {job?.status === "done" && (
         <div ref={result} className="shot-result">
           {!quick && <div className="row" role="tablist">
@@ -418,6 +451,11 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           {quick && <div className="row quick-result-actions">
             {job.files["final.mp4"] && <a className="btn" href={job.files["final.mp4"]} download="cue-the-boom.mp4">Download</a>}
             {again && onReplay && <button className="secondary" onClick={() => onReplay(again, replayWith)}>Perform again</button>}
+          </div>}
+          {job.can_finish && modes.includes("finish") && <div className="row">
+            <button className="secondary" disabled={busy || pending} onClick={() => void finishStone()}>
+              {busy ? "Starting material pass…" : "Refine stone · GPU"}</button>
+            <span className="muted">Add mineral detail with LTX. This starts a new GPU render; your original stays available.</span>
           </div>}
           {quick ? <details><summary className="muted">How this shot was made</summary>{bent ? <HandChips job={job} /> : <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />}</details>
             : bent ? <HandChips job={job} /> : <Chips job={job} effect={effects.find((e) => e.id === (job.effect ?? effect))} live={sceneLive} />}

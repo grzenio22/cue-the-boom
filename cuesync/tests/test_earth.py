@@ -27,6 +27,18 @@ def renderer():
     return importlib.import_module("cuesync.earth")
 
 
+def test_material_coverage_excludes_background_and_the_contact_shadow():
+    p, t, m, tl = scene()
+    coverage = np.full(p.shape[:3], 255, np.uint8)
+    result = renderer().render(p, t, m, tl, "rock", coverage=coverage)
+    assert not coverage[:6].any()
+    assert not coverage[:, :10].any()
+    assert (coverage > 250).sum() > 300
+    # A material replacement must leave the photographed palm's shadow alone.
+    changed = np.max(np.abs(result.astype(float) - p), axis=-1) > 4
+    assert (changed & (m > 0) & (coverage == 0)).sum() > 20
+
+
 @pytest.mark.parametrize("form", ["rock", "shatter"])
 def test_earth_is_solid_local_deterministic_and_does_not_change_pre_cue_frames(form):
     p,t,m,tl=scene()
@@ -98,3 +110,12 @@ def test_released_stone_follows_camera_but_not_subsequent_hand_motion():
     hand.p[23:,0]+=50
     independent,_=renderer()._flight_center(hand,22,30,None)
     assert np.allclose(independent,base)
+
+
+def test_released_stone_falls_behind_the_hand_with_a_solid_surface():
+    p,t,m,tl=scene(65)
+    earth=renderer();hand=earth.hand_of(t,tl.n,p)
+    initial,size=earth._flight_center(hand,22,22,None)
+    fallen,_=earth._flight_center(hand,22,34,None)
+    assert fallen[1]-initial[1] > 2*size
+    assert fallen[2] < hand.depth(34,fallen[0],fallen[1],fingers=False)

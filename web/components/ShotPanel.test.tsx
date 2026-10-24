@@ -132,6 +132,47 @@ describe("ShotPanel prepared fire shortcut", () => {
   });
 });
 
+describe("ShotPanel stone material finish", () => {
+  const stone = (): JobStatus => ({ ...finishedHand("earth_rock"), can_finish: true,
+    files: { "final.mp4": "/original-stone.mp4" } });
+
+  it("starts a GPU pass only after a click and performs the original again", async () => {
+    const source = stone();
+    const onReplay = vi.fn();
+    const done: JobStatus = { ...source, id: "refined-stone", can_finish: false,
+      files: { "final.mp4": "/refined-stone.mp4" }, receipt: { ...source.receipt!,
+        material_finish: { parent_id: source.id, recipe: "tracked-stone-v1", new_gpu_render: true, native_size: [576, 1024] },
+        render: { ...source.receipt!.render, seconds: 24 } } };
+    let resolve!: (r: Response) => void;
+    const request = vi.fn((_url: string, _init?: RequestInit) => new Promise<Response>((r) => { resolve = r; }));
+    vi.stubGlobal("fetch", request);
+    await show({ quick: true, quickEffect: "earth_rock", initialJob: source, modes: ["bending", "finish"], onReplay });
+    expect(request).not.toHaveBeenCalled();
+    await tap(button("Refine stone · GPU"));
+    await tap(button("Starting material pass…"));
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][0]).toBe(`/api/jobs/${source.id}/finish`);
+    await act(async () => { resolve(Response.json(done)); });
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/refined-stone.mp4");
+    expect(host.textContent).toContain("a fresh 24 s GPU render");
+    await tap(button("Perform again"));
+    expect(onReplay).toHaveBeenCalledWith(source.id, []);
+    await tap(button("Back to the original performance"));
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/original-stone.mp4");
+  });
+
+  it("keeps the original result on rejection and hides the option without a ready GPU", async () => {
+    const source = stone();
+    await show({ quick: true, initialJob: source, modes: ["bending"] });
+    expect(host.textContent).not.toContain("Refine stone · GPU");
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ detail: "GPU unavailable" }, { status: 409 })));
+    await show({ quick: true, initialJob: source, modes: ["bending", "finish"] });
+    await tap(button("Refine stone · GPU"));
+    expect(host.querySelector('[role="alert"]')?.textContent).toBe("GPU unavailable");
+    expect(host.querySelector("video.result")?.getAttribute("src")).toBe("/original-stone.mp4");
+  });
+});
+
 describe("ShotPanel offline sample hand", () => {
   it("lets an automatic cue reveal the available made effects without offering rendered hand effects", async () => {
     await show({ performance: autoPerformance });
