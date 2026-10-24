@@ -70,6 +70,16 @@ def test_dim_observed_hand_can_launch_voice_without_inventing_a_gesture():
     assert not sheets.choreography(t,timeline(hits=(40,)),'ribbon')
 
 
+def test_splash_is_a_short_lived_curved_sheet_instead_of_a_hanging_wire_ring():
+    t=track();tl=timeline();hand=water.hand_of(t,72)
+    action=dict(frame=20,action='splash_crown',direction=[0.,1.],strength=.8)
+    surface=sheets.action_surfaces(action,26,hand,tl,17)[0]
+    assert surface.xyz.shape[1]>2 and surface.released
+    # A wall of water has a substantial span from its base to its broken lip.
+    assert np.median(np.linalg.norm(surface.xyz[:,0]-surface.xyz[:,-1],axis=1))>10
+    assert not sheets.action_surfaces(action,37,hand,tl,17)
+
+
 def test_released_water_does_not_follow_the_hand_and_obeys_camera_motion():
     t=track();tl=timeline(hits=(15,));hand=water.hand_of(t,72);action=sheets.choreography(t,tl,'jet')[0]
     first=sheets.action_surfaces(action,25,hand,tl,17)[0].xyz.copy()

@@ -64,14 +64,17 @@ def held_surfaces(form, centre, radius, size, time, energy, phase=0.):
     r = radius
     surfaces = []
     if form in ("orb", "surge", "ribbon"):
-        turns = 4.65 if form == "orb" else (4.05 if form == "surge" else 8.8)
+        turns = ((4.45+1.0*math.sin(time*2.0+phase)) if form == "orb" else
+                 (3.8+.9*math.sin(time*2.3+phase)) if form == "surge" else
+                 (7.1+2.1*math.sin(time*1.9+phase)))
         a = .45 + u*turns + .22*math.sin(time*1.8+phase)
         rr = r*(.86+.12*np.sin(12*u-time*5)+.07*np.sin(23*u-time*9))
+        rr *= .95+.16*np.sin(4*u+time*2.4+phase)
         if form == "ribbon":
             rr *= .8+.35*u
         pts = np.c_[c[0]+rr*np.cos(a), c[1]+rr*.66*np.sin(a), c[2]+rr*.75*np.sin(a+.6)]
         if form == "ribbon":
-            pts[:, 1] += r*(.7-1.8*u)
+            pts[:, 1] += r*(.7-(1.8+.35*math.sin(time*2.2))*u)
         widths = r*(.46 if form == "orb" else .53 if form == "surge" else .30)
         widths *= (.45+.55*np.sin(np.pi*u)**.5)*(1-.7*smooth(.85,1,u))
         surfaces.append(strip(pts, widths, time, size, foam=.66 if form=="ribbon" else .85,
@@ -148,12 +151,27 @@ def action_surfaces(action, k, hand, tl, seed):
     u = np.linspace(0,1,56); phase = seed*.71+birth*.33
     kind = action['action']
     if kind == "splash_crown":
-        a = np.linspace(0,2*np.pi,80)
+        if age>=.7:
+            return []
+        fade*=1-float(smooth(.24,.65,age))
+        a = np.linspace(0,2*np.pi,192)
         rr = s*(.18+age*1.45)
-        tips = np.maximum(0,np.sin(9*a+phase))**4
-        pts = np.c_[origin[0]+rr*np.cos(a), origin[1]+rr*.34*np.sin(a)-s*(.48*np.sin(np.pi*min(age,1)))*(1+tips),
-                    origin[2]+rr*.75*np.sin(a)]
-        surfaces=[strip(pts,s*(.07+.10*tips)*(1-.6*age),age,s,opacity=fade,foam=.75,phase=phase)]
+        rng=np.random.default_rng(seed+birth*71)
+        angles=np.arange(7)*2*np.pi/7+rng.uniform(-.25,.25,7)
+        distance=np.arctan2(np.sin(a[:,None]-angles),np.cos(a[:,None]-angles))
+        tips=(np.exp(-.5*(distance/rng.uniform(.10,.23,7))**2)*rng.uniform(.35,1.,7)).sum(1)
+        radius=rr*(1+.06*np.sin(5*a+phase)+.035*np.sin(11*a-age*5))
+        # A raised wall of water, from a narrow base to an expanding, torn lip.
+        # Rendering just its rim made an empty wire crown on plain backgrounds.
+        v=np.linspace(0,1,11)
+        radial=radius[:,None]*(.50+.50*v[None])
+        height=s*(.48*np.sin(np.pi*min(age,1)))*(1+tips)
+        xyz=np.empty((len(a),len(v),3),np.float32)
+        xyz[:,:,0]=origin[0]+radial*np.cos(a[:,None])
+        xyz[:,:,1]=origin[1]+radial*.34*np.sin(a[:,None])-height[:,None]*v[None]**.8
+        xyz[:,:,2]=origin[2]+radial*.75*np.sin(a[:,None])
+        xyz[:,:,2]+=s*.035*np.sin(13*a[:,None]-age*8+v[None]*4)
+        surfaces=[Surface(xyz,fade,.85,1.6,phase)]
     elif kind == "rising_wave":
         c = origin + np.r_[d*s*age*.7,0.]
         surfaces=held_surfaces('shield',c,s*.6,s,age*1.8+phase,gain,phase)
