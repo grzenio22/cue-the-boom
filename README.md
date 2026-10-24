@@ -108,6 +108,12 @@ with its photographed albedo, split into complementary fragments. These are loca
 CPU composites at original speed; neither video is a live microphone test or an
 LTX fluid simulation. Full source attribution is in [NOTICE.md](NOTICE.md).
 
+Water playground update: [held water before/after, bright and dim](media/water-play-before-after.mp4) ·
+[ribbon, tidal shield and jet side by side](media/water-play-forms.mp4) ·
+[sweeps, drops and lifts on the original takes](media/water-play-movements.mp4).
+The movement reel uses a labelled scripted hold. The new forms remain stylized;
+broad transparent sheets can still look synthetic in paused frames.
+
 Choose the element explicitly, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The sample cues for air, water and lightning are synthetic. Earth uses the bundled sustained cue or the author's edited pf/pf/BOOM recording; the suggested rrrr/CRACK sounds can be performed with your own microphone. All four elements run locally without a GPU. The live webcam preview still supports fire and lightning; the complete five-element set is available in finished shots.
 
 Reproduce the bright/dim suite with `python tools/render_element_suite.py --out runs/my-element-review --width 1080`. It records source and input hashes, render timings and full audio/video decode checks. To compare older air/water/lightning code on the same current inputs, add `--baseline-ref <commit> --effects air_ball water_orb lightning_ball`.
