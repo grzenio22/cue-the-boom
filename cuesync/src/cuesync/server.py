@@ -711,7 +711,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
             offset_s = sample_noise_offset(voice_path, probe_video(plate_path).duration_s,
                                            int(pm["hand"].get("strike", pm["hand"].get("frame", 0))),
-                                           fit_held=effect in ("air_ball", "water_orb", "lightning_ball", "earth_rock"))
+                                           fit_held=effect in ("air_ball", "water_orb", "water_surge", "lightning_ball", "earth_rock"))
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         point = (x, y) if x is not None and y is not None else tuple(t.get("emission_point") or (0.5, 0.7))
@@ -974,7 +974,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             if pm.get("hand"):
                 offset_s = sample_noise_offset(voice_path, probe_video(src.spec.plate).duration_s,
                                                int(pm["hand"].get("strike", pm["hand"].get("frame", 0))),
-                                               fit_held=src.spec.effect in ("air_ball", "water_orb", "lightning_ball", "earth_rock"))
+                                               fit_held=src.spec.effect in ("air_ball", "water_orb", "water_surge", "lightning_ball", "earth_rock"))
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         extra = {k: v for k, v in src.spec.extra.items() if k not in ("auto", "gesture")}  # the new take wasn't read for an effect

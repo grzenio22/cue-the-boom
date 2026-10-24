@@ -163,10 +163,13 @@ describe("All-element quick flow", () => {
     ["Air", "Blast", "air_blast", "hoo-hoo-HOO.wav", "hand_open.mp4"],
     ["Water", "Orb", "water_orb", "shhhhh-sploosh.wav", "hand_open.mp4"],
     ["Water", "Whip", "water_whip", "shhhhh-sploosh.wav", "hand_open.mp4"],
+    ["Water", "Surge", "water_surge", "shhhhh-sploosh.wav", "hand_open.mp4"],
     ["Lightning", "Arcs", "lightning_arc", "zzzzz-tsst.wav", "hand_palm.mp4"],
     ["Lightning", "Ball", "lightning_ball", "zzzzz-tsst.wav", "hand_palm.mp4"],
-    ["Earth", "Floating stone", "earth_rock", "hoooo.wav", "hand_open.mp4"],
+    ["Earth", "Living stone", "earth_rock", "hoooo.wav", "hand_open.mp4"],
     ["Earth", "Shatter", "earth_shatter", "pf-pf-boom-author.wav", "hand_open.mp4"],
+    ["Earth", "Shard volley", "earth_volley", "pf-pf-boom-author.wav", "hand_open.mp4"],
+    ["Earth", "Stone lance", "earth_lance", "pf-pf-boom-author.wav", "hand_open.mp4"],
   ])("makes %s / %s directly without fire reuse", async (element, variant, effect, voice, plate) => {
     vi.useFakeTimers();
     const apiFetch = fetch;

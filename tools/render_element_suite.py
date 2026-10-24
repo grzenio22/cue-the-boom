@@ -30,8 +30,10 @@ CASES = {
 VOICES = {
     "air_ball": "hoooo.wav", "air_blast": "hoo-hoo-HOO.wav",
     "water_orb": "shhhhh-sploosh.wav", "water_whip": "shhhhh-sploosh.wav",
+    "water_surge": "shhhhh-sploosh.wav",
     "lightning_ball": "zzzzz-tsst.wav", "lightning_arc": "zzzzz-tsst.wav",
     "earth_rock": "hoooo.wav", "earth_shatter": "pf-pf-boom-author.wav",
+    "earth_volley": "pf-pf-boom-author.wav", "earth_lance": "pf-pf-boom-author.wav",
 }
 
 
@@ -74,8 +76,6 @@ def main():
     args.out.mkdir(parents=True)
     renderer_sources = {}
     if args.baseline_ref:
-        if any(e.startswith("earth_") for e in args.effects):
-            raise SystemExit("Earth has no old renderer; compare it to the original plate")
         for name in {e.split("_")[0] for e in args.effects}:
             filename = f"cuesync/src/cuesync/{name}.py"
             source = subprocess.check_output(["git", "show", f"{args.baseline_ref}:{filename}"], cwd=ROOT)
@@ -83,10 +83,12 @@ def main():
             module.__file__ = str(ROOT / filename)
             sys.modules[module.__name__] = module
             exec(compile(source, module.__file__, "exec"), module.__dict__)
+            if name=="earth" and not hasattr(module,"choreography"):
+                module.choreography=lambda *a:[]
             renderer_sources[filename] = hashlib.sha256(source).hexdigest()
     manifest = {"width": args.width, "seed": 17, "cloud_spend_usd": 0,
                 "voice_note": "Bundled sample recordings; synthetic except the labelled author's pf-pf-BOOM.",
-                "source_sha256": {f.relative_to(ROOT).as_posix(): sha(f) for f in (ROOT / "cuesync/src/cuesync").glob("*.py")},
+                "source_sha256": {f.relative_to(ROOT).as_posix(): sha(f) for f in [* (ROOT / "cuesync/src/cuesync").glob("*.py"), * (ROOT / "cuesync/src/cuesync/assets/stone").glob("*")]},
                 "cases": []}
     manifest["renderer_baseline_ref"] = args.baseline_ref
     manifest["source_sha256"].update(renderer_sources)
@@ -96,7 +98,7 @@ def main():
         for effect in args.effects:
             voice = ROOT / "samples/voices" / VOICES[effect]
             offset = sample_noise_offset(voice, probe_video(plate).duration_s, int(meta["hand"]["strike"]),
-                                         fit_held=effect in ("air_ball", "water_orb", "lightning_ball", "earth_rock"))
+                                         fit_held=effect in ("air_ball", "water_orb", "water_surge", "lightning_ball", "earth_rock"))
             spec = ShotSpec(plate=plate, voice=voice, effect=effect, point=tuple(meta["point"]), seed=17,
                             offset_s=offset, plate_size=size, label=effect.replace("_", " "))
             job = args.out / f"{case}-{effect}"

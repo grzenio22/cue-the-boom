@@ -119,3 +119,82 @@ def test_released_stone_falls_behind_the_hand_with_a_solid_surface():
     fallen,_=earth._flight_center(hand,22,34,None)
     assert fallen[1]-initial[1] > 2*size
     assert fallen[2] < hand.depth(34,fallen[0],fallen[1],fingers=False)
+
+
+def test_fracture_cells_are_closed_solids_with_shared_boundary_vertices():
+    parts=renderer().fracture(17)
+    assert 6<=len(parts)<=12
+    vertices=np.concatenate([m.vertices+c for m,c in parts])
+    def volume(mesh):
+        v=mesh.vertices; total=0.
+        for face in mesh.faces:
+            a,b,c=v[face];normal=np.cross(b-a,c-a)
+            total+=abs(float(a@normal))/6
+        return total
+    pieces=sum(volume(m) for m,_ in parts)
+    # A finite solid volume, with no collapsed cells or giant interior faces.
+    assert 1.5<pieces<4.5
+    # Each closed cell has every geometric edge exactly twice. Neighbouring
+    # cells retain shared boundary positions after surface weathering.
+    from collections import Counter
+    sets=[]
+    for mesh,center in parts:
+        verts=[tuple(v) for v in np.round(mesh.vertices+center,7)]
+        edges=Counter(tuple(sorted((verts[a],verts[b]))) for f in mesh.faces
+                      for a,b in zip(f,np.roll(f,-1)))
+        assert set(edges.values())=={2}
+        sets.append(set(verts))
+    neighbours=[sum(len(a&b)>=3 for j,b in enumerate(sets) if i!=j) for i,a in enumerate(sets)]
+    assert min(neighbours)>=3
+    assert max(np.linalg.norm(c) for _,c in parts)>.4
+
+
+def test_voice_gated_motion_drives_distinct_earth_actions():
+    p,t,m,tl=scene(60)
+    xy=np.asarray(t['xy']);xy[12:23,0]+=np.linspace(0,45,11);xy[23:,0]+=45;t['xy']=xy.tolist()
+    plan=renderer().choreography(t,tl,'rock')
+    assert any(e['action']=='shard_fan' for e in plan)
+    silent=Timeline(tl.n,np.zeros(tl.n),[],[],[])
+    assert renderer().choreography(t,silent,'rock')==[]
+    t['src']=['lost']*tl.n
+    assert not any(e['source']=='hand' for e in renderer().choreography(t,tl,'rock'))
+
+
+@pytest.mark.parametrize('form',['volley','lance'])
+def test_new_projectiles_are_deterministic_and_keep_voice_timing(form):
+    p,t,m,tl=scene(45)
+    result=renderer().render(p,t,m,tl,form,seed=17)
+    assert np.array_equal(result[:6],p[:6])
+    assert not np.array_equal(result[12:25],p[12:25])
+    assert np.array_equal(result,renderer().render(p,t,m,tl,form,seed=17))
+
+
+def test_lance_and_volley_have_different_silhouettes_and_release_paths():
+    p,t,m,tl=scene(45)
+    a=renderer().render(p,t,m,tl,'lance',seed=17)
+    b=renderer().render(p,t,m,tl,'volley',seed=17)
+    assert np.count_nonzero(np.max(abs(a.astype(float)-b),axis=-1)>10)>500
+
+
+@pytest.mark.parametrize('kind',['lance','shard_fan','crumble'])
+def test_new_projectiles_keep_birth_momentum_and_follow_the_camera(kind):
+    earth=renderer();p,t,m,tl=scene(60);hand=earth.hand_of(t,tl.n,p)
+    parts=earth.fracture(17);meshes=[earth.stone(j) for j in range(7)]
+    action=dict(frame=16,action=kind,direction=[1.,0.])
+    def positions(cam):
+        return np.array([o[1] for o in earth._projectiles(action,25,hand,parts,meshes,cam,.8)])
+    base=positions(None)
+    hand.p[17:,0]+=70
+    assert np.array_equal(base,positions(None))
+    cam=np.repeat(np.eye(3)[None],tl.n,0);cam[17:,0,2]=13
+    assert np.allclose(positions(cam)-base,[13,0,0])
+
+
+def test_close_voice_hits_do_not_assign_the_same_hand_action_to_two_events():
+    p,t,m,tl=scene(60)
+    xy=np.asarray(t['xy']);xy[12:23,0]+=np.linspace(0,45,11);xy[23:,0]+=45;t['xy']=xy.tolist()
+    tl.hits=[6,10];tl.sizes=[1.,1.]
+    plan=renderer().choreography(t,tl,'volley')
+    hand_actions=[e for e in plan if e['source']=='hand']
+    assert len(hand_actions)==1 and hand_actions[0]['action']=='shard_fan'
+    assert hand_actions[0]['event_start'] in tl.hits

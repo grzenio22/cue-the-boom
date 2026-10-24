@@ -249,6 +249,7 @@ export default function Studio() {
                   onClick={() => setQuickEffect(p.effect)}>{p.form}</button>)}
               </div>}
               <p>Start with our hand clip. Say <strong>{choice.cue}</strong> as it plays, and shape your own {elementName} performance.</p>
+              {choice.effect === "earth_rock" && <p className="muted">On your own hand clip: hold a rumble to gather stone. Lift to separate the layers, sweep to cast shards, or drop your hand to crumble it.</p>}
               <button type="button" className="quick-cta" disabled={!palm} onClick={startQuick}>Perform this {elementName} with your voice</button>
               <p className="muted quick-note">{choice.element === "Fire" ? "Your voice controls a new composition of an existing LTX-2.5 fire effect." : "Your voice controls the timing, movement and strength of the element."} No camera or GPU needed.</p>
             </div>

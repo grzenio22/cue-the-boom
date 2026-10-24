@@ -1,0 +1,24 @@
+{
+  "asset": "Rock Boulder Dry",
+  "authors": [
+    "Dimitrios Savva",
+    "Rico Cilliers"
+  ],
+  "source": "https://polyhaven.com/a/rock_boulder_dry",
+  "license": "CC0-1.0",
+  "license_url": "https://polyhaven.com/license",
+  "files": {
+    "diffuse.jpg": {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_diff_1k.jpg",
+      "sha256": "20f653a42fb24f42aa40641663070d578678da49af18cc1049dbdd4ed8679f3c"
+    },
+    "normal.jpg": {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_nor_gl_1k.jpg",
+      "sha256": "5915fea28a97357c78a04fb31c2516f1f7ed1b3a9cef4ae25aa93e4655e6c595"
+    },
+    "ao.jpg": {
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_ao_1k.jpg",
+      "sha256": "179abc99b80cbe3727386c7efc8f042191aeaac05319d5b43dd9374bd12e5524"
+    }
+  }
+}

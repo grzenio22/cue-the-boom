@@ -1853,15 +1853,17 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
 MADE = {  # effect -> (its module, its form): elements made from the plate, the hand's track and the voice
     # (cuesync.elements' contract), not rendered over black by LTX-2.5
     "lightning_arc": ("lightning", "arc"), "lightning_ball": ("lightning", "ball"),
-    "water_orb": ("water", "orb"), "water_whip": ("water", "whip"),
+    "water_orb": ("water", "orb"), "water_whip": ("water", "whip"), "water_surge": ("water", "surge"),
     "air_ball": ("air", "ball"), "air_blast": ("air", "blast"),
     "earth_rock": ("earth", "rock"), "earth_shatter": ("earth", "shatter"),
+    "earth_volley": ("earth", "volley"), "earth_lance": ("earth", "lance"),
     "explosion": ("explosion", "fist"),  # (a palm's when the hand is open on its strike)
 }
 MADE_FOLEY = {"explosion": ("fire", "burst"), "lightning_arc": ("electric", "arc"), "lightning_ball": ("electric", "ball"),
-              "water_orb": ("water", "orb"), "water_whip": ("water", "whip"), "air_ball": ("air", "ball"),
+              "water_orb": ("water", "orb"), "water_whip": ("water", "whip"), "water_surge": ("water", "whip"), "air_ball": ("air", "ball"),
               "air_blast": ("air", "blast"), "earth_rock": ("earth", "rock"),
-              "earth_shatter": ("earth", "shatter")}  # each one's Foley
+              "earth_shatter": ("earth", "shatter"), "earth_volley": ("earth", "shatter"),
+              "earth_lance": ("earth", "shatter")}  # each one's Foley
 
 
 def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, mask: np.ndarray | None, c, env_all,
@@ -1908,6 +1910,17 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
                                         [looks[i][0] for i in sounding],
                                         c.cue.voice_end_frame,
                                         spec.seed)])
+    if module == "earth":
+        from .earth import choreography
+        actions=choreography(track,timeline,form)
+        # The rock's physical releases get their own fracture accents. Keep the
+        # original voice timing and avoid doubling accents within two frames.
+        releases=[a for a in actions if a["action"]!="raise_stack"
+                  and all(abs(a["frame"]-f)>2 for f in timeline.hits)]
+        if releases:
+            eff=types.SimpleNamespace(id=effect,fluid="earth",behaviour="shatter")
+            audio=mix_foley(audio,[foley(eff,n,np.zeros(n),[a["frame"] for a in releases],
+                                        [.65*a["strength"] for a in releases],n-1,spec.seed+31)])
     out_dir = Path(out_dir)
     comp_path, final_path = out_dir / "composite.mp4", out_dir / "final.mp4"
     k_poster = int(np.clip(k_launch + 8, 0, n - 1))
@@ -1935,6 +1948,12 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
                     "camera": "locked" if cam is None else "handheld: what it leaves moves with the room"},
         "auto": auto, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
+    if module == "earth":
+        from .earth import choreography
+        from .motion import analyze
+        receipt["bending"]["movement"] = {"method": "camera-compensated 2D strokes; confidence and continuity gated",
+                                          "observed": analyze(track,cam).receipt(),
+                                          "actions": choreography(track,timeline,form)}
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
     say("done", 1.0, "Done")
     return ShotResult(out_dir=out_dir, final=final_path, composite=comp_path, breakdown=None, receipt=receipt)
@@ -1944,8 +1963,8 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
 
 EMITTER_OF = {"fire_breath": "two_finger", "fire_burst": "palm", "flame_plume": "palm", "steam_jet": "palm",
               "smoke_puff": "palm", "lightning_arc": "two_finger", "lightning_ball": "palm", "water_orb": "palm",
-              "water_whip": "palm", "air_ball": "palm", "air_blast": "palm", "explosion": "palm",
-              "earth_rock": "palm", "earth_shatter": "palm"}  # the point on the
+              "water_whip": "palm", "water_surge": "palm", "air_ball": "palm", "air_blast": "palm", "explosion": "palm",
+              "earth_rock": "palm", "earth_shatter": "palm", "earth_volley": "palm", "earth_lance": "palm"}  # the point on the
 # hand cuesync.hand_track follows for each element
 
 

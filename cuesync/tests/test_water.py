@@ -26,6 +26,39 @@ def test_liquid_refraction_follows_broad_travelling_waves_without_fine_glass_fac
     assert np.mean(abs(smooth-a)[20:60,20:60])<.05
 
 
+def test_busy_background_rays_remain_local_and_continuous():
+    x=np.linspace(-2000,2000,2001);y=x*.3
+    dx,dy=water._liquid_ray_limit(x,y,np.full_like(x,40.))
+    assert np.max(np.hypot(dx,dy))<=.48*40+1e-6
+    assert np.all(np.diff(dx)>=-1e-10)
+    assert np.max(np.diff(dx))<2.1
+    assert dx[1000]==0 and dy[1000]==0
+
+
+def test_aeration_advects_with_water_and_leaves_clear_gaps():
+    y,x=np.mgrid[-50:51,-50:51].astype(float)
+    a=water._liquid_transport(x,y,0,0,50,0)
+    b=water._liquid_transport(x,y,0,0,50,.3)
+    moved=water._liquid_transport(x+20,y-12,20,-12,50,0)
+    assert np.array_equal(a,moved)
+    assert np.mean(abs(a-b))>.04
+    assert .01<(a>.2).mean()<.25
+
+
+def test_surge_has_an_open_flowing_silhouette_and_does_not_blur_by_internal_flow():
+    n=70;t=track_of(n);tl=voice(n,hum=(4,68),hits=())
+    hand=water.hand_of(t,n)
+    sc=water.surge_scenes(tl,t,hand,(H,W),17,None)
+    k=35;scene=sc[k];assert scene.turbulent
+    body=[b for b in scene.blobs if b.stream]
+    assert len(body)>10
+    assert max(np.hypot(*(b.move or (0.,0.))) for b in body)<.1
+    assert max(np.hypot(b.vx,b.vy) for b in body)>2
+    field=water.Field(scene.blobs,H,W);cx,cy,*_=scene.held;y0,y1,x0,x1=field.box
+    assert field.f[int(cy)-y0,int(cx)-x0]<water.TAU
+    assert max(b.foam for b in body)>.6
+
+
 H, W = 192, 128
 S = 40.0  # the hand's size px
 

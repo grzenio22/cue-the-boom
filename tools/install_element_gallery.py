@@ -20,7 +20,8 @@ from render_element_suite import CASES, VOICES
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = {"air_ball": "Air vortex", "air_blast": "Air blast", "water_orb": "Water orb",
          "water_whip": "Water whip", "lightning_arc": "Lightning arcs", "lightning_ball": "Ball lightning",
-         "earth_rock": "Floating stone", "earth_shatter": "Stone shatter"}
+         "earth_rock": "Living stone", "earth_shatter": "Stone shatter", "water_surge": "Water surge",
+         "earth_volley": "Shard volley", "earth_lance": "Stone lance"}
 
 
 def sha(path):
@@ -31,12 +32,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--batch-name", default="elements_20261023")
+    parser.add_argument("--effects",nargs="+",choices=NAMES,help="Explicit complete bright/dim subset to update")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_-]+", args.batch_name):
         raise SystemExit("batch-name must contain only letters, numbers, underscores or hyphens")
     source = args.source.resolve()
     manifest = json.loads((source / "manifest.json").read_text())
-    wanted = {(case, effect) for case in ("bright", "dark") for effect in NAMES}
+    selected=args.effects or list(NAMES)
+    wanted = {(case, effect) for case in ("bright", "dark") for effect in selected}
     actual = {(c["case"], c["effect"]) for c in manifest["cases"]}
     if manifest["width"] != 1080 or actual != wanted or len(manifest["cases"]) != len(wanted):
         raise SystemExit("A complete, unique 1080p bright/dim batch is required")
@@ -58,7 +61,7 @@ def main():
     shutil.copy2(index_file, backup)
     meta = json.loads((ROOT / "samples/samples.json").read_text(encoding="utf-8"))["plates"]
     index = json.loads(index_file.read_text(encoding="utf-8"))
-    index = {k:v for k,v in index.items() if not (v["effect"] in NAMES and v["plate"] in ("hand_open.mp4", "hand_palm.mp4"))}
+    index = {k:v for k,v in index.items() if not (v["effect"] in selected and v["plate"] in ("hand_open.mp4", "hand_palm.mp4"))}
     installed = []
     for item in manifest["cases"]:
         case,effect = item["case"],item["effect"]

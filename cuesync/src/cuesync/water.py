@@ -1069,6 +1069,8 @@ class Scene:
     coat: tuple | None = None  # (x, y, radius, wetness, flowing[, exits]): the palm's rippled receiving sheet;
     # optional exits are silhouette-measured offsets in film radii, shared with its airborne runoff roots
 
+    turbulent: bool = False  # open flowing surge: aerated sheets, not a closed reservoir
+
 
 class Sheet(NamedTuple):
     """The water spread over the wall where the orb burst on it, on one frame (Scene.film)."""
@@ -1463,6 +1465,28 @@ def _liquid_lens_height(broad, surface, sigma, thickness, hand_size):
     return cv2.GaussianBlur(height.astype(np.float32),(0,0),max(1.,.045*hand_size))
 
 
+def _liquid_transport(x, y, cx, cy, radius, seconds):
+    """Advected aeration filaments in body coordinates; clear gaps between folds."""
+    u,v=(x-cx)/max(radius,1.),(y-cy)/max(radius,1.)
+    rho=np.hypot(u,v);theta=np.arctan2(v,u)
+    phase=6.2*rho+2*theta-3.3*seconds+.65*np.sin(3*theta+1.4*seconds)
+    filament=np.exp(-(np.sin(phase)/.20)**2)
+    broken=.5+.5*np.sin(5*theta-2.1*seconds+4*rho)
+    return filament*_ss(.12,.30,rho)*(1-_ss(.75,1.05,rho))*_ss(.1,.65,broken)
+
+
+def _liquid_ray_limit(dx, dy, radius):
+    """Bound a single-plate ray's unsupported travel behind a thick fluid body.
+
+    We have one view, not a room reconstruction. Unbounded rays sample a distant
+    shoe rack twice and invert it into a rigid magnifying glass. This continuous
+    bound retains local wave distortion without inventing that unseen view.
+    """
+    length=np.maximum(np.hypot(dx,dy),1e-5);limit=np.maximum(.48*radius,1.)
+    scale=limit*np.tanh(length/limit)/length
+    return dx*scale,dy*scale
+
+
 def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, pyr: list, matte: np.ndarray | None,
           code: float, seed: int, falling: bool = False) -> Layer | None:
     """The water of ``fld`` as seen on frame ``k``: traced through to the plate (``pyr``, the frame's pyramid) and the
@@ -1721,7 +1745,10 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
                                                                   a_.shape))
     sig_f *= 1.0 - 0.30 * big
     if held_liquid:
-        sig_f = _spread(ex + tanx * dfar, ey + tany * dfar, iy, ix, a_.shape) + 0.010 * R
+        dx,dy=_liquid_ray_limit(ex+tanx*dfar-X,ey+tany*dfar-Y,R)
+        tanx=(X+dx-ex)/np.maximum(dfar,1e-5)
+        tany=(Y+dy-ey)/np.maximum(dfar,1e-5)
+        sig_f = _spread(X+dx,Y+dy,iy,ix,a_.shape) + 0.018*R
     far_pyr = pyr
     far_scale = 1.0
     if held_liquid and matte is not None:
@@ -1959,7 +1986,10 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
     if held_liquid:
         # Small aerated crests travel with the same wave field that bends the room.
         # Clear water remains between them; a uniform milky body reads as gel.
-        fm=np.maximum(fm,.28*_ss(.12,.65,crest)*_ss(-.35,.45,churn)*_ss(.15,.6,deep))
+        cx,cy,_,radius,_=sc.held
+        transport=_liquid_transport(X,Y,cx,cy,radius,k/FPS)
+        fm=np.maximum(fm,(.22*_ss(.12,.65,crest)*_ss(-.35,.45,churn)
+                          +.52*transport)*_ss(.12,.55,deep))
     fm *= 1.0 - THROWN_FOAM[1] * big * (1.0 - _ss(0.2, 0.65, deep))  # a body's froth is in its core, its rim clear
     fm = np.minimum(fm, FOAM_MAX - (FOAM_MAX - FOAM_LEAD[1]) * _ss(0.0, 0.5, front))
     if st.size:  # held, its froth lies in white threads along its outer edge, its core clearer
@@ -1972,6 +2002,9 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         phase = ((sa / s - WHIP_FLOW * k / FPS + 0.5 * gap) % gap) - 0.5 * gap
         air = np.exp(-(phase / 0.16) ** 2)  # a broad moving pocket of entrained air occupies a short part of the stream
         fm[st] = np.maximum(fm[st], 0.20 * held * air * (0.4 + 0.6 * band))
+    if sc.turbulent:
+        froth=_ss(-.45,.7,noise.flow(14,X,Y,fvx,fvy,k,.045*s))
+        fm=np.maximum(fm,.65*np.clip(foam,0,1)*froth)
     glint = (FOAM_GLINT[0] * (1.0 - big)
              * np.exp(-(noise.flow(9, X, Y, fvx, fvy, k, FOAM_GLINT[1] * FOAM_SIZE * s) / 0.3) ** 2))
     froth = (0.75 + 0.25 * nz) * FOAM_ALBEDO * (1.0 + FOAM_FAST * whip) + glint
@@ -3429,7 +3462,7 @@ def _orb_folds(sc: Scene, k: int, formed: int, c: np.ndarray, r: float, shape: n
         radius=1+sum(a*math.cos(l*angle-ph) for l,a,ph in modes)
         reach=(.06+.46*grow)*relax*onset
         folds.append((angle,.44-.20*grow,reach))
-        folds.append((angle+.60,.30,-.20*grow*relax*onset))
+        folds.append((angle+.60,.34,-.36*grow*relax*onset))
         tip=c.copy();tip[:2]+=shape@d*r*(radius+reach+.045);tip[2]-=.06*r
         # A curved sheet peels tangentially off the crest, thins under strain and
         # necks before separating. Its path and the released drop share a tip.
@@ -3457,6 +3490,7 @@ def _orb_folds(sc: Scene, k: int, formed: int, c: np.ndarray, r: float, shape: n
         if 10<=age<14 and onset>.5:
             sc.blobs.append(Blob(*tip,rd*float(_ss(9,12,age))))
     sc.blobs[0]=sc.blobs[0]._replace(folds=tuple(folds))
+
 
 
 PALM_CHANNELS = ((2.35, 1.02, 0.090, 0.14), (0.95, 1.08, 0.065, -0.12), (-2.95, 0.80, 0.040, 0.10))
@@ -5007,6 +5041,67 @@ def _wet(P: np.ndarray, patches: list, matte: np.ndarray | None, lit: np.ndarray
         patch += (gloss * skin)[..., None] * lit
     return [b for b, _ in every]
 
+def surge_scenes(tl,track,hand,shape,seed,cam,plate=None,mask=None):
+    """An open, circulating liquid curl: a visible flow rather than a closed lens.
+
+    Its gathering, measured throw and palm runoff use the orb's existing lifecycle.
+    During a hold, water travels around an asymmetric ribbon and sheds its tip.
+    """
+    scenes=orb_scenes(tl,track,hand,shape,seed,cam,plate,mask)
+    plan=orb_plan(tl,track)
+    for k,sc in enumerate(scenes):
+        if sc.held is None or k<plan.formed or (plan.release is not None and k>=plan.release):
+            continue
+        cx,cy,z,r,weight=sc.held;s=float(hand.s[k]);time=(k-plan.formed)/FPS
+        u=np.linspace(0,1,64)
+        theta=1.45+u*4.1+.35*math.sin(time*2.2)
+        radius=r*(.86+.25*u+.16*np.sin(9*u-4.6*time))
+        x=cx+np.cos(theta)*radius
+        y=cy+np.sin(theta)*radius*.90-.20*r*u
+        zz=z+.38*r*np.cos(theta+.4)
+        pts=np.c_[x,y,zz]
+        tang=np.gradient(pts,axis=0);tang/=np.maximum(np.linalg.norm(tang,axis=1,keepdims=True),1e-6)
+        flowing=tang[:,:2]*(.12*s)
+        swell=.78+.30*np.sin(12*u-7*time)+.14*np.sin(25*u-11*time)
+        rad=r*(.44*(1-u)**.3+.04)*swell
+        rad*=np.minimum(1,u*12+.25)*(1-.65*_ss(.84,1,u))
+        arc=np.r_[0,np.cumsum(np.linalg.norm(np.diff(pts,axis=0),axis=1))]
+        aeration=.35+.85*_ss(-.2,.7,np.sin(15*u-7*time))
+        # Geometry moves with the hand; flow runs through it. Blurring by the
+        # internal flow velocity would turn a thick stream into a faint glass ring.
+        velocity=np.tile(hand.p[k]-hand.p[max(0,k-1)],(len(u),1))
+        blobs=_stream(pts,velocity,rad,aeration,flowing,arc,.42+.15*np.sin(12*u-7*time),root_feather=.04*r)
+        # Fade the reservoir into the curl over six exposures, without a jump.
+        morph=float(_ss(plan.formed,plan.formed+6,k))
+        kept=[b for b in sc.blobs if b.free]
+        if morph<1:
+            kept.extend(b._replace(w=b.w*(1-morph)) for b in sc.blobs if not b.free)
+        sc.blobs=kept+[b._replace(w=b.w*morph) for b in blobs]
+        sc.turbulent=True
+        sc.held=(cx,cy,z,r,weight*.70);sc.trains=[];sc.sweep=None;sc.sparks=[];sc.bubbles=[]
+        # Several travelling droplets continue the terminal tangent; each has a
+        # staggered age, gravity and a finite fade, rather than a static bead ring.
+        for j in range(6):
+            age=(k-plan.formed+j*3)%18
+            distance=age/FPS
+            born=k-age
+            if born<plan.formed or scenes[born].held is None:
+                continue
+            from .bending import camera_between
+            bc=np.array(scenes[born].held[:3]);br=scenes[born].held[3];bs=float(hand.s[born])
+            bt=(born-plan.formed)/FPS;theta_b=5.55+.35*math.sin(bt*2.2)
+            rb=br*(1.11+.16*math.sin(9-4.6*bt))
+            tip=bc+np.array([math.cos(theta_b)*rb,math.sin(theta_b)*rb*.90-.20*br,.38*br*math.cos(theta_b+.4)])
+            velocity=np.array([-math.sin(theta_b),.90*math.cos(theta_b),-.12])*.12*bs
+            tip+=velocity*age+[0,.5*5*bs*distance**2,0]
+            transform=camera_between(cam,born,k)
+            tip[:2]=(transform@np.r_[tip[:2],1.])[:2]
+            rr=.07*br*(1-age/18)
+            sc.blobs.append(Blob(*tip,rr,free=True,foam=.12,move=tuple(velocity[:2]*SHUTTER)))
+        sc.wave=.18+.12*float(tl.energy[k])
+    return scenes
+
+
 def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Timeline, form: str, seed: int = 0,
            progress=None) -> np.ndarray:
     """The shot's frames with the water in them, uint8 RGB [T, H, W, 3] (cuesync.elements' contract): ``plate`` uint8
@@ -5024,7 +5119,8 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     say("water", 0.0, "Working out where the water goes")
     hand = hand_of(track, n, plate)
     cam = None if timeline.camera is None else np.asarray(timeline.camera, np.float64)
-    scenes = (orb_scenes(timeline, track, hand, (H, W), seed, cam, plate, mask) if form == "orb"
+    scenes = (surge_scenes(timeline,track,hand,(H,W),seed,cam,plate,mask) if form == "surge" else
+              orb_scenes(timeline, track, hand, (H, W), seed, cam, plate, mask) if form == "orb"
               else whip_scenes(timeline, track, hand, (H, W), seed, cam, mask, plate))
     room = Room(plate)
     noise = Noise(seed)

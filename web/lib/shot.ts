@@ -3,7 +3,7 @@
 export interface EffectInfo {
   id: string;
   fluid: "fire" | "smoke" | "steam" | "lightning" | "water" | "air" | "earth" | "explosion";
-  behaviour: "burst" | "plume" | "puff" | "jet" | "extinguish" | "arc" | "ball" | "orb" | "whip" | "blast" | "rock" | "shatter" | "fist";
+  behaviour: "burst" | "plume" | "puff" | "jet" | "extinguish" | "arc" | "ball" | "orb" | "whip" | "blast" | "rock" | "shatter" | "volley" | "lance" | "surge" | "fist";
   stops_with_voice: boolean;
   scene?: boolean; // can be rendered into the scene
   direction?: number | null; // its default direction in the scene, degrees clockwise from up
@@ -76,15 +76,15 @@ export type Mode = "instant" | "render" | "scene" | "bending" | "finish";
 
 /** What a hand can throw (element bending), in the order the badge cycles them. */
 export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "explosion", "lightning_arc", "lightning_ball",
-  "water_orb", "water_whip", "air_ball", "air_blast", "earth_rock", "earth_shatter", "steam_jet"];
+  "water_orb", "water_whip", "water_surge", "air_ball", "air_blast", "earth_rock", "earth_shatter", "earth_volley", "earth_lance", "steam_jet"];
 export const HAND_LABELS: Record<string, string> = {
   fire_breath: "Flamethrower", fire_burst: "Fireball", flame_plume: "Flame in the palm", steam_jet: "Steam", smoke_puff: "Air blast",
   explosion: "Explosion", lightning_arc: "Lightning", lightning_ball: "Ball lightning", water_orb: "Water orb",
-  water_whip: "Water whip", air_ball: "Air ball", air_blast: "Air blast",
-  earth_rock: "Floating stone", earth_shatter: "Stone shatter",
+  water_whip: "Water whip", water_surge: "Water surge", air_ball: "Air ball", air_blast: "Air blast",
+  earth_rock: "Living stone", earth_shatter: "Stone shatter", earth_volley: "Shard volley", earth_lance: "Stone lance",
 };
 /** The elements made on your computer from your hand and your voice (cuesync.bending.MADE): no render, no GPU. */
-export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball", "water_orb", "water_whip", "air_ball", "air_blast", "earth_rock", "earth_shatter"];
+export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball", "water_orb", "water_whip", "water_surge", "air_ball", "air_blast", "earth_rock", "earth_shatter", "earth_volley", "earth_lance"];
 
 /** One short route for every element. Only fire reuses generated pixels; the
  * others are freshly drawn from the tracked hand and the recorded performance. */
@@ -94,10 +94,13 @@ export const QUICK_PERFORMANCES = [
   { effect: "air_blast", element: "Air", form: "Blast", plate: "hand_open.mp4", cue: "hoo · HOO!", voices: ["hoo-hoo-HOO.wav"] },
   { effect: "water_orb", element: "Water", form: "Orb", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "water_whip", element: "Water", form: "Whip", plate: "hand_open.mp4", cue: "shhhhh", voices: ["shhhhh-sploosh.wav"] },
+  { effect: "water_surge", element: "Water", form: "Surge", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "lightning_arc", element: "Lightning", form: "Arcs", plate: "hand_palm.mp4", cue: "zzzzz · tsst!", voices: ["zzzzz-tsst.wav"] },
   { effect: "lightning_ball", element: "Lightning", form: "Ball", plate: "hand_palm.mp4", cue: "zzzzz", voices: ["zzzzz-tsst.wav"] },
-  { effect: "earth_rock", element: "Earth", form: "Floating stone", plate: "hand_open.mp4", cue: "rrrrrr", voices: ["hoooo.wav"] },
+  { effect: "earth_rock", element: "Earth", form: "Living stone", plate: "hand_open.mp4", cue: "rrrrrr", voices: ["hoooo.wav"] },
   { effect: "earth_shatter", element: "Earth", form: "Shatter", plate: "hand_open.mp4", cue: "CRACK!", voices: ["pf-pf-boom-author.wav"] },
+  { effect: "earth_volley", element: "Earth", form: "Shard volley", plate: "hand_open.mp4", cue: "pf · pf · BOOM!", voices: ["pf-pf-boom-author.wav"] },
+  { effect: "earth_lance", element: "Earth", form: "Stone lance", plate: "hand_open.mp4", cue: "THOOM!", voices: ["pf-pf-boom-author.wav"] },
 ];
 export function quickPerformance(effect = "fire_burst") {
   return QUICK_PERFORMANCES.find((p) => p.effect === effect) ?? QUICK_PERFORMANCES[0];
@@ -225,7 +228,10 @@ export const EFFECT_LABELS: Record<string, { name: string; cue: string }> = {
   water_whip: { name: "Water whip", cue: "shhhhh" },
   air_ball: { name: "Air ball", cue: "hoooooo" },
   air_blast: { name: "Air blast", cue: "hoo · HOO!" },
-  earth_rock: { name: "Floating stone", cue: "rrrrrr" },
+  water_surge: { name: "Water surge", cue: "shhhhh · sploosh" },
+  earth_rock: { name: "Living stone", cue: "rrrrrr" },
+  earth_volley: { name: "Shard volley", cue: "pf · pf · BOOM!" },
+  earth_lance: { name: "Stone lance", cue: "THOOM!" },
   earth_shatter: { name: "Stone shatter", cue: "CRACK!" },
 };
 
