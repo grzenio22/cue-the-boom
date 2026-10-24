@@ -87,14 +87,16 @@ The short recording flow includes two forms for each procedural element, alongsi
 
 ![Air, water, lightning and earth on the author's hand](media/elements-polished.jpg)
 
-- **Air — vortex / blast:** a transparent, rotating condensation volume, moving refraction, dust and a pressure front.
-- **Water — orb / whip:** circulating liquid, refraction, moving surface folds, droplets and a wet palm.
+- **Air — vortex / blast:** a transparent, rotating condensation volume, moving refraction, dust and a pressure front. Dim-room exposure lifts the separated wisps while preserving the photographed palm.
+- **Water — orb / whip:** travelling swells carry the refraction, circulating crests peel into thinning sheets and droplets, and released water drains over the palm.
 - **Lightning — arcs / ball:** branching channels, a turbulent blue volume, finger occlusion and light on the hand and room.
 - **Earth — floating stone / shatter:** rotating textured geometry, depth-sorted fragments, a contact shadow and falling grit.
 
 With a ready LTX GPU connected, a finished earth performance also offers **Refine stone · GPU**. This explicit action adds fine LTX-2.5 mineral detail inside the tracked stone mask. Its bounded contrast retains the procedural shape, colour and broad shading, so generated background or fingers cannot replace a solid rock face. It preserves the photographed pixels outside that mask, the cue timing and the soundtrack. The original remains available, and **Perform again** returns to that original performance. The receipt records the fresh GPU pass, source hashes, fixed material recipe and overlapping 81-frame windows. This option is currently limited to earth: GPU trials on air, water and lightning did not consistently preserve their material or motion well enough.
 
 [Watch five elements on the original phone takes](media/five-elements-original-takes.mp4) · [Compare the stone refinement](media/stone-refinement.mp4). Both play at the original speed; the videos label their rendering and audio sources.
+
+[Water before and after](media/water-before-after.mp4) · [Air in the dark before and after](media/air-dark-before-after.mp4). Both use identical tracking, cues and seeds, with no colour grade or speed change. Water shows the full original IMG_6668 and IMG_6658 clips with their phone sound plus procedural Foley. Air shows 3.5 seconds per form on the prepared dim phone take with the same bundled synthetic cue and Foley on both sides.
 
 Choose the element explicitly, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The sample cues for air, water and lightning are synthetic. Earth uses the bundled sustained cue or the author's edited pf/pf/BOOM recording; the suggested rrrr/CRACK sounds can be performed with your own microphone. All four elements run locally without a GPU. The live webcam preview still supports fire and lightning; the complete five-element set is available in finished shots.
 

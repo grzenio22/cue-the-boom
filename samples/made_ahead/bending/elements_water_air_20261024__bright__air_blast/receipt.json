@@ -1,0 +1,94 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "air_blast",
+  "made": "air",
+  "form": "blast",
+  "fluid": "air",
+  "behaviour": "blast"
+ },
+ "inputs": {
+  "point": [
+   0.532,
+   0.707
+  ],
+  "seed": 17,
+  "offset_s": 0.0,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "(made, not rendered: cuesync.air)",
+  "guide_scale": 1.0
+ },
+ "bending": {
+  "track": "samples/made_ahead/bending/elements_water_air_20261024__bright__air_blast/hand_track.json",
+  "mask": "samples/made_ahead/bending/elements_water_air_20261024__bright__air_blast/hand_mask.npz",
+  "k_hit": 40,
+  "tap_frame": 30,
+  "aim": null,
+  "aim_mode": "tracked",
+  "k_launch": 40,
+  "snap": {
+   "cue": 40,
+   "motion": null,
+   "frame": 40,
+   "used": "cue",
+   "mismatch": false
+  },
+  "hits": [
+   {
+    "frame": 8,
+    "gain": 0.854,
+    "size": 0.789,
+    "snap": {
+     "cue": 8,
+     "motion": null,
+     "frame": 8,
+     "used": "cue",
+     "mismatch": false
+    }
+   },
+   {
+    "frame": 24,
+    "gain": 0.901,
+    "size": 0.856,
+    "snap": {
+     "cue": 24,
+     "motion": null,
+     "frame": 24,
+     "used": "cue",
+     "mismatch": false
+    }
+   },
+   {
+    "frame": 40,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 40,
+     "motion": null,
+     "frame": 40,
+     "used": "cue",
+     "mismatch": false
+    }
+   }
+  ],
+  "holds": [
+   [
+    40,
+    45
+   ]
+  ],
+  "performed_again": null,
+  "camera": "handheld: what it leaves moves with the room"
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 53.9
+}

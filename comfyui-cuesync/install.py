@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-CUESYNC = "cuesync @ git+https://github.com/grzenio22/cue-the-boom@b73d22365d3552e47b374b31d65e0d5733a668e4#subdirectory=cuesync"
+CUESYNC = "cuesync @ git+https://github.com/grzenio22/cue-the-boom@75a67c320426b1b2e38aa0cdae4cdd4901d56aa9#subdirectory=cuesync"
 
 # An importable cuesync may belong to an older revision with the same package
 # version. Resolve its dependencies normally, then replace only the core: pip can

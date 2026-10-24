@@ -171,3 +171,18 @@ the dim take is complete. Its fire reuses the credited LTX asset; its earth uses
 the October 24 LTX generation with the final CPU detail transfer. Air, water and
 lightning are procedural. These videos are demonstrations, not live microphone
 captures or fresh model renders on playback.
+
+### Water and dim-room air refinement (October 24, 2026)
+
+The `elements_water_air_20261024__*` gallery uses the same authored plates and
+credited sample cues as the earlier October 24 set. These are procedural CPU
+renders; no additional GPU generation or stock media was used.
+
+`media/water-before-after.mp4` pairs the full original IMG_6668 and IMG_6658 takes
+before and after the liquid-motion refinement, retaining phone sound and
+procedural Foley. `media/air-dark-before-after.mp4` pairs the vortex and blast
+on the prepared dim phone take (3.5 seconds per form), using the credited
+synthetic `hoooo.wav` and `hoo-hoo-HOO.wav` cues plus Foley. Both comparisons run
+at the original 24 fps, with identical framing, tracking, cues and seeds between
+versions. The before air/water renderers match commit `22412d1`. These are
+offline renders of the author's footage, not live microphone demonstrations.
