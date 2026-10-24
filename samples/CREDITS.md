@@ -186,3 +186,29 @@ synthetic `hoooo.wav` and `hoo-hoo-HOO.wav` cues plus Foley. Both comparisons ru
 at the original 24 fps, with identical framing, tracking, cues and seeds between
 versions. The before air/water renderers match commit `22412d1`. These are
 offline renders of the author's footage, not live microphone demonstrations.
+
+### Liquid and gesture-driven earth (October 24, 2026)
+
+`media/water-evolution.mp4` compares the full original IMG_6668: previous orb,
+refined orb and the new open surge. The three panels share the same original
+recording, tracking, cue and seed, at 24 fps. Audio is phone sound plus procedural
+Foley from the surge. The baseline is the preceding October 24 water renderer.
+
+`media/earth-performance.mp4` begins with matched before/after IMG_6668 renders
+(baseline earth renderer: `3121daf`). It then shows actual IMG_6641 sweeps,
+IMG_6645 downward movement and IMG_6663 drop/lift, with a scripted held cue opening
+the effect and procedural Foley. The last section compares shatter, volley and
+lance on the prepared bright take with the author's credited pf/pf/BOOM cue.
+Each section is labelled; there is no retiming or live microphone claim.
+
+These are procedural CPU renders, without a new GPU generation. The current
+gallery selects `elements_liquid_earth_20261024__*` for the orb,
+`elements_interaction_20261024__*` for the surge and
+`elements_earth_final_20261024__*` for the four earth forms. Each shot's provenance
+records its exact renderer, input, material and output hashes. Existing air,
+lightning and whip samples retain their earlier provenance.
+
+Earth uses the CC0 Rock Boulder Dry material from Poly Haven: photography by
+Dimitrios Savva, processing by Rico Cilliers. The bundled diffuse, normal and AO
+maps and their checksums are described in `cuesync/assets/stone/provenance.json`
+in an installed package; see the root NOTICE.md for source and licence links.

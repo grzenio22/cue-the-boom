@@ -1,0 +1,134 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "earth_lance",
+  "made": "earth",
+  "form": "lance",
+  "fluid": "earth",
+  "behaviour": "lance"
+ },
+ "inputs": {
+  "point": [
+   0.532,
+   0.707
+  ],
+  "seed": 17,
+  "offset_s": 0.0,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "(made, not rendered: cuesync.earth)",
+  "guide_scale": 1.0
+ },
+ "bending": {
+  "track": "samples/made_ahead/bending/elements_earth_final_20261024__bright__earth_lance/hand_track.json",
+  "mask": "samples/made_ahead/bending/elements_earth_final_20261024__bright__earth_lance/hand_mask.npz",
+  "k_hit": 64,
+  "tap_frame": 30,
+  "aim": null,
+  "aim_mode": "tracked",
+  "k_launch": 64,
+  "snap": {
+   "cue": 64,
+   "motion": null,
+   "frame": 64,
+   "used": "cue",
+   "mismatch": false
+  },
+  "hits": [
+   {
+    "frame": 29,
+    "gain": 0.681,
+    "size": 0.562,
+    "snap": {
+     "cue": 29,
+     "motion": null,
+     "frame": 29,
+     "used": "cue",
+     "mismatch": false
+    }
+   },
+   {
+    "frame": 38,
+    "gain": 0.663,
+    "size": 0.54,
+    "snap": {
+     "cue": 38,
+     "motion": null,
+     "frame": 38,
+     "used": "cue",
+     "mismatch": false
+    }
+   },
+   {
+    "frame": 64,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 64,
+     "motion": null,
+     "frame": 64,
+     "used": "cue",
+     "mismatch": false
+    }
+   }
+  ],
+  "holds": [
+   [
+    63,
+    69
+   ]
+  ],
+  "performed_again": null,
+  "camera": "handheld: what it leaves moves with the room",
+  "movement": {
+   "method": "camera-compensated 2D strokes; confidence and continuity gated",
+   "flow_bridge_frames": [],
+   "observed": [],
+   "actions": [
+    {
+     "frame": 35,
+     "action": "lance",
+     "source": "voice",
+     "direction": [
+      0.0,
+      -1.0
+     ],
+     "strength": 0.5622635336204651,
+     "event_start": 29
+    },
+    {
+     "frame": 44,
+     "action": "lance",
+     "source": "voice",
+     "direction": [
+      0.0,
+      -1.0
+     ],
+     "strength": 0.5395524187143929,
+     "event_start": 38
+    },
+    {
+     "frame": 70,
+     "action": "lance",
+     "source": "voice",
+     "direction": [
+      0.0,
+      -1.0
+     ],
+     "strength": 1.0,
+     "event_start": 64
+    }
+   ]
+  }
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 33.9
+}
