@@ -1320,7 +1320,9 @@ def test_a_flung_drop_smears_clear_its_glint_a_thin_bright_line():
     out = water.frame(0, plate[0], None, sc, _big_hand(), water.Room(plate), water.Noise(0), 0.0, 0)
     g = out.astype(float).mean(-1)[118:139, 122:135]  # the middle of its smear, across it
     lit = g.mean(1) > 1.04 * 120
-    assert g.max() > 1.1 * 120 and 1 <= lit.sum() <= 6  # its glint drawn into a thin bright line...
+    # Removing the artificial .3-linear lamp floor lowers this grey room's
+    # glint. It must remain visible and narrow under the measured illumination.
+    assert g.max() > 1.06 * 120 and 1 <= lit.sum() <= 6
     assert np.abs(g[~lit].mean(1) - 120).max() < 0.05 * 120  # ... the rest of it clear (with its body's light kept
     # along its smear too, a soft white blob beside its glint's line: sleet)
 

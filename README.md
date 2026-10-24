@@ -83,12 +83,12 @@ The details (the pipeline step by step, the timing evaluation, the matte, the li
 
 ## All five elements
 
-The short recording flow includes eleven procedural forms across air, water, lightning and earth, alongside the existing generated fire. The refreshed gallery uses the author's bright and dim iPhone takes:
+The short recording flow includes fourteen procedural forms across air, water, lightning and earth, alongside the existing generated fire. The refreshed gallery uses the author's bright and dim iPhone takes:
 
 ![Air, water, lightning and earth on the author's hand](media/elements-polished.jpg)
 
 - **Air — vortex / blast:** a transparent, rotating condensation volume, moving refraction, dust and a pressure front. Dim-room exposure lifts the separated wisps while preserving the photographed palm.
-- **Water — orb / whip / surge:** local refraction preserves the busy background. The surge opens into an asymmetric flowing curl with travelling aeration, changing thickness and detached spray; it gathers before a measured throw. Released water drains over the palm.
+- **Water — orb / whip / surge / ribbon / tidal shield / jet:** open sheets carry moving folds and froth, with local refraction and detached spray. Sweep to cast a blade, lift to raise a wave, or drop your hand for a splash crown. The new forms also launch directed streams on voice accents. Dark-shot lighting excludes the hand from its room estimate. [Movement guide and rendering limits](docs/water-playground.md).
 - **Lightning — arcs / ball:** branching channels, a turbulent blue volume, finger occlusion and light on the hand and room.
 - **Earth — living stone / shatter / shard volley / stone lance:** a compact scanned-rock surface with photographed colour, tight fractures, room lighting and falling grit. During a held cue, a measured sweep casts a shard fan, a downward stroke crumbles the stone, and a lift separates its layers. Projectiles retain their launch direction and continue after the hand leaves.
 

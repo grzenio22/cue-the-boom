@@ -1407,7 +1407,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         # A side-on palm can project its wrist-to-knuckle axis downward. That axis
         # carries the tapped point, but does not give a rising flame its direction.
         arrow, aim_mode = 0.0, "upward_default"
-    if effect == "earth_rock":
+    if effect == "earth_rock" or effect.startswith("water_"):
         from .motion import bridge_short_gaps
         track = bridge_short_gaps(track, plate, mask)
     track = anchored(track, tap_k, (spec.point[0] * w, spec.point[1] * h), arrow)
@@ -1857,6 +1857,7 @@ MADE = {  # effect -> (its module, its form): elements made from the plate, the 
     # (cuesync.elements' contract), not rendered over black by LTX-2.5
     "lightning_arc": ("lightning", "arc"), "lightning_ball": ("lightning", "ball"),
     "water_orb": ("water", "orb"), "water_whip": ("water", "whip"), "water_surge": ("water", "surge"),
+    "water_ribbon": ("water", "ribbon"), "water_shield": ("water", "shield"), "water_jet": ("water", "jet"),
     "air_ball": ("air", "ball"), "air_blast": ("air", "blast"),
     "earth_rock": ("earth", "rock"), "earth_shatter": ("earth", "shatter"),
     "earth_volley": ("earth", "volley"), "earth_lance": ("earth", "lance"),
@@ -1864,6 +1865,7 @@ MADE = {  # effect -> (its module, its form): elements made from the plate, the 
 }
 MADE_FOLEY = {"explosion": ("fire", "burst"), "lightning_arc": ("electric", "arc"), "lightning_ball": ("electric", "ball"),
               "water_orb": ("water", "orb"), "water_whip": ("water", "whip"), "water_surge": ("water", "whip"), "air_ball": ("air", "ball"),
+              "water_ribbon": ("water", "whip"), "water_shield": ("water", "orb"), "water_jet": ("water", "whip"),
               "air_blast": ("air", "blast"), "earth_rock": ("earth", "rock"),
               "earth_shatter": ("earth", "shatter"), "earth_volley": ("earth", "shatter"),
               "earth_lance": ("earth", "shatter")}  # each one's Foley
@@ -1913,15 +1915,17 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
                                         [looks[i][0] for i in sounding],
                                         c.cue.voice_end_frame,
                                         spec.seed)])
-    if module == "earth":
-        from .earth import choreography
+    if module in ("earth", "water"):
+        from .earth import choreography as earth_choreography
+        from .water_sheets import choreography as water_choreography
+        choreography = earth_choreography if module == "earth" else water_choreography
         actions=choreography(track,timeline,form)
         # The rock's physical releases get their own fracture accents. Keep the
         # original voice timing and avoid doubling accents within two frames.
         releases=[a for a in actions if a["action"]!="raise_stack"
                   and all(abs(a["frame"]-f)>2 for f in timeline.hits)]
         if releases:
-            eff=types.SimpleNamespace(id=effect,fluid="earth",behaviour="shatter")
+            eff=types.SimpleNamespace(id=effect,fluid=module,behaviour="shatter" if module=="earth" else "whip")
             audio=mix_foley(audio,[foley(eff,n,np.zeros(n),[a["frame"] for a in releases],
                                         [.65*a["strength"] for a in releases],n-1,spec.seed+31)])
     out_dir = Path(out_dir)
@@ -1951,8 +1955,10 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
                     "camera": "locked" if cam is None else "handheld: what it leaves moves with the room"},
         "auto": auto, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
-    if module == "earth":
-        from .earth import choreography
+    if module in ("earth", "water"):
+        from .earth import choreography as earth_choreography
+        from .water_sheets import choreography as water_choreography
+        choreography = earth_choreography if module == "earth" else water_choreography
         from .motion import analyze
         receipt["bending"]["movement"] = {"method": "camera-compensated 2D strokes; confidence and continuity gated",
                                           "flow_bridge_frames": track.get("flow_bridge_frames",[]),
@@ -1968,6 +1974,7 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
 EMITTER_OF = {"fire_breath": "two_finger", "fire_burst": "palm", "flame_plume": "palm", "steam_jet": "palm",
               "smoke_puff": "palm", "lightning_arc": "two_finger", "lightning_ball": "palm", "water_orb": "palm",
               "water_whip": "palm", "water_surge": "palm", "air_ball": "palm", "air_blast": "palm", "explosion": "palm",
+              "water_ribbon": "palm", "water_shield": "palm", "water_jet": "palm",
               "earth_rock": "palm", "earth_shatter": "palm", "earth_volley": "palm", "earth_lance": "palm"}  # the point on the
 # hand cuesync.hand_track follows for each element
 

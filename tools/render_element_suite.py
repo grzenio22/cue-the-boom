@@ -31,6 +31,7 @@ VOICES = {
     "air_ball": "hoooo.wav", "air_blast": "hoo-hoo-HOO.wav",
     "water_orb": "shhhhh-sploosh.wav", "water_whip": "shhhhh-sploosh.wav",
     "water_surge": "shhhhh-sploosh.wav",
+    "water_ribbon": "shhhhh-sploosh.wav", "water_shield": "shhhhh-sploosh.wav", "water_jet": "shhhhh-sploosh.wav",
     "lightning_ball": "zzzzz-tsst.wav", "lightning_arc": "zzzzz-tsst.wav",
     "earth_rock": "hoooo.wav", "earth_shatter": "pf-pf-boom-author.wav",
     "earth_volley": "pf-pf-boom-author.wav", "earth_lance": "pf-pf-boom-author.wav",
@@ -98,7 +99,7 @@ def main():
         for effect in args.effects:
             voice = ROOT / "samples/voices" / VOICES[effect]
             offset = sample_noise_offset(voice, probe_video(plate).duration_s, int(meta["hand"]["strike"]),
-                                         fit_held=effect in ("air_ball", "water_orb", "water_surge", "lightning_ball", "earth_rock"))
+                                         fit_held=effect.startswith("water_") or effect in ("air_ball", "lightning_ball", "earth_rock"))
             spec = ShotSpec(plate=plate, voice=voice, effect=effect, point=tuple(meta["point"]), seed=17,
                             offset_s=offset, plate_size=size, label=effect.replace("_", " "))
             job = args.out / f"{case}-{effect}"

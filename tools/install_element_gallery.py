@@ -19,6 +19,7 @@ from render_element_suite import CASES, VOICES
 
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = {"air_ball": "Air vortex", "air_blast": "Air blast", "water_orb": "Water orb",
+         "water_ribbon": "Water ribbon", "water_shield": "Tidal shield", "water_jet": "Water jet",
          "water_whip": "Water whip", "lightning_arc": "Lightning arcs", "lightning_ball": "Ball lightning",
          "earth_rock": "Living stone", "earth_shatter": "Stone shatter", "water_surge": "Water surge",
          "earth_volley": "Shard volley", "earth_lance": "Stone lance"}

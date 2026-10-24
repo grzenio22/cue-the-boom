@@ -76,15 +76,16 @@ export type Mode = "instant" | "render" | "scene" | "bending" | "finish";
 
 /** What a hand can throw (element bending), in the order the badge cycles them. */
 export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "explosion", "lightning_arc", "lightning_ball",
-  "water_orb", "water_whip", "water_surge", "air_ball", "air_blast", "earth_rock", "earth_shatter", "earth_volley", "earth_lance", "steam_jet"];
+  "water_orb", "water_whip", "water_surge", "water_ribbon", "water_shield", "water_jet", "air_ball", "air_blast", "earth_rock", "earth_shatter", "earth_volley", "earth_lance", "steam_jet"];
 export const HAND_LABELS: Record<string, string> = {
   fire_breath: "Flamethrower", fire_burst: "Fireball", flame_plume: "Flame in the palm", steam_jet: "Steam", smoke_puff: "Air blast",
   explosion: "Explosion", lightning_arc: "Lightning", lightning_ball: "Ball lightning", water_orb: "Water orb",
   water_whip: "Water whip", water_surge: "Water surge", air_ball: "Air ball", air_blast: "Air blast",
+  water_ribbon: "Water ribbon", water_shield: "Tidal shield", water_jet: "Water jet",
   earth_rock: "Living stone", earth_shatter: "Stone shatter", earth_volley: "Shard volley", earth_lance: "Stone lance",
 };
 /** The elements made on your computer from your hand and your voice (cuesync.bending.MADE): no render, no GPU. */
-export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball", "water_orb", "water_whip", "water_surge", "air_ball", "air_blast", "earth_rock", "earth_shatter", "earth_volley", "earth_lance"];
+export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball", "water_orb", "water_whip", "water_surge", "water_ribbon", "water_shield", "water_jet", "air_ball", "air_blast", "earth_rock", "earth_shatter", "earth_volley", "earth_lance"];
 
 /** One short route for every element. Only fire reuses generated pixels; the
  * others are freshly drawn from the tracked hand and the recorded performance. */
@@ -95,6 +96,9 @@ export const QUICK_PERFORMANCES = [
   { effect: "water_orb", element: "Water", form: "Orb", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "water_whip", element: "Water", form: "Whip", plate: "hand_open.mp4", cue: "shhhhh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "water_surge", element: "Water", form: "Surge", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
+  { effect: "water_ribbon", element: "Water", form: "Ribbon", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
+  { effect: "water_shield", element: "Water", form: "Tidal shield", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
+  { effect: "water_jet", element: "Water", form: "Jet", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "lightning_arc", element: "Lightning", form: "Arcs", plate: "hand_palm.mp4", cue: "zzzzz · tsst!", voices: ["zzzzz-tsst.wav"] },
   { effect: "lightning_ball", element: "Lightning", form: "Ball", plate: "hand_palm.mp4", cue: "zzzzz", voices: ["zzzzz-tsst.wav"] },
   { effect: "earth_rock", element: "Earth", form: "Living stone", plate: "hand_open.mp4", cue: "rrrrrr", voices: ["hoooo.wav"] },
@@ -105,6 +109,15 @@ export const QUICK_PERFORMANCES = [
 export function quickPerformance(effect = "fire_burst") {
   return QUICK_PERFORMANCES.find((p) => p.effect === effect) ?? QUICK_PERFORMANCES[0];
 }
+
+export const WATER_PLAY: Record<string, string> = {
+  water_orb: "Keep a soft shhh going to gather a rolling current. Let go to spill it onto your palm.",
+  water_whip: "Hold shhh for a flowing whip. Accent it with sploosh to lash the stream forward.",
+  water_surge: "Hold shhh for a breaking curl. Sweep your hand to cut a water blade through the air.",
+  water_ribbon: "Hold shhh to spin a ribbon. Sweep to cast a blade; add sploosh for a directed stream.",
+  water_shield: "Hold shhh to open a water curtain. Lift to raise a wave; drop your hand for a splash crown.",
+  water_jet: "Hold shhh for a rising jet. Short sploosh accents launch separate streams along your aim.",
+};
 
 /** A drawn stroke: points in normalised video coordinates, brush width as a share of the frame width. */
 export interface Stroke { points: [number, number][]; width: number }
@@ -229,6 +242,9 @@ export const EFFECT_LABELS: Record<string, { name: string; cue: string }> = {
   air_ball: { name: "Air ball", cue: "hoooooo" },
   air_blast: { name: "Air blast", cue: "hoo · HOO!" },
   water_surge: { name: "Water surge", cue: "shhhhh · sploosh" },
+  water_ribbon: { name: "Water ribbon", cue: "shhhhh · sploosh" },
+  water_shield: { name: "Tidal shield", cue: "shhhhh · sploosh" },
+  water_jet: { name: "Water jet", cue: "shhhhh · sploosh" },
   earth_rock: { name: "Living stone", cue: "rrrrrr" },
   earth_volley: { name: "Shard volley", cue: "pf · pf · BOOM!" },
   earth_lance: { name: "Stone lance", cue: "THOOM!" },

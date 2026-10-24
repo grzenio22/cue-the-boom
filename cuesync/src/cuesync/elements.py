@@ -21,7 +21,7 @@ import numpy as np
 
 FORMS = {  # element -> its forms (the hand picks one: cuesync.bending.bending_effect)
     "lightning": ("arc", "ball"),  # from the fingertips; crackling in an open palm
-    "water": ("orb", "whip", "surge"),  # gathered into a ball over the palm; a stream that follows the hand
+    "water": ("orb", "whip", "surge", "ribbon", "shield", "jet"),
     "air": ("ball", "blast"),  # a spinning ball over the palm; a push of air out of it
     "earth": ("rock", "shatter", "volley", "lance"),
     "explosion": ("fist", "palm"),  # thrown ahead of a punch; bloomed past a thrust palm (a fireball rendered ahead,

@@ -7,7 +7,7 @@ import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
 import ShotPanel from "@/components/ShotPanel";
 import TapPoint, { MAX_SOURCES } from "@/components/TapPoint";
-import { QUICK_PERFORMANCES, quickPerformance, atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
+import { QUICK_PERFORMANCES, WATER_PLAY, quickPerformance, atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
 interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null; replayOf?: string | null; replayWith?: string[] }
 
@@ -250,6 +250,7 @@ export default function Studio() {
               </div>}
               <p>Start with our hand clip. Say <strong>{choice.cue}</strong> as it plays, and shape your own {elementName} performance.</p>
               {choice.effect === "earth_rock" && <p className="muted">On your own hand clip: hold a rumble to gather stone. Lift to separate the layers, sweep to cast shards, or drop your hand to crumble it.</p>}
+              {choice.element === "Water" && <p className="muted" aria-label="Water movement guide">{WATER_PLAY[choice.effect]} Hand movements use your uploaded clip. Try a steady camera and keep your open hand in view.</p>}
               <button type="button" className="quick-cta" disabled={!palm} onClick={startQuick}>Perform this {elementName} with your voice</button>
               <p className="muted quick-note">{choice.element === "Fire" ? "Your voice controls a new composition of an existing LTX-2.5 fire effect." : "Your voice controls the timing, movement and strength of the element."} No camera or GPU needed.</p>
             </div>

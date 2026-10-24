@@ -69,7 +69,7 @@ from __future__ import annotations
 
 import math
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import NamedTuple
 
 import cv2
@@ -1070,6 +1070,8 @@ class Scene:
     # optional exits are silhouette-measured offsets in film radii, shared with its airborne runoff roots
 
     turbulent: bool = False  # open flowing surge: aerated sheets, not a closed reservoir
+    sheets: list = field(default_factory=list)  # continuous open surfaces (water_sheets.Surface)
+    released_spray: list = field(default_factory=list)  # only spray born from a launched sheet
 
 
 class Sheet(NamedTuple):
@@ -1256,22 +1258,39 @@ class Room:
     """The room's light, frame by frame: what the water reflects (the upper room, as the plate's top shows it) and its
     key light."""
 
-    def __init__(self, plate: np.ndarray):
+    def __init__(self, plate: np.ndarray, mask: np.ndarray | None = None):
         n, H, W = plate.shape[:3]
         top = max(1, int(ENV_TOP * H))
         self.env = [cv2.GaussianBlur(lin(cv2.resize(f[:top], (max(1, W // ENV_Q), max(1, top // ENV_Q)),
                                                     interpolation=cv2.INTER_AREA)), (0, 0), ENV_BLUR) for f in plate]
         q = KEY_Q
         at, colour, white = [], [], []
-        for f in plate:
-            e = cv2.GaussianBlur(lin(cv2.resize(f, (max(1, W // q), max(1, H // q)), interpolation=cv2.INTER_AREA)),
-                                 (0, 0), 3.0)
+        for k, f in enumerate(plate):
+            e = lin(cv2.resize(f, (max(1, W // q), max(1, H // q)), interpolation=cv2.INTER_AREA))
+            allowed = np.ones(e.shape[:2], bool)
+            if mask is not None:
+                excluded = cv2.resize(mask[k], (e.shape[1], e.shape[0]), interpolation=cv2.INTER_AREA)
+                allowed = cv2.dilate(excluded, np.ones((5, 5), np.uint8)) < 16
+            if not allowed.any():
+                allowed[:max(1, int(ENV_TOP * len(allowed)))] = True
+            raw_luma=fx._lum(e)
+            bright=allowed & (raw_luma>=np.quantile(raw_luma[allowed],1.-KEY_SHARE))
+            strength=float(raw_luma[bright].mean())
+            # Normalize the blur over observed background only. Masking after a
+            # blur still leaks bright skin into neighbouring room samples.
+            weights=cv2.GaussianBlur(allowed.astype(np.float32),(0,0),3.0)
+            e=cv2.GaussianBlur(e*allowed[:,:,None],(0,0),3.0)/np.maximum(weights[:,:,None],1e-6)
             y = fx._lum(e)
-            ys, xs = np.nonzero(y >= np.quantile(y, 1.0 - KEY_SHARE))
+            ys, xs = np.nonzero(allowed & (y >= np.quantile(y[allowed], 1.0 - KEY_SHARE)))
             at.append(((xs.mean() + 0.5) * q, (ys.mean() + 0.5) * q))
             c = e[ys, xs].mean(0)
             colour.append(c / max(float(c.max()), 1e-6))
-            white.append(float(fx._lum(e[ys, xs]).mean()))
+            # Preserve narrow real highlights when estimating intensity. The
+            # blurred map is only for a stable light direction and colour.
+            broad=float(fx._lum(e[ys, xs]).mean())
+            # In a bright room the broad source describes diffuse illumination;
+            # in underexposed footage retain the few measurable light surfaces.
+            white.append(broad+(strength-broad)*(1.-float(_ss(.05,.25,strength))))
         self.at = _tsmooth(at, KEY_SMOOTH)
         self.colour = _tsmooth(colour, KEY_SMOOTH).astype(np.float32)
         self.white = _tsmooth(white, KEY_SMOOTH)
@@ -1302,7 +1321,11 @@ class Room:
 
     def lit(self, k: int) -> np.ndarray:
         """The key light's colour and strength (linear)."""
-        return self.colour[k] * np.float32(max(self.white[k], 0.3))
+        # A bright hand is a reflecting surface, not the lamp. The old .3 linear
+        # floor overlit dim footage by an order of magnitude and tinted foam pink.
+        colour = .82 + .18 * self.colour[k]
+        gain = 1. + .8 * (1. - float(_ss(.04, .25, self.white[k])))
+        return colour * np.float32(min(self.white[k] * gain, 1.0))
 
 
 class Noise:
@@ -4697,7 +4720,7 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
           code: float, seed: int) -> np.ndarray:
     """Frame ``k`` with its water: uint8 RGB, the plate's own bytes wherever there is none."""
     out = plate_k.copy()
-    if not sc.blobs and not sc.wet and not sc.band and not sc.film and not sc.plops and not sc.cast and sc.coat is None:
+    if not sc.blobs and not sc.wet and not sc.band and not sc.film and not sc.plops and not sc.cast and sc.coat is None and not sc.sheets:
         return out
     H, W = plate_k.shape[:2]
     P = lin(plate_k)
@@ -4759,6 +4782,9 @@ def frame(k: int, plate_k: np.ndarray, matte: np.ndarray | None, sc: Scene, hand
             rr = int(2 * bx[:, 2].max() + 4)
             boxes.append((max(0, int(bx[:, 1].min()) - rr), min(H, int(bx[:, 1].max()) + rr + 1),
                           max(0, int(bx[:, 0].min()) - rr), min(W, int(bx[:, 0].max()) + rr + 1)))
+    if sc.sheets:
+        from .water_sheets import paint
+        boxes += paint(P, sc.sheets, k, hand, room, noise, matte)
     changed = np.zeros((H, W), bool)  # each changed px brought back once, however many boxes overlap on it
     for y0, y1, x0, x1 in boxes:
         if y1 > y0 and x1 > x0:
@@ -5135,9 +5161,11 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
     hand = hand_of(track, n, plate)
     cam = None if timeline.camera is None else np.asarray(timeline.camera, np.float64)
     scenes = (surge_scenes(timeline,track,hand,(H,W),seed,cam,plate,mask) if form == "surge" else
-              orb_scenes(timeline, track, hand, (H, W), seed, cam, plate, mask) if form == "orb"
+              orb_scenes(timeline, track, hand, (H, W), seed, cam, plate, mask) if form in ("orb", "ribbon", "shield", "jet")
               else whip_scenes(timeline, track, hand, (H, W), seed, cam, mask, plate))
-    room = Room(plate)
+    from .water_sheets import apply_scenes
+    scenes = apply_scenes(scenes, form, timeline, track, hand, seed)
+    room = Room(plate, mask)
     noise = Noise(seed)
     wet = [k for k in range(n) if scenes[k].blobs]
     code = fx.shadow_noise(plate) / GRAIN_UNIT / 255.0 if wet else 0.0
@@ -5146,11 +5174,22 @@ def render(plate: np.ndarray, track: dict, mask: np.ndarray | None, timeline: Ti
 
     def one(k: int) -> None:
         presence = float(hand.presence[k])
-        if presence <= 0.0:
-            out[k] = plate[k]
+        matte=None if mask is None else mask[k]
+        sc=scenes[k]
+        if presence >= 1.0:
+            out[k]=frame(k,plate[k],matte,sc,hand,room,noise,code,seed)
         else:
-            painted = frame(k, plate[k], None if mask is None else mask[k], scenes[k], hand, room, noise, code, seed)
-            out[k] = painted if presence >= 1.0 else gam(lin(plate[k]) * (1.0 - presence) + lin(painted) * presence)
+            # Released material belongs to the room. Losing the emitter must
+            # fade only its held water, not a blade already in flight.
+            detached=Scene(blobs=sc.released_spray,
+                           sheets=[s for s in sc.sheets if s.released])
+            out[k]=plate[k]
+            if presence>0:
+                held=replace(sc,blobs=[b for b in sc.blobs if b not in sc.released_spray],
+                             sheets=[s for s in sc.sheets if not s.released])
+                painted=frame(k,plate[k],matte,held,hand,room,noise,code,seed)
+                out[k]=gam(lin(plate[k])*(1-presence)+lin(painted)*presence)
+            out[k]=frame(k,out[k],matte,detached,hand,room,noise,code,seed)
         done[0] += 1
         if done[0] % 8 == 0:
             say("water", done[0] / n, f"Shaping the water: frame {done[0]} of {n}")
