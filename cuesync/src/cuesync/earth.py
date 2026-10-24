@@ -7,7 +7,6 @@ with the stone. This is art-directed CPU geometry, not a simulated fracture solv
 from __future__ import annotations
 
 import math
-from itertools import combinations
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -29,6 +28,7 @@ class Stone:
     phase: np.ndarray
     colour: np.ndarray
     origin: tuple = (0.,0.,0.)  # shared material coordinates across fracture cells
+    exterior: np.ndarray | None = None  # scanned exterior versus freshly broken interior
 
 
 @lru_cache(maxsize=1)
@@ -63,17 +63,38 @@ def _stone_material(obj,normal):
     return colour,nrm
 
 
-def _weather(vertices):
-    """A continuous displacement shared by both sides of every fracture seam."""
-    p=np.asarray(vertices)
-    return p+.028*np.stack([np.sin(p[:,1]*13+p[:,2]*7),np.sin(p[:,2]*11-p[:,0]*9),
-                           np.sin(p[:,0]*12+p[:,1]*8)],axis=-1)
+@lru_cache(maxsize=1)
+def _scan():
+    """Offline-baked CC0 photogrammetry; no mesh library or network at runtime."""
+    with np.load(Path(__file__).with_name('assets')/'stone'/'rock_scan.npz', allow_pickle=False) as data:
+        maps={k:data[k] for k in data.files}
+    maps['albedo']=lin(maps['albedo'])
+    return maps
+
+
+def _scan_sample(name, position):
+    tex=_scan()[name]
+    p=position/np.maximum(np.linalg.norm(position,axis=-1,keepdims=True),1e-8)
+    # Longitude wraps; the bake includes both latitude endpoints.
+    x=((np.arctan2(p[...,2],p[...,0])+np.pi)/(2*np.pi)*tex.shape[1]).astype(np.float32)
+    y=np.clip((np.arcsin(np.clip(p[...,1],-1,1))+np.pi/2)/np.pi*(tex.shape[0]-1),0,tex.shape[0]-1).astype(np.float32)
+    shape=x.shape
+    return cv2.remap(tex,x.reshape(-1,1),y.reshape(-1,1),cv2.INTER_LINEAR,borderMode=cv2.BORDER_WRAP).reshape(shape+tex.shape[2:])
+
+
+def _scan_mesh():
+    data=_scan();directions=data['directions'].astype(np.float64);faces=data['faces']
+    vertices=directions*_scan_sample('radius',directions)[...,None]
+    a,b,c=(vertices[faces[:,j]] for j in range(3))
+    volume=abs(np.sum(a*np.cross(b,c))/6)
+    vertices*=np.cbrt(2.5/max(volume,1e-6))
+    return vertices,faces
 
 
 def _clip(polygons, normal, offset):
-    """Clip a closed convex polyhedron and seal its exposed fracture plane."""
+    """Clip labelled surface polygons and seal their actual cut contour."""
     result=[];rim=[]
-    for polygon in polygons:
+    for polygon,exterior in polygons:
         cut=[]
         for a,b in zip(polygon,np.roll(polygon,-1,axis=0)):
             da,db=a@normal-offset,b@normal-offset
@@ -82,48 +103,82 @@ def _clip(polygons, normal, offset):
             if (da<0)!=(db<0):
                 cross=a+(b-a)*da/(da-db);cut.append(cross);rim.append(cross)
         if len(cut)>=3:
-            result.append(np.asarray(cut))
+            result.append((np.asarray(cut),exterior))
     if len(rim)>=3:
-        rim=np.unique(np.round(rim,9),axis=0);center=rim.mean(0)
-        axis=np.cross(normal,[1,0,0] if abs(normal[0])<.8 else [0,1,0]);axis/=np.linalg.norm(axis)
-        across=np.cross(normal,axis)
-        angle=np.arctan2((rim-center)@across,(rim-center)@axis)
-        result.append(rim[np.argsort(angle)])
+        # Follow the actual cut contour. Sorting by angle crosses inward dents
+        # in a scanned surface, producing open seams in the released fragments.
+        nodes=[];edges=set()
+        def node(point):
+            for i,p in enumerate(nodes):
+                if np.linalg.norm(p-point)<1e-7:
+                    return i
+            nodes.append(point.copy());return len(nodes)-1
+        for polygon,_ in result:
+            for a,b in zip(polygon,np.roll(polygon,-1,axis=0)):
+                if abs(a@normal-offset)<1e-7 and abs(b@normal-offset)<1e-7:
+                    ia,ib=node(a),node(b)
+                    if ia!=ib:edges.add(tuple(sorted((ia,ib))))
+        while edges:
+            a,b=min(edges);edges.remove((a,b));loop=[a,b]
+            while loop[-1]!=loop[0]:
+                following=next((e for e in sorted(edges) if loop[-1] in e),None)
+                if following is None:
+                    raise RuntimeError('Stone fracture contour did not close')
+                edges.remove(following)
+                loop.append(following[1] if following[0]==loop[-1] else following[0])
+            if len(loop)>3:
+                result.append((np.array([nodes[i] for i in loop[:-1]]),False))
     return result
 
 
 def fracture(seed):
-    """Eight complementary solid cells, cut from one irregular parent boulder.
+    """Eight complementary solid cells, cut from a radially resampled rock scan.
 
     Plane clipping keeps their silhouettes, interior faces and volume consistent
     between assembly and breakup, without a separate simulation dependency.
     """
     rng=np.random.default_rng(seed)
-    phi=(1+math.sqrt(5))/2
-    pts=np.array([(0,a,b*phi) for a in (-1,1) for b in (-1,1)]+
-                 [(a,b*phi,0) for a in (-1,1) for b in (-1,1)]+
-                 [(b*phi,0,a) for a in (-1,1) for b in (-1,1)],float)
-    pts/=np.linalg.norm(pts,axis=1,keepdims=True)
-    pts*=rng.uniform(.83,1.13,(12,1))*[1.12,.88,.96]
-    polygons=[]
-    for ids in combinations(range(12),3):
-        a,b,c=pts[list(ids)];d=(pts-a)@np.cross(b-a,c-a)
-        if np.all(d>=-1e-8) or np.all(d<=1e-8):
-            polygons.append(pts[list(ids)])
+    pts,faces=_scan_mesh()
+    polygons=[(pts[face],True) for face in faces]
     cells=[polygons]
     for axis in np.eye(3):
         normal=axis+rng.uniform(-.28,.28,3);normal/=np.linalg.norm(normal)
         offset=float(rng.uniform(-.13,.13))
         cells=[_clip(p,sign*normal,sign*offset) for p in cells for sign in (-1,1)]
+    # Clipping adjacent triangles reaches the same intersection through slightly
+    # different arithmetic. Weld before triangulation, then split long cut edges
+    # at every shared vertex so neighbouring cells cannot leave T-junctions.
+    canonical=[]
+    for cell in cells:
+        for polygon,_ in cell:
+            for i,point in enumerate(polygon):
+                candidates=np.asarray(canonical)
+                close=np.flatnonzero(np.linalg.norm(candidates-point,axis=1)<2e-7) if len(canonical) else []
+                if len(close):
+                    polygon[i]=canonical[close[0]]
+                else:
+                    polygon[i]=np.round(point,7);canonical.append(polygon[i].copy())
+    canonical=np.asarray(canonical)
+    for ci,cell in enumerate(cells):
+        split=[]
+        for polygon,external in cell:
+            boundary=[]
+            for a,b in zip(polygon,np.roll(polygon,-1,axis=0)):
+                direction=b-a;length=float(direction@direction)
+                if length<1e-15:
+                    continue
+                t=(canonical-a)@direction/length
+                distance=np.linalg.norm(canonical-a-t[:,None]*direction,axis=1)
+                ids=np.flatnonzero((t>1e-7)&(t<1-1e-7)&(distance<2e-7))
+                boundary.extend([a,*canonical[ids[np.argsort(t[ids])]]])
+            split.append((np.asarray(boundary),external))
+        cells[ci]=split
     parts=[]
     phase=rng.uniform(0,6.28,5)
     for cell in cells:
-        center=np.unique(np.concatenate(cell),axis=0).mean(0)
-        vertices=[];faces=[]
-        for polygon in cell:
-            # Welding avoids duplicate intersection endpoints. A centre fan
-            # preserves collinear boundary vertices shared with adjacent faces;
-            # an arbitrary corner fan produced degenerate triangles at cuts.
+        center=np.unique(np.concatenate([p for p,_ in cell]),axis=0).mean(0)
+        vertices=[];faces=[];external=[]
+        for polygon,exterior in cell:
             polygon=np.round(polygon,7)
             clean=[]
             for point in polygon:
@@ -131,54 +186,27 @@ def fracture(seed):
                     clean.append(point)
             if len(clean)<3:
                 continue
-            polygon=np.array(clean);middle=polygon.mean(0)
-            for a,b in zip(polygon,np.roll(polygon,-1,axis=0)):
-                if np.linalg.norm(np.cross(a-middle,b-middle))<1e-10:
+            polygon=np.array(clean)
+            # Preserve every shared boundary vertex when a cut adds collinear
+            # intersections. Uncut source triangles need no additional fan.
+            triangles=[polygon] if len(polygon)==3 else [np.array([polygon.mean(0),a,b])
+                for a,b in zip(polygon,np.roll(polygon,-1,axis=0))]
+            for triangle in triangles:
+                a,b,c=triangle
+                if np.linalg.norm(np.cross(b-a,c-a))<1e-15:
                     continue
-                start=len(vertices);vertices.extend([middle-center,a-center,b-center])
-                faces.append((start,start+1,start+2))
-        # Midpoint tessellation breaks long silhouette edges while the same
-        # displacement on every shared position keeps the fracture watertight.
-        refined=[];points=[]
-        for ids in faces:
-            a,b,c=np.array(vertices)[list(ids)]+center
-            ab,bc,ca=(a+b)/2,(b+c)/2,(c+a)/2
-            for tri in ((a,ab,ca),(ab,b,bc),(ca,bc,c),(ab,bc,ca)):
-                start=len(points);points.extend(tri);refined.append((start,start+1,start+2))
-        pts=_weather(np.array(points));center=pts.mean(0)
-        parts.append((Stone(pts-center,np.array(refined),phase.copy(),np.array([1.,.97,.92]),tuple(center)),center))
+                start=len(vertices);vertices.extend(triangle-center)
+                faces.append((start,start+1,start+2));external.append(exterior)
+        parts.append((Stone(np.array(vertices),np.array(faces),phase.copy(),
+                            np.array([1.,.97,.92]),tuple(center),np.array(external)),center))
     return parts
 
 
 def stone(seed: int) -> Stone:
-    rng = np.random.default_rng(seed)
-    phi=(1+math.sqrt(5))/2
-    pts=np.array([(0,a,b*phi) for a in (-1,1) for b in (-1,1)]+
-                 [(a,b*phi,0) for a in (-1,1) for b in (-1,1)]+
-                 [(b*phi,0,a) for a in (-1,1) for b in (-1,1)],float)
-    faces=[]
-    for ids in combinations(range(12),3):
-        a,b,c=pts[list(ids)]
-        distances=(pts-a)@np.cross(b-a,c-a)
-        if np.all(distances>=-1e-8) or np.all(distances<=1e-8):
-            faces.append(ids)
-    vertices=list(pts)
-    midpoints={}
-    def midpoint(a,b):
-        key=tuple(sorted((a,b)))
-        if key not in midpoints:
-            midpoints[key]=len(vertices)
-            vertices.append((pts[a]+pts[b])/2)
-        return midpoints[key]
-    refined=[]
-    for a,b,c in faces:
-        ab,bc,ca=midpoint(a,b),midpoint(b,c),midpoint(c,a)
-        refined.extend([(a,ab,ca),(b,bc,ab),(c,ca,bc),(ab,bc,ca)])
-    pts=np.array(vertices)
-    pts/=np.linalg.norm(pts,axis=1,keepdims=True)
-    pts*=rng.uniform(.77,1.13,(len(pts),1))*np.array([1.08,.87,.94])
-    faces=np.array(refined)
-    return Stone(pts, faces, rng.uniform(0, 6.28, 5), np.array([1., .97, .92]) * rng.uniform(.9, 1.1))
+    rng=np.random.default_rng(seed)
+    pts,faces=_scan_mesh()
+    return Stone(pts,faces,rng.uniform(0,6.28,5),
+                 np.ones(3)*rng.uniform(.92,1.05),exterior=np.ones(len(faces),bool))
 
 
 def _mineral_noise(position):
@@ -223,7 +251,7 @@ def raster(mesh: Stone, center, radius, turn, rgb, alpha, depth, light, irradian
     H, W = alpha.shape
     verts = mesh.vertices @ turn.T * radius + center
     inverse_turn=np.linalg.inv(turn)
-    for face in mesh.faces:
+    for face_index,face in enumerate(mesh.faces):
         abc = verts[face]
         normal = np.cross(abc[1]-abc[0], abc[2]-abc[0])
         normal /= max(np.linalg.norm(normal), 1e-9)
@@ -248,15 +276,23 @@ def raster(mesh: Stone, center, radius, turn, rgb, alpha, depth, light, irradian
             continue
         obj=u[...,None]*mesh.vertices[face[0]]+v[...,None]*mesh.vertices[face[1]]+(1-u-v)[...,None]*mesh.vertices[face[2]]
         obj_normal=turn.T@normal;obj_normal/=max(np.linalg.norm(obj_normal),1e-8)
-        material,material_normal=_stone_material(obj+np.asarray(mesh.origin),obj_normal)
+        coordinates=obj+np.asarray(mesh.origin)
+        scanned=mesh.exterior is not None and mesh.exterior[face_index]
+        if scanned:
+            material=_scan_sample('albedo',coordinates)
+            material_normal=_scan_sample('normal',coordinates)
+        else:
+            material,material_normal=_stone_material(coordinates,obj_normal)
         # Broad rounded normals and a smaller facet contribution preserve rugged
         # edges without making every triangle read as a low-poly game asset.
         smooth = obj @ turn.T
         smooth /= np.maximum(np.linalg.norm(smooth,axis=-1,keepdims=True),1e-8)
         material_normal=material_normal@inverse_turn
         material_normal/=np.maximum(np.linalg.norm(material_normal,axis=-1,keepdims=True),1e-8)
-        facing = np.maximum(0, .12*(smooth@light)+.88*(material_normal@light))
-        shade=.25+.75*facing
+        facing=np.maximum(0,material_normal@light if scanned else .12*(smooth@light)+.88*(material_normal@light))
+        # Broad room fill prevents artificial black triangular facets. Scanned
+        # albedo supplies mineral colour; lighting supplies the large-scale form.
+        shade=.38+.62*facing
         colour=material*mesh.colour*irradiance*shade[...,None]
         rgb[y0:y1,x0:x1][covered]=colour[covered]
         alpha[y0:y1,x0:x1][covered]=opacity
@@ -416,7 +452,7 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
                 for j,(mesh,off) in enumerate(parts):
                     # Whole cells travel into place; no sphere scaling out of nothing.
                     assembly=(1-grow)*(1.4+.17*j)
-                    separation=1.10+.065*math.sin(age*2+j*.7)+.35*lift
+                    separation=1.012+.005*math.sin(age*2+j*.7)+.35*lift
                     local=off*r*separation
                     local[1]+=r*assembly*(1.2 if j%2 else -1.)
                     local[1]-=lift*s*(.3+.12*j)
@@ -456,7 +492,9 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
         P=lin(plate[k]);patch=P[y0:y1,x0:x1]
         shadow=np.exp(-((xx-p[0])/(.57*s))**2-((yy-p[1])/(.24*s))**2)
         patch*=(1-.28*contact*shadow*matte)[...,None]
-        C*=A[...,None];A=cv2.GaussianBlur(A,(0,0),.65);C=cv2.GaussianBlur(C,(0,0),.65)
+        # Match the photographed edge spread at both preview and full size.
+        softness=max(.60,w/760)
+        C*=A[...,None];A=cv2.GaussianBlur(A,(0,0),softness);C=cv2.GaussianBlur(C,(0,0),softness)
         if coverage is not None:
             coverage[k,y0:y1,x0:x1]=np.rint(A*255).astype(np.uint8)
         patch[:]=patch*(1-A[...,None])+C

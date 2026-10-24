@@ -1,0 +1,13 @@
+{
+  "asset": "Rock 07",
+  "author": "Jenelle van Heerden",
+  "source": "https://polyhaven.com/a/rock_07",
+  "license": "CC0-1.0",
+  "license_url": "https://polyhaven.com/license",
+  "adaptation": "Radial resampling of the photographed model and its UV diffuse map; normalized and reoriented.",
+  "original_gltf_sha256": "efcc2dcaa133ff8ad5c865dc2135772e8f5dbc83fa38db2ee2cf25382436b6e6",
+  "baked_sha256": "38ffb0bc55daa10013c173fc74715d70961f207fd2cd6a73a25af0a1591c0f2a",
+  "radial_holes_filled": 0,
+  "radial_samples": 131072,
+  "surface_triangles": 320
+}

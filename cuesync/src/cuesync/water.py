@@ -1482,7 +1482,7 @@ def _liquid_ray_limit(dx, dy, radius):
     shoe rack twice and invert it into a rigid magnifying glass. This continuous
     bound retains local wave distortion without inventing that unseen view.
     """
-    length=np.maximum(np.hypot(dx,dy),1e-5);limit=np.maximum(.48*radius,1.)
+    length=np.maximum(np.hypot(dx,dy),1e-5);limit=np.maximum(.24*radius,1.)
     scale=limit*np.tanh(length/limit)/length
     return dx*scale,dy*scale
 
@@ -2003,8 +2003,11 @@ def shade(fld: Field, sc: Scene, k: int, hand: Hand, room: Room, noise: Noise, p
         air = np.exp(-(phase / 0.16) ** 2)  # a broad moving pocket of entrained air occupies a short part of the stream
         fm[st] = np.maximum(fm[st], 0.20 * held * air * (0.4 + 0.6 * band))
     if sc.turbulent:
-        froth=_ss(-.45,.7,noise.flow(14,X,Y,fvx,fvy,k,.045*s))
-        fm=np.maximum(fm,.65*np.clip(foam,0,1)*froth)
+        # Two advected scales: broad entrained-air pockets carried by the flow,
+        # with broken fine crests. A thin reflective outline alone reads as ice.
+        pockets=_ss(-.55,.55,noise.flow(14,X,Y,fvx,fvy,k,.12*s))
+        breakup=_ss(-.7,.65,noise.flow(15,X,Y,fvx,fvy,k,.055*s))
+        fm=np.maximum(fm,np.clip(foam,0,1)*(.08+.72*pockets)*(.75+.25*breakup))
     glint = (FOAM_GLINT[0] * (1.0 - big)
              * np.exp(-(noise.flow(9, X, Y, fvx, fvy, k, FOAM_GLINT[1] * FOAM_SIZE * s) / 0.3) ** 2))
     froth = (0.75 + 0.25 * nz) * FOAM_ALBEDO * (1.0 + FOAM_FAST * whip) + glint
@@ -3897,8 +3900,9 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
             v_c = spring.v / FPS
             if r > 0.5:
                 sc.blobs.append(Blob(c[0], c[1], c[2], r, tuple(shape.ravel()), v_c[0], v_c[1],
-                                     (CIRCULATE[0] + CIRCULATE[1] * float(e[k])) / FPS, 0.0, tuple(modes),
-                                     move=tuple(v_c[:2] * SHUTTER)))
+                                     (CIRCULATE[0] + CIRCULATE[1] * float(e[k])) / FPS, .42, tuple(modes),
+                                     flat=.64+.10*math.sin(3.7*t), move=tuple(v_c[:2] * SHUTTER)))
+                sc.turbulent=True
                 sc.held = (c[0], c[1], c[2], r, vol ** GATHER_LIGHT)  # its shade and its focus come on as it
                 # gathers (at full strength once a third of it was there, it popped on with only a few drops in the
                 # air; at its share of the water, the focus was white hot while the orb was still forming)
@@ -3914,8 +3918,10 @@ def orb_scenes(tl: Timeline, track: dict, hand: Hand, size: tuple[int, int], see
                                       lam * r * hz * t))
                 if k >= g1 - 2:  # points of the key light off its ripples' crests, and a highlight carried round it
                     on = float(_ss(g1 - 2, g1 + 2, k))
-                    sc.sparks = _sparks(seed, k, c, r, on)
-                    sc.sweep = (c[0], c[1], r, loop[1], sweep0 + 2.0 * math.pi * t / SWEEP[0], on)
+                    # Surface normals already reflect the room. An added moving
+                    # studio-light dot makes the reservoir look like polished glass.
+                    sc.sparks = []
+                    sc.sweep = None
             for ang, d0, rs, z0, ts, ta, spin in gather:  # drops coming together out of the air, spiralling in
                 if not ts <= k < ta:
                     continue
@@ -5050,30 +5056,45 @@ def surge_scenes(tl,track,hand,shape,seed,cam,plate=None,mask=None):
     scenes=orb_scenes(tl,track,hand,shape,seed,cam,plate,mask)
     plan=orb_plan(tl,track)
     spray=Drops(cam,shape,float(np.median(hand.s)))
+    previous=None
     for k,sc in enumerate(scenes):
         spray.step()
         if sc.held is None or k<plan.formed or (plan.release is not None and k>=plan.release):
             sc.blobs.extend(spray.blobs(k))
+            previous=None
             continue
         cx,cy,z,r,weight=sc.held;s=float(hand.s[k]);time=(k-plan.formed)/FPS
         u=np.linspace(0,1,64)
-        theta=1.45+u*4.1+.35*math.sin(time*2.2)
-        radius=r*(.86+.25*u+.16*np.sin(9*u-4.6*time))
+        theta=1.45+u*(3.8+.65*math.sin(time*3.1))+.25*math.sin(time*2.2)
+        radius=r*(.76+.28*u+.20*np.sin(9*u-4.6*time)+.07*np.sin(21*u-8*time))
         x=cx+np.cos(theta)*radius
         y=cy+np.sin(theta)*radius*.90-.20*r*u
-        zz=z+.38*r*np.cos(theta+.4)
+        zz=z+.55*r*np.cos(theta+.4)+.15*r*np.sin(13*u-6*time)
         pts=np.c_[x,y,zz]
         tang=np.gradient(pts,axis=0);tang/=np.maximum(np.linalg.norm(tang,axis=1,keepdims=True),1e-6)
         flowing=tang[:,:2]*(.12*s)
         swell=.78+.30*np.sin(12*u-7*time)+.14*np.sin(25*u-11*time)
-        rad=r*(.44*(1-u)**.3+.04)*swell
+        rad=r*(.50*(1-u)**.3+.04)*swell
         rad*=np.minimum(1,u*12+.25)*(1-.65*_ss(.84,1,u))
         arc=np.r_[0,np.cumsum(np.linalg.norm(np.diff(pts,axis=0),axis=1))]
-        aeration=.35+.85*_ss(-.2,.7,np.sin(15*u-7*time))
+        aeration=.65+.45*_ss(-.2,.7,np.sin(15*u-7*time))
         # Geometry moves with the hand; flow runs through it. Blurring by the
         # internal flow velocity would turn a thick stream into a faint glass ring.
-        velocity=np.tile(hand.p[k]-hand.p[max(0,k-1)],(len(u),1))
-        blobs=_stream(pts,velocity,rad,aeration,flowing,arc,.42+.15*np.sin(12*u-7*time),root_feather=.04*r)
+        velocity=np.tile(hand.p[k]-hand.p[max(0,k-1)],(len(u),1)) if previous is None else pts[:,:2]-previous[:,:2]
+        velocity*=np.minimum(1,.25*s/np.maximum(np.linalg.norm(velocity,axis=1,keepdims=True),1e-6))
+        previous=pts.copy()
+        blobs=_stream(pts,velocity,rad,aeration,flowing,arc,.32+.12*np.sin(12*u-7*time),root_feather=.04*r)
+        # A smaller returning sheet crosses behind the crest. Its exposed end
+        # changes length as it drains, leaving open gaps instead of a rigid ring.
+        v=np.linspace(0,1,40);phase=2.8+v*(2.5+.35*math.sin(time*3))
+        rr=r*(.58+.12*np.sin(11*v-5*time))
+        back=np.c_[cx+rr*np.cos(phase),cy+.12*r+.75*rr*np.sin(phase),
+                   z-.40*r+.25*r*np.sin(phase)]
+        back_arc=np.r_[0,np.cumsum(np.linalg.norm(np.diff(back,axis=0),axis=1))]
+        tangent=np.gradient(back[:,:2],axis=0);tangent/=np.maximum(np.linalg.norm(tangent,axis=1,keepdims=True),1e-6)
+        back_rad=r*(.19+.06*np.sin(16*v-9*time))*(1-.8*_ss(.7,1,v))
+        blobs+=_stream(back,np.tile(velocity[0],(len(v),1)),back_rad,np.full(len(v),.65),
+                       tangent*.10*s,back_arc,np.full(len(v),.35),root_feather=.05*r)
         # Fade the reservoir into the curl over six exposures, without a jump.
         morph=float(_ss(plan.formed,plan.formed+6,k))
         if plan.release is not None:
@@ -5087,6 +5108,10 @@ def surge_scenes(tl,track,hand,shape,seed,cam,plate=None,mask=None):
         # Spray remains in the room after the curl gathers or the hand moves.
         if k%3==0 and morph>.5:
             spray.add(k,pts[-1],np.r_[flowing[-1],-.02*s],.07*r,foam=.12,life=18,fade=6,g=5*s/FPS**2)
+        if k%2==0 and morph>.5:
+            j=16+(k*7)%38
+            spray.add(k,pts[j],np.r_[flowing[j]*1.8,-.025*s],r*(.035+.015*math.sin(k)**2),
+                      foam=.22,life=13,fade=5,g=5*s/FPS**2)
         sc.blobs.extend(spray.blobs(k))
         sc.wave=.18+.12*float(tl.energy[k])
     return scenes

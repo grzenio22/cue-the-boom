@@ -121,8 +121,9 @@ def test_released_stone_falls_behind_the_hand_with_a_solid_surface():
     assert fallen[2] < hand.depth(34,fallen[0],fallen[1],fingers=False)
 
 
-def test_fracture_cells_are_closed_solids_with_shared_boundary_vertices():
-    parts=renderer().fracture(17)
+@pytest.mark.parametrize('seed',[0,17,18,91])
+def test_fracture_cells_are_closed_solids_with_shared_boundary_vertices(seed):
+    parts=renderer().fracture(seed)
     assert 6<=len(parts)<=12
     vertices=np.concatenate([m.vertices+c for m,c in parts])
     def volume(mesh):
@@ -210,3 +211,18 @@ def test_launched_projectiles_survive_the_hand_leaving_the_picture(form,monkeypa
     out=earth.render(p,t,m,tl,form,seed=17,coverage=coverage)
     assert coverage[16:19].max()>200
     assert not np.array_equal(out[16:19],p[16:19])
+
+
+def test_scanned_surface_and_new_fractures_have_distinct_material_coordinates():
+    earth=renderer();parts=earth.fracture(17)
+    for mesh,offset in parts:
+        assert mesh.exterior.any() and (~mesh.exterior).any()
+        positions=mesh.vertices[mesh.faces[mesh.exterior]].mean(1)+offset
+        colour=earth._scan_sample('albedo',positions)
+        normals=earth._scan_sample('normal',positions)
+        assert np.isfinite(colour).all() and np.isfinite(normals).all()
+        assert 0<=colour.min()<colour.max()<=1
+        assert np.linalg.norm(normals,axis=1).min()>.7
+    # Sampling on either side of the longitude seam must stay continuous.
+    edge=np.array([[-1.,0.,1e-6],[-1.,0.,-1e-6]])
+    assert np.max(abs(np.diff(earth._scan_sample('albedo',edge),axis=0)))<.02

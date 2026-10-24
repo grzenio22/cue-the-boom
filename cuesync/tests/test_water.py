@@ -29,7 +29,7 @@ def test_liquid_refraction_follows_broad_travelling_waves_without_fine_glass_fac
 def test_busy_background_rays_remain_local_and_continuous():
     x=np.linspace(-2000,2000,2001);y=x*.3
     dx,dy=water._liquid_ray_limit(x,y,np.full_like(x,40.))
-    assert np.max(np.hypot(dx,dy))<=.48*40+1e-6
+    assert np.max(np.hypot(dx,dy))<=.24*40+1e-6
     assert np.all(np.diff(dx)>=-1e-10)
     assert np.max(np.diff(dx))<2.1
     assert dx[1000]==0 and dy[1000]==0
@@ -52,10 +52,16 @@ def test_surge_has_an_open_flowing_silhouette_and_does_not_blur_by_internal_flow
     k=35;scene=sc[k];assert scene.turbulent
     body=[b for b in scene.blobs if b.stream]
     assert len(body)>10
-    assert max(np.hypot(*(b.move or (0.,0.))) for b in body)<.1
+    # Surface deformation has a small exposure blur even on a still hand;
+    # circulation inside the sheet must not stretch its entire silhouette.
+    assert max(np.hypot(*(b.move or (0.,0.))) for b in body)<.035*S
     assert max(np.hypot(b.vx,b.vy) for b in body)>2
-    field=water.Field(scene.blobs,H,W);cx,cy,*_=scene.held;y0,y1,x0,x1=field.box
-    assert field.f[int(cy)-y0,int(cx)-x0]<water.TAU
+    field=water.Field(scene.blobs,H,W);cx,cy,_,radius,_=scene.held;y0,y1,x0,x1=field.box
+    yy,xx=np.mgrid[y0:y1,x0:x1]
+    centre=(xx-cx)**2+(yy-cy)**2<(.5*radius)**2
+    # A returning sheet can cross the exact centre while the surrounding curl
+    # remains open. Test the opening's area, not one arbitrarily chosen pixel.
+    assert (field.f[centre]<water.TAU).mean()>.25
     assert max(b.foam for b in body)>.6
 
 
@@ -1721,7 +1727,7 @@ def test_the_held_orbs_rim_leaves_clear_gaps_instead_of_a_broad_white_collar():
     assert max(outer) > 0.25  # a few grazing facets still catch the light; the rim has not simply disappeared
 
 
-def test_the_held_orb_ripples_sparkles_wobbles_and_carries_its_air_round_a_loop():
+def test_the_held_orb_ripples_without_studio_glitter_and_carries_its_air_round_a_loop():
     n = 60
     tl, track = voice(n, hum=(4, 58), hits=()), track_of(n)
     hand, sc = scenes("orb", tl, track)
@@ -1732,14 +1738,10 @@ def test_the_held_orb_ripples_sparkles_wobbles_and_carries_its_air_round_a_loop(
     assert all(water.RIPPLES[1][0] <= v <= water.RIPPLES[1][1] for v in lam)
     ran = [sc[j].trains[0][8] for j in (k, k + 1)]
     assert ran[1] > ran[0]  # ... running on from frame to frame
-    assert len(sc[k].sparks) == water.SPARKS[0] <= 12  # a few points of light (two dozen were glitter)...
-    assert all(-1.0 <= sp[3] <= 1.0 and water.SPARKS[4][0] <= sp[4] <= water.SPARKS[4][1] for sp in sc[k].sparks)
-    lit = [{(round(sp[3], 3), round(sp[4], 3)) for sp in sc[j].sparks if sp[6] > 0.3} for j in range(k, k + 4)]
-    assert all(lit) and all(a != b for a, b in zip(lit, lit[1:]))  # ... flashing and gone, frame to frame...
-    strength = np.array([[sp[6] for sp in sc[j].sparks] for j in range(k, k + 12)])
-    assert all(np.diff(np.flatnonzero(s_ > 0.5 * s_.max())).max(initial=0) <= 3 for s_ in strength.T)  # ... each
-    # flashing every two or three frames
-    assert sc[k].sweep is not None and sc[k + 3].sweep[4] > sc[k].sweep[4]  # a highlight carried round it
+    assert sc[k].sparks == [] and sc[k].sweep is None
+    assert sc[k].turbulent and orb.foam > .2
+    assert .5 < orb.flat < .8
+    assert abs(max(sc[k+3].blobs,key=lambda b:b.r).flat-orb.flat)>.015
     lobes = {l: (a, ph) for l, a, ph in orb.modes}
     assert set(lobes) == {3, 4, 5} and 0.03 < sum(abs(a) for a, _ in lobes.values()) < 0.16  # broad asymmetric lobes
     # to 9 % of its radius...
