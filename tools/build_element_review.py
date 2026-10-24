@@ -59,7 +59,7 @@ def clip(paths, labels, title, audio, target, columns):
                 draw.text((i*cell+28,75),label,font=font(23),fill=(180,188,197))
                 tile=panel(bgr,(cell-28,882))
                 canvas.paste(tile,(i*cell+(cell-tile.width)//2,116))
-            draw.text((34,1025),"Original speed / 24 fps. Audio: bright-room performance. Sample cues; not a live microphone capture.",
+            draw.text((34,1025),"Original speed / 24 fps. Audio: credited sample cue + Foley. Not a live microphone capture.",
                       font=font(19),fill=(153,161,171))
             process.stdin.write(np.asarray(canvas).tobytes())
     finally:

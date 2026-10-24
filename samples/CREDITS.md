@@ -161,3 +161,13 @@ low-confidence tracking impulses. These gallery files remain procedural CPU
 results. The separately requested **Refine stone · GPU** action runs LTX-2.5 with
 ainvfx-fluid and transfers accepted surface detail only inside tracked stone
 coverage; its receipt identifies the new generation and the original performance.
+
+`media/stone-refinement.mp4` compares the previous stone, the updated CPU stone
+and the bounded LTX detail pass at the original 24 fps on both prepared phone
+plates. `media/five-elements-original-takes.mp4` compares five elements on the
+author's original IMG_6668 and IMG_6658 recordings, retaining their recorded
+sound plus procedural Foley. The bright take starts one second into the original;
+the dim take is complete. Its fire reuses the credited LTX asset; its earth uses
+the October 24 LTX generation with the final CPU detail transfer. Air, water and
+lightning are procedural. These videos are demonstrations, not live microphone
+captures or fresh model renders on playback.

@@ -30,7 +30,8 @@ short_description: Generate the effect once. Perform it again with your voice.
 
 # Cue the Boom, with no GPU
 
-**Generate the effect once. Perform it again with your voice.** At the top, **One render. Three performances.** plays the
+**Generate the effect once. Perform it again with your voice.** Choose fire, air, water, lightning or earth,
+then record a cue over a prepared hand clip. Below that recording flow, **One render. Three performances.** plays the
 author's palm and one LTX-2.5 fire render in three performances using their own recorded voice;
 two rhythms are edited from their recorded pf and BOOM sounds.
 

@@ -133,7 +133,7 @@
   "rank": -103.2
  },
  "bending|hand_open.mp4|hoooo.wav|air_ball@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__air_ball",
+  "dir": "elements_20261024__bright__air_ball",
   "title": "Air vortex · bright room",
   "plate": "hand_open.mp4",
   "voice": "hoooo.wav",
@@ -145,7 +145,7 @@
   "rank": -90
  },
  "bending|hand_open.mp4|hoo-hoo-HOO.wav|air_blast@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__air_blast",
+  "dir": "elements_20261024__bright__air_blast",
   "title": "Air blast · bright room",
   "plate": "hand_open.mp4",
   "voice": "hoo-hoo-HOO.wav",
@@ -157,7 +157,7 @@
   "rank": -89
  },
  "bending|hand_open.mp4|shhhhh-sploosh.wav|water_orb@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__water_orb",
+  "dir": "elements_20261024__bright__water_orb",
   "title": "Water orb · bright room",
   "plate": "hand_open.mp4",
   "voice": "shhhhh-sploosh.wav",
@@ -169,7 +169,7 @@
   "rank": -88
  },
  "bending|hand_open.mp4|shhhhh-sploosh.wav|water_whip@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__water_whip",
+  "dir": "elements_20261024__bright__water_whip",
   "title": "Water whip · bright room",
   "plate": "hand_open.mp4",
   "voice": "shhhhh-sploosh.wav",
@@ -181,7 +181,7 @@
   "rank": -87
  },
  "bending|hand_open.mp4|zzzzz-tsst.wav|lightning_ball@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__lightning_ball",
+  "dir": "elements_20261024__bright__lightning_ball",
   "title": "Ball lightning · bright room",
   "plate": "hand_open.mp4",
   "voice": "zzzzz-tsst.wav",
@@ -193,7 +193,7 @@
   "rank": -65
  },
  "bending|hand_open.mp4|zzzzz-tsst.wav|lightning_arc@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__lightning_arc",
+  "dir": "elements_20261024__bright__lightning_arc",
   "title": "Lightning arcs · bright room",
   "plate": "hand_open.mp4",
   "voice": "zzzzz-tsst.wav",
@@ -205,7 +205,7 @@
   "rank": -66
  },
  "bending|hand_open.mp4|hoooo.wav|earth_rock@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__earth_rock",
+  "dir": "elements_20261024__bright__earth_rock",
   "title": "Floating stone · bright room",
   "plate": "hand_open.mp4",
   "voice": "hoooo.wav",
@@ -217,7 +217,7 @@
   "rank": -84
  },
  "bending|hand_open.mp4|pf-pf-boom-author.wav|earth_shatter@made|0.53,0.71|17": {
-  "dir": "elements_20261023__bright__earth_shatter",
+  "dir": "elements_20261024__bright__earth_shatter",
   "title": "Stone shatter · bright room",
   "plate": "hand_open.mp4",
   "voice": "pf-pf-boom-author.wav",
@@ -229,7 +229,7 @@
   "rank": -83
  },
  "bending|hand_palm.mp4|hoooo.wav|air_ball@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__air_ball",
+  "dir": "elements_20261024__dark__air_ball",
   "title": "Air vortex · dim room",
   "plate": "hand_palm.mp4",
   "voice": "hoooo.wav",
@@ -241,7 +241,7 @@
   "rank": -70
  },
  "bending|hand_palm.mp4|hoo-hoo-HOO.wav|air_blast@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__air_blast",
+  "dir": "elements_20261024__dark__air_blast",
   "title": "Air blast · dim room",
   "plate": "hand_palm.mp4",
   "voice": "hoo-hoo-HOO.wav",
@@ -253,7 +253,7 @@
   "rank": -69
  },
  "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_orb@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__water_orb",
+  "dir": "elements_20261024__dark__water_orb",
   "title": "Water orb · dim room",
   "plate": "hand_palm.mp4",
   "voice": "shhhhh-sploosh.wav",
@@ -265,7 +265,7 @@
   "rank": -68
  },
  "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_whip@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__water_whip",
+  "dir": "elements_20261024__dark__water_whip",
   "title": "Water whip · dim room",
   "plate": "hand_palm.mp4",
   "voice": "shhhhh-sploosh.wav",
@@ -277,7 +277,7 @@
   "rank": -67
  },
  "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_ball@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__lightning_ball",
+  "dir": "elements_20261024__dark__lightning_ball",
   "title": "Ball lightning · dim room",
   "plate": "hand_palm.mp4",
   "voice": "zzzzz-tsst.wav",
@@ -289,7 +289,7 @@
   "rank": -85
  },
  "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_arc@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__lightning_arc",
+  "dir": "elements_20261024__dark__lightning_arc",
   "title": "Lightning arcs · dim room",
   "plate": "hand_palm.mp4",
   "voice": "zzzzz-tsst.wav",
@@ -301,7 +301,7 @@
   "rank": -86
  },
  "bending|hand_palm.mp4|hoooo.wav|earth_rock@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__earth_rock",
+  "dir": "elements_20261024__dark__earth_rock",
   "title": "Floating stone · dim room",
   "plate": "hand_palm.mp4",
   "voice": "hoooo.wav",
@@ -313,7 +313,7 @@
   "rank": -64
  },
  "bending|hand_palm.mp4|pf-pf-boom-author.wav|earth_shatter@made|0.51,0.65|17": {
-  "dir": "elements_20261023__dark__earth_shatter",
+  "dir": "elements_20261024__dark__earth_shatter",
   "title": "Stone shatter · dim room",
   "plate": "hand_palm.mp4",
   "voice": "pf-pf-boom-author.wav",

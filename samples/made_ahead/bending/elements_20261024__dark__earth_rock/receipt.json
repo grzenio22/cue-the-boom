@@ -1,0 +1,70 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "earth_rock",
+  "made": "earth",
+  "form": "rock",
+  "fluid": "earth",
+  "behaviour": "rock"
+ },
+ "inputs": {
+  "point": [
+   0.509,
+   0.654
+  ],
+  "seed": 17,
+  "offset_s": 1.3083333333333333,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "(made, not rendered: cuesync.earth)",
+  "guide_scale": 1.0
+ },
+ "bending": {
+  "track": "samples/made_ahead/bending/elements_20261024__dark__earth_rock/hand_track.json",
+  "mask": "samples/made_ahead/bending/elements_20261024__dark__earth_rock/hand_mask.npz",
+  "k_hit": 32,
+  "tap_frame": 54,
+  "aim": null,
+  "aim_mode": "tracked",
+  "k_launch": 32,
+  "snap": {
+   "cue": 32,
+   "motion": 38,
+   "frame": 32,
+   "used": "cue",
+   "mismatch": true
+  },
+  "hits": [
+   {
+    "frame": 32,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 32,
+     "motion": 38,
+     "frame": 32,
+     "used": "cue",
+     "mismatch": true
+    }
+   }
+  ],
+  "holds": [
+   [
+    36,
+    75
+   ]
+  ],
+  "performed_again": null,
+  "camera": "handheld: what it leaves moves with the room"
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 44.7
+}
