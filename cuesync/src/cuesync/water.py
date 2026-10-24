@@ -5049,8 +5049,11 @@ def surge_scenes(tl,track,hand,shape,seed,cam,plate=None,mask=None):
     """
     scenes=orb_scenes(tl,track,hand,shape,seed,cam,plate,mask)
     plan=orb_plan(tl,track)
+    spray=Drops(cam,shape,float(np.median(hand.s)))
     for k,sc in enumerate(scenes):
+        spray.step()
         if sc.held is None or k<plan.formed or (plan.release is not None and k>=plan.release):
+            sc.blobs.extend(spray.blobs(k))
             continue
         cx,cy,z,r,weight=sc.held;s=float(hand.s[k]);time=(k-plan.formed)/FPS
         u=np.linspace(0,1,64)
@@ -5073,31 +5076,18 @@ def surge_scenes(tl,track,hand,shape,seed,cam,plate=None,mask=None):
         blobs=_stream(pts,velocity,rad,aeration,flowing,arc,.42+.15*np.sin(12*u-7*time),root_feather=.04*r)
         # Fade the reservoir into the curl over six exposures, without a jump.
         morph=float(_ss(plan.formed,plan.formed+6,k))
+        if plan.release is not None:
+            morph*=1-float(_ss(plan.release-7,plan.release,k))
         kept=[b for b in sc.blobs if b.free]
         if morph<1:
             kept.extend(b._replace(w=b.w*(1-morph)) for b in sc.blobs if not b.free)
         sc.blobs=kept+[b._replace(w=b.w*morph) for b in blobs]
         sc.turbulent=True
         sc.held=(cx,cy,z,r,weight*.70);sc.trains=[];sc.sweep=None;sc.sparks=[];sc.bubbles=[]
-        # Several travelling droplets continue the terminal tangent; each has a
-        # staggered age, gravity and a finite fade, rather than a static bead ring.
-        for j in range(6):
-            age=(k-plan.formed+j*3)%18
-            distance=age/FPS
-            born=k-age
-            if born<plan.formed or scenes[born].held is None:
-                continue
-            from .bending import camera_between
-            bc=np.array(scenes[born].held[:3]);br=scenes[born].held[3];bs=float(hand.s[born])
-            bt=(born-plan.formed)/FPS;theta_b=5.55+.35*math.sin(bt*2.2)
-            rb=br*(1.11+.16*math.sin(9-4.6*bt))
-            tip=bc+np.array([math.cos(theta_b)*rb,math.sin(theta_b)*rb*.90-.20*br,.38*br*math.cos(theta_b+.4)])
-            velocity=np.array([-math.sin(theta_b),.90*math.cos(theta_b),-.12])*.12*bs
-            tip+=velocity*age+[0,.5*5*bs*distance**2,0]
-            transform=camera_between(cam,born,k)
-            tip[:2]=(transform@np.r_[tip[:2],1.])[:2]
-            rr=.07*br*(1-age/18)
-            sc.blobs.append(Blob(*tip,rr,free=True,foam=.12,move=tuple(velocity[:2]*SHUTTER)))
+        # Spray remains in the room after the curl gathers or the hand moves.
+        if k%3==0 and morph>.5:
+            spray.add(k,pts[-1],np.r_[flowing[-1],-.02*s],.07*r,foam=.12,life=18,fade=6,g=5*s/FPS**2)
+        sc.blobs.extend(spray.blobs(k))
         sc.wave=.18+.12*float(tl.energy[k])
     return scenes
 

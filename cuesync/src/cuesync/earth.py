@@ -218,7 +218,7 @@ def rotation(t: float) -> np.ndarray:
     return np.array([[ca, 0, sa], [0, 1, 0], [-sa, 0, ca]]) @ np.array([[1,0,0],[0,cb,-sb],[0,sb,cb]])
 
 
-def raster(mesh: Stone, center, radius, turn, rgb, alpha, depth, light, irradiance):
+def raster(mesh: Stone, center, radius, turn, rgb, alpha, depth, light, irradiance, opacity=1.):
     """Opaque, textured mesh into a shared local depth buffer, nearest Z wins."""
     H, W = alpha.shape
     verts = mesh.vertices @ turn.T * radius + center
@@ -259,7 +259,7 @@ def raster(mesh: Stone, center, radius, turn, rgb, alpha, depth, light, irradian
         shade=.25+.75*facing
         colour=material*mesh.colour*irradiance*shade[...,None]
         rgb[y0:y1,x0:x1][covered]=colour[covered]
-        alpha[y0:y1,x0:x1][covered]=1
+        alpha[y0:y1,x0:x1][covered]=opacity
         depth[y0:y1,x0:x1][covered]=z[covered]
 
 
@@ -387,8 +387,6 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
     say=progress or (lambda *args:None)
     for k in range(n):
         presence=float(hand.presence[k])
-        if presence<=0:
-            continue
         objects=[];s=float(hand.s[k]);p=hand.p[k];contact=0.;dust_origin=None;dust_age=0.
         for a,b,gain in events:
             if not a<=k<min(n,b+38):
@@ -411,7 +409,8 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
             if release:
                 center,size=_flight_center(hand,b-1,k,timeline.camera);r=size*(.43+.08*gain)
             turn=rotation(age*.65)
-            if body:
+            body_presence=float(hand.presence[b-1]) if release else presence
+            if body and body_presence>0:
                 if form=='lance':
                     turn=turn@np.diag([.40,1.8,.48])
                 for j,(mesh,off) in enumerate(parts):
@@ -422,14 +421,18 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
                     local[1]+=r*assembly*(1.2 if j%2 else -1.)
                     local[1]-=lift*s*(.3+.12*j)
                     at=center+turn@local
-                    objects.append((mesh,at,r*max(.3,grow),turn,fade))
-                contact=max(contact,grow*fade*math.exp(-release*release*5)*(1-.65*lift))
-            dust_origin=center;dust_age=age
+                    objects.append((mesh,at,r*max(.3,grow),turn,fade*body_presence))
+                contact=max(contact,grow*fade*body_presence*math.exp(-release*release*5)*(1-.65*lift))
+            if body_presence>0:
+                dust_origin=center;dust_age=age
             for action in related:
                 if action['action']=='raise_stack':
                     continue
+                birth_presence=float(hand.presence[action['frame']])
+                if birth_presence<=0:
+                    continue
                 for mesh,at,radius,spin in _projectiles(action,k,hand,parts,meshes,timeline.camera,gain):
-                    objects.append((mesh,at,radius,spin,fade))
+                    objects.append((mesh,at,radius,spin,fade*birth_presence))
         if not objects:
             continue
         # Bound all actual transformed silhouettes, including long lances.
@@ -442,9 +445,9 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
             continue
         bh,bw=y1-y0,x1-x0;C=np.zeros((bh,bw,3),np.float32);A=np.zeros((bh,bw),np.float32);Z=np.full((bh,bw),-np.inf,np.float32)
         # Opaque geometry first, one shared depth buffer. Fade only the final lifecycle tail.
-        fade=max(o[4] for o in objects)*presence
-        for mesh,center,r,turn,_ in objects:
-            raster(mesh,center-[x0,y0,0],r,turn,C,A,Z,light,irradiance)
+        fade=max(o[4] for o in objects)
+        for mesh,center,r,turn,opacity in objects:
+            raster(mesh,center-[x0,y0,0],r,turn,C,A,Z,light,irradiance,opacity)
         yy,xx=np.mgrid[y0:y1,x0:x1].astype(np.float32)
         matte=np.zeros((bh,bw),np.float32) if mask is None else mask[k,y0:y1,x0:x1].astype(np.float32)/255
         if mask is not None:
@@ -455,8 +458,8 @@ def render(plate, track, mask, timeline: Timeline, form: str, seed=0, progress=N
         patch*=(1-.28*contact*shadow*matte)[...,None]
         C*=A[...,None];A=cv2.GaussianBlur(A,(0,0),.65);C=cv2.GaussianBlur(C,(0,0),.65)
         if coverage is not None:
-            coverage[k,y0:y1,x0:x1]=np.rint(A*fade*255).astype(np.uint8)
-        patch[:]=patch*(1-A[...,None]*fade)+C*fade
+            coverage[k,y0:y1,x0:x1]=np.rint(A*255).astype(np.uint8)
+        patch[:]=patch*(1-A[...,None])+C
         # Sparse falling dust reflects the room and yields to foreground fingers.
         if dust_origin is not None:
             for j,v in enumerate(dust):

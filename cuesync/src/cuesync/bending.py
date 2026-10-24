@@ -1407,6 +1407,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         # A side-on palm can project its wrist-to-knuckle axis downward. That axis
         # carries the tapped point, but does not give a rising flame its direction.
         arrow, aim_mode = 0.0, "upward_default"
+    if effect == "earth_rock":
+        from .motion import bridge_short_gaps
+        track = bridge_short_gaps(track, plate, mask)
     track = anchored(track, tap_k, (spec.point[0] * w, spec.point[1] * h), arrow)
     track["aim_mode"] = aim_mode
     if aim_mode == "upward_default":
@@ -1952,6 +1955,7 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
         from .earth import choreography
         from .motion import analyze
         receipt["bending"]["movement"] = {"method": "camera-compensated 2D strokes; confidence and continuity gated",
+                                          "flow_bridge_frames": track.get("flow_bridge_frames",[]),
                                           "observed": analyze(track,cam).receipt(),
                                           "actions": choreography(track,timeline,form)}
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))

@@ -52,3 +52,40 @@ def test_second_distinct_stroke_rearms_and_has_plain_receipt():
     assert result.events[1].direction[0]<-.95
     import json
     assert 'swipe' in json.dumps(result.receipt())
+
+
+def test_short_detector_gap_follows_visible_pixels_without_enabling_strokes():
+    import cv2
+    from cuesync.motion import bridge_short_gaps
+    rng=np.random.default_rng(3);texture=rng.integers(40,230,(36,36,3),dtype=np.uint8)
+    frames=np.zeros((18,100,140,3),np.uint8);mask=np.zeros(frames.shape[:3],np.uint8)
+    for k in range(18):
+        frames[k,40:76,30+k*2:66+k*2]=texture;mask[k,40:76,30+k*2:66+k*2]=255
+    t=track(np.tile([48.,58.],(18,1)));t['src'][1:]=['lost']*17;t['conf'][1:]=[0.]*17
+    out=bridge_short_gaps(t,frames,mask)
+    assert out['flow_bridge_frames']==list(range(1,13))
+    assert np.linalg.norm(np.asarray(out['xy'][12])-[72,58])<1
+    assert not analyze(out).events
+    assert t['src'][1]=='lost' and t['xy'][12]==[48.,58.]
+    mask[3:]=0
+    absent=bridge_short_gaps(t,frames,mask)
+    assert absent['flow_bridge_frames']==[1,2]
+
+
+def test_gap_recovery_measures_rotation_and_scale_without_altering_input():
+    import cv2
+    from cuesync.motion import bridge_short_gaps
+    rng=np.random.default_rng(41)
+    first=np.zeros((240,280,3),np.uint8)
+    first[70:170,90:190]=rng.integers(30,230,(100,100,3),dtype=np.uint8)
+    matte=np.zeros(first.shape[:2],np.uint8);matte[70:170,90:190]=255
+    matrix=cv2.getRotationMatrix2D((140,120),9,.88);matrix[:,2]+=[12,-18]
+    frames=np.stack([first,cv2.warpAffine(first,matrix,(280,240))])
+    masks=np.stack([matte,cv2.warpAffine(matte,matrix,(280,240))])
+    t=track(np.tile([140.,120.],(2,1)));t['scale']=[100.,100.]
+    t['src'][1]='lost';t['conf'][1]=0
+    recovered=bridge_short_gaps(t,frames,masks)
+    assert recovered['flow_bridge_frames']==[1]
+    assert np.linalg.norm(np.asarray(recovered['xy'][1])-[152,102])<2
+    assert abs(recovered['scale'][1]-88)<3
+    assert t['scale'][1]==100 and not analyze(recovered).events

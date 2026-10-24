@@ -198,3 +198,15 @@ def test_close_voice_hits_do_not_assign_the_same_hand_action_to_two_events():
     hand_actions=[e for e in plan if e['source']=='hand']
     assert len(hand_actions)==1 and hand_actions[0]['action']=='shard_fan'
     assert hand_actions[0]['event_start'] in tl.hits
+
+
+@pytest.mark.parametrize('form',['volley','lance'])
+def test_launched_projectiles_survive_the_hand_leaving_the_picture(form,monkeypatch):
+    p,t,m,tl=scene(25);earth=renderer();hand=earth.hand_of(t,tl.n,p)
+    hand.presence[15:]=0
+    monkeypatch.setattr(earth,'hand_of',lambda *args:hand)
+    m[15:]=0
+    coverage=np.zeros(p.shape[:3],np.uint8)
+    out=earth.render(p,t,m,tl,form,seed=17,coverage=coverage)
+    assert coverage[16:19].max()>200
+    assert not np.array_equal(out[16:19],p[16:19])
