@@ -130,7 +130,7 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
         slot.busy = true;
         slot.v.currentTime = Math.max(0, (slot.el.ignition - (held ? 0 : 1)) / slot.el.fps);
         slot.v.playbackRate = held ? 1 : 1 / Math.max(0.5, size); // a smaller blast is over sooner
-        void slot.v.play();
+        void slot.v.play().catch(() => undefined);
         const fit = (tip ? slot.el.fit?.tip : slot.el.fit?.palm) ?? 1; // as big as the shot will play it
         const p: Play = { el: slot.el, video: slot.v, gain, size, held, letGo: null, fit, born: performance.now(), left: null };
         plays.push(p);

@@ -24,7 +24,7 @@ export default function Hook() {
           <figure key={s.id}>
             <video src={s.files["final.mp4"]} poster={s.files["poster.jpg"]} autoPlay muted={heard !== s.id} playsInline
               preload="auto" onLoadedMetadata={(e) => { e.currentTarget.currentTime = effectStart(s.receipt); }}
-              onEnded={(e) => { e.currentTarget.currentTime = effectStart(s.receipt); void e.currentTarget.play(); }}
+              onEnded={(e) => { e.currentTarget.currentTime = effectStart(s.receipt); void e.currentTarget.play().catch(() => undefined); }}
               aria-label={`${s.title}: tap to ${heard === s.id ? "mute" : "hear the cue"}`}
               onClick={() => setHeard(heard === s.id ? null : s.id)} />
             <figcaption>{s.title}</figcaption>
