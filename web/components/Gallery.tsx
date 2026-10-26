@@ -19,7 +19,9 @@ export default function Gallery() {
   useEffect(() => { if (openId) player.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, [openId]);
 
   useEffect(() => {
-    fetch("/api/gallery").then((r) => (r.ok ? r.json() : [])).then(setShots, () => setShots([]));
+    fetch("/api/gallery").then((r) => (r.ok ? r.json() : []))
+      // a render's further performances play together above, under "One render": the grid shows it once
+      .then((all: Shot[]) => setShots(all.filter((s) => !s.again)), () => setShots([]));
   }, []);
 
   if (shots.length === 0) return null;

@@ -6,7 +6,7 @@
 
 Choose **Fire**, **Air**, **Explosion** or **Lightning**, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
 
-Below the creation flow, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render with three voice-driven performances: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
+Below the creation flow, **One render. Seven performances.** shows the author's palm and one LTX-2.5 fire render with three of the author's voice-driven performances, **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Below them, four strangers' recorded voices (CC0, Freesound) perform the same render again. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
 
 For hand effects, the fire, the air vortex and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning is a procedural CPU effect.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
 
@@ -25,7 +25,7 @@ A new take reuses the same element while the CPU tracks, masks, lights and compo
 The three performances below the creation flow let you hear and see that separation, and four strangers' recorded voices
 (CC0, from Freesound) perform the same render again under them.
 
-![One LTX render performed by seven voices: the author's BOOM, pf, pf, BOOM and pf pf pf PF, then Sadiquecat's Boom, unfa's Ka-Boom!, huw2k8's soft Powf (a small fireball) and Jedimichael's Boom](media/one_render_seven_voices.jpg)
+![One LTX render, seven performances by five people: the author's BOOM, pf, pf, BOOM and pf pf pf PF, then Sadiquecat's Boom, unfa's Ka-Boom!, huw2k8's soft Powf (a small fireball) and Jedimichael's Boom](media/one_render_seven_voices.jpg)
 <sub>One generation, seven performances, each at its loudest hit: a soft voice throws a small fireball, a loud one a big one. Each also has its own timing and rhythm, which a still can't show.</sub>
 
 ## Try it in two minutes, no GPU
@@ -87,7 +87,7 @@ The details (the pipeline step by step, the timing evaluation, the matte, the li
 
 ## The curated gallery
 
-**Made with it** leads with the fist explosion, the palm fire and its two new voice rhythms, the same render in four strangers' recorded voices, then the walking flame, pointing fire, the air vortex and lightning. The dim-room lightning arcs and ball show procedural light on the author's hand. These are finished shots you can play without a GPU.
+**Made with it** leads with the fist explosion, the palm fire and its two new voice rhythms, the same render in four strangers' recorded voices, then the walking flame, pointing fire, the air vortex and lightning, whose procedural light falls on the author's hand. The grid shows each render once; its further performances play together under **One render. Seven performances.** These are finished shots you can play without a GPU.
 
 Water and earth, and the procedural air ball and blast, are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
@@ -95,7 +95,7 @@ Choose an effect, then perform its cue. Voice controls timing and strength; it d
 
 ## The entry at a glance
 
-- **Core video model:** LTX-2.5 (Lightricks) with the ainvfx-fluid IC-LoRA (AInVFX, Adrien Toupet). Every fire effect, and the explosion's fireball, is an LTX-2.5 render.
+- **Core video model:** LTX-2.5 (Lightricks) with the ainvfx-fluid IC-LoRA (AInVFX, Adrien Toupet). Every fire effect, the air vortex and the explosion's fireball are LTX-2.5 renders.
 - **Open weights only, self-hosted.** No partner nodes and no closed APIs. [Models and licences](TECHNICAL.md#models-and-licences); [versions and revisions](build/model-files.md).
 - **The app:** a browser studio and its render API (`cuesync studio`), a CLI (`cuesync`), and ComfyUI nodes.
 

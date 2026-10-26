@@ -174,15 +174,15 @@ def credits(out: Path) -> None:
         "ComfyUI + Comfy SDK · Comfy Org",
         "Hands: MediaPipe · Google    RTMPose · OpenMMLab    SAM 2.1 · Meta",
         "The author's own hand, voice and phone    Stock footage: Pexels, Pixabay",
-        "Voices · rykenn, unfa and others (CC0, Freesound)",
+        "Voices · Sadiquecat, unfa, huw2k8, Jedimichael, rykenn (CC0, Freesound)",
         "Narration · Kokoro-82M, a synthetic voice    Foley · synthesised per shot",
         "Open weights only · generation self-hosted on one rented GPU",
     ]
     for i, row in enumerate(rows):
         fit_text(d, (W / 2, 160 + i * 73), row, 37, W - 120, anchor="ma")
     d.line((120, 727, W - 120, 727), fill=LINE, width=3)
-    text(d, (W / 2, 763), "Fire + explosion fireball: LTX-2.5 renders", 40, ACCENT, True, "ma")
-    text(d, (W / 2, 829), "Lightning + water: procedural CPU effects", 40, ACCENT, True, "ma")
+    text(d, (W / 2, 763), "Fire, air vortex + explosion fireball: LTX-2.5 renders", 40, ACCENT, True, "ma")
+    text(d, (W / 2, 829), "Lightning + the explosion's blast: procedural CPU effects", 40, ACCENT, True, "ma")
     im.save(out / "credits.png")
 
 

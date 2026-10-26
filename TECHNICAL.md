@@ -5,11 +5,11 @@ evaluation, setting the helpers up by hand, and the other routes (into the scene
 
 ## Generation and performance
 
-Generation makes a stored element; performance gives it a new timeline. Near the top of the studio, **One render. Three performances.** uses `hand_palm__boom__fire_burst` and its two replays, `hand_palm__pfpfboom__again` and `hand_palm__pfx4__again`, in `samples/made_ahead/bending/`. The author's palm footage and one LTX-2.5 fire element stay the same. **BOOM** uses the original recorded cue; **pf, pf, BOOM** and **pf pf pf PF** are edited rhythms assembled from the author's recordings and room tone.
+Generation makes a stored element; performance gives it a new timeline. Near the top of the studio, **One render. Seven performances.** uses `hand_palm__boom__fire_burst` and its two replays, `hand_palm__pfpfboom__again` and `hand_palm__pfx4__again`, in `samples/made_ahead/bending/`, then four more by strangers' recorded voices (`hand_palm__sadiquecat__again`, `hand_palm__unfa__again`, `hand_palm__huw2k8__again`, `hand_palm__jedimichael__again`). The author's palm footage and one LTX-2.5 fire element stay the same. **BOOM** uses the original recorded cue; **pf, pf, BOOM** and **pf pf pf PF** are edited rhythms assembled from the author's recordings and room tone.
 
-Both replay receipts name the base shot and record the same element SHA-256, `no_new_render: true` and `no_gpu: true`. The new voice determines the hit frames, size and held duration; tracking, masking, compositing and light run on the CPU. The generated effect becomes a reusable instrument.
+The replay receipts name the base shot and record the same element SHA-256, `no_new_render: true` and `no_gpu: true`. The new voice determines the hit frames, size and held duration; tracking, masking, compositing and light run on the CPU. The generated effect becomes a reusable instrument.
 
-For hand effects, LTX-2.5 with ainvfx-fluid generates the fire and the explosion's fireball once over black. [`runner.py`](cuesync/src/cuesync/runner.py) loads the API workflow JSON, constructs the Comfy Python SDK workflow and sends it to the self-hosted Comfy API with `client.run`. Lightning is a procedural CPU effect. The explosion reuses an LTX fireball; its blast, light, smoke compositing and dissipation are handled on the CPU.
+For hand effects, LTX-2.5 with ainvfx-fluid generates the fire, the air vortex and the explosion's fireball once over black. [`runner.py`](cuesync/src/cuesync/runner.py) loads the API workflow JSON, constructs the Comfy Python SDK workflow and sends it to the self-hosted Comfy API with `client.run`. Lightning is a procedural CPU effect. The explosion reuses an LTX fireball; its blast, light, smoke compositing and dissipation are handled on the CPU.
 
 ## The pipeline
 
@@ -80,11 +80,11 @@ These effects are composited on the CPU from the plate, hand track and matte, an
 - **Lightning** ([`lightning.py`](cuesync/src/cuesync/lightning.py)) uses branching channels from a tracked fingertip or a plasma ball over the palm, with hand occlusion and cool light on the skin and room. The voice sets timing and strength; no model generation is needed.
 - **Explosion** ([`explosion.py`](cuesync/src/cuesync/explosion.py)) uses a stored LTX-2.5 + ainvfx-fluid fireball. Its blast is measured on the source render, placed ahead of the fist on the strike and carried with the room after release. The CPU adds the blast, light, sparks, smoke compositing and dissipation without a new generation.
 
-Water, air and earth are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
+Water, earth and the procedural air ball and blast are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
-The curated gallery leads with the fist explosion, palm fire and its two re-performances, followed by the walking flame, pointing fire and lightning, and dim-room lightning arcs and ball. Each finished shot keeps its source and performance receipts. The live preview draws fire and lightning in the browser.
+The curated gallery leads with the fist explosion, palm fire and its re-performances in the author's and four strangers' voices, followed by the walking flame, pointing fire, the air vortex and lightning from a fingertip and a dim-room palm. Each finished shot keeps its source and performance receipts. The live preview draws fire and lightning in the browser.
 
-**Earlier CPU-route evaluation, on nineteen phone takes.** Before the nine-slab compositor upgrade, nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library. The timings below describe that earlier compositor, not the current fire pipeline or a laptop performance guarantee.
+**CPU-route evaluation, on nineteen phone takes.** Nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library. The timings below are from a desktop CPU, not a laptop performance guarantee.
 - Every one of the nineteen made a shot, in 32 to 100 s each on a desktop CPU.
 - The hand was lost on at most 23 % of a clip's frames.
 - The picks: a palm's "pf" a pop of fire, a fist's strike a burst, a roar from pointing fingers a flamethrower, a held "fffff" over an open palm a flame in it, a BOOM a fireball. One snap with no voice became a pop of fire where a lighter's flame was meant; a tap on the badge changes it.
@@ -278,4 +278,4 @@ pip install "./cuesync[server,dev]"
 pytest cuesync/tests
 ```
 
-The final Python integration run passed **1,039 tests**, with **20 skipped** and **2 warnings**, in 454.56 seconds. The skips require optional MediaPipe, SAM 2.1 or development plates. The suite runs on the CPU; duration depends on the machine and concurrent rendering. The studio's **251 tests**, TypeScript, ESLint, production build and static export passed. Its tests need Node 24: `npm install`, then `npm test`, in `web/`.
+The final Python integration run passed **1,066 tests**, with **20 skipped**. The skips require optional MediaPipe, SAM 2.1 or development plates. The suite runs on the CPU; duration depends on the machine and concurrent rendering. The studio's **295 tests**, TypeScript, ESLint, production build and static export passed. Its tests need Node 24: `npm install`, then `npm test`, in `web/`.

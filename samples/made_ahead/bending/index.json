@@ -86,30 +86,6 @@
   "real": true,
   "rank": -194
  },
- "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_arc@made|0.51,0.65|17": {
-  "dir": "elements_water_air_20261024__dark__lightning_arc",
-  "title": "Lightning arcs · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "zzzzz-tsst.wav",
-  "effect": "lightning_arc",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -193
- },
- "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_ball@made|0.51,0.65|17": {
-  "dir": "elements_water_air_20261024__dark__lightning_ball",
-  "title": "Ball lightning · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "zzzzz-tsst.wav",
-  "effect": "lightning_ball",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -192
- },
  "bending|hand_cupped.mp4||fire_burst@f9c3de6f|0.60,0.60|1": {
   "dir": "hand_cupped__kaboom__fire_burst",
   "title": "KA-BOOM · a fireball in your palm",
@@ -222,16 +198,16 @@
   "real": true,
   "rank": -194.5
  },
- "bending|hand_open.mp4|hoooo.wav|air_vortex@13561463|0.53,0.71|1": {
-  "dir": "hand_open__hoooo__air_vortex",
-  "title": "hoooooo · an air vortex in the palm (lit hallway)",
-  "plate": "hand_open.mp4",
-  "voice": "hoooo.wav",
-  "effect": "air_vortex",
+ "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_arc@made|0.51,0.65|1": {
+  "dir": "hand_palm__zzzzz__lightning",
+  "title": "zzzzz · lightning from the fingertips (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "zzzzz-tsst.wav",
+  "effect": "lightning_arc",
   "mode": "bending",
   "seed": 1,
-  "tap_frame": 30,
+  "tap_frame": 54,
   "real": true,
-  "rank": -194.4
+  "rank": -193
  }
 }

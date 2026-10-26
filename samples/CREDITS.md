@@ -67,8 +67,8 @@ simulation.
 
 `library/bending/air_vortex` is an LTX-2.5 22B (int8) + ainvfx-fluid render (seed 1, 110 s on a rented A100 on
 26 October 2026) of the funnel guide stored beside it; its receipt records the prompt. The gallery's
-`made_ahead/bending/hand_palm__hoooo__air_vortex` and `hand_open__hoooo__air_vortex` carry that one element on the
-author's palm and open hand with the synthetic `voices/hoooo.wav`, on the CPU with no GPU.
+`made_ahead/bending/hand_palm__hoooo__air_vortex` carries that one element on the author's palm with the
+synthetic `voices/hoooo.wav`, on the CPU with no GPU.
 
 ## Stock footage and photos
 
@@ -127,11 +127,9 @@ credited unfa recording, not a synthetic preset.
 
 ## Curated lightning shots
 
-`made_ahead/bending/elements_water_air_20261024__dark__lightning_arc` and
-`made_ahead/bending/elements_water_air_20261024__dark__lightning_ball` use the
-author's prepared dim-room `hand_palm.mp4`, the synthetic `zzzzz-tsst.wav` cue
-and procedural Foley. These are procedural CPU composites, without a new model
-generation or outside stock element. Each shot records input and source hashes.
+`made_ahead/bending/hand_point__zzzzz__lightning` and `hand_palm__zzzzz__lightning` use the
+author's pointing and dim-room palm footage, the synthetic `zzzzz-tsst.wav` cue and procedural
+Foley. They are procedural CPU composites, without a new model generation or outside stock element.
 
 ## Experimental elements
 
