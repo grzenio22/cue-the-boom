@@ -61,6 +61,9 @@ def beats_of(board: dict | list) -> list[dict]:
 
 def structure_check(board: dict | list, baseline: dict | list) -> tuple[dict, list[str]]:
     """Compare unchanged beat fields, with explicit exceptions for this edit."""
+    if isinstance(board, dict) and board.get("version") == 20:
+        from v20_build import structure_check as v20_structure_check
+        return v20_structure_check(board, baseline)
     if isinstance(board, dict) and board.get("version") == 19:
         from v19_build import structure_check as v19_structure_check
         return v19_structure_check(board, baseline)
@@ -326,6 +329,9 @@ def proof_provenance_check(jobs: dict, version: int, digest=sha256) -> tuple[lis
 
 def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
     """Verify current renderer fingerprints and every recorded output digest."""
+    if isinstance(board, dict) and board.get("version") == 20:
+        from v20_build import source_provenance_check as v20_source_check
+        return v20_source_check(board)
     if isinstance(board, dict) and board.get("version") == 19:
         from v19_build import source_provenance_check as v19_source_check
         return v19_source_check(board)
@@ -766,7 +772,8 @@ def main() -> int:
         report["source_picture_comparison"] = source_pictures
         errors.extend(source_picture_errors)
         if version >= 16:
-            identities = ("try_sample", "perform", "make", "download") if version in (18, 19) else ("upload", "perform", "make")
+            identities = (("try_sample", "perform", "make", "download") if version in (18, 19)
+                          else () if version >= 20 else ("upload", "perform", "make"))  # v20: phone takes, no UI chips
             for identity in identities:
                 layout, layout_errors = chip_header_layout_check(args.video, schedule, out, identity)
                 report[f"{identity}_layout"] = layout
