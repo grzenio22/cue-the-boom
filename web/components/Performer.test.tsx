@@ -37,6 +37,45 @@ function show(props: Partial<ComponentProps<typeof Performer>> = {}) {
   return onDone;
 }
 
+describe("Performer experimental sample voices", () => {
+  it.each([
+    ["water_orb", "Water cue"],
+    ["air_ball", "Air cue"],
+    ["earth_rock", "Earth cue"],
+  ])("requires opening Experimental before explicitly choosing %s", (effect, title) => {
+    const onDone = show({ hand: true, voices: [voice,
+      { name: "experimental.wav", url: "/experimental.wav", title, effect, hand: true }],
+    });
+    const core = [...host.querySelectorAll("button")].find((b) => b.textContent?.startsWith("Pop"))!;
+    expect(core.closest("details")).toBeNull();
+    const sample = [...host.querySelectorAll("button")].find((b) => b.textContent?.startsWith(title))!;
+    const disclosure = sample.closest("details")!;
+    expect(disclosure.querySelector("summary")?.textContent).toBe("Experimental");
+    expect(disclosure.open).toBe(false);
+    expect(sample.textContent).toContain("Experimental");
+    expect(onDone).not.toHaveBeenCalled();
+
+    click(disclosure.querySelector("summary")!);
+    expect(disclosure.open).toBe(true);
+    click(sample);
+    expect(onDone).toHaveBeenCalledWith(expect.objectContaining({
+      cue: "voice", voice: { sample: "experimental.wav" }, suggested: effect, experimental: true,
+    }));
+  });
+
+  it("keeps a core sample voice outside the experimental selection flow", () => {
+    const onDone = show({ hand: true });
+    const sample = [...host.querySelectorAll("button")].find((b) => b.textContent?.startsWith("Pop"))!;
+    expect(sample.closest("details")).toBeNull();
+
+    click(sample);
+    expect(onDone).toHaveBeenCalledWith(expect.objectContaining({
+      cue: "voice", voice: { sample: "pop.wav" }, suggested: "fireball",
+    }));
+    expect(onDone.mock.calls[0][0].experimental).not.toBe(true);
+  });
+});
+
 describe("Performer replay cues", () => {
   it.each([true, false])("starts a replay with voice and prevents the clip cue (filmed=%s)", (filmed) => {
     const onDone = show({ replay: true, filmed });

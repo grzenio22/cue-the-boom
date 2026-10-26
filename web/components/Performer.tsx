@@ -7,7 +7,7 @@ import { encodeWav } from "@/lib/audio/wav";
 import { applyAndVerify, AUDIO_CONSTRAINTS, videoConstraints } from "@/lib/capture/constraints";
 import { pickMime } from "@/lib/capture/pickMime";
 import { type ClockSample, fitMediaClock, fitMediaClockNear, perfMsOfSample, sampleClock } from "@/lib/sync/mediaClock";
-import { type CueKind, quickPerformance, EFFECT_LABELS, type SampleVoice, sceneEffect, type SceneMap, type Source, suggestEffect } from "@/lib/shot";
+import { type CueKind, quickPerformance, EFFECT_LABELS, isExperimentalEffect, type SampleVoice, sceneEffect, type SceneMap, type Source, suggestEffect } from "@/lib/shot";
 import { buildTimingJson, estimateOffsetS, plausibleOffset, type TimingJson } from "@/lib/sync/timing";
 
 export interface Performance {
@@ -18,6 +18,7 @@ export interface Performance {
   face: Blob | null;
   faceExt: string;
   suggested: string;
+  experimental?: boolean; // explicitly chosen from the experimental sample voices
   onsetS: number | null;
   warnings: string[];
   label: string; // "your take" or the sample's name
@@ -332,7 +333,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
 
   const pickSample = (v: SampleVoice) => {
     onDone({ cue: "voice", voice: { sample: v.name }, timing: null, face: null, faceExt: "webm", suggested: v.effect ?? "fireball",
-      onsetS: null, warnings: [], label: v.title ?? v.name, previewUrl: v.url });
+      experimental: isExperimentalEffect(v.effect ?? ""), onsetS: null, warnings: [], label: v.title ?? v.name, previewUrl: v.url });
   };
 
   const useClipSound = () => {
@@ -461,12 +462,15 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             <button key={v.name} className="secondary" disabled={busy || off} title={off ? why : undefined}
               onClick={() => pickSample(v)}>
               {v.title ?? v.name}
+              {isExperimentalEffect(v.effect ?? "") && <span className="muted"> (Experimental)</span>}
               <span className="muted" style={{ marginLeft: 6 }}>{off ? "needs the GPU" : makes(v)}</span>
             </button>
           );
         };
         const offered = voices.filter((v) => quick ? choice.voices.includes(v.name) : hand || !v.hand);
-        const real = live ? [] : offered.filter(isReady);
+        const experimental = offered.filter((v) => isExperimentalEffect(v.effect ?? "") || isExperimentalEffect(sceneEffect(scene, v) ?? ""));
+        const standard = quick ? offered : offered.filter((v) => !experimental.includes(v));
+        const real = live ? [] : standard.filter(isReady);
         const samples = (
           <>
             {real.length > 0 && (
@@ -477,8 +481,13 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             )}
             <div className="row">
               <span className="muted">{hand ? "or use a sample noise:" : onlyReady ? "the others need the GPU:" : real.length ? "or, as an instant shot (the GPU is offline):" : live ? "or use a sample noise:" : "or use a sample noise (an instant shot: the GPU is offline):"}</span>
-              {offered.filter((v) => !real.includes(v)).map(sample)}
+              {standard.filter((v) => !real.includes(v)).map(sample)}
             </div>
+            {!quick && experimental.length > 0 && <details>
+              <summary>Experimental</summary>
+              <p className="muted">Water, air and earth sample voices. Choose one explicitly to try its effect.</p>
+              <div className="row">{experimental.map(sample)}</div>
+            </details>}
           </>
         );
         return quick ? <details className="quick-fallback"><summary>Try a sample voice instead</summary>

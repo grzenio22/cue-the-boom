@@ -21,7 +21,7 @@ def source_tree(tmp_path):
             ROOT / part, source / part,
             ignore=shutil.ignore_patterns(
                 ".venv*", "__pycache__", "*.pyc", "build", "dist", "*.egg-info",
-                "effect_files", ".pytest_cache", ".ruff_cache", "tests",
+                "effect_files", ".pytest_cache", "pytest-cache-files-*", ".ruff_cache", "tests",
             ),
         )
     for part in ("samples", "workflows", "web", "build", "tools"):

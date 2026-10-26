@@ -1,7 +1,30 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dragDirection, failure, followJob, hitAnchor, madeAhead, pollUntilDone, type JobStatus, type Receipt, replayable, sameStrokes, sceneEffect, submitShot, suggestEffect } from "./shot";
+import { dragDirection, failure, followJob, hitAnchor, isExperimentalEffect, madeAhead, pollUntilDone, quickPerformance, type JobStatus, type Receipt, replayable, sameStrokes, sceneEffect, submitShot, suggestEffect } from "./shot";
 
 const SR = 48000;
+
+describe("curated performances", () => {
+  it("prepares an explosion with a hand and a boom cue", () => {
+    const choice = quickPerformance("explosion");
+    expect(choice.element).toBe("Explosion");
+    expect(choice.plate).toBe("hand_palm.mp4");
+    expect(choice.voices).toContain("pf-pf-boom-author.wav");
+  });
+
+  it("preserves explicit experimental forms without making them the fallback", () => {
+    expect(quickPerformance("water_whip").effect).toBe("water_whip");
+    expect(quickPerformance("air_blast").effect).toBe("air_blast");
+    expect(quickPerformance("earth_lance").effect).toBe("earth_lance");
+    expect(quickPerformance("unknown").effect).toBe("fire_burst");
+  });
+
+  it.each([
+    ["water_orb", true], ["air_ball", true], ["earth_shatter", true],
+    ["fire_burst", false], ["explosion", false], ["lightning_ball", false], ["steam_jet", false],
+  ])("classifies %s for the experimental disclosure", (effect, experimental) => {
+    expect(isExperimentalEffect(effect)).toBe(experimental);
+  });
+});
 
 describe("submitShot", () => {
   it.each([undefined, "reuse"] as const)("forwards explicit CPU reuse only when selected: %s", async (performanceMode) => {

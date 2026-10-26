@@ -16,8 +16,8 @@ are in the matching `made_ahead/bending/hand_*` directories.
 
 The fire in those finished shots, and the explosion's fireball, comes from
 LTX-2.5 with ainvfx-fluid. Lightning and water are procedural CPU effects; the
-explosion combines the stored fireball with procedural blast effects. The five
-beyond-fire gallery shots use synthetic cue sounds over the author's footage.
+explosion combines the stored fireball with procedural blast effects. The
+procedural lightning examples use synthetic cue sounds over the author's footage.
 
 ## The author's voice and the three performances
 
@@ -140,87 +140,57 @@ rebuild can reproduce the original two hits. The receipt records its SHA-256
 and placement offset; it is the credited unfa recording, not a synthetic preset.
 
 
-### Five-element gallery refresh (October 23, 2026)
+## Curated lightning shots
 
-The `elements_20261023__*` gallery shots use the author's prepared `hand_open.mp4`
-(bright room) and `hand_palm.mp4` (dim room) phone footage. Air, water, lightning
-and earth are rendered procedurally by the Apache-2.0-licensed CueSync code; no new
-model-generated pixels or outside stock elements are used in these shots.
-`hoooo.wav`, `hoo-hoo-HOO.wav`, `shhhhh-sploosh.wav` and `zzzzz-tsst.wav` are the
-bundled synthetic example cues. Earth shatter uses `pf-pf-boom-author.wav`, an
-edited rhythm made from the author's own pf and BOOM recordings. Earth rock
-uses the synthetic held cue, not a new human "rrrrr" recording. Procedural Foley
-is mixed with those cues. Each shot includes input/source hashes in its provenance.
+`made_ahead/bending/elements_water_air_20261024__dark__lightning_arc` and
+`made_ahead/bending/elements_water_air_20261024__dark__lightning_ball` use the
+author's prepared dim-room `hand_palm.mp4`, the synthetic `zzzzz-tsst.wav` cue
+and procedural Foley. These are procedural CPU composites, without a new model
+generation or outside stock element. Each shot records input and source hashes.
 
-### Material and motion refresh (October 24, 2026)
+## Retained procedural renders and comparison media
 
-The `elements_20261024__*` gallery retains the same authored phone plates and
-credited sample cues. Its stone uses procedural mineral textures and an opaque,
-gravity-driven release. Water has more clearance above the fingers and ignores
-low-confidence tracking impulses. These gallery files remain procedural CPU
-results. The separately requested **Refine stone · GPU** action runs LTX-2.5 with
-ainvfx-fluid and transfers accepted surface detail only inside tracked stone
-coverage; its receipt identifies the new generation and the original performance.
+Water, air and earth are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
-`media/stone-refinement.mp4` compares the previous stone, the updated CPU stone
-and the bounded LTX detail pass at the original 24 fps on both prepared phone
-plates. `media/five-elements-original-takes.mp4` compares five elements on the
-author's original IMG_6668 and IMG_6658 recordings, retaining their recorded
-sound plus procedural Foley. The bright take starts one second into the original;
-the dim take is complete. Its fire reuses the credited LTX asset; its earth uses
-the October 24 LTX generation with the final CPU detail transfer. Air, water and
-lightning are procedural. These videos are demonstrations, not live microphone
-captures or fresh model renders on playback.
+Earlier procedural renders and the retained comparison media use the author's
+bright `hand_open.mp4`, dim `hand_palm.mp4` and original phone recordings. Their
+synthetic cues are `hoooo.wav`, `hoo-hoo-HOO.wav`, `shhhhh-sploosh.wav` and
+`zzzzz-tsst.wav`. Earth shatter and projectile demonstrations use the credited
+`pf-pf-boom-author.wav` edit; held stone uses the synthetic sustained cue.
+Procedural Foley is mixed with the cues or original phone audio as labelled.
 
-### Water and dim-room air refinement (October 24, 2026)
+`media/stone-refinement.mp4` compares the earlier stone, CPU stone and a bounded
+LTX-2.5 + ainvfx-fluid detail pass at the original 24 fps on both prepared phone
+plates. `media/five-elements-original-takes.mp4` retains the original IMG_6668 and
+IMG_6658 sound plus Foley. Its bright take starts one second into the recording;
+its dim take is complete. Fire reuses the credited LTX asset, earth uses the
+October 24 LTX generation with CPU detail transfer, and air, water and lightning
+are procedural. These are recorded demonstrations; playback makes no new render.
 
-The `elements_water_air_20261024__*` gallery uses the same authored plates and
-credited sample cues as the earlier October 24 set. These are procedural CPU
-renders; no additional GPU generation or stock media was used.
+`media/water-before-after.mp4` uses the full original IMG_6668 and IMG_6658 takes
+with phone sound and Foley. `media/air-dark-before-after.mp4` uses 3.5 seconds per
+form from the prepared dim take, with synthetic `hoooo.wav` and `hoo-hoo-HOO.wav`
+cues and Foley. Both comparisons retain matching framing, tracking, cues and
+seeds at 24 fps; their baseline air/water renderer is commit `22412d1`.
 
-`media/water-before-after.mp4` pairs the full original IMG_6668 and IMG_6658 takes
-before and after the liquid-motion refinement, retaining phone sound and
-procedural Foley. `media/air-dark-before-after.mp4` pairs the vortex and blast
-on the prepared dim phone take (3.5 seconds per form), using the credited
-synthetic `hoooo.wav` and `hoo-hoo-HOO.wav` cues plus Foley. Both comparisons run
-at the original 24 fps, with identical framing, tracking, cues and seeds between
-versions. The before air/water renderers match commit `22412d1`. These are
-offline renders of the author's footage, not live microphone demonstrations.
+`media/water-evolution.mp4` compares the full original IMG_6668 with matching
+tracking, cue and seed at 24 fps, using phone sound and the surge's Foley.
+`media/earth-performance.mp4` starts with matched IMG_6668 before/after renders
+(baseline `3121daf`), then shows IMG_6641 sweeps, IMG_6645 downward motion and
+IMG_6663 drop/lift with a labelled scripted hold. Its final projectile comparison
+uses the credited author rhythm. These are procedural CPU demonstrations.
 
-### Liquid and gesture-driven earth (October 24, 2026)
+`media/water-materials.mp4` and `media/earth-materials.mp4` use the full original
+bright IMG_6668 with phone sound and Foley, or prepared dim `hand_palm.mp4` with
+matched synthetic cues and Foley. The earth projectile examples use the author
+rhythm. The retained `media/water-play-before-after.mp4`, `media/water-play-forms.mp4`
+and `media/water-play-movements.mp4` are procedural CPU comparisons; the movement
+reel labels its scripted hold. These videos play at normal speed and are not live
+microphone tests.
 
-`media/water-evolution.mp4` compares the full original IMG_6668: previous orb,
-refined orb and the new open surge. The three panels share the same original
-recording, tracking, cue and seed, at 24 fps. Audio is phone sound plus procedural
-Foley from the surge. The baseline is the preceding October 24 water renderer.
-
-`media/earth-performance.mp4` begins with matched before/after IMG_6668 renders
-(baseline earth renderer: `3121daf`). It then shows actual IMG_6641 sweeps,
-IMG_6645 downward movement and IMG_6663 drop/lift, with a scripted held cue opening
-the effect and procedural Foley. The last section compares shatter, volley and
-lance on the prepared bright take with the author's credited pf/pf/BOOM cue.
-Each section is labelled; there is no retiming or live microphone claim.
-
-These are procedural CPU renders, without a new GPU generation. The current
-gallery selects `elements_liquid_earth_20261024__*` for the orb,
-`elements_interaction_20261024__*` for the surge and
-`elements_earth_final_20261024__*` for the four earth forms. Each shot's provenance
-records its exact renderer, input, material and output hashes. Existing air,
-lightning and whip samples retain their earlier provenance.
-
-Earth uses the CC0 Rock Boulder Dry material from Poly Haven: photography by
-Dimitrios Savva, processing by Rico Cilliers. The bundled diffuse, normal and AO
-maps and their checksums are described in `cuesync/assets/stone/provenance.json`
-in an installed package; see the root NOTICE.md for source and licence links.
-
-
-`media/water-materials.mp4` and `media/earth-materials.mp4` compare the previous
-materials with the October 24 scanned-stone and flowing-water pass. Bright
-comparisons use the full original IMG_6668 with phone audio plus Foley. Dim
-comparisons use the prepared `hand_palm.mp4`, matched synthetic example cues and
-Foley. The three earth projectile demonstrations use the credited author
-pf-pf-BOOM sample. All play at normal speed; these are not live microphone tests.
-The water is procedural. Stone exteriors adapt Poly Haven's CC0 **Rock 07**
-by Jenelle van Heerden; fracture interiors use the credited Rock Boulder Dry
-photographs. See `NOTICE.md` and the bundled stone provenance JSON files.
-No GPU generation or additional GPU spend was used for this material pass.
+Stone material sources remain credited because the code, earlier renders and
+comparison media retain them: Poly Haven's CC0 **Rock Boulder Dry**, photographed
+by Dimitrios Savva and processed by Rico Cilliers, and CC0 **Rock 07** by Jenelle
+van Heerden. The material-pass examples use Rock 07 for exteriors and Rock Boulder
+Dry for fracture interiors. Source links, bundled maps and checksums are recorded in [NOTICE.md](../NOTICE.md)
+and the stone provenance JSON files in `cuesync/assets/stone/`.

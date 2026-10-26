@@ -2,13 +2,13 @@
 
 **Generate the effect once. Perform it again with your voice.**
 
-**Film your hand. Make the noise. Bend fire, air, water, lightning and earth.**
+**Film your hand. Make the noise. Perform fire, explosions and lightning.**
 
-Choose one of the five elements, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
+Choose **Fire**, **Explosion** or **Lightning**, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
 
 Below the creation flow, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render with three voice-driven performances: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
 
-For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning, water, air and earth are procedural CPU effects.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
+For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning is a procedural CPU effect.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
 
 ![The author's own hand: BOOM lights a flame in the palm, a held fffff carries a flame through a walking take, and closing the fist releases a fireball](media/hand_hero.jpg)
 <sub>The author's own hand and voice, filmed on a phone. One stored LTX generation, adapted on CPU into a palm flame, a walking flame, and a released fireball.</sub>
@@ -43,9 +43,9 @@ cuesync studio
 
 The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that port is taken). In it:
 
-1. Choose **Fire**, **Air**, **Water**, **Lightning** or **Earth**, then a form. Click **Perform this … with your voice** to select its prepared hand clip.
+1. Choose **Fire**, **Explosion** or **Lightning**, then a form where offered. Click **Perform this … with your voice** to select its prepared hand clip.
 2. Click **Use my microphone**, then **Record & make …**. Make the suggested sound as the clip plays. Microphone access starts only when you request it.
-3. When recording ends, the app automatically makes your performance. Fire reuses the stored generated element; the other four elements are composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
+3. When recording ends, the app automatically makes your performance. Fire and explosion reuse stored generated elements; lightning is composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
 4. **Perform again** gives the same element a new performance. **Try a sample voice instead** works without microphone access and is explicitly labelled as a recorded example.
 
 The prepared fire path always reuses the stored element, even when a GPU is connected. Three local full-quality palm runs with a single-hit recording took 14.8–16.8 seconds from HTTP submission through MP4 download on a Ryzen 9 7900X; the bundled three-hit author rhythm took 26.6 seconds (84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
@@ -81,42 +81,13 @@ For scene renders, Cue the Boom measures where the effect starts and moves it on
 
 The details (the pipeline step by step, the timing evaluation, the matte, the light) are in [TECHNICAL.md](TECHNICAL.md).
 
-## All five elements
+## The curated gallery
 
-The short recording flow includes fourteen procedural forms across air, water, lightning and earth, alongside the existing generated fire. The refreshed gallery uses the author's bright and dim iPhone takes:
+**Made with it** leads with the fist explosion, the palm fire and its two new voice rhythms, then the walking flame, pointing fire and lightning. The dim-room lightning arcs and ball show procedural light on the author's hand. These are finished shots you can play without a GPU.
 
-![Air, water, lightning and earth on the author's hand](media/elements-polished.jpg)
+Water, air and earth are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
-- **Air — vortex / blast:** a transparent, rotating condensation volume, moving refraction, dust and a pressure front. Dim-room exposure lifts the separated wisps while preserving the photographed palm.
-- **Water — orb / whip / surge / ribbon / tidal shield / jet:** open sheets carry moving folds and froth, with local refraction and detached spray. Sweep to cast a blade, lift to raise a wave, or drop your hand for a splash crown. The new forms also launch directed streams on voice accents. Dark-shot lighting excludes the hand from its room estimate. [Movement guide and rendering limits](docs/water-playground.md).
-- **Lightning — arcs / ball:** branching channels, a turbulent blue volume, finger occlusion and light on the hand and room.
-- **Earth — living stone / shatter / shard volley / stone lance:** a compact scanned-rock surface with photographed colour, tight fractures, room lighting and falling grit. During a held cue, a measured sweep casts a shard fan, a downward stroke crumbles the stone, and a lift separates its layers. Projectiles retain their launch direction and continue after the hand leaves.
-
-With a ready LTX GPU connected, a finished living-stone or shatter performance also offers **Refine stone · GPU**. This explicit action adds fine LTX-2.5 mineral detail inside the tracked stone mask. Its bounded contrast retains the procedural shape, colour and broad shading, so generated background or fingers cannot replace a solid rock face. It preserves the photographed pixels outside that mask, the cue timing and the soundtrack. The original remains available, and **Perform again** returns to that original performance. The receipt records the fresh GPU pass, source hashes, fixed material recipe and overlapping 81-frame windows. This option is currently limited to earth: GPU trials on air, water and lightning did not consistently preserve their material or motion well enough.
-
-[Watch five elements on the original phone takes](media/five-elements-original-takes.mp4) · [Compare the stone refinement](media/stone-refinement.mp4). Both play at the original speed; the videos label their rendering and audio sources.
-
-[Water before and after](media/water-before-after.mp4) · [Air in the dark before and after](media/air-dark-before-after.mp4). Both use identical tracking, cues and seeds, with no colour grade or speed change. Water shows the full original IMG_6668 and IMG_6658 clips with their phone sound plus procedural Foley. Air shows 3.5 seconds per form on the prepared dim phone take with the same bundled synthetic cue and Foley on both sides.
-
-[Water on IMG_6668: previous orb, refined orb and new surge](media/water-evolution.mp4) · [Earth: before/after, recorded movements and projectile treatments](media/earth-performance.mp4). The movement montage uses original hand motion with a clearly labelled scripted hold; it is not a live microphone demonstration. The new water and stone renders are procedural CPU results. Stone material maps are [Poly Haven CC0 photography](https://polyhaven.com/a/rock_boulder_dry), credited in [NOTICE.md](NOTICE.md).
-
-Latest material comparisons: [water before/after](media/water-materials.mp4) ·
-[earth before/after](media/earth-materials.mp4), on IMG_6668 and the prepared dim iPhone take.
-Water uses thinner changing sheets, bounded local refraction and moving aeration.
-Earth uses a closed radial approximation of [Rock 07](https://polyhaven.com/a/rock_07)
-with its photographed albedo, split into complementary fragments. These are local
-CPU composites at original speed; neither video is a live microphone test or an
-LTX fluid simulation. Full source attribution is in [NOTICE.md](NOTICE.md).
-
-Water playground update: [held water before/after, bright and dim](media/water-play-before-after.mp4) ·
-[ribbon, tidal shield and jet side by side](media/water-play-forms.mp4) ·
-[sweeps, drops and lifts on the original takes](media/water-play-movements.mp4).
-The movement reel uses a labelled scripted hold. The new forms remain stylized;
-broad transparent sheets can still look synthetic in paused frames.
-
-Choose the element explicitly, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The sample cues for air, water and lightning are synthetic. Earth uses the bundled sustained cue or the author's edited pf/pf/BOOM recording; the suggested rrrr/CRACK sounds can be performed with your own microphone. All four elements run locally without a GPU. The live webcam preview still supports fire and lightning; the complete five-element set is available in finished shots.
-
-Reproduce the bright/dim suite with `python tools/render_element_suite.py --out runs/my-element-review --width 1080`. It records source and input hashes, render timings and full audio/video decode checks. To compare older air/water/lightning code on the same current inputs, add `--baseline-ref <commit> --effects air_ball water_orb lightning_ball`.
+Choose an effect, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The live webcam preview supports fire and lightning. [Footage, audio and retained comparison-media credits](samples/CREDITS.md).
 
 ## The entry at a glance
 
@@ -161,5 +132,5 @@ To generate a new hand element or render into a scene, use ComfyUI with LTX-2.5 
 - **Footage and sounds:**
   - `hand_palm`, `hand_point`, `hand_walk`, `hand_punch`, `hand_fist` and `hand_open` are the author's own hand and voice.
   - `hand_cupped` is a Pexels clip (Kindel Media).
-  - The other sample clips are stand-ins generated with LTX-2.5. The preset noises are synthetic except **pf, pf, BOOM** and **pf pf pf PF**, which are edited rhythms made from the author's recordings. The five beyond-fire gallery shots use synthetic noises over the author's footage.
+  - The other sample clips are stand-ins generated with LTX-2.5. The preset noises are synthetic except **pf, pf, BOOM** and **pf pf pf PF**, which are edited rhythms made from the author's recordings. The procedural lightning examples use synthetic noises over the author's footage.
   - The real-footage scene shots are made from stock clips and photos, and real people's CC0 voices, by the authors in [samples/CREDITS.md](samples/CREDITS.md). Only the processed scene shots are in the repository; the Pexels hand clip ships as-is.

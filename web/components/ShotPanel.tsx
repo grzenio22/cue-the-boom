@@ -5,7 +5,7 @@ import type { Performance } from "@/components/Performer";
 import EffectBadge from "@/components/EffectBadge";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, MADE_EFFECTS, fetchObjects, followJob, type JobEvent, JobNotFoundError, type JobStatus, madeAhead, type Mode, type ObjectKind, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
+import { ALL_HAND_EFFECTS, ALL_MADE_EFFECTS, AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, MADE_EFFECTS, fetchObjects, followJob, isExperimentalEffect, type JobEvent, JobNotFoundError, type JobStatus, madeAhead, type Mode, type ObjectKind, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -71,7 +71,7 @@ function HandChips({ job }: { job: JobStatus }) {
         : b.instant ? "instant: an LTX-2.5 element rendered ahead of time, carried on your hand (no GPU)"
         : b.performed_again ? "performed again on the same render: no new render"
         : job.effect === "explosion" ? "a fireball rendered ahead with LTX-2.5, its blast made from your hand and your voice"
-        : job.effect && MADE_EFFECTS.includes(job.effect) ? `made, not rendered: ${(HAND_LABELS[job.effect] ?? job.effect).toLowerCase()} from your hand and your voice, on this computer (no GPU)`
+        : job.effect && ALL_MADE_EFFECTS.includes(job.effect) ? `made, not rendered: ${(HAND_LABELS[job.effect] ?? job.effect).toLowerCase()} from your hand and your voice, on this computer (no GPU)`
         : job.effect === "smoke_puff" || r.render.prompt?.startsWith("(made") ? "made, not rendered: an air blast"
         : r.render.seconds > 0 ? `rendered over black in ${r.render.seconds.toFixed(0)} s on open weights (LTX-2.5)`
         : "rendered over black ahead of time on open weights (LTX-2.5)"}</span>
@@ -128,8 +128,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const firstMode: Mode = hand ? "bending" : sceneOk ? "scene" : modes.includes("instant") ? "instant" : "render";
   const [mode, setModeState] = useState<Mode>(firstMode);
   // the cue decides (its gesture, read through the plate's own map), unless the performer picks
-  // ... a sample noise made for one of the elements made here picks it (a "shhhhh" is water, not steam)
-  const madeFor = !quick && hand && MADE_EFFECTS.includes(performance.suggested) ? performance.suggested : null;
+  // An experimental sample may preselect its effect only after an explicit choice in its disclosure.
+  const madeFor = !quick && hand && (MADE_EFFECTS.includes(performance.suggested)
+    || (performance.experimental && ALL_MADE_EFFECTS.includes(performance.suggested))) ? performance.suggested : null;
   const [effect, setEffect] = useState(quick ? quickEffect : madeFor ?? AUTO_EFFECT);
   const [pickOwn, setPickOwn] = useState(!!madeFor); // a hand shot: the cue decides unless you open the list
   const [previousMadeFor, setPreviousMadeFor] = useState(madeFor);
@@ -144,8 +145,10 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   useEffect(() => { if (!plate.sample) fetchObjects().then(setKinds, () => setKinds([])); }, [plate.sample]);
   const [describe, setDescribe] = useState("");
   const handOffline = !!hand && !modes.includes("bending"); // a sample hand's saved track also supports effects made here
-  const choices = hand ? effects.filter((e) => HAND_EFFECTS.includes(e.id) && (!handOffline || MADE_EFFECTS.includes(e.id)))
+  const choices = hand ? effects.filter((e) => ALL_HAND_EFFECTS.includes(e.id) && (!handOffline || ALL_MADE_EFFECTS.includes(e.id)))
     : effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
+  const standardChoices = choices.filter((e) => !isExperimentalEffect(e.id));
+  const experimentalChoices = choices.filter((e) => isExperimentalEffect(e.id));
   const setMode = (m: Mode) => {
     setModeState(m);
     // an effect the new route can't make goes back to the cue's own; offline, the scene shot made ahead is the cue's
@@ -154,7 +157,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       setEffect(AUTO_EFFECT);
     }
   };
-  const [seed] = useState(quick && MADE_EFFECTS.includes(quickEffect) ? 17 : 1); // one seed per session: retakes differ only by the performance
+  const [seed] = useState(quick && ALL_MADE_EFFECTS.includes(quickEffect) ? 17 : 1); // one seed per session: retakes differ only by the performance
   const [busy, setBusyState] = useState(false);
   const setBusy = (b: boolean) => { setBusyState(b); onBusy?.(b); };
   const [event, setEvent] = useState<JobEvent | null>(null);
@@ -271,7 +274,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         ? await replayShot(replayOf, { voice: performance.voice, cue: performance.cue, holds: performance.holds ?? null, timing: performance.timing,
           together: replayWith })
         : await submitShot({ plate: plate.source, voice: performance.voice, face: performance.face, faceExt: performance.faceExt,
-          timing: performance.timing, effect: eff, point, seed, mode, performanceMode: quick && !MADE_EFFECTS.includes(eff) ? "reuse" : undefined,
+          timing: performance.timing, effect: eff, point, seed, mode, performanceMode: quick && !ALL_MADE_EFFECTS.includes(eff) ? "reuse" : undefined,
           direction, frame: hand?.frame ?? null, reuse: reuse ?? hand?.prep ?? null, subject: subject.trim() || null, object: kind,
           cue: performance.cue, holds: performance.holds ?? null, strokes: drawn ? strokes : null,
           describe: describe.trim() || null, sources: several ? sources : null });
@@ -300,11 +303,19 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   const again = job?.status === "done" && ((job.receipt?.mode === "scene" && job.receipt.plate?.still) || bent)
     ? (job.receipt?.material_finish?.parent_id ?? replayOf ?? job.id) : null;
   const auto = job?.receipt?.auto;
+  const choiceButton = (e: EffectInfo) => (
+    <button key={e.id} role="radio" aria-checked={effect === e.id} disabled={busy || (ahead && mode === "scene")}
+      title={ahead && mode === "scene" ? "needs the GPU, which is offline: this sample plays the effect it was made with" : undefined}
+      className={effect === e.id ? "" : "secondary"} onClick={() => setEffect(e.id)}>
+      {(hand && HAND_LABELS[e.id]) || EFFECT_LABELS[e.id]?.name || e.id}
+      <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[e.id]?.cue}</span>
+    </button>
+  );
 
   return (
     <section className={quick ? "quick-shot" : undefined}>
       <h2>{quick ? job?.status === "done" ? `Your ${quickName} is ready` : `Make your ${quickName}` : "4. Make the shot"}</h2>
-      {quick && job?.status !== "done" && <p className="muted">{MADE_EFFECTS.includes(quickEffect) ? `Shaping ${quickName} from the hand and your voice.` : "Composing the prepared fire on your voice."} Your recording sets the timing and strength.</p>}
+      {quick && job?.status !== "done" && <p className="muted">{ALL_MADE_EFFECTS.includes(quickEffect) ? `Shaping ${quickName} from the hand and your voice.` : "Composing the prepared fire on your voice."} Your recording sets the timing and strength.</p>}
       {performance.warnings.map((w) => <p key={w} className="chip warn">{w}</p>)}
       {!replayOf && !quick && <div className="row" role="radiogroup" aria-label="Effect">
         <span className="muted">Effect</span>
@@ -315,30 +326,30 @@ export default function ShotPanel({ plate, point, direction, performance, effect
         {hand && !pickOwn && choices.length > 0 && (
           <button className="secondary" disabled={busy} onClick={() => setPickOwn(true)}>Choose it yourself</button>
         )}
-        {(!hand || pickOwn) && choices.map((e) => (
-          <button key={e.id} role="radio" aria-checked={effect === e.id} disabled={busy || (ahead && mode === "scene")}
-            title={ahead && mode === "scene" ? "needs the GPU, which is offline: this sample plays the effect it was made with" : undefined}
-            className={effect === e.id ? "" : "secondary"} onClick={() => setEffect(e.id)}>
-            {(hand && HAND_LABELS[e.id]) || EFFECT_LABELS[e.id]?.name || e.id}
-            <span className="muted" style={{ marginLeft: 6 }}>{EFFECT_LABELS[e.id]?.cue}</span>
-
-          </button>
-        ))}
+        {(!hand || pickOwn) && <>
+          {standardChoices.map(choiceButton)}
+          {experimentalChoices.length > 0 && <details>
+            <summary>Experimental</summary>
+            <p className="muted">Water, air and earth effects are experimental. Choose one explicitly to try it.</p>
+            <div className="row">{experimentalChoices.map(choiceButton)}</div>
+          </details>}
+        </>}
       </div>}
+      {!quick && isExperimentalEffect(effect) && !replayOf && <p className="chip warn">Selected: {HAND_LABELS[effect] ?? EFFECT_LABELS[effect]?.name ?? effect}</p>}
       {hand && effect === "explosion" && !replayOf && (
         <p className="muted">{handOffline && "The GPU is offline: "}Explosion uses a fireball made ahead of time;
           its blast is made on this computer from your hand and your voice. No new render; takes a few minutes on a laptop CPU.</p>
       )}
       {!quick && handOffline && effect !== "explosion" && !replayOf && (
-        <p className="muted">The GPU is offline: {MADE_EFFECTS.includes(effect)
+        <p className="muted">The GPU is offline: {ALL_MADE_EFFECTS.includes(effect)
           ? `${HAND_LABELS[effect] ?? effect} is made on this computer from your hand and your voice.`
           : "Your cue chooses an element made on this computer or plays this hand's fireball, made ahead of time, on each of your hits."}{" "}
           No new render; processing time varies with your clip and computer.</p>
       )}
       {!quick && hand && !handOffline && effect !== "explosion" && !replayOf && (
         <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
-          fireball, a held fffff over a palm a flame in it (steam on the badge), a pf a pop of fire. Lightning, water, air and an
-          explosion are made on this computer from your hand and your voice: choose them yourself. {sceneLive
+          fireball, a held fffff over a palm a flame in it, a pf a pop of fire. Lightning and explosion
+          are made on this computer from your hand and your voice: choose them yourself. {sceneLive
             ? "Rendered once over black on the GPU (1-3 min; the first after the GPU starts takes a few more), then carried on your hand."
             : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand. Processing time varies with your clip and computer."}</p>
       )}
@@ -398,7 +409,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           ))}
           {effect === AUTO_EFFECT && kind && (Object.keys(kinds.find((k) => k.id === kind)?.scene ?? {}).length
             ? <span className="muted">your cue does to it what it would to a {kinds.find((k) => k.id === kind)?.title.replace(/^an? /, "")}</span>
-            : <span className="muted">the sound picks it: a boom bursts, a whoosh is a jet of fire where you aim it (a plume if you don&apos;t), a hiss is steam, a puff is a pop of fire (or a blast of air, on the badge)</span>)}
+            : <span className="muted">the sound picks it: a boom bursts, a whoosh is a jet of fire where you aim it (a plume if you don&apos;t), a hiss is steam, a puff is a pop of fire</span>)}
         </div>
       )}
       {!hand && mode === "scene" && !plate.sample && (
