@@ -63,6 +63,13 @@ is a 2.5D approximation with tracked placement, hand segmentation and local
 lighting; these samples do not establish a full 3D fluid or scene-lighting
 simulation.
 
+## Air
+
+`library/bending/air_vortex` is an LTX-2.5 22B (int8) + ainvfx-fluid render (seed 1, 110 s on a rented A100 on
+26 October 2026) of the funnel guide stored beside it; its receipt records the prompt. The gallery's
+`made_ahead/bending/hand_palm__hoooo__air_vortex` and `hand_open__hoooo__air_vortex` carry that one element on the
+author's palm and open hand with the synthetic `voices/hoooo.wav`, on the CPU with no GPU.
+
 ## Stock footage and photos
 
 The `made_ahead/scene/real_*` shots and the renders in `timing_set/real/` were made on real stock video and

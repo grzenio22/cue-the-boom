@@ -63,6 +63,16 @@ The element is rendered once over black with LTX-2.5 and ainvfx-fluid (the LoRA 
   - On a handheld stand-in with a known camera path, the error is 0.6 px median over the flame's 10-frame history, against 27 px of camera motion.
   - The tracker's ground truth in [`cuesync/tests/bending/gt/`](cuesync/tests/bending/gt) is provisional: points marked by eye on gridded crops (AI-assisted), not hand-clicked.
 
+### Air
+
+The air vortex is the second generated instrument. Its guide is a funnel of steam rings, narrow on the hand and wide at
+the top, each swaying round the axis a little further every keyframe ([`scene._vortex`](cuesync/src/cuesync/scene.py)).
+LTX-2.5 with ainvfx-fluid turns it into a twisting column of white mist over black, once (110 s on a rented A100);
+[`samples/library/bending/air_vortex`](samples/library/bending/air_vortex) keeps the element and its guide. Like the fire,
+it is then carried on the hand on the CPU: held while the voice holds (a hoooo), sized like a flame in the palm (2.8 hands),
+composited over the plate as white vapour, and let go when the voice stops. On a sample hand with no GPU and no tracker,
+the stored element is carried on the sample's own track and matte.
+
 ### Lightning and explosion
 
 These effects are composited on the CPU from the plate, hand track and matte, and the voice's timeline. Each module follows the contract in [`elements.py`](cuesync/src/cuesync/elements.py): `render(plate, track, mask, timeline, form, seed)`. A shot is deterministic per seed.

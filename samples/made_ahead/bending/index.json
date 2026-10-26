@@ -209,5 +209,29 @@
   "real": true,
   "again": 6,
   "rank": -196.2
+ },
+ "bending|hand_palm.mp4|hoooo.wav|air_vortex@13561463|0.51,0.65|1": {
+  "dir": "hand_palm__hoooo__air_vortex",
+  "title": "hoooooo · an air vortex in the palm (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "hoooo.wav",
+  "effect": "air_vortex",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -194.5
+ },
+ "bending|hand_open.mp4|hoooo.wav|air_vortex@13561463|0.53,0.71|1": {
+  "dir": "hand_open__hoooo__air_vortex",
+  "title": "hoooooo · an air vortex in the palm (lit hallway)",
+  "plate": "hand_open.mp4",
+  "voice": "hoooo.wav",
+  "effect": "air_vortex",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 30,
+  "real": true,
+  "rank": -194.4
  }
 }

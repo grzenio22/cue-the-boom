@@ -5,7 +5,7 @@ import type { Performance } from "@/components/Performer";
 import EffectBadge from "@/components/EffectBadge";
 import Retime from "@/components/Retime";
 import type { PickedPlate } from "@/components/PlatePicker";
-import { ALL_HAND_EFFECTS, ALL_MADE_EFFECTS, AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, MADE_EFFECTS, fetchObjects, followJob, isExperimentalEffect, type JobEvent, JobNotFoundError, type JobStatus, madeAhead, type Mode, type ObjectKind, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
+import { ALL_HAND_EFFECTS, ALL_MADE_EFFECTS, AUTO_EFFECT, EFFECT_LABELS, type EffectInfo, HAND_EFFECTS, HAND_LABELS, LIBRARY_HAND_EFFECTS, MADE_EFFECTS, fetchObjects, followJob, isExperimentalEffect, type JobEvent, JobNotFoundError, type JobStatus, madeAhead, type Mode, type ObjectKind, replayable, replayShot, type Stroke, submitShot } from "@/lib/shot";
 
 type View = "final.mp4" | "breakdown.mp4" | "composite.mp4";
 const VIEWS: { file: View; label: string }[] = [
@@ -145,7 +145,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
   useEffect(() => { if (!plate.sample) fetchObjects().then(setKinds, () => setKinds([])); }, [plate.sample]);
   const [describe, setDescribe] = useState("");
   const handOffline = !!hand && !modes.includes("bending"); // a sample hand's saved track also supports effects made here
-  const choices = hand ? effects.filter((e) => ALL_HAND_EFFECTS.includes(e.id) && (!handOffline || ALL_MADE_EFFECTS.includes(e.id)))
+  const choices = hand ? effects.filter((e) => ALL_HAND_EFFECTS.includes(e.id)
+    && (!handOffline || ALL_MADE_EFFECTS.includes(e.id) || LIBRARY_HAND_EFFECTS.includes(e.id)))
     : effects.filter((e) => (mode === "scene" ? e.scene : e.element !== false));
   const standardChoices = choices.filter((e) => !isExperimentalEffect(e.id));
   const experimentalChoices = choices.filter((e) => isExperimentalEffect(e.id));
@@ -343,6 +344,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       {!quick && handOffline && effect !== "explosion" && !replayOf && (
         <p className="muted">The GPU is offline: {ALL_MADE_EFFECTS.includes(effect)
           ? `${HAND_LABELS[effect] ?? effect} is made on this computer from your hand and your voice.`
+          : LIBRARY_HAND_EFFECTS.includes(effect)
+          ? `${HAND_LABELS[effect] ?? effect} was rendered once with LTX-2.5; your voice performs it on your hand, on this computer.`
           : "Your cue chooses an element made on this computer or plays this hand's fireball, made ahead of time, on each of your hits."}{" "}
           No new render; processing time varies with your clip and computer.</p>
       )}

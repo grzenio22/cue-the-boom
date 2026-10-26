@@ -2,13 +2,13 @@
 
 **Generate the effect once. Perform it again with your voice.**
 
-**Film your hand. Make the noise. Perform fire, explosions and lightning.**
+**Film your hand. Make the noise. Perform fire, air, explosions and lightning.**
 
-Choose **Fire**, **Explosion** or **Lightning**, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
+Choose **Fire**, **Air**, **Explosion** or **Lightning**, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
 
 Below the creation flow, **One render. Three performances.** shows the author's palm and one LTX-2.5 fire render with three voice-driven performances: **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
 
-For hand effects, the fire and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning is a procedural CPU effect.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
+For hand effects, the fire, the air vortex and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning is a procedural CPU effect.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
 
 ![The author's own hand: BOOM lights a flame in the palm, a held fffff carries a flame through a walking take, and closing the fist releases a fireball](media/hand_hero.jpg)
 <sub>The author's own hand and voice, filmed on a phone. One stored LTX generation, adapted on CPU into a palm flame, a walking flame, and a released fireball.</sub>
@@ -43,9 +43,9 @@ cuesync studio
 
 The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that port is taken). In it:
 
-1. Choose **Fire**, **Explosion** or **Lightning**, then a form where offered. Click **Perform this … with your voice** to select its prepared hand clip.
+1. Choose **Fire**, **Air**, **Explosion** or **Lightning**, then a form where offered. Click **Perform this … with your voice** to select its prepared hand clip.
 2. Click **Use my microphone**, then **Record & make …**. Make the suggested sound as the clip plays. Microphone access starts only when you request it.
-3. When recording ends, the app automatically makes your performance. Fire and explosion reuse stored generated elements; lightning is composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
+3. When recording ends, the app automatically makes your performance. Fire, air and explosion reuse stored generated elements; lightning is composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
 4. **Perform again** gives the same element a new performance. **Try a sample voice instead** works without microphone access and is explicitly labelled as a recorded example.
 
 The prepared fire path always reuses the stored element, even when a GPU is connected. Three local full-quality palm runs with a single-hit recording took 14.8–16.8 seconds from HTTP submission through MP4 download on a Ryzen 9 7900X; the bundled three-hit author rhythm took 26.6 seconds (84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
@@ -83,9 +83,9 @@ The details (the pipeline step by step, the timing evaluation, the matte, the li
 
 ## The curated gallery
 
-**Made with it** leads with the fist explosion, the palm fire and its two new voice rhythms, then the walking flame, pointing fire and lightning. The dim-room lightning arcs and ball show procedural light on the author's hand. These are finished shots you can play without a GPU.
+**Made with it** leads with the fist explosion, the palm fire and its two new voice rhythms, the same render in four strangers' recorded voices, then the walking flame, pointing fire, the air vortex and lightning. The dim-room lightning arcs and ball show procedural light on the author's hand. These are finished shots you can play without a GPU.
 
-Water, air and earth are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
+Water and earth, and the procedural air ball and blast, are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
 Choose an effect, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The live webcam preview supports fire and lightning. [Footage, audio and retained comparison-media credits](samples/CREDITS.md).
 

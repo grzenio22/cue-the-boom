@@ -506,6 +506,25 @@ def _burst(c: _Ctx, ev: Event, e: int) -> list[dict]:
     return shapes
 
 
+VORTEX_RINGS = 9  # an air vortex is painted as a funnel of steam rings, narrow on the hand and wide at the top,
+VORTEX_TURN = 0.55  # each one swaying round the axis a little further every keyframe (radians), so the column spins
+
+
+def _vortex(base, u, height, e: int) -> list[dict]:
+    """A whirlwind standing on ``base`` along ``u``: stacked rings that sway round the axis, phase rising with height."""
+    ux, uy = u
+    px, py = -uy, ux
+    rings = []
+    for k in range(VORTEX_RINGS):
+        f = k / (VORTEX_RINGS - 1)
+        along = height * (0.06 + 0.94 * f)
+        r = max(height * (0.05 + 0.2 * f), MIN_RADIUS_PX * 0.8)
+        sway = 0.55 * r * math.sin(2 * math.pi * 1.25 * f + VORTEX_TURN * e)
+        rings.append(_gas(_ellipse(base[0] + ux * along + px * sway, base[1] + uy * along + py * sway, r, 0.38 * r, STEAM),
+                          "steam", 0.95 - 0.35 * f))
+    return rings
+
+
 def _plume(c: _Ctx, ev: Event, e: int) -> list[dict]:
     """A flame standing on the source, as tall as the voice is loud, in irregular tongues; when the voice
     stops it settles back to the resting flame (a candle) or dies into a smoke wisp."""
@@ -520,6 +539,8 @@ def _plume(c: _Ctx, ev: Event, e: int) -> list[dict]:
         return min((sc.r_min + span * level) * c.side * ev.size, c.reach() * 0.95)
 
     def flame(hgt: float) -> list[dict]:
+        if c.eff.fluid == "steam":
+            return _vortex(c.s, c.u, hgt, e)
         width = max(hgt * 0.42, MIN_RADIUS_PX)
         return _tag(_tongues(c.s, c.u, hgt, width, e, FIRE_OUTER)
                     + [_flame(c.s, c.u, hgt * 0.5, max(width * 0.5, MIN_RADIUS_PX * 0.8), FIRE_INNER)], fire=True)

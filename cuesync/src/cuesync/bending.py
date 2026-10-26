@@ -62,6 +62,7 @@ LAG_FRAMES = {"fire_breath": 10, "fire_burst": 2, "flame_plume": 5, "smoke_puff"
 LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a jet of about six hands
 SIZE = {"jet": (6.0, 0.75), "burst": (2.0, 0.45), "plume": (1.8, 0.45), "puff": (2.5, 0.4)}  # per behaviour: its reach in
 # hand sizes, and at most this share of the frame's short side (a close-up hand made a fireball fill the frame)
+FIT_GAS = ("air_vortex",)  # a held whirlwind is sized like a flame in the palm (steam was played at its raw render size)
 FIT = {"plume": 2.8, "burst": 2.2}  # how big a flame and a fireball play at their fullest (the loudest hit), in hands of
 # this hand, measured on what the render draws: a palm's flame this tall, a fireball this wide (its lit area's
 # equivalent diameter). The model paints well inside its guide: a render guided to SIZE's reach drew a palm-high
@@ -1395,7 +1396,8 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         return out_
 
     play, fit = lib_k, None  # how big it plays against hand for hand: a flame or a fireball as big as FIT on this hand
-    if eff.fluid == "fire" and eff.behaviour in FIT:  # (a render made for another hand, a library's, may play smaller)
+    if (eff.fluid == "fire" or effect in FIT_GAS) and eff.behaviour in FIT:  # (a render made for another hand, a
+        # library's, may play smaller)
         drawn = drawn_extent((source(e) for e in range(ign, len(element), 2)), ref)
         play, fit = fit_play(eff.behaviour, drawn, track, k_launch, w, h, least=0.3 if instant else 1.0)
     thrown = eff.behaviour == "burst"  # a fireball leaves the fist at the strike (thrown_pose)
@@ -1894,7 +1896,7 @@ def prepare_hand(plate: Path, out_dir: Path, tap: tuple[float, float], frame: in
     return track, mask if ok else None
 
 
-LIBRARY_EFFECTS = ("fire_breath", "fire_burst", "flame_plume", "steam_jet")  # rendered ahead, for a hand with no GPU
+LIBRARY_EFFECTS = ("fire_breath", "fire_burst", "flame_plume", "steam_jet", "air_vortex")  # rendered ahead, for a hand with no GPU
 
 
 def library_dir() -> Path | None:
@@ -2128,6 +2130,15 @@ def bending_again(src_dir: Path, spec, out_dir: Path, progress=None):
         track.write_text(json.dumps(moved))
         return make_bending_shot(spec, None, out_dir, track, here("hand_mask.npz", b["mask"]), progress,
                                  tap_frame=spec.extra.get("tap_frame"), aim=spec.direction)
+    first_rc = first / "receipt.json"
+    source_effect = (json.loads(first_rc.read_text()).get("effect") or {}).get("id", spec.effect) if first_rc.exists() \
+        else spec.effect
+    lib = library_dir() if spec.effect != source_effect and spec.effect in LIBRARY_EFFECTS else None
+    if lib is not None and (lib / spec.effect / "element.mp4").exists():  # another element asked for on this hand take:
+        # the library's, rendered ahead, carried on the take's own track and matte (a sample hand's: no tracker needed)
+        return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),
+                                 progress, element_from=lib / spec.effect, tap_frame=spec.extra.get("tap_frame"),
+                                 aim=spec.direction, instant=True)
     return make_bending_shot(spec, None, out_dir, here("hand_track.json", b["track"]), here("hand_mask.npz", b["mask"]),
                              progress, element_from=first, tap_frame=spec.extra.get("tap_frame"),
                              aim=spec.direction if spec.direction is not None else b.get("aim"),

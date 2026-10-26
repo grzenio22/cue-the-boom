@@ -931,6 +931,32 @@ def test_explicit_sample_reuse_ignores_ready_gpu_and_tracker_and_can_replay(samp
     assert not renderer.prompts
 
 
+def test_a_library_element_asked_for_on_a_sample_hand_is_carried_on_its_track_with_no_gpu_or_tracker(sample_hand, tmp_path,
+                                                                                                     monkeypatch):
+    import cuesync.bending as bending
+
+    lib = tmp_path / "library"
+    (lib / "air_vortex").mkdir(parents=True)
+    from cuesync.effects import load_effect
+
+    shot = sample_hand / "made_ahead" / "bending" / "hand__pf"  # a stored element, rendered ahead (here: the sample's own
+    shutil.copyfile(shot / "element.mp4", lib / "air_vortex" / "element.mp4")  # render, named as the library's air)
+    rc = json.loads((shot / "receipt.json").read_text()) | {"effect": load_effect("air_vortex").to_json()}
+    (lib / "air_vortex" / "receipt.json").write_text(json.dumps(rc))
+    monkeypatch.setattr(bending, "library_dir", lambda: lib)
+    monkeypatch.setattr(bending, "helpers_ready", lambda: False)
+    monkeypatch.setattr(bending, "prepare_hand", lambda *a, **kw: pytest.fail("the sample's own track must be reused"))
+    client = hand_client(sample_hand, tmp_path / "jobs")
+    first = client.post("/api/jobs", data={"mode": "bending", "plate_sample": "hand.mp4", "voice_sample": "pf.wav",
+                                            "effect": "air_vortex", "x": "0.4", "y": "0.6"})
+    assert first.status_code == 200, first.text
+    assert first.json()["mode"] == "replay"
+    done = wait(client, first.json()["id"])
+    assert done["status"] == "done", done.get("error")
+    assert done["receipt"]["effect"]["id"] == "air_vortex"
+    assert Path(done["receipt"]["bending"]["instant"]["library"]).name == "air_vortex"  # the library's air, not the fire
+
+
 def test_explicit_reuse_composes_even_an_exact_cached_sample_voice(sample_hand, tmp_path):
     client = hand_client(sample_hand, tmp_path / "jobs")
     first = client.post("/api/jobs", data={"mode": "bending", "performance_mode": "reuse",

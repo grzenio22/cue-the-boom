@@ -1,0 +1,124 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "air_vortex",
+  "anchor": "first",
+  "behaviour": "plume",
+  "fluid": "steam",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a small spinning vortex of white mist twisting upward in a tight spiral, isolated on a pure black background",
+  "r_min": 0.04,
+  "r_max": 0.28,
+  "rise": 0.5,
+  "keyframe_stride": 8,
+  "composite": "over",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.02,
+  "tail_frames": 24,
+  "smoke_albedo": 0.95,
+  "scene": {
+   "prompt": "ainvfxfluid, a small whirlwind of white mist spins up out of {subject}, a tight spiral of swirling vapor twisting upward and thinning out in the light, static camera, realistic phone video",
+   "r_min": 0.1,
+   "r_max": 0.4,
+   "direction": 0.0,
+   "resting": 0.0,
+   "bend": 0.0,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "",
+   "single": "",
+   "small": "",
+   "clean": false,
+   "variants": []
+  }
+ },
+ "inputs": {
+  "point": [
+   0.509,
+   0.654
+  ],
+  "seed": 1,
+  "offset_s": 1.3083333333333333,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "ainvfxfluid, a small whirlwind of white mist spinning upward from a point, a tight twisting spiral of swirling vapor with translucent curling wisps, isolated on a pure black background",
+  "guide_scale": 1.125
+ },
+ "bending": {
+  "track": "hand_track.json",
+  "mask": "hand_mask.npz",
+  "k_hit": 32,
+  "tap_frame": 54,
+  "aim": null,
+  "k_launch": 32,
+  "ignition": 9,
+  "offset": 23,
+  "lag_frames": 5,
+  "snap": {
+   "cue": 32,
+   "motion": 38,
+   "frame": 32,
+   "used": "cue",
+   "mismatch": true
+  },
+  "hits": [
+   {
+    "frame": 32,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 32,
+     "motion": 38,
+     "frame": 32,
+     "used": "cue",
+     "mismatch": true
+    }
+   }
+  ],
+  "ref": {
+   "xy": [
+    960.0,
+    783.0
+   ],
+   "dir": [
+    0.0,
+    -1.0
+   ],
+   "scale": 309.84
+  },
+  "fit": {
+   "as": "plume",
+   "drawn": 1.54,
+   "target": 2.8,
+   "room": 2.27,
+   "play": 1.81
+  },
+  "thrown": null,
+  "loud_ref": 0.9012,
+  "held": {
+   "release": 89,
+   "end": 97,
+   "holds": [
+    80
+   ]
+  },
+  "performed_again": null,
+  "camera": "handheld: thrown fire moves with the room",
+  "charge": null,
+  "element_source": "samples/library/bending/air_vortex (rendered once by LTX-2.5; made here with no GPU)"
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 23.2
+}

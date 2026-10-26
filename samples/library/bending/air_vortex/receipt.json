@@ -1,0 +1,63 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "air_vortex",
+  "anchor": "first",
+  "behaviour": "plume",
+  "fluid": "steam",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a small spinning vortex of white mist twisting upward in a tight spiral, isolated on a pure black background",
+  "r_min": 0.04,
+  "r_max": 0.28,
+  "rise": 0.5,
+  "keyframe_stride": 8,
+  "composite": "over",
+  "align": "guide",
+  "lead_frames": 0,
+  "voice_gate": "both",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.02,
+  "tail_frames": 24,
+  "smoke_albedo": 0.95,
+  "scene": {
+   "prompt": "ainvfxfluid, a small whirlwind of white mist spins up out of {subject}, a tight spiral of swirling vapor twisting upward and thinning out in the light, static camera, realistic phone video",
+   "r_min": 0.1,
+   "r_max": 0.4,
+   "direction": 0.0,
+   "resting": 0.0,
+   "bend": 0.0,
+   "shake": 0.0,
+   "flash": 0.0,
+   "rhythm": "",
+   "single": "",
+   "small": "",
+   "clean": true,
+   "variants": []
+  }
+ },
+ "render": {
+  "seconds": 110.0,
+  "prompt": "ainvfxfluid, a small whirlwind of white mist spinning upward from a point, a tight twisting spiral of swirling vapor with translucent curling wisps, isolated on a pure black background",
+  "guide_scale": 1.125
+ },
+ "bending": {
+  "ref": {
+   "xy": [
+    960.0,
+    783.0
+   ],
+   "dir": [
+    0.0,
+    -1.0
+   ],
+   "scale": 309.84
+  },
+  "ignition": 9,
+  "k_launch": 30,
+  "lag_frames": 5,
+  "offset": 21
+ },
+ "note": "an air vortex rendered once by LTX-2.5 + ainvfx-fluid over black on a rented A100 (2026-10-26) from a steam funnel guide painted for the author's open palm and a held hoooo; carried on any hand with no GPU"
+}

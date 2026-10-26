@@ -75,21 +75,23 @@ export interface Receipt {
 export type Mode = "instant" | "render" | "scene" | "bending" | "finish";
 
 /** The default hand effects, in the order the badge cycles them. */
-export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "explosion", "lightning_arc", "lightning_ball"];
+export const HAND_EFFECTS = ["fire_breath", "fire_burst", "flame_plume", "air_vortex", "explosion", "lightning_arc", "lightning_ball"];
 export const EXPERIMENTAL_HAND_EFFECTS = ["water_orb", "water_whip", "water_surge", "water_ribbon", "water_shield", "water_jet",
   "air_ball", "air_blast", "earth_rock", "earth_shatter", "earth_volley", "earth_lance"];
 export const ALL_HAND_EFFECTS = [...HAND_EFFECTS, ...EXPERIMENTAL_HAND_EFFECTS];
 
 export function isExperimentalEffect(effect: string): boolean {
-  return /^(water|air|earth)_/.test(effect);
+  return EXPERIMENTAL_HAND_EFFECTS.includes(effect);
 }
 export const HAND_LABELS: Record<string, string> = {
-  fire_breath: "Flamethrower", fire_burst: "Fireball", flame_plume: "Flame in the palm", steam_jet: "Steam", smoke_puff: "Air blast",
+  fire_breath: "Flamethrower", fire_burst: "Fireball", flame_plume: "Flame in the palm", air_vortex: "Air vortex", steam_jet: "Steam", smoke_puff: "Air blast",
   explosion: "Explosion", lightning_arc: "Lightning", lightning_ball: "Ball lightning", water_orb: "Water orb (Experimental)",
   water_whip: "Water whip (Experimental)", water_surge: "Water surge (Experimental)", air_ball: "Air ball (Experimental)", air_blast: "Air blast (Experimental)",
   water_ribbon: "Water ribbon (Experimental)", water_shield: "Tidal shield (Experimental)", water_jet: "Water jet (Experimental)",
   earth_rock: "Living stone (Experimental)", earth_shatter: "Stone shatter (Experimental)", earth_volley: "Shard volley (Experimental)", earth_lance: "Stone lance (Experimental)",
 };
+/** Elements rendered once by LTX-2.5 and stored (samples/library/bending): carried on a sample hand with no GPU. */
+export const LIBRARY_HAND_EFFECTS = ["air_vortex"];
 /** Default elements made on your computer from your hand and voice: no render, no GPU. */
 export const MADE_EFFECTS = ["explosion", "lightning_arc", "lightning_ball"];
 /** Capability list: explicitly selected experimental effects use the same local route. */
@@ -99,12 +101,11 @@ export const ALL_MADE_EFFECTS = [...MADE_EFFECTS, ...EXPERIMENTAL_HAND_EFFECTS];
 export const QUICK_PERFORMANCES = [
   { effect: "fire_burst", element: "Fire", form: "Fireball", plate: "hand_palm.mp4", cue: "BOOM", voices: ["ka-boom.wav", "pf-pf-boom-author.wav", "pf-x4-author.wav"] },
   { effect: "explosion", element: "Explosion", form: "Explosion", plate: "hand_palm.mp4", cue: "BOOM", voices: ["ka-boom.wav", "pf-pf-boom-author.wav", "pf-x4-author.wav"] },
+  { effect: "air_vortex", element: "Air", form: "Vortex", plate: "hand_palm.mp4", cue: "hoooooo", voices: ["hoooo.wav"] },
   { effect: "lightning_arc", element: "Lightning", form: "Arcs", plate: "hand_palm.mp4", cue: "zzzzz · tsst!", voices: ["zzzzz-tsst.wav"] },
   { effect: "lightning_ball", element: "Lightning", form: "Ball", plate: "hand_palm.mp4", cue: "zzzzz", voices: ["zzzzz-tsst.wav"] },
 ];
 export const EXPERIMENTAL_QUICK_PERFORMANCES = [
-  { effect: "air_ball", element: "Air", form: "Vortex", plate: "hand_open.mp4", cue: "hooooo", voices: ["hoooo.wav"] },
-  { effect: "air_blast", element: "Air", form: "Blast", plate: "hand_open.mp4", cue: "hoo · HOO!", voices: ["hoo-hoo-HOO.wav"] },
   { effect: "water_orb", element: "Water", form: "Orb", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "water_whip", element: "Water", form: "Whip", plate: "hand_open.mp4", cue: "shhhhh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "water_surge", element: "Water", form: "Surge", plate: "hand_open.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
@@ -241,6 +242,7 @@ export const EFFECT_LABELS: Record<string, { name: string; cue: string }> = {
   flame_plume: { name: "Flame plume", cue: "fwoooOOOM" },
   smoke_puff: { name: "Smoke puff", cue: "pfffff" },
   steam_jet: { name: "Steam", cue: "hissss" },
+  air_vortex: { name: "Air vortex", cue: "hoooooo" },
   fire_breath: { name: "Fire breath", cue: "fwoooOOOM" },
   wick_flare: { name: "Flare-up", cue: "fwoooOOOM" },
   blow_out: { name: "Blow it out", cue: "pf. · pfffff" },

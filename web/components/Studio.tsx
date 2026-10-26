@@ -244,16 +244,16 @@ export default function Studio() {
           <div className="quick-intro">
             <div>
               <div className="element-picker" role="group" aria-label="Element">
-                {["Fire", "Explosion", "Lightning"].map((element) => <button key={element} type="button"
+                {["Fire", "Air", "Explosion", "Lightning"].map((element) => <button key={element} type="button"
                   className={choice.element === element ? "element-choice selected" : "element-choice secondary"}
                   aria-pressed={choice.element === element}
                   onClick={() => setQuickEffect(QUICK_PERFORMANCES.find((p) => p.element === element)!.effect)}>{element}</button>)}
               </div>
               <details>
                 <summary>Experimental</summary>
-                <p className="muted">Water, air and earth are experimental. Choose one to try its forms.</p>
+                <p className="muted">Water and earth are experimental CPU effects. Choose one to try its forms.</p>
                 <div className="element-picker" role="group" aria-label="Experimental element">
-                  {["Water", "Air", "Earth"].map((element) => <button key={element} type="button"
+                  {["Water", "Earth"].map((element) => <button key={element} type="button"
                     className={choice.element === element ? "element-choice selected" : "element-choice secondary"}
                     aria-pressed={choice.element === element}
                     onClick={() => setQuickEffect(EXPERIMENTAL_QUICK_PERFORMANCES.find((p) => p.element === element)!.effect)}>{element}</button>)}

@@ -481,7 +481,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                      describe: str | None = Form(None), object: str | None = Form(None),  # noqa: A002
                      sources: str | None = Form(None), frame: int | None = Form(None), reuse: str | None = Form(None),
                      performance_mode: str | None = Form(None)):
-        from .bending import BENDING_PROMPTS, MADE, helpers_ready  # the elements a hand can throw (rendered, or made here)
+        from .bending import BENDING_PROMPTS, LIBRARY_EFFECTS, MADE, helpers_ready  # the elements a hand can throw
+        # (rendered, or made here)
         from .cues import SOURCES
         from .scene import Strokes
 
@@ -688,7 +689,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
         if ahead_hand:  # (a fire made ahead replays; an element made here takes a shot's track, the fire's first)
             fire_ahead = [e for e in ahead_hand if e["effect"] not in MADE]
             ahead_hand = fire_ahead if auto else [e for e in ahead_hand if e["effect"] == effect] or \
-                ((fire_ahead or ahead_hand) if made else [])
+                ((fire_ahead or ahead_hand) if made or effect in LIBRARY_EFFECTS else [])  # (a library element is carried
+            # on the sample's own track too)
         if not (ahead_scene or ahead_hand):
             need_live()
         (d / "in").mkdir(parents=True)
@@ -711,7 +713,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
 
             offset_s = sample_noise_offset(voice_path, probe_video(plate_path).duration_s,
                                            int(pm["hand"].get("strike", pm["hand"].get("frame", 0))),
-                                           fit_held=effect.startswith("water_") or effect in ("air_ball", "lightning_ball", "earth_rock"))
+                                           fit_held=effect.startswith("water_") or effect in ("air_ball", "air_vortex", "lightning_ball", "earth_rock"))
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         point = (x, y) if x is not None and y is not None else tuple(t.get("emission_point") or (0.5, 0.7))
@@ -975,7 +977,7 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             if pm.get("hand"):
                 offset_s = sample_noise_offset(voice_path, probe_video(src.spec.plate).duration_s,
                                                int(pm["hand"].get("strike", pm["hand"].get("frame", 0))),
-                                               fit_held=src.spec.effect.startswith("water_") or src.spec.effect in ("air_ball", "lightning_ball", "earth_rock"))
+                                               fit_held=src.spec.effect.startswith("water_") or src.spec.effect in ("air_ball", "air_vortex", "lightning_ball", "earth_rock"))
         if offset_s is None:
             offset_s = float(t.get("noise_offset_s", 0.0)) - float(t.get("input_latency_s", 0.0))
         extra = {k: v for k, v in src.spec.extra.items() if k not in ("auto", "gesture")}  # the new take wasn't read for an effect

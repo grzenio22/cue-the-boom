@@ -221,7 +221,7 @@ describe("ShotPanel offline sample hand", () => {
     await tap(host.querySelector<HTMLButtonElement>('[aria-label="All effects"]')!);
     const badgeGroup = [...host.querySelectorAll('[role="radiogroup"][aria-label="Effect"]')].at(-1)!;
     expect([...badgeGroup.querySelectorAll('[role="radio"]')].map((b) => b.textContent)).toEqual([
-      "Flamethrower", "Fireball", "Flame in the palm", "Explosion", "Lightning", "Ball lightning",
+      "Flamethrower", "Fireball", "Flame in the palm", "Air vortex", "Explosion", "Lightning", "Ball lightning",
     ]);
   });
 

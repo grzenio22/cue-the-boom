@@ -13,7 +13,7 @@ describe("curated performances", () => {
 
   it("preserves explicit experimental forms without making them the fallback", () => {
     expect(quickPerformance("water_whip").effect).toBe("water_whip");
-    expect(quickPerformance("air_blast").effect).toBe("air_blast");
+    expect(quickPerformance("air_vortex").effect).toBe("air_vortex");
     expect(quickPerformance("earth_lance").effect).toBe("earth_lance");
     expect(quickPerformance("unknown").effect).toBe("fire_burst");
   });

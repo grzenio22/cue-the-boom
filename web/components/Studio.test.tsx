@@ -144,10 +144,10 @@ describe("Studio prepared palm shortcut", () => {
 });
 
 describe("Curated element quick flow", () => {
-  it("offers fire, explosion and lightning while keeping experimental elements collapsed", async () => {
+  it("offers fire, air, explosion and lightning while keeping experimental elements collapsed", async () => {
     await act(async () => { root.render(<Studio />); });
 
-    for (const element of ["Fire", "Explosion", "Lightning"]) {
+    for (const element of ["Fire", "Air", "Explosion", "Lightning"]) {
       expect(button(element)).toBeDefined();
       expect(button(element).closest("details")).toBeNull();
     }
@@ -155,7 +155,7 @@ describe("Curated element quick flow", () => {
       details.querySelector("summary")?.textContent === "Experimental");
     expect(experimental).toBeDefined();
     expect(experimental!.open).toBe(false);
-    for (const element of ["Water", "Air", "Earth"]) {
+    for (const element of ["Water", "Earth"]) {
       expect(button(element).closest("details")).toBe(experimental);
     }
     expect(button("Fire").getAttribute("aria-pressed")).toBe("true");
@@ -192,8 +192,7 @@ describe("Curated element quick flow", () => {
   });
 
   it.each([
-    ["Air", "Vortex", "air_ball", "hoooo.wav", "hand_open.mp4"],
-    ["Air", "Blast", "air_blast", "hoo-hoo-HOO.wav", "hand_open.mp4"],
+    ["Air", "Vortex", "air_vortex", "hoooo.wav", "hand_palm.mp4"],
     ["Water", "Orb", "water_orb", "shhhhh-sploosh.wav", "hand_open.mp4"],
     ["Water", "Whip", "water_whip", "shhhhh-sploosh.wav", "hand_open.mp4"],
     ["Water", "Surge", "water_surge", "shhhhh-sploosh.wav", "hand_open.mp4"],
@@ -217,14 +216,15 @@ describe("Curated element quick flow", () => {
       return apiFetch(url, init);
     });
     await act(async () => { root.render(<Studio />); });
-    if (["Air", "Water", "Earth"].includes(element)) {
+    if (["Water", "Earth"].includes(element)) {
       const disclosure = button(element).closest("details")!;
       expect(disclosure.open).toBe(false);
       await act(async () => { disclosure.querySelector("summary")!.click(); });
       expect(disclosure.open).toBe(true);
     }
     await click(element);
-    await click(variant);
+    const form = [...host.querySelectorAll("button")].find((b) => b.textContent === variant);
+    if (form) await act(async () => { form.click(); }); // (an element with one form shows no form picker)
     await click(`Perform this ${element.toLowerCase()} with your voice`);
     expect(host.textContent).not.toContain("make fire");
     expect(host.querySelector("video")?.getAttribute("src")).toBe(`/${plate}`);
@@ -233,14 +233,15 @@ describe("Curated element quick flow", () => {
     await act(async () => { sampleFallback.click(); });
     const sample = [...host.querySelectorAll("button")].find((candidate) =>
       candidate.textContent?.startsWith("Element cue"))!;
-    if (["Air", "Water", "Earth"].includes(element)) expect(sample.textContent).toContain("Experimental");
+    if (["Water", "Earth"].includes(element)) expect(sample.textContent).toContain("Experimental");
     await act(async () => { sample.click(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(submitted).toHaveLength(1);
     expect(submitted[0].get("effect")).toBe(effect);
     expect(submitted[0].get("mode")).toBe("bending");
     expect(submitted[0].get("plate_sample")).toBe(plate);
-    expect(submitted[0].get("performance_mode")).toBeNull();
+    // the LTX air is a stored element: the prepared sample hand performs it on the CPU, like the fire
+    expect(submitted[0].get("performance_mode")).toBe(effect === "air_vortex" ? "reuse" : null);
   });
 });
 

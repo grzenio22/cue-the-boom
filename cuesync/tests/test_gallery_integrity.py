@@ -19,6 +19,8 @@ CURATED_HAND_ORDER = [
     "hand_palm__jedimichael__again",
     "hand_walk__fffff__flame_plume",
     "hand_point__fwoooom__fire_breath",
+    "hand_palm__hoooo__air_vortex",
+    "hand_open__hoooo__air_vortex",
     "hand_point__zzzzz__lightning",
     "elements_water_air_20261024__dark__lightning_arc",
     "elements_water_air_20261024__dark__lightning_ball",
