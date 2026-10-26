@@ -45,6 +45,20 @@ describe("Again", () => {
     expect(videos().every((v) => running.has(v) && v.muted)).toBe(true);
   });
 
+  it("adds the same render in strangers' voices below the three, each with its own controls", async () => {
+    const stranger = (again: number, title: string) => ({ ...shot(again), title });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true,
+      json: async () => [...gallery(), stranger(4, "Ka-Boom!, in unfa's voice"), stranger(3, "Boom, in Sadiquecat's voice")] }));
+    await show();
+    const row = host.querySelector(".again-strangers")!;
+    expect([...row.querySelectorAll("figcaption")].map((c) => c.textContent))
+      .toEqual(["Boom, in Sadiquecat's voice", "Ka-Boom!, in unfa's voice"]);
+    expect([...row.querySelectorAll("video")].every((v) => v.controls && !running.has(v))).toBe(true);
+    expect(host.querySelector(".again-fact")?.textContent).toBe("1 generation, 5 performances, 0 new renders");
+    await act(async () => { button("Hear them one by one").click(); });
+    expect([...row.querySelectorAll("video")].some((v) => running.has(v))).toBe(false); // the three keep their own controls
+  });
+
   it("waits for a press when the viewer asked for less motion", async () => {
     reducedMotion = true;
     await show();

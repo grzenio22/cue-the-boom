@@ -80,6 +80,8 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .again p { line-height: 1.5; }
 .again-fact { color: var(--accent); }
 .again-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 16px 0; }
+.again-strangers { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.again h3 { margin: 28px 0 4px; font-size: 1.05rem; }
 .again figure { margin: 0; min-width: 0; }
 .again video { display: block; width: 100%; aspect-ratio: 1080 / 1984; object-fit: contain; border-radius: 12px; background: #000; }
 .again figcaption { margin-top: 8px; font-size: 0.85rem; font-weight: 600; }
@@ -118,6 +120,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .element-picker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
   .element-choice { font-size: .8rem; padding-inline: 4px; min-width: 0; }
   .again-row { grid-template-columns: minmax(0, 1fr); gap: 20px; max-width: 360px; margin-inline: auto; }
+  .again-strangers { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; gap: 12px; }
   .quick-cta { width: 100%; }
   .quick-intro { flex-direction: column; align-items: stretch; gap: 6px; }
   .quick-preview { width: 108px; }

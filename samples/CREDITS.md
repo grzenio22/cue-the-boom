@@ -99,14 +99,19 @@ The `made_ahead/scene/real_voice_*` shots are cued by recordings of real people'
 a performance (each shot's receipt lists its hits). The recordings are CC0 on Freesound; the plates are
 credited above.
 
+
+The four `made_ahead/bending/hand_palm__*__again` shots named below perform the author's palm render
+again with these strangers' voices: one sound cut from each person's own recording, placed on the hand's
+strike as "Perform it again" places a sample noise. Same footage, same stored LTX element, no new render.
+
 | Recording | Author | Licence | Shots |
 |---|---|---|---|
-| [Powf.wav](https://freesound.org/people/huw2k8/sounds/459936/) | huw2k8 | CC0 1.0 | `made_ahead/scene/real_voice_jack_huw2k8` |
-| [MouthBooms.wav](https://freesound.org/people/Jedimichael/sounds/491216/) | Jedimichael | CC0 1.0 | `made_ahead/scene/real_voice_lanterns_call`, `made_ahead/scene/real_voice_jack_jedimichael` |
+| [Powf.wav](https://freesound.org/people/huw2k8/sounds/459936/) | huw2k8 | CC0 1.0 | `made_ahead/scene/real_voice_jack_huw2k8`, `voices/powf-huw2k8.wav`, `made_ahead/bending/hand_palm__huw2k8__again` |
+| [MouthBooms.wav](https://freesound.org/people/Jedimichael/sounds/491216/) | Jedimichael | CC0 1.0 | `made_ahead/scene/real_voice_lanterns_call`, `made_ahead/scene/real_voice_jack_jedimichael`, `voices/boom-jedimichael.wav`, `made_ahead/bending/hand_palm__jedimichael__again` |
 | [blowing out candle.wav](https://freesound.org/people/Reitanna/sounds/242867/) | Reitanna | CC0 1.0 | `made_ahead/scene/real_voice_candles_call` |
 | [Various short blows/puffs of air from male mouth](https://freesound.org/people/rykenn/sounds/432170/) | rykenn | CC0 1.0 | `made_ahead/scene/real_voice_lanterns_call`, `made_ahead/scene/real_voice_candles_call` |
-| [Boom (vocal)](https://freesound.org/people/Sadiquecat/sounds/802505/) | Sadiquecat | CC0 1.0 | `made_ahead/scene/real_voice_jack_sadiquecat` |
-| ["Ka-Boom!" (a vocal; unfa's own recording)](https://freesound.org/people/unfa/sounds/245604/) | unfa | CC0 1.0 | `made_ahead/scene/real_voice_pumpkins_kaboom`, `made_ahead/scene/real_voice_jack_unfa`, `made_ahead/bending/hand_cupped__kaboom__fire_burst` |
+| [Boom (vocal)](https://freesound.org/people/Sadiquecat/sounds/802505/) | Sadiquecat | CC0 1.0 | `made_ahead/scene/real_voice_jack_sadiquecat`, `voices/boom-sadiquecat.wav`, `made_ahead/bending/hand_palm__sadiquecat__again` |
+| ["Ka-Boom!" (a vocal; unfa's own recording)](https://freesound.org/people/unfa/sounds/245604/) | unfa | CC0 1.0 | `made_ahead/scene/real_voice_pumpkins_kaboom`, `made_ahead/scene/real_voice_jack_unfa`, `made_ahead/bending/hand_cupped__kaboom__fire_burst`, `voices/kaboom-unfa.wav`, `made_ahead/bending/hand_palm__unfa__again` |
 
 The cupped-hand shot's original cue recording also ships as
 `made_ahead/bending/hand_cupped__kaboom__fire_burst/source_voice.wav`; it is the

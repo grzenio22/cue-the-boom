@@ -15,6 +15,7 @@ function playTogether(players: HTMLVideoElement[]) {
  * three sat on their first frame. Now each plays on its own and is only nudged back in step.) */
 export default function Again() {
   const [shots, setShots] = useState<JobStatus[] | null>(null);
+  const [strangers, setStrangers] = useState<JobStatus[]>([]); // the same render in other people's voices
   const [playing, setPlaying] = useState(false);
   const [listening, setListening] = useState<number | null>(null);
   const players = useRef<(HTMLVideoElement | null)[]>([]);
@@ -27,6 +28,8 @@ export default function Again() {
         if (!active || !Array.isArray(payload)) return;
         const ordered = [0, 1, 2].map((i) => payload.find((s) => s && s.again === i && s.files?.["final.mp4"]));
         setShots(ordered.every(Boolean) ? (ordered as JobStatus[]) : []);
+        setStrangers(payload.filter((s) => s && (s.again ?? 0) >= 3 && s.files?.["final.mp4"])
+          .sort((a, b) => (a.again ?? 0) - (b.again ?? 0)));
         setPlaying(ordered.every(Boolean) && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
       })
       .catch(() => { if (active) setShots([]); });
@@ -79,7 +82,7 @@ export default function Again() {
     <section className="again" aria-labelledby="again-heading">
       <h2 id="again-heading">One render. Three performances.</h2>
       <p>The same LTX-2.5 render on the author&apos;s hand, timed by three performances using their recorded voice: one generation, three performances, no new render, no GPU. The two rhythms are edited from their recorded <em>pf</em> and <em>BOOM</em> sounds.</p>
-      <p className="again-fact"><strong>1 generation, 3 performances, 0 new renders</strong></p>
+      <p className="again-fact"><strong>1 generation, {3 + strangers.length} performances, 0 new renders</strong></p>
       {shots === null ? <p className="muted" role="status">Loading the performances…</p>
         : shots.length !== 3 ? <p className="muted" role="status">The three performances are not available here.</p>
         : <>
@@ -102,6 +105,19 @@ export default function Again() {
           <p className="muted again-status" role="status">
             {listening !== null ? `Hearing performance ${listening + 1} of 3: ${CUES[listening]}` : playing ? "Playing together, muted." : "Paused."}
           </p>
+          {strangers.length > 0 && <>
+            <h3 id="strangers-heading">The same render, in {strangers.length} strangers&apos; voices</h3>
+            <p>Each is one sound cut from another person&apos;s own recording (CC0, on Freesound), placed on the hand&apos;s strike. A soft <em>powf</em> throws a small fireball, a loud <em>boom</em> a big one, a <em>ka-boom</em> two. Still one generation.</p>
+            <div className="again-row again-strangers" aria-labelledby="strangers-heading">
+              {strangers.map((shot) => (
+                <figure key={shot.id}>
+                  <video src={shot.files["final.mp4"]} poster={shot.files["poster.jpg"]} controls playsInline preload="none"
+                    aria-label={shot.title ?? "A stranger's performance"} />
+                  <figcaption>{shot.title}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </>}
         </>}
       <p className="muted"><a href="#studio">Make your own performance</a> with the prepared palm and your microphone.</p>
     </section>

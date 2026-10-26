@@ -157,5 +157,57 @@
   "tap_frame": 68,
   "real": true,
   "rank": -188
+ },
+ "bending|hand_palm.mp4|boom-sadiquecat.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
+  "dir": "hand_palm__sadiquecat__again",
+  "title": "Boom, in Sadiquecat's voice",
+  "plate": "hand_palm.mp4",
+  "voice": "boom-sadiquecat.wav",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 54,
+  "real": true,
+  "again": 3,
+  "rank": -196.8
+ },
+ "bending|hand_palm.mp4|kaboom-unfa.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
+  "dir": "hand_palm__unfa__again",
+  "title": "Ka-Boom!, in unfa's voice",
+  "plate": "hand_palm.mp4",
+  "voice": "kaboom-unfa.wav",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 54,
+  "real": true,
+  "again": 4,
+  "rank": -196.6
+ },
+ "bending|hand_palm.mp4|powf-huw2k8.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
+  "dir": "hand_palm__huw2k8__again",
+  "title": "Powf, in huw2k8's voice",
+  "plate": "hand_palm.mp4",
+  "voice": "powf-huw2k8.wav",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 54,
+  "real": true,
+  "again": 5,
+  "rank": -196.4
+ },
+ "bending|hand_palm.mp4|boom-jedimichael.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
+  "dir": "hand_palm__jedimichael__again",
+  "title": "Boom, in Jedimichael's voice",
+  "plate": "hand_palm.mp4",
+  "voice": "boom-jedimichael.wav",
+  "effect": "fire_burst",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 54,
+  "real": true,
+  "again": 6,
+  "rank": -196.2
  }
 }

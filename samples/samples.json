@@ -73,6 +73,34 @@
    "gesture": "rhythm",
    "hand": true,
    "note": "the author's own voice, cut from their pf and BOOM with the room tone of the hand take"
+  },
+  "boom-sadiquecat.wav": {
+   "title": "Boom (Sadiquecat)",
+   "effect": "fire_burst",
+   "gesture": "boom",
+   "hand": true,
+   "note": "a stranger's voice: one sound cut from Sadiquecat's own recording, CC0 on Freesound (https://freesound.org/people/Sadiquecat/sounds/802505/)"
+  },
+  "kaboom-unfa.wav": {
+   "title": "Ka-Boom! (unfa)",
+   "effect": "fire_burst",
+   "gesture": "boom",
+   "hand": true,
+   "note": "a stranger's voice: one sound cut from unfa's own recording, CC0 on Freesound (https://freesound.org/people/unfa/sounds/245604/)"
+  },
+  "powf-huw2k8.wav": {
+   "title": "Powf (huw2k8)",
+   "effect": "fire_burst",
+   "gesture": "boom",
+   "hand": true,
+   "note": "a stranger's voice: one sound cut from huw2k8's own recording, CC0 on Freesound (https://freesound.org/people/huw2k8/sounds/459936/)"
+  },
+  "boom-jedimichael.wav": {
+   "title": "Boom (Jedimichael)",
+   "effect": "fire_burst",
+   "gesture": "boom",
+   "hand": true,
+   "note": "a stranger's voice: one sound cut from Jedimichael's own recording, CC0 on Freesound (https://freesound.org/people/Jedimichael/sounds/491216/)"
   }
  },
  "plates": {

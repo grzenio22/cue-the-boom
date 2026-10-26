@@ -13,6 +13,10 @@ CURATED_HAND_ORDER = [
     "hand_palm__boom__fire_burst",
     "hand_palm__pfpfboom__again",
     "hand_palm__pfx4__again",
+    "hand_palm__sadiquecat__again",
+    "hand_palm__unfa__again",
+    "hand_palm__huw2k8__again",
+    "hand_palm__jedimichael__again",
     "hand_walk__fffff__flame_plume",
     "hand_point__fwoooom__fire_breath",
     "hand_point__zzzzz__lightning",
@@ -59,4 +63,4 @@ def test_gallery_leads_with_curated_hands_and_keeps_repeat_performances_together
     assert hand_names == CURATED_HAND_ORDER
     # Hook uses these first three returned shots, with no additional sorting.
     assert [names_by_id[shot["id"]] for shot in gallery[:3]] == CURATED_HAND_ORDER[:3]
-    assert [shot.get("again") for shot in gallery[1:4]] == [0, 1, 2]
+    assert [shot.get("again") for shot in gallery[1:8]] == [0, 1, 2, 3, 4, 5, 6]

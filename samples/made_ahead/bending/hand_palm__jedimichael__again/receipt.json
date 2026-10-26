@@ -1,0 +1,177 @@
+{
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "fire_burst",
+  "anchor": "hero",
+  "behaviour": "burst",
+  "fluid": "fire",
+  "secondary": "smoke",
+  "prompt": "ainvfxfluid, a fireball bursting upwards, isolated on a pure black background",
+  "r_min": 0.04,
+  "r_max": 0.42,
+  "rise": 0.35,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "hit",
+  "lead_frames": 1,
+  "voice_gate": "attack",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.08,
+  "tail_frames": 80,
+  "smoke_albedo": 0.3,
+  "scene": {
+   "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks erupts {towards} from {subject}{rhythm}, lighting up {subject} and the whole room with flickering warm orange light, then dark smoke rolls up and fades, static camera, realistic phone video",
+   "r_min": 0.12,
+   "r_max": 0.4,
+   "direction": 0.0,
+   "resting": 0.0,
+   "bend": 0.0,
+   "shake": 0.006,
+   "flash": 0.45,
+   "rhythm": " in two small puffs and then one big blast",
+   "single": "",
+   "small": "ainvfxfluid, a quick small puff of flame pops {towards} from {subject} and lights it up for a moment, static camera, realistic phone video",
+   "clean": false,
+   "variants": [
+    [
+     {
+      "subjects": [
+       "jack",
+       "pumpkin",
+       "lantern"
+      ]
+     },
+     {
+      "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
+      "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video"
+     }
+    ],
+    [
+     {
+      "lit": true,
+      "except": [
+       "lamp",
+       "ghost",
+       "bulb",
+       "neon",
+       "screen"
+      ]
+     },
+     {
+      "resting": 0.06
+     }
+    ],
+    [
+     {
+      "subjects": [
+       "hand",
+       "palm",
+       "finger",
+       "fingertip",
+       "fist",
+       "arm",
+       "wrist",
+       "knuckle",
+       "wand",
+       "person",
+       "performer"
+      ]
+     },
+     {
+      "clean": true,
+      "prompt": "ainvfxfluid, a sudden ragged blast of clean bright flame and sparks erupts {towards} from {subject}{rhythm}, lighting up {subject} and the whole room with flickering warm orange light, then the flames vanish into the air, static camera, realistic phone video",
+      "small": "ainvfxfluid, a quick small burst of clean bright flame pops {towards} from {subject} and lights it up for a moment, static camera, realistic phone video"
+     }
+    ]
+   ]
+  }
+ },
+ "inputs": {
+  "point": [
+   0.5092592592592593,
+   0.6536458333333334
+  ],
+  "seed": 2,
+  "offset_s": 1.357333333333333,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 0.0,
+  "prompt": "ainvfxfluid, a short explosive ball of clean bright flame bursting upwards from a point, a white-hot core, quickly dissipating into embers, isolated on a pure black background",
+  "guide_scale": 1.125
+ },
+ "bending": {
+  "track": "hand_track.json",
+  "mask": "hand_mask.npz",
+  "k_hit": 57,
+  "tap_frame": 54,
+  "aim": 0.0,
+  "k_launch": 57,
+  "ignition": 19,
+  "offset": 38,
+  "lag_frames": 2,
+  "snap": {
+   "cue": 57,
+   "motion": 70,
+   "frame": 57,
+   "used": "cue",
+   "mismatch": false
+  },
+  "hits": [
+   {
+    "frame": 57,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 57,
+     "motion": 70,
+     "frame": 57,
+     "used": "cue",
+     "mismatch": false
+    }
+   }
+  ],
+  "ref": {
+   "xy": [
+    1038.07,
+    770.12
+   ],
+   "dir": [
+    -0.32129,
+    -0.94698
+   ],
+   "scale": 300.42
+  },
+  "fit": {
+   "as": "burst",
+   "drawn": 1.0,
+   "target": 2.2,
+   "room": 1.36,
+   "play": 1.36
+  },
+  "thrown": {
+   "after": 1,
+   "hands": 1.0
+  },
+  "loud_ref": 0.7654,
+  "held": null,
+  "performed_again": {
+   "from": "samples/made_ahead/bending/hand_palm__boom__fire_burst",
+   "no_new_render": true,
+   "no_gpu": true,
+   "element_sha256": "990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765"
+  },
+  "instant": null,
+  "camera": "handheld: thrown fire moves with the room",
+  "charge": null
+ },
+ "auto": null,
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 26.8
+}
