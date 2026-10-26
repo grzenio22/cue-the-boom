@@ -1,0 +1,21 @@
+{
+  "id": "air_vortex",
+  "anchor": "first",
+  "behaviour": "plume",
+  "fluid": "steam",
+  "secondary": null,
+  "prompt": "ainvfxfluid, a small spinning vortex of white mist twisting upward in a tight spiral, isolated on a pure black background",
+  "r_min": 0.04,
+  "r_max": 0.28,
+  "rise": 0.5,
+  "keyframe_stride": 8,
+  "composite": "over",
+  "smoke_albedo": 0.95,
+  "release_smoke": 24,
+  "release_fire": 5,
+  "scene": {
+    "prompt": "ainvfxfluid, a small whirlwind of white mist spins up out of {subject}, a tight spiral of swirling vapor twisting upward and thinning out in the light, static camera, realistic phone video",
+    "r_min": 0.1,
+    "r_max": 0.4
+  }
+}

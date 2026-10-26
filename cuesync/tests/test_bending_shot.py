@@ -90,6 +90,26 @@ def test_a_bending_shot_carries_the_element_and_says_how(tmp_path, make_video, m
     assert Path(res.final).exists() and (tmp_path / "shot" / "receipt.json").exists()
 
 
+def test_an_air_vortex_is_rendered_once_as_mist_and_held_in_the_palm(tmp_path, make_video, make_wav):
+    w, h, n = 256, 128, 72
+    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30 + (i % 2)))
+    sr = 48000
+    x = np.random.default_rng(3).normal(0, 0.001, 3 * sr).astype(np.float32)
+    t = np.arange(int(1.2 * sr)) / sr
+    x[sr // 2: sr // 2 + t.size] += (0.3 * np.random.default_rng(4).normal(0, 1, t.size)).astype(np.float32)  # a held "hoooo"
+    voice = make_wav(tmp_path, x, sr)
+    tr = track_of(n, w, h, lambda t: (110, 70))
+    track_path = tmp_path / "hand_track.json"
+    track_path.write_text(json.dumps(tr))
+    r = GuideAsElement()
+    spec = ShotSpec(plate=plate, voice=voice, effect="air_vortex", point=(0.43, 0.55), plate_size=(w, h), max_plate_s=3.0)
+    res = make_bending_shot(spec, r, tmp_path / "shot", track_path)
+    rc = res.receipt
+    assert rc["effect"]["id"] == "air_vortex" and rc["effect"]["fluid"] == "steam" and rc["effect"]["behaviour"] == "plume"
+    assert "whirlwind of white mist" in r.prompts[0] and "black background" in r.prompts[0] and "hand" not in r.prompts[0]
+    assert Path(res.final).exists() and (tmp_path / "shot" / "receipt.json").exists()
+
+
 def test_a_bending_shot_is_performed_again_with_no_new_render(tmp_path, make_video, make_wav):
     w, h, n = 256, 128, 72
     plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (40, 35, 30 + (i % 2)))

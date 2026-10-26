@@ -54,8 +54,10 @@ BENDING_PROMPTS = {  # the element alone, over black, in the LoRA's own wording 
                   "isolated on a pure black background",
     "steam_jet": "ainvfxfluid, a thin hissing jet of white steam streaming fast {towards} from a small point, narrow at "
                  "its source and fanning out into translucent curling wisps, isolated on a pure black background",
+    "air_vortex": "ainvfxfluid, a small whirlwind of white mist spinning upward from a point, a tight twisting spiral of "
+                  "swirling vapor with translucent curling wisps, isolated on a pure black background",
 }
-LAG_FRAMES = {"fire_breath": 10, "fire_burst": 2, "flame_plume": 5, "smoke_puff": 6, "steam_jet": 10}  # the far end's
+LAG_FRAMES = {"fire_breath": 10, "fire_burst": 2, "flame_plume": 5, "smoke_puff": 6, "steam_jet": 10, "air_vortex": 5}  # the far end's
 # age in frames: how long ago the emitter threw it (a jet crosses its reach in about 0.4 s)
 LENGTH = 6.0  # the element's reach in hand sizes (wrist to middle knuckle): a jet of about six hands
 SIZE = {"jet": (6.0, 0.75), "burst": (2.0, 0.45), "plume": (1.8, 0.45), "puff": (2.5, 0.4)}  # per behaviour: its reach in
@@ -80,7 +82,7 @@ LOST_GRACE, LOST_FADE = 0, 4  # the hand lost (and the picture where it was chan
 ROOT_FADE = 0.12  # share of the element's reach over which it comes up from nothing at the fingertips: the model draws
 # a jet's root as a hard bright nozzle and a flame's foot as a flat edge, and fire from a hand has neither
 ROOT_ROUND = 0.15  # how far the root's fade curves back at the sides, in its own length over its width squared
-ROOT_FADE_SHARE = {"steam_jet": 0.05, "fire_breath": 0.06}  # steam has no nozzle to hide (over the full fade it
+ROOT_FADE_SHARE = {"steam_jet": 0.05, "air_vortex": 0.05, "fire_breath": 0.06}  # steam has no nozzle to hide (over the full fade it
 # started a hand from the palm); a jet six hands long left a gap at the finger (a palm's flame: FOOT)
 FOOT, FOOT_WOBBLE, FOOT_RISE = 0.25, 0.35, 0.08  # a flame standing on the palm comes up out of it over this many
 # hands from the emitter, the line it comes up along broken by noise a third of that deep, rising this many hands a
@@ -1739,7 +1741,7 @@ def made_shot(spec, out_dir: Path, effect: str, plate: np.ndarray, track: dict, 
 
 # ------------------------------------------------------------------ the studio's bending shot, from your clip
 
-EMITTER_OF = {"fire_breath": "two_finger", "fire_burst": "palm", "flame_plume": "palm", "steam_jet": "palm",
+EMITTER_OF = {"fire_breath": "two_finger", "fire_burst": "palm", "flame_plume": "palm", "steam_jet": "palm", "air_vortex": "palm",
               "smoke_puff": "palm", "lightning_arc": "two_finger", "lightning_ball": "palm", "water_orb": "palm",
               "water_whip": "palm", "water_surge": "palm", "air_ball": "palm", "air_blast": "palm", "explosion": "palm",
               "water_ribbon": "palm", "water_shield": "palm", "water_jet": "palm",
