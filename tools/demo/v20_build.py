@@ -14,7 +14,8 @@ live/jobs/<id>. live.json records the sources (original path, SHA-256, creation 
 time, draft beats to edit: a window of the first phone clip from its first loud sound, and the newest job's shot
 from its first hit.
 prepare: v19's beats with its five automated Studio beats (try_sample ... result) replaced, in place, by
-live.json's beats. Every other beat is v19's, unchanged. No model generation, GPU service or narration
+live.json's beats; a live beat with "slot": "open" (at most 3.5 s, from a phone clip) plays first, before the
+proof. Every other beat is v19's, unchanged. No model generation, GPU service or narration
 generation is used. --run-dir builds elsewhere (a stand-in test of the plumbing, never shipped).
 """
 
@@ -45,7 +46,12 @@ CAPTURE_DIR = "contest-polish-20261026b"  # the automated capture the live takes
 FOOTER = 64          # rows of the studio's export footer under the picture (the receipt line and the waveform)
 MAX_SECONDS = 118
 SR = 48000
-PHONE_STAMP = "Filmed on a phone · the author, live · the studio on a laptop CPU, no GPU"
+PHONE_STAMP = "Filmed on a phone · the author, live · the stored LTX-2.5 fire, no render running"
+LIVE_HEADLINE = "Live · no render running"
+LIVE_SUBLINE = "Made once with LTX-2.5; my voice performs it now"
+OPEN_MAX_S = 3.5     # a live cold open: the hook, then v19's proof-first opening
+LIVE_RMS_DB = -22.0  # a live beat's sound is brought to about the level of the takes around it (v19: -25.6 to -19.3)
+LIVE_PEAK_DB = -3.0  # and never past this peak: a shouted BOOM into a phone reaches full scale
 RESULT_STAMP = "Hand followed, matted and lit on the CPU · the stored LTX-2.5 fire · no new render"
 run = Path(os.environ.get("CUE_DEMO20_RUN", ROOT / "runs/demo_v20"))
 
@@ -183,16 +189,18 @@ def copy_job(job: Path) -> dict:
 
 
 def draft_beats(phones: dict, jobs: dict) -> list[dict]:
-    """A first cut to edit: the first phone clip from just before its first loud sound, then the newest job's shot
-    from just before its first hit."""
+    """A first cut to edit: a cold open of the first phone clip around its first loud sound; the same clip from just
+    before that sound; then the newest job's shot from just before its first hit."""
     beats = []
     if phones:
         name, info = next(iter(phones.items()))
         first = info["onsets"][0]["at"] if info["onsets"] else 0.0
         start = max(0.0, first - 1.0)
+        beats.append(dict(id="live_cold_open", slot="open", src=f"live/{name}", start=round(max(0.0, first - 0.8), 2),
+                          dur=round(min(2.75, info["duration"] - max(0.0, first - 0.8)), 2), stamp=PHONE_STAMP))
         beats.append(dict(id="live_preview", src=f"live/{name}", start=round(start, 2),
                           dur=round(min(7.0, info["duration"] - start), 2),
-                          chip="Try it live · your webcam and your voice", stamp=PHONE_STAMP))
+                          headline=LIVE_HEADLINE, subline=LIVE_SUBLINE, stamp=PHONE_STAMP))
     if jobs:
         job_id, info = list(jobs.items())[-1]
         start = max(0.0, (info["first_hit_s"] or 0.5) - 0.45)
@@ -242,11 +250,29 @@ def resolve(src: str) -> Path:
     return path if path.is_absolute() else run / path
 
 
+def level_gain(path: Path, start: float, dur: float) -> float:
+    """The gain that brings a window's sound to LIVE_RMS_DB (its loud part: the 20 ms frames within 20 dB of the
+    loudest, where the voice is), held so its peak stays under LIVE_PEAK_DB."""
+    from cuesync.media import read_audio
+
+    audio = read_audio(path, SR)[int(start * SR):int((start + dur) * SR)]
+    if audio.size == 0 or not np.abs(audio).max() > 0:
+        return 1.0
+    hop = SR // 50
+    frames = audio[: audio.size // hop * hop].reshape(-1, hop)
+    rms = np.sqrt(np.mean(frames ** 2, axis=1))
+    loud = rms[rms >= rms.max() / 10]
+    loud_db = 20 * np.log10(np.sqrt(np.mean(loud ** 2)) + 1e-9)
+    peak = float(np.abs(audio).max())
+    return round(float(min(10 ** ((LIVE_RMS_DB - loud_db) / 20), 10 ** (LIVE_PEAK_DB / 20) / peak)), 4)
+
+
 def live_beat(raw: dict, live: dict) -> dict:
     """A live.json beat as a storyboard clip beat: a phone clip fills the frame (a portrait one over its blurred
     copy); a job's shot loses its export footer and fills the frame the same way."""
     b = dict(type="clip", fill=True, source_gain=1.0)
     b.update(deepcopy(raw))
+    b.pop("slot", None)
     path = resolve(raw["src"])
     b["src"] = str(path)
     upright = None
@@ -261,15 +287,25 @@ def live_beat(raw: dict, live: dict) -> dict:
         upright = [w, h - FOOTER]
     if upright and upright[1] > upright[0]:
         b.setdefault("portrait_backdrop", True)
+    if "source_gain" not in raw and path.is_file():
+        b["source_gain"] = level_gain(path, float(b.get("start", 0)), float(b["dur"]) * float(b.get("speed", 1)))
     return b
 
 
+def opening(live: dict) -> list[dict]:
+    return [b for b in live["beats"] if b.get("slot") == "open"]
+
+
+def studio_block(live: dict) -> list[dict]:
+    return [b for b in live["beats"] if b.get("slot") != "open"]
+
+
 def expected_ids(baseline: dict, live: dict) -> list[str]:
-    ids, placed = [], False
+    ids, placed = [b["id"] for b in opening(live)], False
     for beat in baseline["beats"]:
         if beat["id"] in STUDIO_IDS:
             if not placed:
-                ids.extend(b["id"] for b in live["beats"])
+                ids.extend(b["id"] for b in studio_block(live))
                 placed = True
         else:
             ids.append(beat["id"])
@@ -280,11 +316,11 @@ def prepare() -> dict:
     baseline, live = read_json(BASELINE), read_json(live_json())
     if baseline.get("version") != 19:
         raise ValueError("The v20 baseline must be the v19 storyboard")
-    beats, placed = [], False
+    beats, placed = [live_beat(b, live) for b in opening(live)], False
     for beat in baseline["beats"]:
         if beat["id"] in STUDIO_IDS:
             if not placed:
-                beats.extend(live_beat(b, live) for b in live["beats"])
+                beats.extend(live_beat(b, live) for b in studio_block(live))
                 placed = True
         else:
             beats.append(deepcopy(beat))
@@ -362,8 +398,15 @@ def structure_check(board: dict, baseline: dict) -> tuple[dict, list[str]]:
     schedule = timeline(beats)
     duration = schedule[-1]["end"] if schedule else 0
     at = {e["id"]: e for e in schedule}
-    if "performance_turns" not in at or at["performance_turns"]["end"] > 15:
-        errors.append("All three complete performances must finish within the opening 15 seconds")
+    open_ids = [b["id"] for b in opening(live)]
+    open_s = sum(at[i]["end"] - at[i]["start"] for i in open_ids if i in at)
+    if open_s > OPEN_MAX_S + 1e-6:
+        errors.append(f"The live cold open runs past {OPEN_MAX_S} s: {open_s:.3f}")
+    for i in open_ids:
+        if i in at and not Path(at[i]["beat"]["src"]).name.startswith("phone_"):
+            errors.append(f"The cold open plays a phone clip: {i}")
+    if "performance_turns" not in at or at["performance_turns"]["end"] > 15 + open_s + 1e-6:
+        errors.append("All three complete performances must finish within 15 seconds of the proof's start")
     if duration > MAX_SECONDS + 1e-6:
         errors.append(f"Picture exceeds {MAX_SECONDS} seconds: {duration:.3f}")
     if abs(float(board.get("duration", 0)) - duration) > .002:

@@ -62,8 +62,11 @@ class LiveTakeTest(unittest.TestCase):
         self.assertEqual(data["jobs"]["abc123"]["first_hit_s"], 1.0)
         self.assertTrue((v20_build.live_dir() / "jobs/abc123/in/plate.mp4").is_file())
         self.assertTrue(data["draft"])
-        self.assertEqual([b["id"] for b in data["beats"]], ["live_preview", "live_result"])
-        self.assertAlmostEqual(data["beats"][0]["start"], 1.0, delta=.06)  # a second before the first loud sound
+        self.assertEqual([b["id"] for b in data["beats"]], ["live_cold_open", "live_preview", "live_result"])
+        self.assertEqual(data["beats"][0]["slot"], "open")
+        self.assertLessEqual(data["beats"][0]["dur"], v20_build.OPEN_MAX_S)
+        self.assertAlmostEqual(data["beats"][1]["start"], 1.0, delta=.06)  # a second before the first loud sound
+        self.assertEqual(data["beats"][1]["headline"], v20_build.LIVE_HEADLINE)
 
     def test_a_shot_loses_its_export_footer_and_a_portrait_one_keeps_its_backdrop(self):
         v20_build.live_dir().mkdir(parents=True)
@@ -81,10 +84,25 @@ class LiveTakeTest(unittest.TestCase):
         self.assertEqual(portrait["crop"], [0, 0, 1, round(1920 / 1984, 6)])
         self.assertTrue(portrait["portrait_backdrop"])
 
+    def test_a_loud_take_is_brought_down_to_the_level_of_the_cut(self):
+        clip = self.root / "shout.mp4"
+        tone_clip(clip, 3, [1.0])  # a 0.5-amplitude tone: loud part about -9 dBFS
+        gain = v20_build.level_gain(clip, 0, 3)
+        self.assertAlmostEqual(20 * np.log10(gain), v20_build.LIVE_RMS_DB + 9.0, delta=1.0)
+        self.assertLessEqual(0.5 * gain, 10 ** (v20_build.LIVE_PEAK_DB / 20))
+
     def test_live_beats_replace_the_studio_block_in_place(self):
         baseline = {"beats": [{"id": "hero"}, *[{"id": i} for i in v20_build.STUDIO_IDS], {"id": "credits"}]}
         live = {"beats": [{"id": "live_preview"}, {"id": "live_result"}]}
         self.assertEqual(v20_build.expected_ids(baseline, live), ["hero", "live_preview", "live_result", "credits"])
+
+    def test_a_cold_open_plays_first_and_the_rest_replace_the_studio_block(self):
+        baseline = {"beats": [{"id": "hero"}, *[{"id": i} for i in v20_build.STUDIO_IDS], {"id": "credits"}]}
+        live = {"beats": [{"id": "live_cold_open", "slot": "open"}, {"id": "live_preview"}, {"id": "live_result"}]}
+        self.assertEqual(v20_build.expected_ids(baseline, live),
+                         ["live_cold_open", "hero", "live_preview", "live_result", "credits"])
+        self.assertNotIn("slot", v20_build.live_beat({"id": "live_cold_open", "slot": "open", "src": "x.mp4"},
+                                                     {"phones": {}, "jobs": {}}))
 
 
 if __name__ == "__main__":
