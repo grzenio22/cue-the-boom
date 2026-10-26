@@ -55,7 +55,7 @@ The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that 
 3. When recording ends, the app automatically makes your performance. Fire, air and explosion reuse stored generated elements; lightning is composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
 4. **Perform again** gives the same element a new performance. **Try a sample voice instead** works without microphone access and is explicitly labelled as a recorded example.
 
-The prepared fire path always reuses the stored element, even when a GPU is connected. Three local full-quality palm runs with a single-hit recording took 14.8–16.8 seconds from HTTP submission through MP4 download on a Ryzen 9 7900X; the bundled three-hit author rhythm took 26.6 seconds (84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
+The prepared fire path always reuses the stored element, even when a GPU is connected. On a Ryzen 9 7900X, the bundled three-hit author rhythm took 40.3–40.8 seconds from HTTP submission through MP4 download (three runs; 84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
 
 Under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen, and the flame stays in the palm. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff".
 
@@ -94,7 +94,7 @@ The details (the pipeline step by step, the timing evaluation, the matte, the li
 
 Water and earth, and the procedural air ball and blast, are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
-Choose an effect, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The live webcam preview supports fire and lightning. [Footage, audio and retained comparison-media credits](samples/CREDITS.md).
+Choose an effect, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The live webcam preview supports fire and lightning. [Footage and audio credits](samples/CREDITS.md).
 
 ## The entry at a glance
 
@@ -139,5 +139,5 @@ To generate a new hand element or render into a scene, use ComfyUI with LTX-2.5 
 - **Footage and sounds:**
   - `hand_palm`, `hand_point`, `hand_walk`, `hand_punch`, `hand_fist` and `hand_open` are the author's own hand and voice.
   - `hand_cupped` is a Pexels clip (Kindel Media).
-  - The other sample clips are stand-ins generated with LTX-2.5. The preset noises are synthetic except **pf, pf, BOOM** and **pf pf pf PF**, which are edited rhythms made from the author's recordings. The procedural lightning examples use synthetic noises over the author's footage.
+  - The other sample clips are stand-ins generated with LTX-2.5. The preset noises are synthetic except **pf, pf, BOOM** and **pf pf pf PF**, which are edited rhythms made from the author's recordings, and four strangers' CC0 recordings (Sadiquecat, unfa, huw2k8, Jedimichael). The procedural lightning examples use synthetic noises over the author's footage.
   - The real-footage scene shots are made from stock clips and photos, and real people's CC0 voices, by the authors in [samples/CREDITS.md](samples/CREDITS.md). Only the processed scene shots are in the repository; the Pexels hand clip ships as-is.
