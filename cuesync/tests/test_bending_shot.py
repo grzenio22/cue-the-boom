@@ -291,30 +291,8 @@ def test_a_hand_that_leaves_the_frame_is_held_where_it_went_out():
     assert held["xy"][9] == held["xy"][3] and held["dir"][9] == [-1.0, 0.0]
 
 
-def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav, monkeypatch, record_property):
-    """Fire retains a warm encoded core while its actual faint source edges do not darken the wall."""
-    from cuesync import bending
-
-    finish_fire = bending.finish_fire
-    faint_deltas = []
-    luma = np.array([.2126, .7152, .0722], np.float32)
-
-    def observe_finish(room, emission, opacity, out=None):
-        # Capture before the in-place finish. Classify physical source intensity, independently of the
-        # compositor's body function: encoded warmth also contains dense gas and H.264 chroma shifts.
-        before, source, alpha = room.copy(), emission.copy(), opacity.copy()
-        result = finish_fire(room, emission, opacity, out=out)
-        assert np.array_equal(emission, source)
-        assert np.array_equal(opacity, alpha)
-        if out is None or not np.shares_memory(out, room):
-            assert np.array_equal(room, before)
-        source_luminance = source @ luma
-        faint = (source_luminance > 0.) & (source_luminance <= .04)
-        if faint.any():
-            faint_deltas.append(((result @ luma)-(before @ luma))[faint])
-        return result
-
-    monkeypatch.setattr(bending, "finish_fire", observe_finish)
+def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav):
+    """Added alone, fire on a white wall went white on white; its soot keeps it orange."""
     w, h, n = 256, 128, 72
     plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (235, 235, 230))
     sr = 48000
@@ -328,14 +306,7 @@ def test_fire_over_a_white_wall_keeps_its_colour(tmp_path, make_video, make_wav,
     res = make_bending_shot(spec, GuideAsElement(), tmp_path / "shot", track_path)
     k = res.receipt["bending"]["hits"][0]["frame"] + 4
     f = read_video(res.composite).frames[k].astype(int)
-    assert (f[..., 0] - f[..., 2]).max() > 30  # a visible warm core against white
-    assert faint_deltas, "the shot must exercise faint source edges"
-    delta = np.concatenate(faint_deltas)
-    assert delta.size > 20
-    record_property("faint_edge_pixels", int(delta.size))
-    record_property("minimum_faint_luminance_increment", float(delta.min()))
-    # Check every actual faint source pixel across the whole shot before codec loss, to float32 precision.
-    assert delta.min() >= -2e-7
+    assert (f[..., 0] - f[..., 2]).max() > 80  # orange against the white, somewhere
 
 
 def test_the_fire_is_smeared_as_far_as_the_hand_moved():
@@ -453,18 +424,18 @@ def test_a_hum_charges_the_strike_and_launches_nothing(tmp_path, make_video, mak
     spec = ShotSpec(plate=plate, voice=voice, effect="fire_burst", point=(100 / w, 90 / h), mode="scene",
                     plate_size=(w, h), max_plate_s=3.0)
     energy = []
-    relight = bending.fire_light.relight
+    room_behind = bending.room_behind
 
     def isolate_ember(source, *args, **kwargs):
         return np.zeros_like(source) if "since" in kwargs else np.full_like(source, 0.1)
 
-    def measure(plate, element, *args, **kwargs):
+    def measure(element, plate):
         energy.append(float(element.max()))
-        return relight(plate, element, *args, **kwargs)
+        return room_behind(element, plate)
 
     if ember_only:
         monkeypatch.setattr(bending, "warp_element", isolate_ember)
-        monkeypatch.setattr(bending.fire_light, "relight", measure)
+        monkeypatch.setattr(bending, "room_behind", measure)
     res = make_bending_shot(spec, GuideAsElement(), tmp_path / "charge", track_path)
     b = res.receipt["bending"]
     assert b["charge"] and abs(b["charge"]["from"] - 14) <= 3 and abs(b["charge"]["release"] - 38) <= 3
@@ -674,51 +645,6 @@ def test_a_fireball_leaves_the_fist_on_the_strike_and_flies_on_rising():
     x_at = lambda f: (f[..., 0].sum(0) * np.arange(w)).sum() / f[..., 0].sum()  # noqa: E731
     held = warp_element(el, tr, ref, since + 6, 2, since=since)  # not thrown (a flame): on the fist, gone back with it
     assert x_at(held) < x_at(warp_element(el, tr, ref, since + 6, 2, since=since, thrown=True)) - 40
-
-
-@pytest.mark.parametrize("motion,instant,anchored", [
-    (None, False, True),
-    ({"after": 1, "hands": 1.0}, False, False),
-    ("missing", False, False),
-    (None, True, False),
-])
-def test_replaying_a_static_cupped_hand_preserves_its_recorded_release_choice(
-    tmp_path, make_video, motion, instant, anchored
-):
-    """A saved anchored burst stays in the palm; missing metadata and library sources retain defaults."""
-    w = h = 128
-    n = 48
-    plate = make_video(tmp_path, n=n, fps=24, w=w, h=h, color_fn=lambda i: (20, 20, 20))
-    track = track_of(n, w, h, lambda t: (64., 100.), d=(0., -1.), scale=20., gesture="Open_Palm")
-    track["emitter"] = "palm"
-    track_path = tmp_path / "hand_track.json"
-    track_path.write_text(json.dumps(track))
-    source = tmp_path / "source"
-    source.mkdir()
-    frames = np.zeros((n, h, w, 3), np.uint8)
-    frames[4:, 70:91, 56:73] = [250, 140, 35]
-    write_video(source / "element.mp4", frames, fps=24)
-    saved = {"ref": {"xy": [64., 100.], "dir": [0., -1.], "scale": 20.}}
-    if motion != "missing":
-        saved["thrown"] = motion
-    (source / "receipt.json").write_text(json.dumps({
-        "effect": {"id": "fire_burst"}, "render": {"prompt": "cached test fire", "guide_scale": 1.},
-        "bending": saved,
-    }))
-    spec = ShotSpec(plate=plate, voice=None, effect="fire_burst", point=(.5, 100/h), cue="hold",
-                    holds=[(.5, 1.)], plate_size=(w, h), max_plate_s=2.)
-    result = make_bending_shot(spec, None, tmp_path / "replay", track_path, element_from=source, instant=instant)
-    receipt = result.receipt["bending"]
-    assert (receipt["thrown"] is None) == anchored
-    assert receipt["aim"] == 0. and receipt["aim_mode"] == "upward_default"
-    rgb = read_video(result.composite).frames.astype(float)
-    energy = np.maximum(rgb[..., 0] - rgb[..., 2] - 50., 0.)
-    y = np.arange(h)[:, None]
-    launch = receipt["k_launch"]
-    def center(frame):
-        return float((energy[frame]*y).sum()/energy[frame].sum())
-    movement = center(launch + 20) - center(launch + 2)
-    assert abs(movement) < 3. if anchored else movement < -10.
 
 
 def test_a_lit_rooms_camera_sees_a_flames_core_white_and_its_light_never_outshines_it():

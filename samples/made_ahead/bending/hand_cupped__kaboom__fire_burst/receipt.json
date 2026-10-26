@@ -1,273 +1,128 @@
 {
-  "cuesync": "0.1.0",
-  "mode": "bending",
-  "effect": {
-    "id": "fire_burst",
-    "anchor": "hero",
-    "behaviour": "burst",
-    "fluid": "fire",
-    "secondary": "smoke",
-    "prompt": "ainvfxfluid, a fireball bursting upwards, isolated on a pure black background",
-    "r_min": 0.04,
-    "r_max": 0.42,
-    "rise": 0.35,
-    "keyframe_stride": 8,
-    "composite": "screen",
-    "align": "hit",
-    "lead_frames": 1,
-    "voice_gate": "attack",
-    "release_fire": 5,
-    "release_smoke": 24,
-    "holdout_below": 0.08,
-    "tail_frames": 80,
-    "smoke_albedo": 0.3,
-    "scene": {
-      "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks erupts {towards} from {subject}{rhythm}, lighting up {subject} and the whole room with flickering warm orange light, then dark smoke rolls up and fades, static camera, realistic phone video",
-      "r_min": 0.12,
-      "r_max": 0.4,
-      "direction": 0.0,
-      "resting": 0.0,
-      "bend": 0.0,
-      "shake": 0.006,
-      "flash": 0.45,
-      "rhythm": " in two small puffs and then one big blast",
-      "single": "",
-      "small": "ainvfxfluid, a quick small puff of flame pops {towards} from {subject} and lights it up for a moment, static camera, realistic phone video",
-      "clean": false,
-      "variants": [
-        [
-          {
-            "subjects": [
-              "jack",
-              "pumpkin",
-              "lantern"
-            ]
-          },
-          {
-            "prompt": "ainvfxfluid, a sudden ragged blast of flame and sparks bursts up out of {subject}{rhythm}, flames flash out of its carved eyes and mouth, the blast lights up the whole room with flickering orange light, then dark smoke rolls up from it and the candle inside keeps burning, static camera, realistic phone video",
-            "small": "ainvfxfluid, a quick small puff of flame pops up out of {subject} and its carved face flickers brighter for a moment, static camera, realistic phone video"
-          }
-        ],
-        [
-          {
-            "lit": true,
-            "except": [
-              "lamp",
-              "ghost",
-              "bulb",
-              "neon",
-              "screen"
-            ]
-          },
-          {
-            "resting": 0.06
-          }
-        ],
-        [
-          {
-            "subjects": [
-              "hand",
-              "palm",
-              "finger",
-              "fingertip",
-              "fist",
-              "arm",
-              "wrist",
-              "knuckle",
-              "wand",
-              "person",
-              "performer"
-            ]
-          },
-          {
-            "clean": true,
-            "prompt": "ainvfxfluid, a sudden ragged blast of clean bright flame and sparks erupts {towards} from {subject}{rhythm}, lighting up {subject} and the whole room with flickering warm orange light, then the flames vanish into the air, static camera, realistic phone video",
-            "small": "ainvfxfluid, a quick small burst of clean bright flame pops {towards} from {subject} and lights it up for a moment, static camera, realistic phone video"
-          }
-        ]
-      ]
-    }
-  },
-  "source_profile": {
-    "scale": 1.0,
-    "exposure": 1.0
-  },
-  "inputs": {
-    "point": [
-      0.6,
-      0.6
-    ],
-    "seed": 1,
-    "offset_s": 1.13,
-    "cue": "voice",
-    "voice": "source_voice.wav",
-    "voice_sha256": "9e37441e699c46b35da904ef2126f0f60467845b19acfa3f757ebfe1193bb71a"
-  },
-  "render": {
-    "seconds": 0.0,
-    "prompt": "ainvfxfluid, a short explosive ball of clean bright flame bursting upwards from a point, a white-hot core, quickly dissipating into embers, isolated on a pure black background",
-    "guide_scale": 0.75
-  },
-  "bending": {
-    "track": "hand_track.json",
-    "mask": "hand_mask.npz",
-    "k_hit": 60,
-    "poster_frame": 69,
-    "tap_frame": 60,
-    "aim": 0.0,
-    "aim_mode": "upward_default",
-    "k_launch": 60,
-    "ignition": 21,
-    "offset": 39,
-    "lag_frames": 2,
-    "snap": {
-      "cue": 60,
-      "motion": 2,
-      "frame": 60,
-      "used": "cue",
-      "mismatch": false
-    },
-    "hits": [
-      {
-        "frame": 48,
-        "gain": 0.722,
-        "size": 0.613,
-        "snap": {
-          "cue": 48,
-          "motion": 2,
-          "frame": 48,
-          "used": "cue",
-          "mismatch": false
-        }
-      },
-      {
-        "frame": 60,
-        "gain": 1.0,
-        "size": 1.0,
-        "snap": {
-          "cue": 60,
-          "motion": 2,
-          "frame": 60,
-          "used": "cue",
-          "mismatch": false
-        }
-      }
-    ],
-    "ref": {
-      "xy": [
-        869.76,
-        690.12
-      ],
-      "dir": [
-        -0.0253,
-        -0.99968
-      ],
-      "scale": 706.45
-    },
-    "fit": {
-      "as": "burst",
-      "drawn": 0.71,
-      "target": 2.2,
-      "room": 0.48,
-      "play": 1.0,
-      "base_play": 1.0,
-      "source_scale": 1.0
-    },
-    "thrown": null,
-    "loud_ref": 1.0,
-    "held": null,
-    "performed_again": null,
-    "instant": null,
-    "camera": "locked",
-    "fire_look": {
-      "method": "image-based 2.5D: coherent depth slabs and landmark hand surface",
-      "volume": {
-        "slabs": 9,
-        "thickness": 0.9,
-        "parallax": 0.6,
-        "flow": 0.04,
-        "optical_depth": 0.85,
-        "tau_cap": 1.25,
-        "density_contrast": 0.34,
-        "foreground_cooling": 0.34,
-        "filament_relief": 0.32,
-        "energy": 0.95
-      },
-      "lighting": "exposure-aware three-band local relight",
-      "ambient": {
-        "hand_ambient": 0.12486094608902931,
-        "room_ambient": 0.007254524622112513
-      },
-      "foreground_safe_heat": true
-    },
-    "charge": null
-  },
-  "auto": null,
-  "sound": {
-    "cue": "as performed",
-    "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
-    "foley_gain": 0.65
-  },
-  "seconds_total": 97.6,
-  "element_sha256": "0064942b1faf1cc79f456a20bdda88b3a1318c5bebcab0c472cb4e7de3949ecc",
-  "recomposite": {
-    "method": "CPU compositing from the existing LTX element, track and matte",
-    "no_new_render": true,
-    "no_gpu": true,
-    "element_sha256": "0064942b1faf1cc79f456a20bdda88b3a1318c5bebcab0c472cb4e7de3949ecc",
-    "source_receipt_sha256": "fdead9d5d60f607743b8ded4e1ad9ded50843f0b0033e12600df218e5622851a",
-    "raw_audio_hit_frames": [
-      48,
-      60
-    ],
-    "render_cue_hit_frames": [
-      48,
-      60
-    ],
-    "charge_window": null,
-    "cue_voice_end_frame": 81,
-    "utc": "2026-10-23T01:06:11.502951+00:00",
-    "seconds": 97.689,
-    "renderer_sources": {
-      "cuesync/src/cuesync/audio.py": "ebee363eb6ee02050dee9bf24134039b25d45da9f6a2bdd67402ea7278442c4e",
-      "cuesync/src/cuesync/bending.py": "b1fcebe9b1ed12e721822fd5b21949716c8fd08fee188021cd81948db70af9c8",
-      "cuesync/src/cuesync/composite.py": "41b9b4ae9e200697c9e8e4f3e781efa7b158e5188a9c4a11aad41520683927be",
-      "cuesync/src/cuesync/conform.py": "e1ec3595b2f6053c7c43634ba08ab0d792c29db62d3b463c30e088002f913c01",
-      "cuesync/src/cuesync/cues.py": "a5e68e16e64a017dcb72411fa12b611487101c106941d47c25daf885a59ca295",
-      "cuesync/src/cuesync/effects.py": "5a4f0db620c51d6eb12fef1eadd38b660fbea2b44170003a982cef2b8b446e43",
-      "cuesync/src/cuesync/fire_relight.py": "fa04c1336ebac9c3403ae9625c4710aa36bf9fbab3e50b19022b0d6cef6247ca",
-      "cuesync/src/cuesync/fx_light.py": "efcd00ea9bc716173498ea3a6f495590ae261c55bb3c3b9a671de33351c92f9d",
-      "cuesync/src/cuesync/fx_volume.py": "7e7827c0beb8c19a8486ccb6bf21a380e624b688c185a4b440bcecd77d96d5bd",
-      "cuesync/src/cuesync/gestures.py": "32f16444bf05758c689e2a112768260279f319fbfdb99b039aede05fff01c620",
-      "cuesync/src/cuesync/hand_surface.py": "deb28a961babc12641f3db8580c1a81f0958db419982fa5193ee93f8b6082f36",
-      "cuesync/src/cuesync/hand_track.py": "9b321930626d98523e7d5631a1ed256b9a9548c812a5b24b3cf98f4ebd345fd6",
-      "cuesync/src/cuesync/media.py": "6ff8f857a1718f36d716ef5160e492d14a753ff8b0ff0f936cf433f2a443a3ba",
-      "cuesync/src/cuesync/pipeline.py": "377e01357c56870b1495c72022d90f34ce0fca3efc50d32124c991dd70608533",
-      "cuesync/src/cuesync/scene.py": "2d06248e01cdeed202e12e967e970899fab37d4beba5475de690fe7025acb25b",
-      "cuesync/src/cuesync/sfx_synth.py": "14591dca7a24371cf6ea394d0ec74a136f7a83987473c1f323fb78fc7803e43e",
-      "cuesync/src/cuesync/transfer.py": "67aea3dacb519d922ffa15ccb436598b7bd45f7b94b310d5385e4d9b7140e707",
-      "effects/blow_out.json": "2f30219d00241740aae1058922ebda37e226a18145b4517f3a02ddb6e58ed564",
-      "effects/fire_breath.json": "5d7d569796fc34a897b47c03dc8448d9083893a85f8b8d0153dce767ca7efbed",
-      "effects/fire_burst.json": "a6a2f5e1cd38e4d33cec663b2910e49583ff896d0a3907eb650630d0cfda64c0",
-      "effects/fireball.json": "308caac50e0949abea6a85da17d4cc839f1509552d33d6414f0dab3266c7aa0f",
-      "effects/flame_plume.json": "625f50c425d64249d8eb33a99295589dc380b7256f1deb4650e7e3b5abb522d8",
-      "effects/smoke_puff.json": "0235e2ef39457d3786d49e9f7a5b5c0685e5087a955b189cf2d5ab2396e11def",
-      "effects/steam_jet.json": "2bf8aff189dc089d6da8b8ac14c8c41862a4eb2c34c9c5b39cb6029f8af2e706",
-      "effects/wick_flare.json": "8c04ae37ec06d149f3fdabd6391ba16ae602091bec61486a04d478ebcda6ae13"
-    },
-    "rebuild_recipe_sha256": "7d9a9be1a88246e2f54a9711531f70ec476f7ac65f105172bf040b1fa81e3f20",
-    "authored_reuse_intent": {
-      "field": "bending.thrown",
-      "authored_value": null,
-      "historical_field_present": false,
-      "original_source_receipt_sha256": "ee15bc94ac2b9d9e77161b8d9b90df5cea920afe8bd9db8da448975b0a683ea1",
-      "basis": "Current anchored-intent reconstruction from the historical stationary cupped-hand composition. The original legacy receipt did not encode a thrown/anchored choice.",
-      "authored_as_current_choice": true
-    },
-    "reuse_input_snapshot": {
-      "path": "runs/fire-final-20261023/final-gallery-v2/reuse-inputs/hand_cupped__kaboom__fire_burst",
-      "receipt_sha256": "2d78b1c40f6c3ce0196dae59d7da1b69003e08188531b9baf3803d9c2a1febac",
-      "element_sha256": "0064942b1faf1cc79f456a20bdda88b3a1318c5bebcab0c472cb4e7de3949ecc"
-    }
+ "cuesync": "0.1.0",
+ "mode": "bending",
+ "effect": {
+  "id": "fire_burst",
+  "anchor": "hero",
+  "behaviour": "burst",
+  "fluid": "fire",
+  "secondary": "smoke",
+  "prompt": "ainvfxfluid, a fireball bursting upwards, isolated on a pure black background",
+  "r_min": 0.04,
+  "r_max": 0.42,
+  "rise": 0.35,
+  "keyframe_stride": 8,
+  "composite": "screen",
+  "align": "hit",
+  "lead_frames": 1,
+  "voice_gate": "attack",
+  "release_fire": 5,
+  "release_smoke": 24,
+  "holdout_below": 0.08,
+  "tail_frames": 80,
+  "smoke_albedo": 0.3,
+  "scene": {
+   "prompt": "ainvfxfluid, a sudden ragged blast of clean bright flame and sparks erupts {towards} from {subject}{rhythm}, lighting up {subject} and the whole room with flickering warm orange light, then the flames vanish into the air, static camera, realistic phone video",
+   "r_min": 0.12,
+   "r_max": 0.4,
+   "direction": 0.0,
+   "resting": 0.0,
+   "bend": 0.0,
+   "shake": 0.006,
+   "flash": 0.45,
+   "rhythm": " in two small puffs and then one big blast",
+   "single": "",
+   "small": "ainvfxfluid, a quick small burst of clean bright flame pops {towards} from {subject} and lights it up for a moment, static camera, realistic phone video",
+   "clean": true,
+   "variants": []
   }
+ },
+ "inputs": {
+  "point": [
+   0.6,
+   0.6
+  ],
+  "seed": 1,
+  "offset_s": 1.13,
+  "cue": "voice"
+ },
+ "render": {
+  "seconds": 83.3,
+  "prompt": "ainvfxfluid, a short explosive ball of clean bright flame bursting upwards from a point, a white-hot core, quickly dissipating into embers, isolated on a pure black background",
+  "guide_scale": 0.75
+ },
+ "bending": {
+  "track": "hand_track.json",
+  "mask": "hand_mask.npz",
+  "k_hit": 60,
+  "k_launch": 60,
+  "ignition": 21,
+  "offset": 39,
+  "lag_frames": 2,
+  "snap": {
+   "cue": 60,
+   "motion": 2,
+   "frame": 60,
+   "used": "cue",
+   "mismatch": true
+  },
+  "hits": [
+   {
+    "frame": 48,
+    "gain": 0.918,
+    "size": 0.958,
+    "snap": {
+     "cue": 48,
+     "motion": 2,
+     "frame": 48,
+     "used": "cue",
+     "mismatch": true
+    }
+   },
+   {
+    "frame": 60,
+    "gain": 1.0,
+    "size": 1.0,
+    "snap": {
+     "cue": 60,
+     "motion": 2,
+     "frame": 60,
+     "used": "cue",
+     "mismatch": true
+    }
+   }
+  ],
+  "ref": {
+   "xy": [
+    869.76,
+    690.12
+   ],
+   "dir": [
+    -0.0253,
+    -0.99968
+   ],
+   "scale": 706.45
+  },
+  "performed_again": null,
+  "tap_frame": 60
+ },
+ "auto": {
+  "kind": "boom",
+  "gesture": "rhythm",
+  "voiced": true,
+  "detected_kinds": [
+   "puff",
+   "boom"
+  ],
+  "heard": "boom",
+  "hand": "Open_Palm",
+  "picked": "fire_burst",
+  "why": "a palm strike with a boom: a fireball per strike"
+ },
+ "sound": {
+  "cue": "as performed",
+  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+  "foley_gain": 0.65
+ },
+ "seconds_total": 210.6
 }

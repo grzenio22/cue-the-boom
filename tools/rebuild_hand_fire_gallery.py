@@ -371,7 +371,8 @@ def worker(name: str, run: Path, overrides: dict | None = None) -> None:
                     effect=receipt["effect"]["id"], point=tuple(params["point"]),
                     seed=int(params.get("seed", entry.get("seed", 1))),
                     offset_s=float(params.get("offset_s", 0.0)), cue=params.get("cue", "clip"),
-                    direction=effective_aim, mode="element", plate_size=tuple(item["size"]))
+                    direction=effective_aim, label=entry.get("title", ""),
+                    mode="element", plate_size=tuple(item["size"]))
     if spec.cue not in ("clip", "voice"):
         raise ValueError(f"No authored hold reconstruction is permitted without its original timings: {name}")
     destination = run / "staged" / name
@@ -382,7 +383,8 @@ def worker(name: str, run: Path, overrides: dict | None = None) -> None:
         item["authored_reuse_intent"] = intent
     if intent is not None or item.get("source_override"):
         item["reuse_input_snapshot"] = {
-            "path": relative(reuse_source), "receipt_sha256": sha256(reuse_source / "receipt.json"),
+            "path": os.path.relpath(reuse_source, ROOT).replace(os.sep, "/"),
+            "receipt_sha256": sha256(reuse_source / "receipt.json"),
             "element_sha256": sha256(reuse_source / "element.mp4"),
         }
 

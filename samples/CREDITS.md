@@ -63,21 +63,23 @@ the original LTX-2.5 22B distilled int8 + ainvfx-fluid generation, seed
 history, guide and measurements. The historical generation time belongs to
 that earlier model call, not to the gallery rebuild.
 
-The palm and its two replays use the `compact/` derivative: documented frame
-selection and linear-radiance attenuation, with no spatial warp. Walk uses
-the unchanged original B-turbulent-v2 element. Fist uses the `crown/`
-derivative: documented temporal selection and a soft lower-stem mask, without
-spatial warping. Punch, pointing fire, open palm and cupped hands retain their
-previous source elements. Each newly selected-source shot carries
-`source-adapter.json` and `source-provenance.json` separately from its
-performance receipt; scale, exposure and authored motion are current playback
-choices, not generation settings. The source package includes exact hashes
-and derivative recipes.
+Walk uses the unchanged original B-turbulent-v2 element. The palm, its two
+replays and fist restore their signed-off source elements and finished shots
+from `e056e9f` after comparison with the CPU rebuilds. The `compact/` and
+`crown/` derivatives remain preserved experiments, rather than the selected
+gallery sources. Their replacement `source-adapter.json` and
+`source-provenance.json` record the restored sources separately from the
+unchanged historical performance receipts. Punch, pointing fire, open palm
+and cupped hands also restore their signed-off finished shots. Playback scale,
+exposure and authored motion are not generation settings. The source package
+includes exact hashes and derivative recipes; no new model call was made for
+these comparisons or restorations.
 
 The default `library/bending/flame_plume` also uses the unchanged original
 B-turbulent-v2 element, with current playback scale `1.0` and exposure `1.5`.
-Its actual instant-mode render on the walking sample matched the corresponding
-gallery composite byte for byte. The library receipt is a playback adapter;
+Its earlier instant-mode render on the walking sample matched the corresponding
+gallery composite byte for byte before the gallery's contact-light update.
+The library receipt is a playback adapter;
 `preserved-source-receipt.json` is an earlier adapter, while the original model
 generation evidence remains in `source_assets/b-turbulent-v2/original/`.
 `source-provenance.json` records their separate hashes. The default burst

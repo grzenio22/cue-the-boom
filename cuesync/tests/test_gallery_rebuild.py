@@ -10,6 +10,7 @@ import shutil
 import pytest
 
 import cuesync.cues
+import cuesync.bending
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -58,6 +59,53 @@ def test_clip_cue_ignores_conflicting_suggested_voice_alias(palm_gallery, monkey
     assert "voice" not in item["assets"]
     assert item["raw_audio_hit_frames"] == [64]
     assert item["cue_voice_end_frame"] == 69
+
+
+@pytest.mark.parametrize("label", ["pf, pf, BOOM", "pf pf pf PF"])
+def test_worker_passes_the_performance_title_to_the_cue_ribbon(palm_gallery, tmp_path, monkeypatch, label):
+    from types import SimpleNamespace
+
+    name, _ = palm_gallery
+    item = RECIPE.inventory([name])[0]
+    item["index"]["title"] = label
+    labels = []
+
+    def render(spec, *args, **kwargs):
+        labels.append(spec.label)
+        return SimpleNamespace(receipt={})
+
+    monkeypatch.setattr(RECIPE, "inventory", lambda *args: [item])
+    monkeypatch.setattr(RECIPE, "renderer_hashes", lambda: {})
+    monkeypatch.setattr(RECIPE, "validate_render", lambda *args: None)
+    monkeypatch.setattr(cuesync.bending, "make_bending_shot", render)
+    RECIPE.worker(name, tmp_path / "run")
+    assert labels == [label]
+
+
+def test_worker_can_stage_a_private_reuse_snapshot_outside_the_checkout(palm_gallery, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    name, _ = palm_gallery
+    item = RECIPE.inventory([name])[0]
+    run = tmp_path.parent / (tmp_path.name + "-external-run")
+    original_prepare = RECIPE.prepare_reuse_source
+
+    def prepare(item, run):
+        source, _ = original_prepare(item, run)
+        destination = run / "reuse-inputs" / name
+        destination.mkdir(parents=True)
+        for filename in ("element.mp4", "receipt.json"):
+            shutil.copyfile(source / filename, destination / filename)
+        return destination, {"field": "bending.thrown", "authored_value": None}
+
+    monkeypatch.setattr(RECIPE, "inventory", lambda *args: [item])
+    monkeypatch.setattr(RECIPE, "renderer_hashes", lambda: {})
+    monkeypatch.setattr(RECIPE, "prepare_reuse_source", prepare)
+    monkeypatch.setattr(RECIPE, "validate_render", lambda *args: None)
+    monkeypatch.setattr(cuesync.bending, "make_bending_shot", lambda *args, **kwargs: SimpleNamespace(receipt={}))
+    RECIPE.worker(name, run)
+    snapshot = item["reuse_input_snapshot"]
+    assert RECIPE.sha256(RECIPE.ROOT / snapshot["path"] / "element.mp4") == item["assets"]["element"]["sha256"]
 
 
 def test_inventory_rejects_actual_audio_that_no_longer_matches_cached_timing(palm_gallery):
