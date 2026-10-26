@@ -1,11 +1,11 @@
 {
-  "version": 18,
-  "duration": 99.125,
+  "version": 19,
+  "duration": 110.20833333333333,
   "beats": [
     {
       "id": "hero_open",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
       "start": 2.8,
       "dur": 4.75,
       "speed": 0.125,
@@ -38,7 +38,7 @@
       "subline": "Listen to each complete performance",
       "panels": [
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
           "start": 0.5,
           "dur": 3,
           "crop": [
@@ -58,7 +58,7 @@
           "audio_from": 0.5
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -85,7 +85,7 @@
           ]
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_x4\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -117,7 +117,7 @@
         }
       ],
       "headline": "1 LTX generation · 3 performances · 0 additional AI generations",
-      "element_src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
+      "element_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
       "element_at": 2.92,
       "stamp": "Author's recorded voice, edited rhythms · same footage + one LTX element"
     },
@@ -132,7 +132,7 @@
       "subline": "Quiet pf → small. Loud BOOM → big.",
       "panels": [
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -151,7 +151,7 @@
           ]
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_pf_boom\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -178,7 +178,7 @@
           ]
         },
         {
-          "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_x4\\composite.mp4",
+          "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
           "start": 0,
           "dur": 3.5,
           "crop": [
@@ -210,7 +210,7 @@
         }
       ],
       "headline": "1 LTX generation · 3 performances · 0 additional AI generations",
-      "element_src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
+      "element_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
       "element_at": 2.92,
       "stamp": "Author's recorded voice, edited rhythms · same footage + one LTX element",
       "vo": "D:\\openHiggsfield\\runs\\demo_v12\\vo12\\size12.wav",
@@ -226,10 +226,70 @@
       ]
     },
     {
+      "id": "strangers",
+      "type": "turns",
+      "dur": 8.333333333333334,
+      "audio_gain": 0.4,
+      "panels": [
+        {
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__sadiquecat__again\\final.mp4",
+          "start": 1.4166666666666667,
+          "dur": 2.0833333333333335,
+          "crop": [
+            0,
+            0.1734,
+            1,
+            0.9294
+          ],
+          "label": "Boom"
+        },
+        {
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__unfa__again\\final.mp4",
+          "start": 1.4166666666666667,
+          "dur": 2.0833333333333335,
+          "crop": [
+            0,
+            0.1734,
+            1,
+            0.9294
+          ],
+          "label": "Ka-Boom!"
+        },
+        {
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__huw2k8__again\\final.mp4",
+          "start": 1.4166666666666667,
+          "dur": 2.0833333333333335,
+          "crop": [
+            0,
+            0.1734,
+            1,
+            0.9294
+          ],
+          "label": "Powf"
+        },
+        {
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__jedimichael__again\\final.mp4",
+          "start": 1.4166666666666667,
+          "dur": 2.0833333333333335,
+          "crop": [
+            0,
+            0.1734,
+            1,
+            0.9294
+          ],
+          "label": "Boom"
+        }
+      ],
+      "headline": "The same render · 4 strangers' voices · 0 new generations",
+      "element_src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
+      "element_at": 2.92,
+      "stamp": "One LTX-2.5 render · voices: Sadiquecat, unfa, huw2k8, Jedimichael (CC0, Freesound)"
+    },
+    {
       "id": "try_sample",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
-      "start": 2.8,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
+      "start": 1.96,
       "dur": 1.5,
       "fill": true,
       "chip_header": true,
@@ -246,8 +306,8 @@
     {
       "id": "perform",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
-      "start": 4.3,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
+      "start": 3.46,
       "dur": 5.083333333333333,
       "fill": true,
       "chip_header": true,
@@ -260,8 +320,8 @@
       "chip": "2. Record & make fire",
       "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
       "source_gain": 0,
-      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\jobs\\32777818fbb6\\in\\voice.wav",
-      "audio_at": 1.3544291992187505,
+      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\jobs\\077d3dc1d7d4\\in\\voice.wav",
+      "audio_at": 1.1630139160156254,
       "audio_from": 0,
       "audio_gain": 2.5,
       "audio_replace": true,
@@ -279,8 +339,8 @@
     {
       "id": "make",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
-      "start": 9.383333333333333,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
+      "start": 8.543333333333333,
       "dur": 2.5,
       "fill": true,
       "chip_header": true,
@@ -290,15 +350,15 @@
         0.7,
         0.46
       ],
-      "chip": "18.4s CPU composition · wait shortened",
+      "chip": "33.3s CPU composition · wait shortened",
       "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
       "source_gain": 0
     },
     {
       "id": "download",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\recording\\page@993ee769c11627037df52095c450f8bf.webm",
-      "start": 27.75,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
+      "start": 41.55,
       "dur": 5,
       "fill": true,
       "chip_header": true,
@@ -311,8 +371,8 @@
       "chip": "3. Download · or perform again",
       "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
       "source_gain": 0,
-      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\jobs\\32777818fbb6\\final.mp4",
-      "audio_at": 0.22,
+      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\jobs\\077d3dc1d7d4\\final.mp4",
+      "audio_at": 0.133,
       "audio_from": 0,
       "audio_gain": 1,
       "audio_replace": true,
@@ -322,7 +382,7 @@
     {
       "id": "result",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\jobs\\32777818fbb6\\final.mp4",
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\jobs\\077d3dc1d7d4\\final.mp4",
       "start": 0,
       "dur": 3.5,
       "fill": true,
@@ -394,10 +454,10 @@
     {
       "id": "workflow_fire",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
-      "start": 2.65,
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
+      "start": 2.4,
       "dur": 2.0,
-      "speed": 0.4,
+      "speed": 0.45,
       "crop": [
         0.22,
         0.06,
@@ -417,16 +477,16 @@
       "id": "how",
       "type": "triptych",
       "srcs": [
-        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_carried.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_light_off\\composite.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4"
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_carried.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_light_off\\composite.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4"
       ],
       "start": 2.4,
       "dur": 6.0,
       "speed": 0.15,
       "labels": [
-        "LTX fire · CPU derivative",
+        "LTX-2.5 over black",
         "Carried on the hand",
         "Light off",
         "Finished + light"
@@ -452,8 +512,8 @@
       "id": "light",
       "type": "triptych",
       "srcs": [
-        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_light_off\\composite.mp4",
-        "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4"
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_light_off\\composite.mp4",
+        "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4"
       ],
       "labels": [
         "Light off",
@@ -471,7 +531,7 @@
     {
       "id": "walk",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\flame_walk\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\flame_walk\\composite.mp4",
       "start": 3,
       "dur": 3.25,
       "fill": true,
@@ -482,13 +542,31 @@
     {
       "id": "flamethrower",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\flamethrower\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\flamethrower\\composite.mp4",
       "start": 1.3,
       "dur": 2.0,
       "fill": true,
       "portrait_backdrop": true,
       "chip": "fwoooom · fingertip flamethrower",
       "stamp": "Author's phone footage + own voice · fire rendered with LTX-2.5 + ainvfx-fluid"
+    },
+    {
+      "id": "air",
+      "type": "clip",
+      "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__hoooo__air_vortex\\final.mp4",
+      "start": 0.75,
+      "dur": 2.75,
+      "crop": [
+        0,
+        0,
+        1,
+        0.96775
+      ],
+      "fill": true,
+      "portrait_backdrop": true,
+      "source_gain": 0.27,
+      "chip": "hoooo · sample noise (synthetic)",
+      "stamp": "Air: a whirlwind of mist rendered once by LTX-2.5, held with your voice"
     },
     {
       "id": "lightning_point",
@@ -594,7 +672,7 @@
     {
       "id": "innovation",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
       "start": 0.0,
       "dur": 0.75,
       "fill": true,
@@ -624,7 +702,7 @@
     {
       "id": "innovation_asset",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
       "start": 0.75,
       "dur": 1.4583333333333333,
       "fill": true,
@@ -633,7 +711,7 @@
     {
       "id": "innovation_track",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
       "start": 2.2083333333333335,
       "dur": 1.125,
       "fill": true,
@@ -642,7 +720,7 @@
     {
       "id": "innovation_voice",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
       "start": 3.3333333333333335,
       "dur": 0.75,
       "fill": true,
@@ -651,7 +729,7 @@
     {
       "id": "innovation_result",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
       "start": 4.083333333333333,
       "dur": 1.8333333333333333,
       "fill": true,
@@ -660,7 +738,7 @@
     {
       "id": "innovation_hits",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_pf_boom\\composite.mp4",
+      "src": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
       "start": 0,
       "dur": 3.5,
       "fill": true,
@@ -742,145 +820,155 @@
       "end": 18.75
     },
     {
-      "id": "try_sample",
+      "id": "strangers",
       "start": 18.75,
-      "end": 20.25
+      "end": 27.083333333333332
+    },
+    {
+      "id": "try_sample",
+      "start": 27.083333333333332,
+      "end": 28.583333333333332
     },
     {
       "id": "perform",
-      "start": 20.25,
-      "end": 25.333333333333332
+      "start": 28.583333333333332,
+      "end": 33.666666666666664
     },
     {
       "id": "make",
-      "start": 25.333333333333332,
-      "end": 27.833333333333332
+      "start": 33.666666666666664,
+      "end": 36.166666666666664
     },
     {
       "id": "download",
-      "start": 27.833333333333332,
-      "end": 32.833333333333336
+      "start": 36.166666666666664,
+      "end": 41.166666666666664
     },
     {
       "id": "result",
-      "start": 32.833333333333336,
-      "end": 36.333333333333336
+      "start": 41.166666666666664,
+      "end": 44.666666666666664
     },
     {
       "id": "comfy_model",
-      "start": 36.333333333333336,
-      "end": 38.833333333333336
+      "start": 44.666666666666664,
+      "end": 47.166666666666664
     },
     {
       "id": "comfy_lora",
-      "start": 38.833333333333336,
-      "end": 41.333333333333336
+      "start": 47.166666666666664,
+      "end": 49.666666666666664
     },
     {
       "id": "comfy_sampler",
-      "start": 41.333333333333336,
-      "end": 43.833333333333336
+      "start": 49.666666666666664,
+      "end": 52.166666666666664
     },
     {
       "id": "comfy_output",
-      "start": 43.833333333333336,
-      "end": 46.333333333333336
+      "start": 52.166666666666664,
+      "end": 54.666666666666664
     },
     {
       "id": "comfy_cuesync",
-      "start": 46.333333333333336,
-      "end": 49.333333333333336
+      "start": 54.666666666666664,
+      "end": 57.666666666666664
     },
     {
       "id": "workflow_fire",
-      "start": 49.333333333333336,
-      "end": 51.333333333333336
+      "start": 57.666666666666664,
+      "end": 59.666666666666664
     },
     {
       "id": "how",
-      "start": 51.333333333333336,
-      "end": 57.333333333333336
+      "start": 59.666666666666664,
+      "end": 65.66666666666667
     },
     {
       "id": "light",
-      "start": 57.333333333333336,
-      "end": 60.333333333333336
+      "start": 65.66666666666667,
+      "end": 68.66666666666667
     },
     {
       "id": "walk",
-      "start": 60.333333333333336,
-      "end": 63.583333333333336
+      "start": 68.66666666666667,
+      "end": 71.91666666666667
     },
     {
       "id": "flamethrower",
-      "start": 63.583333333333336,
-      "end": 65.58333333333333
+      "start": 71.91666666666667,
+      "end": 73.91666666666667
+    },
+    {
+      "id": "air",
+      "start": 73.91666666666667,
+      "end": 76.66666666666667
     },
     {
       "id": "lightning_point",
-      "start": 65.58333333333333,
-      "end": 67.58333333333333
+      "start": 76.66666666666667,
+      "end": 78.66666666666667
     },
     {
       "id": "water",
-      "start": 67.58333333333333,
-      "end": 69.58333333333333
+      "start": 78.66666666666667,
+      "end": 80.66666666666667
     },
     {
       "id": "lanterns",
-      "start": 69.58333333333333,
-      "end": 76.08333333333333
+      "start": 80.66666666666667,
+      "end": 87.16666666666667
     },
     {
       "id": "dino",
-      "start": 76.08333333333333,
-      "end": 79.45833333333333
+      "start": 87.16666666666667,
+      "end": 90.54166666666667
     },
     {
       "id": "innovation",
-      "start": 79.45833333333333,
-      "end": 80.20833333333333
+      "start": 90.54166666666667,
+      "end": 91.29166666666667
     },
     {
       "id": "innovation_asset",
-      "start": 80.20833333333333,
-      "end": 81.66666666666667
+      "start": 91.29166666666667,
+      "end": 92.75
     },
     {
       "id": "innovation_track",
-      "start": 81.66666666666667,
-      "end": 82.79166666666667
+      "start": 92.75,
+      "end": 93.875
     },
     {
       "id": "innovation_voice",
-      "start": 82.79166666666667,
-      "end": 83.54166666666667
-    },
-    {
-      "id": "innovation_result",
-      "start": 83.54166666666667,
-      "end": 85.375
-    },
-    {
-      "id": "innovation_hits",
-      "start": 85.375,
-      "end": 88.875
-    },
-    {
-      "id": "try",
-      "start": 88.875,
+      "start": 93.875,
       "end": 94.625
     },
     {
-      "id": "credits",
+      "id": "innovation_result",
       "start": 94.625,
-      "end": 99.125
+      "end": 96.45833333333333
+    },
+    {
+      "id": "innovation_hits",
+      "start": 96.45833333333333,
+      "end": 99.95833333333333
+    },
+    {
+      "id": "try",
+      "start": 99.95833333333333,
+      "end": 105.70833333333333
+    },
+    {
+      "id": "credits",
+      "start": 105.70833333333333,
+      "end": 110.20833333333333
     }
   ],
-  "provenance": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\manifest.json",
+  "provenance": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\manifest.json",
   "narration": "D:\\openHiggsfield\\runs\\demo_v15\\vo15\\provenance.json",
-  "source_policy": "Editorial reuse of final verified v17 composites and their original LTX/CPU derivative lineage; fresh actual Chromium virtual-microphone job and download. No new model generation. Earlier composites are preserved bytes, not claimed to be rebuilt by this edit.",
-  "baseline": "D:\\openHiggsfield\\runs\\demo_v17\\storyboard.json",
+  "source_policy": "Editorial reuse of v18: each v17 fire render replaced by the approved v11 render of the same beat (as used by demo v15), v15's recap animation, and two inserted existing renders. No new model generation, GPU service or narration generation. Preserved bytes are not claimed to be rebuilt.",
+  "baseline": "D:\\openHiggsfield\\runs\\demo_v18\\storyboard.json",
   "room_tone": {
     "src": "D:\\openHiggsfield\\runs\\demo_v15\\audio\\room_tone.wav",
     "target_dbfs": -45,
@@ -892,18 +980,252 @@
     "lightning_point": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline",
     "water": "Historical rendered picture retained with its original output SHA; visual path is outside the new hand-fire pipeline"
   },
-  "standalone_source_window_note": "The opening starts on the active final dark-palm composite at2.8s in disclosed slow motion. All complete proof performances, downstream workflow, narration and technical source intervals remain unchanged. The new Studio capture is real time within each selected segment; composition wait is shortened and its measured duration is displayed.",
+  "standalone_source_window_note": "The opening starts on the active v11 dark-palm composite at 2.8 s in disclosed slow motion. Proof performances, narration and the remaining source windows are v18's; v11 composites share v17's strike frames. The Studio beats are a new capture with the current code, in real time within each segment; the composition wait is shortened and its measured duration displayed.",
   "source_reuse": {
-    "manifest": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\manifest.json",
-    "manifest_sha256": "bc32de77225cae094b1b5acd0b5f0a7283467d0415b31ea79d6efe314996a5bd",
+    "manifest": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\manifest.json",
+    "manifest_sha256": "2c40c2dd253a8f2dcbba73d523253b078fb63e350f4a9c9fc15ab0e6cde21ecb",
     "new_model_generations": 0,
     "composites_rebuilt_for_this_edit": false
   },
   "browser_capture": {
-    "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\capture-manifest.json",
-    "manifest_sha256": "a806b3851c2f6b0a305d3fb8453a817fcc31b9ba96d37c64bdea68d9fab60725",
+    "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\capture-manifest.json",
+    "manifest_sha256": "ab404634124da304c3073bb75a0cb0b34167576654e9ce56f8b21b7747573a52",
+    "job_id": "077d3dc1d7d4",
+    "replaces": {
+      "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\capture-manifest.json",
+      "job_id": "32777818fbb6",
+      "reason": "Its exported shot was composed by the 23 October fire code (a standing flame column), since reverted."
+    },
     "audio_alignment": "Actual uploaded microphone PCM, aligned using first-sample browser-clock estimate; screen-clock correspondence is approximate, not sample-exact.",
     "shortened_wait": true,
-    "actual_cpu_composition_seconds": 18.4
+    "actual_cpu_composition_seconds": 33.3,
+    "preview_play_page_relative_s": 41.6825,
+    "windows": {
+      "starts": {
+        "try_sample": 1.96,
+        "perform": 3.46,
+        "download": 41.55,
+        "make": 8.543333333333333
+      },
+      "method": "Placed at v18's distances from the same visible UI changes on the new screen recording; v18 durations, crops, chips and stamps.",
+      "visible_events_old_to_new_seconds": {
+        "record_view": [
+          3.0,
+          2.16
+        ],
+        "microphone_armed": [
+          4.4,
+          3.56
+        ],
+        "recording": [
+          5.12,
+          4.32
+        ],
+        "composition_view": [
+          8.96,
+          8.04
+        ],
+        "result_view_settled": [
+          27.72,
+          41.52
+        ],
+        "perform_again": [
+          32.92,
+          47.12
+        ]
+      }
+    }
+  },
+  "baseline_sha256": "c5c51ed21d461c2c457e51d4688861779fa198465495a66e6fa18def3f4f55cf",
+  "source_swaps": [
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_boom\\composite.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_boom\\composite.mp4",
+      "new_sha256": "39e950f9ea7ae27f233a160faeac0fd791c7af002ae802553edb9d4177b879bf",
+      "beats": [
+        "hero_open",
+        "how",
+        "light",
+        "performance_turns",
+        "small_and_big"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_pf_boom\\composite.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_pf_boom\\composite.mp4",
+      "new_sha256": "19331ca509fbdd7852eb71aa01284666d447e0c298ec31a9446db798ffd879e3",
+      "beats": [
+        "innovation_hits",
+        "performance_turns",
+        "small_and_big"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\proof_pf_x4\\composite.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\proof_pf_x4\\composite.mp4",
+      "new_sha256": "a2593b9685c1cc2325516856ad080dddbd0b346ac042d56d542a60cd93bdcf0f",
+      "beats": [
+        "performance_turns",
+        "small_and_big"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_raw.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_raw.mp4",
+      "new_sha256": "2e6ff50ef87baeea4305df5dbbea7faae54792ea03f124d7e4445827e446e468",
+      "beats": [
+        "how",
+        "performance_turns",
+        "small_and_big",
+        "workflow_fire"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_carried.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_carried.mp4",
+      "new_sha256": "c3d53f59055e1b3e0ae0a5d04deefa9e3553a8a5905e4ac85a8a7efd480dec29",
+      "beats": [
+        "how"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\how_light_off\\composite.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\how_light_off\\composite.mp4",
+      "new_sha256": "59232a4e5dffb3d2c8c36b5005a42f85e62ebac861d6e5c8081893662b15142b",
+      "beats": [
+        "how",
+        "light"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\flame_walk\\composite.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\flame_walk\\composite.mp4",
+      "new_sha256": "d3564faefccc51056dea93a538cefa7ce6c8760d34440b16df89af2f02f83b7f",
+      "beats": [
+        "walk"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\clips\\flamethrower\\composite.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v11\\clips\\flamethrower\\composite.mp4",
+      "new_sha256": "65425da675de2b47fd6695bc4b2f6dc657d4a89378b8a62b6cd03e0e59c34653",
+      "beats": [
+        "flamethrower"
+      ]
+    },
+    {
+      "old": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
+      "new": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
+      "new_sha256": "ea6e147dfadd4c56883977e7d3123ee764ae4e3e85188656757e743c9227976c",
+      "beats": [
+        "innovation",
+        "innovation_asset",
+        "innovation_result",
+        "innovation_track",
+        "innovation_voice"
+      ]
+    }
+  ],
+  "window_adjustments": [
+    {
+      "id": "workflow_fire",
+      "v18": {
+        "start": 2.65,
+        "speed": 0.4
+      },
+      "v19": {
+        "start": 2.4,
+        "speed": 0.45
+      },
+      "reason": "The fireball first appears at 2.625 s in the v17 derivative (black before) and at 2.417 s in the v11 element, which grows to its peak near 2.8 s. v15's window for this clip shows that appearance; workflow_fire.wav was resampled from it."
+    }
+  ],
+  "label_adjustments": [
+    {
+      "id": "how",
+      "panel": 1,
+      "v18": "LTX fire · CPU derivative",
+      "v19": "LTX-2.5 over black",
+      "reason": "The v11 element is the LTX output re-timed over black (v15's label), not v17's CPU temporal derivative."
+    }
+  ],
+  "recap": {
+    "src": "D:\\openHiggsfield\\runs\\demo_v15\\cards\\pipeline_motion.mp4",
+    "sha256": "ea6e147dfadd4c56883977e7d3123ee764ae4e3e85188656757e743c9227976c",
+    "replaces": "D:\\openHiggsfield\\runs\\demo_v17\\cards\\pipeline_motion.mp4",
+    "verified_in": "D:\\openHiggsfield\\runs\\demo_v15\\qa_v15.json",
+    "note": "v15's recap, made with v12_cards.pipeline and v14_contribution.recap from the v11 pictures; the same five stage windows and narration as v18."
+  },
+  "inserted_beats": {
+    "strangers": {
+      "takes": [
+        {
+          "voice": "sadiquecat",
+          "label": "Boom",
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__sadiquecat__again\\final.mp4",
+          "sha256": "9881812be96ddf64e125096b678067470dfbc36e9a60bb883ae50e2b2b83cb12",
+          "performed_again": {
+            "from": "samples/made_ahead/bending/hand_palm__boom__fire_burst",
+            "no_new_render": true,
+            "no_gpu": true,
+            "element_sha256": "990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765"
+          }
+        },
+        {
+          "voice": "unfa",
+          "label": "Ka-Boom!",
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__unfa__again\\final.mp4",
+          "sha256": "e2692c29e39545c3f0d5afe0554f7da90b2f5046a5f3c3e7278122842b15f332",
+          "performed_again": {
+            "from": "samples/made_ahead/bending/hand_palm__boom__fire_burst",
+            "no_new_render": true,
+            "no_gpu": true,
+            "element_sha256": "990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765"
+          }
+        },
+        {
+          "voice": "huw2k8",
+          "label": "Powf",
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__huw2k8__again\\final.mp4",
+          "sha256": "62aa7f3b729f7f0d35489ddf9d4991dc0560e1091d22da0c52f215de43e24652",
+          "performed_again": {
+            "from": "samples/made_ahead/bending/hand_palm__boom__fire_burst",
+            "no_new_render": true,
+            "no_gpu": true,
+            "element_sha256": "990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765"
+          }
+        },
+        {
+          "voice": "jedimichael",
+          "label": "Boom",
+          "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__jedimichael__again\\final.mp4",
+          "sha256": "a8b3fce29d3f638fc25b48932ed125de2c491ec163e3cdf39a6a5b1d8734d12f",
+          "performed_again": {
+            "from": "samples/made_ahead/bending/hand_palm__boom__fire_burst",
+            "no_new_render": true,
+            "no_gpu": true,
+            "element_sha256": "990fc7fbcc4ee9f55aa16e09d38756d89cbfb02a4e554079cf00b082501f5765"
+          }
+        }
+      ],
+      "credits": "samples/CREDITS.md (CC0 1.0, Freesound)",
+      "window_seconds": [
+        1.4166666666666667,
+        3.5
+      ],
+      "audio_gain": 0.4
+    },
+    "air": {
+      "src": "D:\\openHiggsfield\\samples\\made_ahead\\bending\\hand_palm__hoooo__air_vortex\\final.mp4",
+      "sha256": "b838b6fc33ce07568aa017136da525f61a4a163118630b11bac7488ba7312e4b",
+      "element_source": "samples/library/bending/air_vortex (rendered once by LTX-2.5; made here with no GPU)",
+      "render_prompt": "ainvfxfluid, a small whirlwind of white mist spinning upward from a point, a tight twisting spiral of swirling vapor with translucent curling wisps, isolated on a pure black background",
+      "window_seconds": [
+        0.75,
+        3.5
+      ],
+      "voice": "synthetic sample noise voices/hoooo.wav (samples/CREDITS.md)",
+      "source_gain": 0.27
+    }
   }
 }

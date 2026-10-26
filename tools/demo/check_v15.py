@@ -61,6 +61,9 @@ def beats_of(board: dict | list) -> list[dict]:
 
 def structure_check(board: dict | list, baseline: dict | list) -> tuple[dict, list[str]]:
     """Compare unchanged beat fields, with explicit exceptions for this edit."""
+    if isinstance(board, dict) and board.get("version") == 19:
+        from v19_build import structure_check as v19_structure_check
+        return v19_structure_check(board, baseline)
     if isinstance(board, dict) and board.get("version") == 18:
         from v18_edit import editorial_structure_check
         return editorial_structure_check(board, baseline)
@@ -323,6 +326,9 @@ def proof_provenance_check(jobs: dict, version: int, digest=sha256) -> tuple[lis
 
 def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
     """Verify current renderer fingerprints and every recorded output digest."""
+    if isinstance(board, dict) and board.get("version") == 19:
+        from v19_build import source_provenance_check as v19_source_check
+        return v19_source_check(board)
     from make_v11_clips import JOBS
 
     errors, manifests, paths, hashes = [], [], set(), {}
@@ -702,7 +708,7 @@ def main() -> int:
     provenance, source_errors = source_provenance_check(board)
     errors.extend(source_errors)
     fresh_capture = None
-    if version == 18:
+    if version in (18, 19):
         from v18_edit import capture_provenance_check
         fresh_capture, capture_errors = capture_provenance_check(board)
         errors.extend(capture_errors)
@@ -760,7 +766,7 @@ def main() -> int:
         report["source_picture_comparison"] = source_pictures
         errors.extend(source_picture_errors)
         if version >= 16:
-            identities = ("try_sample", "perform", "make", "download") if version == 18 else ("upload", "perform", "make")
+            identities = ("try_sample", "perform", "make", "download") if version in (18, 19) else ("upload", "perform", "make")
             for identity in identities:
                 layout, layout_errors = chip_header_layout_check(args.video, schedule, out, identity)
                 report[f"{identity}_layout"] = layout
