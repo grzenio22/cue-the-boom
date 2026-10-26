@@ -150,9 +150,9 @@ def test_assembler_preserves_existing_output(source_tree, tmp_path):
 
 def test_assembled_space_excludes_private_files_but_keeps_public_examples(source_tree, tmp_path):
     private = (
-        "web/.impeccable/hook.cache.json", "cuesync/.git/config",
-        "web/components/.claude/settings.json", "samples/.codex/session.json",
-        "workflows/.superpowers/notes.md", "web/.env", "web/.env.local",
+        "web/.editor/hook.cache.json", "cuesync/.git/config",
+        "web/components/.tool/settings.json", "samples/.agent/session.json",
+        "workflows/.notes/notes.md", "web/.env", "web/.env.local",
         "cuesync/src/.env.production", "web/AGENTS.md", "effects/AGENTS.md",
         "web/out/index.html",
     )

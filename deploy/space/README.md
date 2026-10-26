@@ -18,8 +18,8 @@ The output includes `cuesync/`, `effects/`, `samples/`, `workflows/`, `web/`, `L
 `build/model-files.md`, and the container files. The root `effects/` definitions are required when building the
 Python wheel. Local virtual environments, frontend caches, Python build/dist/egg-info output, and generated `effect_files/` copies are
 excluded so an old local build cannot supply missing definitions.
-Private tool/session directories, local environment files (except `.env.example`), `AGENTS.md`, and the
-frontend's redundant `web/out` export are also excluded.
+Hidden files and folders (local settings, caches, credentials and tool state; except `.env.example` and
+`.well-known`), `AGENTS.md`, and the frontend's redundant `web/out` export are also excluded.
 
 The repository's MIT license has exceptions documented in `NOTICE.md`: the Python package carries its Apache
 license, the workflow carries the LTX license, and `samples/CREDITS.md` lists the footage sources and licenses.

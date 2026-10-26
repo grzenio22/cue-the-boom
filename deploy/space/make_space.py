@@ -30,16 +30,17 @@ short_description: Generate the effect once. Perform it again with your voice.
 
 # Cue the Boom, with no GPU
 
-**Generate the effect once. Perform it again with your voice.** Choose fire, air, water, lightning or earth,
-then record a cue over a prepared hand clip. Below that recording flow, **One render. Three performances.** plays the
-author's palm and one LTX-2.5 fire render in three performances using their own recorded voice;
-two rhythms are edited from their recorded pf and BOOM sounds.
+**Generate the effect once. Perform it again with your voice.** Choose fire, air, explosion or lightning (water and
+earth are experimental), then record a cue over a prepared hand clip. Below that recording flow, **One render. Seven
+performances.** plays one LTX-2.5 fire render on the author's palm, performed by three of the author's takes and by
+four strangers' recorded voices (CC0, Freesound): one generation, no new render.
 
 Pick one of the author's sample hands and a noise (or make your own), then **Perform it again** with another one. The
-fire and the explosion's fireball were rendered ahead of time with LTX-2.5 and the ainvfx-fluid IC-LoRA; lightning,
-water, air, earth and the explosion's blast are made on this CPU from the hand and the voice. **Use your own clip** to film or upload
-your hand: tap your palm or fingertips, drag to aim, make the noise. Processing time depends on your clip, effect
-and the available CPU.
+fire, the air vortex and the explosion's fireball were rendered ahead of time with LTX-2.5 and the ainvfx-fluid IC-LoRA;
+lightning, the explosion's blast and the experimental water and earth are made on this CPU from the hand and the voice.
+**Try it live** throws the stored fire from your palm through your webcam as you make the noise; **Record this** or
+**Use your own clip** films or uploads your hand: tap your palm or fingertips, drag to aim, make the noise. Processing
+time depends on your clip, effect and the available CPU.
 
 The full app, with renders of its own on a GPU: https://github.com/grzenio22/cue-the-boom
 
@@ -57,14 +58,13 @@ def main() -> int:
     if out.exists():
         ap.error(f"--out already exists: {out}; choose a new directory (existing content is never removed)")
     out.mkdir(parents=True)
-    ignored = shutil.ignore_patterns("node_modules", ".next", ".venv*", "__pycache__", "*.pyc", "tsconfig.tsbuildinfo",
-                                     "runs", ".pytest_cache", ".ruff_cache", "tests", "build", "dist", "*.egg-info",
-                                     "effect_files", ".impeccable", ".git", ".claude", ".codex", ".superpowers",
-                                     ".env", ".env.*", "AGENTS.md")
+    ignored = shutil.ignore_patterns("node_modules", "__pycache__", "*.pyc", "tsconfig.tsbuildinfo", "runs", "tests",
+                                     "build", "dist", "*.egg-info", "effect_files", "AGENTS.md")
+    public_hidden = {".env.example", ".well-known"}  # a setup template and a web convention; never local credentials
 
     def skip(directory, names):
-        excluded = ignored(directory, names)
-        excluded.discard(".env.example")  # public setup template, never local credentials
+        # hidden files and folders (local settings, caches, credentials, editor and tool state) stay out
+        excluded = ignored(directory, names) | {n for n in names if n.startswith(".") and n not in public_hidden}
         if Path(directory) == ROOT / "web":
             excluded.add("out")  # only the frontend's generated static export
         return excluded
