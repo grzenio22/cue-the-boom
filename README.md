@@ -33,7 +33,7 @@ The three performances below the creation flow let you hear and see that separat
 
 ## Try it in two minutes, no GPU
 
-You need Python 3.10+ and git. No GPU and no model download: the studio ships built, and the sample hands come with their fire rendered ahead of time.
+You need Python 3.10+ and git. No GPU and no model download: the studio ships built, and the sample hands come with their fire rendered ahead of time. `--depth 1` fetches about 300 MB; the full history is about 1.4 GB.
 
 ```bash
 git clone --depth 1 https://github.com/grzenio22/cue-the-boom
@@ -59,7 +59,7 @@ The prepared fire path always reuses the stored element, even when a GPU is conn
 
 Under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen, and the flame stays in the palm. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff".
 
-**Your own hand:** open **Use your own clip or explore effects**, then use **Film it here** or **Use your own clip** and **Set up the hand tracker** once (needs Python 3.12 or `uv`). Tap your palm or fingertips, drag to aim, and confirm **That's my hand**. Record your noise and **Make the shot**. **Try it live** previews stored fire and procedural lightning through your webcam. It needs internet access to load its hand model and runtime from a CDN. **Record this** turns the take into a finished shot. [Tracking and live-preview details](TECHNICAL.md#the-hand-element-bending).
+**Your own hand:** open **Use your own clip or explore effects**, then use **Film it here** or **Use your own clip** and **Set up the hand tracker** once (needs Python 3.12 or `uv`). Tap your palm or fingertips, drag to aim, and confirm **That's my hand**. Record your noise and **Make the shot**. **Try it live** previews stored fire and procedural lightning through your webcam. It needs internet access to load its hand model and runtime from a CDN. **Record this** turns the take into a finished shot. On the same Ryzen 9 7900X, with a 5-second sample hand clip played as the webcam, following the hand took 15–23 seconds (three runs) and making its fireball shot 67–70 seconds (two runs; the stored LTX-2.5 fireball, no GPU). [Tracking and live-preview details](TECHNICAL.md#the-hand-element-bending).
 
 The same from the command line (the shot lands in `runs/bend/final.mp4`):
 
