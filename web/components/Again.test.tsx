@@ -55,6 +55,7 @@ describe("Again", () => {
       .toEqual(["Boom, in Sadiquecat's voice", "Ka-Boom!, in unfa's voice"]);
     expect([...row.querySelectorAll("video")].every((v) => v.controls && !running.has(v))).toBe(true);
     expect(host.querySelector(".again-fact")?.textContent).toBe("1 generation, 5 performances, 0 new renders");
+    expect(host.querySelector("#again-heading")?.textContent).toBe("One render. Five performances.");
     await act(async () => { button("Hear them one by one").click(); });
     expect([...row.querySelectorAll("video")].some((v) => running.has(v))).toBe(false); // the three keep their own controls
   });

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JobStatus } from "@/lib/shot";
 
 const CUES = ["BOOM", "pf, pf, BOOM", "pf pf pf PF"];
+const COUNT: Record<number, string> = { 3: "Three", 4: "Four", 5: "Five", 6: "Six", 7: "Seven" };
 const DRIFT_S = 0.15; // a performance this far off the first one's clock is put back in step
 
 function playTogether(players: HTMLVideoElement[]) {
@@ -80,8 +81,8 @@ export default function Again() {
 
   return (
     <section className="again" aria-labelledby="again-heading">
-      <h2 id="again-heading">One render. Three performances.</h2>
-      <p>The same LTX-2.5 render on the author&apos;s hand, timed by three performances using their recorded voice: one generation, three performances, no new render, no GPU. The two rhythms are edited from their recorded <em>pf</em> and <em>BOOM</em> sounds.</p>
+      <h2 id="again-heading">One render. {COUNT[3 + strangers.length] ?? 3 + strangers.length} performances.</h2>
+      <p>The same LTX-2.5 render on the author&apos;s hand, timed by three performances using their recorded voice{strangers.length > 0 && <> and, below, by {strangers.length} strangers&apos; recordings</>}: one generation, no new render, no GPU. The two rhythms are edited from their recorded <em>pf</em> and <em>BOOM</em> sounds.</p>
       <p className="again-fact"><strong>1 generation, {3 + strangers.length} performances, 0 new renders</strong></p>
       {shots === null ? <p className="muted" role="status">Loading the performances…</p>
         : shots.length !== 3 ? <p className="muted" role="status">The three performances are not available here.</p>
