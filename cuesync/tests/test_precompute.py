@@ -26,9 +26,17 @@ def test_every_shipped_index_key_still_matches_its_sample_pair():
         for key, entry in json.loads(index_path.read_text(encoding="utf-8")).items():
             mode, plate, voice, effect = (entry[k] for k in ("mode", "plate", "voice", "effect"))
             pm = meta["plates"].get(plate, {})
+            # Legacy scene showcases predate the sample picker. Every current hand
+            # pair must use its samples.json metadata, rather than a receipt fallback.
+            if mode == "bending":
+                assert plate in meta["plates"], plate
+                assert (root / "plates" / plate).is_file(), plate
+            if mode == "bending" and voice:
+                assert voice in meta["voices"], voice
+                assert (root / "voices" / voice).is_file(), voice
             pair = pairs.get((plate, voice, effect), {}) if mode == "scene" else {}
             receipt = json.loads((index_path.parent / entry["dir"] / "receipt.json").read_text(encoding="utf-8"))
-            point = pair.get("point", pm.get("point", receipt["inputs"]["point"]))
+            point = pair.get("point", pm["point"] if pm else receipt["inputs"]["point"])
             fields = key.split("|")
             direction = pair.get("direction") if pair else (float(fields[6]) if len(fields) > 6 else None)
             subject = pm.get("subject", receipt["inputs"].get("subject"))

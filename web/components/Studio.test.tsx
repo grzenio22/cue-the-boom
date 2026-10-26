@@ -143,7 +143,40 @@ describe("Studio prepared palm shortcut", () => {
   });
 });
 
-describe("All-element quick flow", () => {
+describe("Curated element quick flow", () => {
+  it("offers fire, explosion and lightning while keeping experimental elements collapsed", async () => {
+    await act(async () => { root.render(<Studio />); });
+
+    for (const element of ["Fire", "Explosion", "Lightning"]) {
+      expect(button(element)).toBeDefined();
+      expect(button(element).closest("details")).toBeNull();
+    }
+    const experimental = [...host.querySelectorAll("details")].find((details) =>
+      details.querySelector("summary")?.textContent === "Experimental");
+    expect(experimental).toBeDefined();
+    expect(experimental!.open).toBe(false);
+    for (const element of ["Water", "Air", "Earth"]) {
+      expect(button(element).closest("details")).toBe(experimental);
+    }
+    expect(button("Fire").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("submits an explicitly chosen explosion on the prepared palm without fire reuse", async () => {
+    vi.useFakeTimers();
+    await act(async () => { root.render(<Studio />); });
+    await click("Explosion");
+    await click("Perform this explosion with your voice");
+    await click("pf, pf, BOOM");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0].get("effect")).toBe("explosion");
+    expect(submitted[0].get("mode")).toBe("bending");
+    expect(submitted[0].get("plate_sample")).toBe("hand_palm.mp4");
+    expect(submitted[0].get("voice_sample")).toBe("pf-pf-boom-author.wav");
+    expect(submitted[0].get("performance_mode")).toBeNull();
+  });
+
   it("previews the chosen prepared hand instead of an older shot with the same effect", async () => {
     const apiFetch=fetch;
     vi.stubGlobal("fetch",async (url:string,init?:RequestInit)=> {
@@ -184,12 +217,24 @@ describe("All-element quick flow", () => {
       return apiFetch(url, init);
     });
     await act(async () => { root.render(<Studio />); });
+    if (["Air", "Water", "Earth"].includes(element)) {
+      const disclosure = button(element).closest("details")!;
+      expect(disclosure.open).toBe(false);
+      await act(async () => { disclosure.querySelector("summary")!.click(); });
+      expect(disclosure.open).toBe(true);
+    }
     await click(element);
     await click(variant);
     await click(`Perform this ${element.toLowerCase()} with your voice`);
     expect(host.textContent).not.toContain("make fire");
     expect(host.querySelector("video")?.getAttribute("src")).toBe(`/${plate}`);
-    await click("Element cue");
+    const sampleFallback = [...host.querySelectorAll("summary")].find((summary) =>
+      summary.textContent === "Try a sample voice instead")!;
+    await act(async () => { sampleFallback.click(); });
+    const sample = [...host.querySelectorAll("button")].find((candidate) =>
+      candidate.textContent?.startsWith("Element cue"))!;
+    if (["Air", "Water", "Earth"].includes(element)) expect(sample.textContent).toContain("Experimental");
+    await act(async () => { sample.click(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(submitted).toHaveLength(1);
     expect(submitted[0].get("effect")).toBe(effect);

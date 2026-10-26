@@ -1,15 +1,15 @@
 {
- "bending|hand_cupped.mp4||fire_burst@f9c3de6f|0.60,0.60|1": {
-  "dir": "hand_cupped__kaboom__fire_burst",
-  "title": "KA-BOOM · a fireball in your palm",
-  "plate": "hand_cupped.mp4",
-  "voice": "",
-  "effect": "fire_burst",
+ "bending|hand_fist.mp4|boooom.wav|explosion@made|0.50,0.52|1": {
+  "dir": "hand_fist__boooom__explosion",
+  "title": "BOOOOM · an explosion, the smoke clearing",
+  "plate": "hand_fist.mp4",
+  "voice": "boooom.wav",
+  "effect": "explosion",
   "mode": "bending",
   "seed": 1,
-  "tap_frame": 60,
+  "tap_frame": 35,
   "real": true,
-  "rank": 50
+  "rank": -200
  },
  "bending|hand_palm.mp4||fire_burst@f9c3de6f|0.51,0.65|2": {
   "dir": "hand_palm__boom__fire_burst",
@@ -21,68 +21,8 @@
   "seed": 2,
   "tap_frame": 54,
   "real": true,
-  "rank": -102,
+  "rank": -199,
   "again": 0
- },
- "bending|hand_point.mp4||fire_breath@2bad64e4|0.83,0.31|1": {
-  "dir": "hand_point__fwoooom__fire_breath",
-  "title": "fwoooOOOM · a flamethrower from a fingertip",
-  "plate": "hand_point.mp4",
-  "voice": "",
-  "effect": "fire_breath",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 48,
-  "real": true,
-  "rank": -101
- },
- "bending|hand_walk.mp4||flame_plume@5ce2d86e|0.41,0.65|2": {
-  "dir": "hand_walk__fffff__flame_plume",
-  "title": "fffff · a flame in the palm, one take, the camera walking",
-  "plate": "hand_walk.mp4",
-  "voice": "",
-  "effect": "flame_plume",
-  "mode": "bending",
-  "seed": 2,
-  "tap_frame": 40,
-  "real": true,
-  "rank": -104
- },
- "bending|hand_punch.mp4||fire_burst@f9c3de6f|0.57,0.42|1": {
-  "dir": "hand_punch__boom__fire_burst",
-  "title": "BOOM · a fireball off the fist",
-  "plate": "hand_punch.mp4",
-  "voice": "",
-  "effect": "fire_burst",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 68,
-  "real": true,
-  "rank": -103
- },
- "bending|hand_fist.mp4||fire_burst@f9c3de6f|0.50,0.52|1": {
-  "dir": "hand_fist__boom__fire_burst",
-  "title": "BOOM · a fireball as the hand closes",
-  "plate": "hand_fist.mp4",
-  "voice": "",
-  "effect": "fire_burst",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 35,
-  "real": true,
-  "rank": -99
- },
- "bending|hand_open.mp4||flame_plume@5ce2d86e|0.53,0.71|1": {
-  "dir": "hand_open__fff__flame_plume",
-  "title": "fff, fff, fff · a flame on each beat",
-  "plate": "hand_open.mp4",
-  "voice": "",
-  "effect": "flame_plume",
-  "mode": "bending",
-  "seed": 1,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -98.5
  },
  "bending|hand_palm.mp4|pf-pf-boom-author.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
   "dir": "hand_palm__pfpfboom__again",
@@ -94,7 +34,8 @@
   "seed": 2,
   "tap_frame": 54,
   "real": true,
-  "again": 1
+  "again": 1,
+  "rank": -198
  },
  "bending|hand_palm.mp4|pf-x4-author.wav|fire_burst@f9c3de6f|0.51,0.65|2": {
   "dir": "hand_palm__pfx4__again",
@@ -106,19 +47,32 @@
   "seed": 2,
   "tap_frame": 54,
   "real": true,
-  "again": 2
+  "again": 2,
+  "rank": -197
  },
- "bending|hand_fist.mp4|boooom.wav|explosion@made|0.50,0.52|1": {
-  "dir": "hand_fist__boooom__explosion",
-  "title": "BOOOOM · an explosion, the smoke clearing",
-  "plate": "hand_fist.mp4",
-  "voice": "boooom.wav",
-  "effect": "explosion",
+ "bending|hand_walk.mp4||flame_plume@5ce2d86e|0.41,0.65|2": {
+  "dir": "hand_walk__fffff__flame_plume",
+  "title": "fffff · a flame in the palm, one take, the camera walking",
+  "plate": "hand_walk.mp4",
+  "voice": "",
+  "effect": "flame_plume",
+  "mode": "bending",
+  "seed": 2,
+  "tap_frame": 40,
+  "real": true,
+  "rank": -196
+ },
+ "bending|hand_point.mp4||fire_breath@2bad64e4|0.83,0.31|1": {
+  "dir": "hand_point__fwoooom__fire_breath",
+  "title": "fwoooOOOM · a flamethrower from a fingertip",
+  "plate": "hand_point.mp4",
+  "voice": "",
+  "effect": "fire_breath",
   "mode": "bending",
   "seed": 1,
-  "tap_frame": 35,
+  "tap_frame": 48,
   "real": true,
-  "rank": -105.2
+  "rank": -195
  },
  "bending|hand_point.mp4|zzzzz-tsst.wav|lightning_arc@made|0.83,0.31|1": {
   "dir": "hand_point__zzzzz__lightning",
@@ -130,91 +84,7 @@
   "seed": 1,
   "tap_frame": 48,
   "real": true,
-  "rank": -103.2
- },
- "bending|hand_open.mp4|hoooo.wav|air_ball@made|0.53,0.71|17": {
-  "dir": "elements_water_air_20261024__bright__air_ball",
-  "title": "Air vortex · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "hoooo.wav",
-  "effect": "air_ball",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -90
- },
- "bending|hand_open.mp4|hoo-hoo-HOO.wav|air_blast@made|0.53,0.71|17": {
-  "dir": "elements_water_air_20261024__bright__air_blast",
-  "title": "Air blast · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "hoo-hoo-HOO.wav",
-  "effect": "air_blast",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -89
- },
- "bending|hand_open.mp4|zzzzz-tsst.wav|lightning_ball@made|0.53,0.71|17": {
-  "dir": "elements_water_air_20261024__bright__lightning_ball",
-  "title": "Ball lightning · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "zzzzz-tsst.wav",
-  "effect": "lightning_ball",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -65
- },
- "bending|hand_open.mp4|zzzzz-tsst.wav|lightning_arc@made|0.53,0.71|17": {
-  "dir": "elements_water_air_20261024__bright__lightning_arc",
-  "title": "Lightning arcs · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "zzzzz-tsst.wav",
-  "effect": "lightning_arc",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -66
- },
- "bending|hand_palm.mp4|hoooo.wav|air_ball@made|0.51,0.65|17": {
-  "dir": "elements_water_air_20261024__dark__air_ball",
-  "title": "Air vortex · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "hoooo.wav",
-  "effect": "air_ball",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -70
- },
- "bending|hand_palm.mp4|hoo-hoo-HOO.wav|air_blast@made|0.51,0.65|17": {
-  "dir": "elements_water_air_20261024__dark__air_blast",
-  "title": "Air blast · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "hoo-hoo-HOO.wav",
-  "effect": "air_blast",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -69
- },
- "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_ball@made|0.51,0.65|17": {
-  "dir": "elements_water_air_20261024__dark__lightning_ball",
-  "title": "Ball lightning · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "zzzzz-tsst.wav",
-  "effect": "lightning_ball",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -85
+  "rank": -194
  },
  "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_arc@made|0.51,0.65|17": {
   "dir": "elements_water_air_20261024__dark__lightning_arc",
@@ -226,246 +96,66 @@
   "seed": 17,
   "tap_frame": 54,
   "real": true,
-  "rank": -86
+  "rank": -193
  },
- "bending|hand_open.mp4|hoooo.wav|earth_rock@made|0.53,0.71|17": {
-  "dir": "elements_materials_20261024__bright__earth_rock",
-  "title": "Living stone · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "hoooo.wav",
-  "effect": "earth_rock",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -84
- },
- "bending|hand_open.mp4|pf-pf-boom-author.wav|earth_shatter@made|0.53,0.71|17": {
-  "dir": "elements_materials_20261024__bright__earth_shatter",
-  "title": "Stone shatter · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "pf-pf-boom-author.wav",
-  "effect": "earth_shatter",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -83
- },
- "bending|hand_open.mp4|pf-pf-boom-author.wav|earth_volley@made|0.53,0.71|17": {
-  "dir": "elements_materials_20261024__bright__earth_volley",
-  "title": "Shard volley · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "pf-pf-boom-author.wav",
-  "effect": "earth_volley",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -81
- },
- "bending|hand_open.mp4|pf-pf-boom-author.wav|earth_lance@made|0.53,0.71|17": {
-  "dir": "elements_materials_20261024__bright__earth_lance",
-  "title": "Stone lance · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "pf-pf-boom-author.wav",
-  "effect": "earth_lance",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -80
- },
- "bending|hand_palm.mp4|hoooo.wav|earth_rock@made|0.51,0.65|17": {
-  "dir": "elements_materials_20261024__dark__earth_rock",
-  "title": "Living stone · dim room",
+ "bending|hand_palm.mp4|zzzzz-tsst.wav|lightning_ball@made|0.51,0.65|17": {
+  "dir": "elements_water_air_20261024__dark__lightning_ball",
+  "title": "Ball lightning · dim room",
   "plate": "hand_palm.mp4",
-  "voice": "hoooo.wav",
-  "effect": "earth_rock",
+  "voice": "zzzzz-tsst.wav",
+  "effect": "lightning_ball",
   "mode": "bending",
   "seed": 17,
   "tap_frame": 54,
   "real": true,
-  "rank": -64
+  "rank": -192
  },
- "bending|hand_palm.mp4|pf-pf-boom-author.wav|earth_shatter@made|0.51,0.65|17": {
-  "dir": "elements_materials_20261024__dark__earth_shatter",
-  "title": "Stone shatter · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "pf-pf-boom-author.wav",
-  "effect": "earth_shatter",
+ "bending|hand_cupped.mp4||fire_burst@f9c3de6f|0.60,0.60|1": {
+  "dir": "hand_cupped__kaboom__fire_burst",
+  "title": "KA-BOOM · a fireball in your palm",
+  "plate": "hand_cupped.mp4",
+  "voice": "",
+  "effect": "fire_burst",
   "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
+  "seed": 1,
+  "tap_frame": 60,
   "real": true,
-  "rank": -63
+  "rank": -191
  },
- "bending|hand_palm.mp4|pf-pf-boom-author.wav|earth_volley@made|0.51,0.65|17": {
-  "dir": "elements_materials_20261024__dark__earth_volley",
-  "title": "Shard volley · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "pf-pf-boom-author.wav",
-  "effect": "earth_volley",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -61
- },
- "bending|hand_palm.mp4|pf-pf-boom-author.wav|earth_lance@made|0.51,0.65|17": {
-  "dir": "elements_materials_20261024__dark__earth_lance",
-  "title": "Stone lance · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "pf-pf-boom-author.wav",
-  "effect": "earth_lance",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -60
- },
- "bending|hand_open.mp4|shhhhh-sploosh.wav|water_orb@made|0.53,0.71|17": {
-  "dir": "elements_water_play_20261024__bright__water_orb",
-  "title": "Water orb · bright room",
+ "bending|hand_open.mp4||flame_plume@5ce2d86e|0.53,0.71|1": {
+  "dir": "hand_open__fff__flame_plume",
+  "title": "fff, fff, fff · a flame on each beat",
   "plate": "hand_open.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_orb",
+  "voice": "",
+  "effect": "flame_plume",
   "mode": "bending",
-  "seed": 17,
+  "seed": 1,
   "tap_frame": 30,
   "real": true,
-  "rank": -88
+  "rank": -190
  },
- "bending|hand_open.mp4|shhhhh-sploosh.wav|water_whip@made|0.53,0.71|17": {
-  "dir": "elements_water_play_20261024__bright__water_whip",
-  "title": "Water whip · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_whip",
+ "bending|hand_fist.mp4||fire_burst@f9c3de6f|0.50,0.52|1": {
+  "dir": "hand_fist__boom__fire_burst",
+  "title": "BOOM · a fireball as the hand closes",
+  "plate": "hand_fist.mp4",
+  "voice": "",
+  "effect": "fire_burst",
   "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
+  "seed": 1,
+  "tap_frame": 35,
   "real": true,
-  "rank": -84
+  "rank": -189
  },
- "bending|hand_open.mp4|shhhhh-sploosh.wav|water_surge@made|0.53,0.71|17": {
-  "dir": "elements_water_play_20261024__bright__water_surge",
-  "title": "Water surge · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_surge",
+ "bending|hand_punch.mp4||fire_burst@f9c3de6f|0.57,0.42|1": {
+  "dir": "hand_punch__boom__fire_burst",
+  "title": "BOOM · a fireball off the fist",
+  "plate": "hand_punch.mp4",
+  "voice": "",
+  "effect": "fire_burst",
   "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
+  "seed": 1,
+  "tap_frame": 68,
   "real": true,
-  "rank": -79
- },
- "bending|hand_open.mp4|shhhhh-sploosh.wav|water_ribbon@made|0.53,0.71|17": {
-  "dir": "elements_water_play_20261024__bright__water_ribbon",
-  "title": "Water ribbon · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_ribbon",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -87
- },
- "bending|hand_open.mp4|shhhhh-sploosh.wav|water_shield@made|0.53,0.71|17": {
-  "dir": "elements_water_play_20261024__bright__water_shield",
-  "title": "Tidal shield · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_shield",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -86
- },
- "bending|hand_open.mp4|shhhhh-sploosh.wav|water_jet@made|0.53,0.71|17": {
-  "dir": "elements_water_play_20261024__bright__water_jet",
-  "title": "Water jet · bright room",
-  "plate": "hand_open.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_jet",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 30,
-  "real": true,
-  "rank": -85
- },
- "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_orb@made|0.51,0.65|17": {
-  "dir": "elements_water_play_20261024__dark__water_orb",
-  "title": "Water orb · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_orb",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -68
- },
- "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_whip@made|0.51,0.65|17": {
-  "dir": "elements_water_play_20261024__dark__water_whip",
-  "title": "Water whip · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_whip",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -64
- },
- "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_surge@made|0.51,0.65|17": {
-  "dir": "elements_water_play_20261024__dark__water_surge",
-  "title": "Water surge · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_surge",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -59
- },
- "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_ribbon@made|0.51,0.65|17": {
-  "dir": "elements_water_play_20261024__dark__water_ribbon",
-  "title": "Water ribbon · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_ribbon",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -67
- },
- "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_shield@made|0.51,0.65|17": {
-  "dir": "elements_water_play_20261024__dark__water_shield",
-  "title": "Tidal shield · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_shield",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -66
- },
- "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_jet@made|0.51,0.65|17": {
-  "dir": "elements_water_play_20261024__dark__water_jet",
-  "title": "Water jet · dim room",
-  "plate": "hand_palm.mp4",
-  "voice": "shhhhh-sploosh.wav",
-  "effect": "water_jet",
-  "mode": "bending",
-  "seed": 17,
-  "tap_frame": 54,
-  "real": true,
-  "rank": -65
+  "rank": -188
  }
 }

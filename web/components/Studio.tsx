@@ -7,7 +7,7 @@ import Performer, { type Performance } from "@/components/Performer";
 import PlatePicker, { type PickedPlate } from "@/components/PlatePicker";
 import ShotPanel from "@/components/ShotPanel";
 import TapPoint, { MAX_SOURCES } from "@/components/TapPoint";
-import { QUICK_PERFORMANCES, WATER_PLAY, quickPerformance, atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
+import { ALL_QUICK_PERFORMANCES, EXPERIMENTAL_QUICK_PERFORMANCES, QUICK_PERFORMANCES, WATER_PLAY, quickPerformance, atSampleSpot, drawnReady, type EffectInfo, fetchEffects, fetchHealth, fetchSamples, isExperimentalEffect, type Health, type JobStatus, type Samples, type Stroke } from "@/lib/shot";
 
 interface Take { id: number; performance: Performance; job: JobStatus | null; effect: string | null; replayOf?: string | null; replayWith?: string[] }
 
@@ -221,6 +221,12 @@ export default function Studio() {
   }
   const here = takes.find((t) => t.job?.id === (current?.replayOf ?? current?.job?.id)) ?? current;
   const siblings = rendered.filter((r) => r.id !== (current?.replayOf ?? current?.job?.id) && !near(r.at, spotOf(here))).map((r) => r.id);
+  const forms = ALL_QUICK_PERFORMANCES.filter((p) => p.element === choice.element);
+  const formPicker = forms.length > 1 ? <div className="row element-forms" role="group" aria-label="Form">
+    {forms.map((p) => <button key={p.effect} type="button"
+      aria-pressed={choice.effect === p.effect} className={choice.effect === p.effect ? "" : "secondary"}
+      onClick={() => setQuickEffect(p.effect)}>{p.form}</button>)}
+  </div> : null;
 
   if (apiError && !health) {
     return (
@@ -238,16 +244,23 @@ export default function Studio() {
           <div className="quick-intro">
             <div>
               <div className="element-picker" role="group" aria-label="Element">
-                {["Fire", "Air", "Water", "Lightning", "Earth"].map((element) => <button key={element} type="button"
+                {["Fire", "Explosion", "Lightning"].map((element) => <button key={element} type="button"
                   className={choice.element === element ? "element-choice selected" : "element-choice secondary"}
                   aria-pressed={choice.element === element}
                   onClick={() => setQuickEffect(QUICK_PERFORMANCES.find((p) => p.element === element)!.effect)}>{element}</button>)}
               </div>
-              {choice.element !== "Fire" && <div className="row element-forms" role="group" aria-label="Form">
-                {QUICK_PERFORMANCES.filter((p) => p.element === choice.element).map((p) => <button key={p.effect} type="button"
-                  aria-pressed={choice.effect === p.effect} className={choice.effect === p.effect ? "" : "secondary"}
-                  onClick={() => setQuickEffect(p.effect)}>{p.form}</button>)}
-              </div>}
+              <details>
+                <summary>Experimental</summary>
+                <p className="muted">Water, air and earth are experimental. Choose one to try its forms.</p>
+                <div className="element-picker" role="group" aria-label="Experimental element">
+                  {["Water", "Air", "Earth"].map((element) => <button key={element} type="button"
+                    className={choice.element === element ? "element-choice selected" : "element-choice secondary"}
+                    aria-pressed={choice.element === element}
+                    onClick={() => setQuickEffect(EXPERIMENTAL_QUICK_PERFORMANCES.find((p) => p.element === element)!.effect)}>{element}</button>)}
+                </div>
+                {isExperimentalEffect(choice.effect) && formPicker}
+              </details>
+              {!isExperimentalEffect(choice.effect) && formPicker}
               <p>Start with our hand clip. Say <strong>{choice.cue}</strong> as it plays, and shape your own {elementName} performance.</p>
               {choice.effect === "earth_rock" && <p className="muted">On your own hand clip: hold a rumble to gather stone. Lift to separate the layers, sweep to cast shards, or drop your hand to crumble it.</p>}
               {choice.element === "Water" && <p className="muted" aria-label="Water movement guide">{WATER_PLAY[choice.effect]} Hand movements use your uploaded clip. Try a steady camera and keep your open hand in view.</p>}
@@ -298,7 +311,7 @@ export default function Studio() {
             <div className="row" role="radiogroup" aria-label="What it comes from">
               <button role="radio" aria-checked={!hand} className={hand ? "secondary" : ""} onClick={() => toHand(false)}>A thing in the shot</button>
               <button role="radio" aria-checked={hand} className={hand ? "" : "secondary"} onClick={() => toHand(true)}>
-                Your hand <span className="muted" style={{ marginLeft: 6 }}>fire, steam or air off your fingers or palm</span>
+                Your hand <span className="muted" style={{ marginLeft: 6 }}>fire, explosion or lightning off your fingers or palm</span>
               </button>
             </div>
           )}

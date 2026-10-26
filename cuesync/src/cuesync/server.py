@@ -758,7 +758,8 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                     pick, _ = instant_effect(spec, t_, len(t_["xy"]))
                 except Exception:  # (a noise it can't read: the replay below says why)
                     pick = None
-                if pick in MADE:
+                # Water, air and earth stay available when explicitly selected; voice defaults stay curated.
+                if pick in ("explosion", "lightning_arc", "lightning_ball"):
                     spec.effect = pick
             same = ahead_hand[0]["effect"] == spec.effect  # (else an element made here, on the sample's hand)
             return jq.submit(Job(id=job_id, dir=d, spec=spec, mode="replay", title=ahead_hand[0]["title"] if same else None,

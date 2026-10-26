@@ -25,7 +25,7 @@ const plate: Props["plate"] = {
 };
 const performance: Props["performance"] = {
   cue: "voice", voice: { sample: "shhhhh-sploosh.wav" }, timing: null, face: null, faceExt: "webm",
-  suggested: "water_orb", onsetS: null, warnings: [], label: "shhhhh", previewUrl: "",
+  suggested: "water_orb", experimental: true, onsetS: null, warnings: [], label: "shhhhh", previewUrl: "",
 };
 
 beforeEach(() => {
@@ -55,7 +55,7 @@ const show = async (overrides: Partial<Props> = {}) => {
       onDone={() => undefined} {...overrides} />);
   });
 };
-const autoPerformance = { ...performance, suggested: "fireball" };
+const autoPerformance = { ...performance, suggested: "fireball", experimental: false };
 const radios = () => [...host.querySelectorAll<HTMLButtonElement>('[role="radiogroup"][aria-label="Effect"] [role="radio"]')];
 const radio = (label: string) => {
   const found = radios().find((b) => b.textContent?.startsWith(label));
@@ -174,6 +174,13 @@ describe("ShotPanel stone material finish", () => {
 });
 
 describe("ShotPanel offline sample hand", () => {
+  it("does not preselect experimental suggestions without an explicit choice", async () => {
+    await show({ performance: { ...performance, experimental: false } });
+    expect(radio("Your cue decides").getAttribute("aria-checked")).toBe("true");
+    await tap(button("Make the shot"));
+    expect(sent[0].get("effect")).toBe("auto");
+  });
+
   it("lets an automatic cue reveal the available made effects without offering rendered hand effects", async () => {
     await show({ performance: autoPerformance });
     expect(radio("Your cue decides").getAttribute("aria-checked")).toBe("true");
@@ -184,6 +191,38 @@ describe("ShotPanel offline sample hand", () => {
     }
     expect(radios()).toHaveLength(8);
     expect(radios().some((b) => /^(Flamethrower|Fireball|Flame in the palm|Steam|Smoke puff|Flare-up)/.test(b.textContent ?? ""))).toBe(false);
+    const experimental = radio("Water orb").closest("details")!;
+    expect(experimental.querySelector("summary")?.textContent).toBe("Experimental");
+    expect(experimental.open).toBe(false);
+    for (const label of ["Water orb", "Water whip", "Air ball", "Air blast"]) {
+      expect(radio(label).closest("details")).toBe(experimental);
+      expect(radio(label).textContent).toContain("Experimental");
+    }
+    for (const label of ["Explosion", "Lightning", "Ball lightning"]) {
+      expect(radio(label).closest("details")).toBeNull();
+    }
+  });
+
+  it("keeps the live hand picker focused on fire, explosion and lightning", async () => {
+    await show({ performance: autoPerformance, modes: ["bending", "instant"] });
+    await tap(button("Choose it yourself"));
+    const offered = radios().filter((b) => !b.closest("details"));
+    expect(offered).toHaveLength(7); // the automatic choice and six core forms
+    expect(radios().find((b) => b.textContent?.startsWith("Steam"))).toBeUndefined();
+    expect(radio("Fireball").closest("details")).toBeNull();
+    expect(radio("Lightning").closest("details")).toBeNull();
+    expect(radio("Water orb").closest("details")?.open).toBe(false);
+  });
+
+  it("keeps detected-effect badge overrides within the core hand effects", async () => {
+    const completed = finishedHand("fire_burst");
+    completed.receipt!.auto = { heard: "boom", hand: "palm", picked: "fire_burst", why: "A hit from the palm" };
+    await show({ performance: autoPerformance, initialJob: completed, modes: ["bending", "instant"] });
+    await tap(host.querySelector<HTMLButtonElement>('[aria-label="All effects"]')!);
+    const badgeGroup = [...host.querySelectorAll('[role="radiogroup"][aria-label="Effect"]')].at(-1)!;
+    expect([...badgeGroup.querySelectorAll('[role="radio"]')].map((b) => b.textContent)).toEqual([
+      "Flamethrower", "Fireball", "Flame in the palm", "Explosion", "Lightning", "Ball lightning",
+    ]);
   });
 
   it("offers only made effects advertised by this server", async () => {
@@ -224,6 +263,9 @@ describe("ShotPanel offline sample hand", () => {
 
   it("submits a manually chosen air effect in place of the suggested water", async () => {
     await show();
+    const disclosure = radio("Air ball").closest("details")!;
+    await act(async () => { disclosure.querySelector("summary")!.click(); });
+    expect(disclosure.open).toBe(true);
     await tap(radio("Air ball"));
     expect(radio("Air ball").getAttribute("aria-checked")).toBe("true");
     expect(radio("Water orb").getAttribute("aria-checked")).toBe("false");
