@@ -288,16 +288,16 @@
     {
       "id": "try_sample",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
-      "start": 1.96,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\recording\\page@b323a5f25b84f9cebb4e2d932f342468.webm",
+      "start": 1.84,
       "dur": 1.5,
       "fill": true,
       "chip_header": true,
       "crop": [
-        0.3,
-        0.03,
-        0.7,
-        0.57
+        0.17,
+        0.15,
+        0.83,
+        0.86
       ],
       "chip": "1. Start with the prepared palm",
       "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
@@ -306,22 +306,22 @@
     {
       "id": "perform",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
-      "start": 3.46,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\recording\\page@b323a5f25b84f9cebb4e2d932f342468.webm",
+      "start": 3.3,
       "dur": 5.083333333333333,
       "fill": true,
       "chip_header": true,
       "crop": [
-        0.3,
-        0.03,
-        0.7,
-        0.6
+        0.17,
+        0.22,
+        0.72,
+        0.91
       ],
       "chip": "2. Record & make fire",
       "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
       "source_gain": 0,
-      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\jobs\\077d3dc1d7d4\\in\\voice.wav",
-      "audio_at": 1.1630139160156254,
+      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\jobs\\c2eb09bf1b33\\in\\voice.wav",
+      "audio_at": 1.2069516601562498,
       "audio_from": 0,
       "audio_gain": 2.5,
       "audio_replace": true,
@@ -339,40 +339,40 @@
     {
       "id": "make",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
-      "start": 8.543333333333333,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\recording\\page@b323a5f25b84f9cebb4e2d932f342468.webm",
+      "start": 8.383333333333333,
       "dur": 2.5,
       "fill": true,
       "chip_header": true,
       "crop": [
-        0.3,
-        0.03,
-        0.7,
-        0.46
+        0.17,
+        0.15,
+        0.83,
+        0.74
       ],
-      "chip": "33.3s CPU composition · wait shortened",
+      "chip": "31.1s CPU composition · wait shortened",
       "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
       "source_gain": 0
     },
     {
       "id": "download",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\recording\\page@fe68ed089ee83c0ba8b9f9a29d670d63.webm",
-      "start": 41.55,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\recording\\page@b323a5f25b84f9cebb4e2d932f342468.webm",
+      "start": 39.3,
       "dur": 5,
       "fill": true,
       "chip_header": true,
       "crop": [
-        0.3,
-        0.025,
-        0.7,
-        0.78
+        0.17,
+        0,
+        0.52,
+        0.955
       ],
       "chip": "3. Download · or perform again",
       "stamp": "Automated Chromium · virtual microphone plays author's recorded voice",
       "source_gain": 0,
-      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\jobs\\077d3dc1d7d4\\final.mp4",
-      "audio_at": 0.133,
+      "audio_src": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\jobs\\c2eb09bf1b33\\final.mp4",
+      "audio_at": 0.093,
       "audio_from": 0,
       "audio_gain": 1,
       "audio_replace": true,
@@ -382,15 +382,17 @@
     {
       "id": "result",
       "type": "clip",
-      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\jobs\\077d3dc1d7d4\\final.mp4",
-      "start": 0,
+      "src": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\jobs\\c2eb09bf1b33\\final.mp4",
+      "start": 1.5,
       "dur": 3.5,
       "fill": true,
       "portrait_backdrop": true,
       "source_gain": 1,
       "chip": "The actual downloaded shot",
       "stamp_top": true,
-      "stamp": "Fresh browser recording + prepared palm · same stored LTX element · CPU composition"
+      "stamp": "Fresh browser recording + prepared palm · same stored LTX element · CPU composition",
+      "hold_tail": true,
+      "hold_reason": "The exported shot ends 2.0 s into the beat; its final frame is held to keep v18's 3.5 s beat"
     },
     {
       "id": "comfy_model",
@@ -988,52 +990,89 @@
     "composites_rebuilt_for_this_edit": false
   },
   "browser_capture": {
-    "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\capture-manifest.json",
-    "manifest_sha256": "ab404634124da304c3073bb75a0cb0b34167576654e9ce56f8b21b7747573a52",
-    "job_id": "077d3dc1d7d4",
-    "replaces": {
-      "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\capture-manifest.json",
-      "job_id": "32777818fbb6",
-      "reason": "Its exported shot was composed by the 23 October fire code (a standing flame column), since reverted."
-    },
+    "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261026b\\browser\\capture-manifest.json",
+    "manifest_sha256": "9f99557b4a0d368cce2b7c9eec3ae45d37567d18a79f895cfa66023558a2c8eb",
+    "job_id": "c2eb09bf1b33",
+    "interface_scale": "CSS zoom 1.75 on the page root (like browser zoom 175%); the capture scrolls the Download / Perform again row into view with the player",
+    "replaces": [
+      {
+        "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261023\\browser\\capture-manifest.json",
+        "job_id": "32777818fbb6",
+        "reason": "Its exported shot was composed by the 23 October fire code (a standing flame column), since reverted."
+      },
+      {
+        "manifest": "D:\\openHiggsfield\\runs\\contest-polish-20261026\\browser\\capture-manifest.json",
+        "job_id": "077d3dc1d7d4",
+        "reason": "Current code but the desktop interface at 100%: too small to read in the cut."
+      }
+    ],
     "audio_alignment": "Actual uploaded microphone PCM, aligned using first-sample browser-clock estimate; screen-clock correspondence is approximate, not sample-exact.",
     "shortened_wait": true,
-    "actual_cpu_composition_seconds": 33.3,
-    "preview_play_page_relative_s": 41.6825,
+    "actual_cpu_composition_seconds": 31.1,
+    "preview_play_page_relative_s": 39.39339990234375,
     "windows": {
       "starts": {
-        "try_sample": 1.96,
-        "perform": 3.46,
-        "download": 41.55,
-        "make": 8.543333333333333
+        "try_sample": 1.84,
+        "perform": 3.3,
+        "download": 39.3,
+        "make": 8.383333333333333,
+        "result": 1.5
       },
-      "method": "Placed at v18's distances from the same visible UI changes on the new screen recording; v18 durations, crops, chips and stamps.",
-      "visible_events_old_to_new_seconds": {
+      "crops": {
+        "try_sample": [
+          0.17,
+          0.15,
+          0.83,
+          0.86
+        ],
+        "perform": [
+          0.17,
+          0.22,
+          0.72,
+          0.91
+        ],
+        "make": [
+          0.17,
+          0.15,
+          0.83,
+          0.74
+        ],
+        "download": [
+          0.17,
+          0,
+          0.52,
+          0.955
+        ]
+      },
+      "result_hold": "The exported shot ends 2.0 s into the beat; its final frame is held to keep v18's 3.5 s beat",
+      "method": "Placed at v18's distances from the same visible UI changes on the new screen recording; v18 durations, chips and stamps; crops frame each beat's active area of the zoomed page.",
+      "visible_events_v18_to_v19_seconds": {
         "record_view": [
           3.0,
-          2.16
+          2.04
         ],
         "microphone_armed": [
           4.4,
-          3.56
+          3.4
         ],
         "recording": [
           5.12,
-          4.32
+          4.08
         ],
         "composition_view": [
           8.96,
-          8.04
+          7.72
         ],
         "result_view_settled": [
           27.72,
-          41.52
+          39.28
         ],
         "perform_again": [
           32.92,
-          47.12
+          44.96
         ]
-      }
+      },
+      "result_fire_onset_seconds": 1.917
     }
   },
   "baseline_sha256": "c5c51ed21d461c2c457e51d4688861779fa198465495a66e6fa18def3f4f55cf",

@@ -12,7 +12,8 @@ to v15's window for the v11 element, the window its Foley was resampled from. Th
 v15's, built from the v11 pictures with the same stages and timing. Two existing renders are
 inserted: the palm render performed again by four strangers' recorded voices (CC0) and the stored
 air element held in the palm. The five Studio beats use a new browser capture made with the current
-code (runs/contest-polish-20261026/browser), at the same visible UI moments and durations as v18.
+code at a legible interface scale (runs/contest-polish-20261026b/browser), cropped to each beat's
+active area, at the same visible UI moments and durations as v18.
 No model generation, GPU service or narration generation is used.
 """
 
@@ -70,16 +71,28 @@ AIR_CROP = [0, 0, 1, .96775]                     # rows 0-1920: the composite wi
 AIR_GAIN = .27                                   # -12.4 LUFS take -> about -23.8 LUFS, the montage level
 AIR_CHIP = "hoooo · sample noise (synthetic)"
 AIR_STAMP = "Air: a whirlwind of mist rendered once by LTX-2.5, held with your voice"
-# The Studio flow, captured again on 26 October with the current code (same Playwright, Chromium,
-# quick-flow script and virtual microphone file as the 23 October capture it replaces).
+# The Studio flow, captured again on 26 October with the current code and a legible interface scale
+# (CSS zoom 1.75 on the page root, like browser zoom 175%); same Playwright, Chromium, quick-flow
+# script and virtual microphone file as the 23 October capture v18 used.
 OLD_CAPTURE = ROOT / "runs/contest-polish-20261023/browser/capture-manifest.json"
-CAPTURE = ROOT / "runs/contest-polish-20261026/browser/capture-manifest.json"
+PREVIOUS_CAPTURE = ROOT / "runs/contest-polish-20261026/browser/capture-manifest.json"
+CAPTURE = ROOT / "runs/contest-polish-20261026b/browser/capture-manifest.json"
+REPLACED_CAPTURE_DIRS = {"contest-polish-20261023", "contest-polish-20261026"}
 STUDIO_IDS = ("try_sample", "perform", "make", "download", "result")
 # Window starts on the new screen recording, placed at v18's distances from the same visible UI changes
-# (measured frame differences in the UI column, old -> new): CTA to record view 3.00 -> 2.16 s,
-# microphone armed 4.40 -> 3.56 s, composition view 8.96 -> 8.04 s, result view settled 27.72 -> 41.52 s.
-# make starts where perform ends, as in v18; durations are v18's.
-STUDIO_STARTS = {"try_sample": 1.96, "perform": 3.46, "download": 41.55}
+# (measured frame differences in the UI, v18's recording -> this one): CTA to record view 3.00 -> 2.04 s,
+# microphone armed 4.40 -> 3.40 s, recording 5.12 -> 4.08 s, composition view 8.96 -> 7.72 s, result
+# view settled 27.72 -> 39.28 s. make starts where perform ends, as in v18; durations are v18's.
+STUDIO_STARTS = {"try_sample": 1.84, "perform": 3.30, "download": 39.30}
+# Each crop frames the beat's active area of the zoomed page (fractions of the 1920x1080 recording).
+STUDIO_CROPS = {"try_sample": [.17, .15, .83, .86],   # landing CTA, then the record view to "Use my microphone"
+                "perform": [.17, .22, .72, .91],      # instruction, plate preview, recording meter, Record button
+                "make": [.17, .15, .83, .74],         # "Your recording" and the "Make your fire" progress
+                "download": [.17, 0, .52, .955]}      # the finished player with Download / Perform again
+# The exported shot's thrown fireball appears at 1.917 s; the beat starts 0.417 s before it. The shot is
+# 3.5 s long, so its final frame is held for the beat's last 1.5 s (v18's 3.5 s beat length).
+RESULT_START = 1.5
+RESULT_HOLD = "The exported shot ends 2.0 s into the beat; its final frame is held to keep v18's 3.5 s beat"
 METADATA_INPUTS = {"receipt.json", "samples.json"}
 MEDIA_FIELDS = ("src", "audio_src", "vo", "element_src")
 
@@ -141,9 +154,10 @@ def studio_beat(beat: dict, cap: dict) -> dict:
     (first PCM sample; UI preview play event); screen-clock correspondence stays approximate."""
     b, assets = deepcopy(beat), cap["assets"]
     if b["id"] == "result":
-        b["src"] = assets["actual_final"]["path"]
+        b.update(src=assets["actual_final"]["path"], start=RESULT_START, hold_tail=True, hold_reason=RESULT_HOLD)
         return b
     b["src"] = assets["raw_screen_video"]["path"]
+    b["crop"] = list(STUDIO_CROPS[b["id"]])
     b["start"] = STUDIO_STARTS["perform"] + 122 / FPS if b["id"] == "make" else STUDIO_STARTS[b["id"]]
     if b["id"] == "make":
         b["chip"] = f"{cap['actual_cpu_composition_seconds']:.1f}s CPU composition · wait shortened"
@@ -265,19 +279,28 @@ def prepare() -> dict:
                      render_prompt=air_receipt["render"]["prompt"], window_seconds=[AIR_START, AIR_START + AIR_FRAMES / FPS],
                      voice="synthetic sample noise voices/hoooo.wav (samples/CREDITS.md)", source_gain=AIR_GAIN)),
         browser_capture=dict(manifest=str(CAPTURE), manifest_sha256=sha256(CAPTURE), job_id=cap["job_id"],
-                             replaces=dict(manifest=str(OLD_CAPTURE), job_id=read_json(OLD_CAPTURE)["job_id"],
-                                           reason="Its exported shot was composed by the 23 October fire code (a "
-                                                  "standing flame column), since reverted."),
+                             interface_scale="CSS zoom 1.75 on the page root (like browser zoom 175%); the capture "
+                                             "scrolls the Download / Perform again row into view with the player",
+                             replaces=[dict(manifest=str(OLD_CAPTURE), job_id=read_json(OLD_CAPTURE)["job_id"],
+                                            reason="Its exported shot was composed by the 23 October fire code (a "
+                                                   "standing flame column), since reverted."),
+                                       dict(manifest=str(PREVIOUS_CAPTURE), job_id=read_json(PREVIOUS_CAPTURE)["job_id"],
+                                            reason="Current code but the desktop interface at 100%: too small to read "
+                                                   "in the cut.")],
                              audio_alignment=baseline["browser_capture"]["audio_alignment"],
                              shortened_wait=True, actual_cpu_composition_seconds=cap["actual_cpu_composition_seconds"],
                              preview_play_page_relative_s=cap["preview_play_page_relative_s"],
-                             windows=dict(starts={**STUDIO_STARTS, "make": STUDIO_STARTS["perform"] + 122 / FPS},
+                             windows=dict(starts={**STUDIO_STARTS, "make": STUDIO_STARTS["perform"] + 122 / FPS,
+                                                  "result": RESULT_START},
+                                          crops=STUDIO_CROPS, result_hold=RESULT_HOLD,
                                           method="Placed at v18's distances from the same visible UI changes on the "
-                                                 "new screen recording; v18 durations, crops, chips and stamps.",
-                                          visible_events_old_to_new_seconds={
-                                              "record_view": [3.0, 2.16], "microphone_armed": [4.4, 3.56],
-                                              "recording": [5.12, 4.32], "composition_view": [8.96, 8.04],
-                                              "result_view_settled": [27.72, 41.52], "perform_again": [32.92, 47.12]})),
+                                                 "new screen recording; v18 durations, chips and stamps; crops frame "
+                                                 "each beat's active area of the zoomed page.",
+                                          visible_events_v18_to_v19_seconds={
+                                              "record_view": [3.0, 2.04], "microphone_armed": [4.4, 3.40],
+                                              "recording": [5.12, 4.08], "composition_view": [8.96, 7.72],
+                                              "result_view_settled": [27.72, 39.28], "perform_again": [32.92, 44.96]},
+                                          result_fire_onset_seconds=1.917)),
         standalone_source_window_note=("The opening starts on the active v11 dark-palm composite at 2.8 s in disclosed "
                                        "slow motion. Proof performances, narration and the remaining source windows are "
                                        "v18's; v11 composites share v17's strike frames. The Studio beats are a new "
@@ -300,7 +323,7 @@ def structure_check(board: dict, baseline: dict) -> tuple[dict, list[str]]:
     old = {b["id"]: b for b in baseline["beats"]}
     cap = capture()
     if board.get("browser_capture", {}).get("manifest") != str(CAPTURE):
-        errors.append("v19 must use the 26 October Studio capture")
+        errors.append("v19 must use the legible 26 October Studio capture")
     changed = []
     for beat in beats:
         identity = beat["id"]
@@ -336,9 +359,9 @@ def structure_check(board: dict, baseline: dict) -> tuple[dict, list[str]]:
             errors.append("Air must carry its stamp and own sound for about three seconds")
         if not (Path(air["src"]).is_file() and float(air["start"]) <= 1.4 and end <= video_duration(Path(air["src"])) + 1e-6):
             errors.append("Air must show the vortex from 1.4 s to the end of its take")
-    stale = sorted(str(p) for p in media_paths(beats) if "demo_v17" in str(p) or "contest-polish-20261023" in str(p))
+    stale = sorted(str(p) for p in media_paths(beats) if "demo_v17" in str(p) or REPLACED_CAPTURE_DIRS & set(p.parts))
     if stale:
-        errors.append(f"Replaced v17 or 23 October capture media remain in the cut: {', '.join(stale)}")
+        errors.append(f"Replaced v17 or earlier Studio capture media remain in the cut: {', '.join(stale)}")
     schedule = timeline(beats)
     duration = schedule[-1]["end"] if schedule else 0
     at = {e["id"]: e for e in schedule}
@@ -412,8 +435,8 @@ def source_provenance_check(board: dict) -> tuple[dict, list[str]]:
     for path in paths:
         if path.is_relative_to(NEW_CLIPS) and path not in produced:
             errors.append(f"Storyboard v11 clip has no rendered-output provenance: {path}")
-        if "demo_v17" in str(path) or "contest-polish-20261023" in str(path):
-            errors.append(f"Replaced v17 or 23 October capture media remain in the cut: {path}")
+        if "demo_v17" in str(path) or REPLACED_CAPTURE_DIRS & set(path.parts):
+            errors.append(f"Replaced v17 or earlier Studio capture media remain in the cut: {path}")
     jobs = data.get("jobs", {})
     elements = {value for name in ("proof_boom", "proof_pf_pf_boom", "proof_pf_x4")
                 for filename, value in jobs.get(name, {}).get("inputs_sha256", {}).items()
