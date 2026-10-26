@@ -22,7 +22,11 @@ An entry for Comfy's **[Open Source Higgsfield](https://comfy.org/open-source-hi
 The contribution is separating generation from performance: one generated effect becomes a reusable instrument.
 Your voice controls when it hits, how big it plays and how long it burns.
 A new take reuses the same element while the CPU tracks, masks, lights and composites it on your hand.
-The three performances below the creation flow let you hear and see that separation.
+The three performances below the creation flow let you hear and see that separation, and four strangers' recorded voices
+(CC0, from Freesound) perform the same render again under them.
+
+![One LTX render performed by seven voices: the author's BOOM, pf, pf, BOOM and pf pf pf PF, then Sadiquecat's Boom, unfa's Ka-Boom!, huw2k8's soft Powf (a small fireball) and Jedimichael's Boom](media/one_render_seven_voices.jpg)
+<sub>One generation, seven performances, each at its loudest hit: a soft voice throws a small fireball, a loud one a big one. Each also has its own timing and rhythm, which a still can't show.</sub>
 
 ## Try it in two minutes, no GPU
 
