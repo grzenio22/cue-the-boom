@@ -795,7 +795,7 @@
     {
       "id": "credits",
       "type": "image",
-      "src": "D:\\openHiggsfield\\runs\\demo_v12\\cards\\credits.png",
+      "src": "D:\\openHiggsfield\\runs\\demo_v19\\cards\\credits.png",
       "dur": 4.5,
       "zoom": 1,
       "audio_src": "D:\\openHiggsfield\\runs\\demo_v10\\credits_crackle.wav",

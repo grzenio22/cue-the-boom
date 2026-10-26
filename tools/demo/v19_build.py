@@ -43,6 +43,8 @@ SWAPPED = ("proof_boom/composite.mp4", "proof_pf_pf_boom/composite.mp4", "proof_
            "flame_walk/composite.mp4", "flamethrower/composite.mp4")
 OLD_RECAP = ROOT / "runs/demo_v17/cards/pipeline_motion.mp4"
 NEW_RECAP = ROOT / "runs/demo_v15/cards/pipeline_motion.mp4"
+OLD_CREDITS = ROOT / "runs/demo_v12/cards/credits.png"  # the credits card, remade with the current elements and voices
+NEW_CREDITS = RUN / "cards/credits.png"
 RECAP_QA = ROOT / "runs/demo_v15/qa_v15.json"
 RECAP_IDS = ("innovation", "innovation_asset", "innovation_track", "innovation_voice", "innovation_result")
 # v18 sampled the v17 derivative from 2.65 s, where its fireball appears (black before 2.625 s).
@@ -99,6 +101,8 @@ def swap_path(value: str) -> str:
     for name in SWAPPED:
         if path == OLD_CLIPS / name:
             return str(NEW_CLIPS / name)
+    if path == OLD_CREDITS:
+        return str(NEW_CREDITS)
     return str(NEW_RECAP) if path == OLD_RECAP else value
 
 
@@ -205,6 +209,10 @@ def video_duration(path: Path) -> float:
 
 
 def prepare() -> dict:
+    from v11_cards import credits
+
+    NEW_CREDITS.parent.mkdir(parents=True, exist_ok=True)
+    credits(NEW_CREDITS.parent)
     baseline = read_json(BASELINE)
     if baseline.get("version") != 18:
         raise ValueError("The v19 baseline must be the v18 storyboard")
