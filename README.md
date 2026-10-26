@@ -98,7 +98,7 @@ Choose an effect, then perform its cue. Voice controls timing and strength; it d
 
 ## The entry at a glance
 
-- **Core video model:** LTX-2.5 (Lightricks) with the ainvfx-fluid IC-LoRA (AInVFX, Adrien Toupet). Every fire effect, the air vortex and the explosion's fireball are LTX-2.5 renders.
+- **Core video model:** LTX-2.5 (Lightricks) with the ainvfx-fluid IC-LoRA (AInVFX, Adrien Toupet). Every fire effect, the air vortex and the explosion's fireball are LTX-2.5 renders, and LTX-2.5 also renders effects straight into a shot: 28 scene shots ship ready to play, 18 of them on real stock footage, each started on its cue.
 - **Open weights only, self-hosted.** No partner nodes and no closed APIs. [Models and licences](TECHNICAL.md#models-and-licences); [versions and revisions](build/model-files.md).
 - **The app:** a browser studio and its render API (`cuesync studio`), a CLI (`cuesync`), and ComfyUI nodes.
 
