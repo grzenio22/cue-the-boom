@@ -350,9 +350,10 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           No new render; processing time varies with your clip and computer.</p>
       )}
       {!quick && hand && !handOffline && effect !== "explosion" && !replayOf && (
-        <p className="muted">Your cue decides with your hand: a long fffff from two fingers is a flamethrower, KA-BOOM from a palm a
-          fireball, a held fffff over a palm a flame in it, a pf a pop of fire. Lightning and explosion
-          are made on this computer from your hand and your voice: choose them yourself. {sceneLive
+        <p className="muted">Your cue decides with your hand: a short BOOM from a palm or a fist is a fireball, a long rolling
+          BOOOOM an explosion, a pf a pop of fire, a held fffff over a palm a flame in it, a long fffff from two fingers a
+          flamethrower, a zzzzz lightning. Lightning and the explosion&apos;s blast are made on this computer from your hand
+          and your voice; to pick one regardless of the noise, choose it yourself. {sceneLive
             ? "Rendered once over black on the GPU (1-3 min; the first after the GPU starts takes a few more), then carried on your hand."
             : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand. Processing time varies with your clip and computer."}</p>
       )}
