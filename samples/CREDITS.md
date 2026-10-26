@@ -22,7 +22,7 @@ procedural lightning examples use synthetic cue sounds over the author's footage
 ## The author's voice and the three performances
 
 **One render. Three performances.** uses the same palm footage and the same
-CPU derivative of one generated fire element for all three performances:
+generated fire element for all three performances:
 
 | Performance | Audio source | Finished shot |
 |---|---|---|
@@ -32,14 +32,9 @@ CPU derivative of one generated fire element for all three performances:
 
 The two rhythm presets are assembled performances, rather than separate
 continuous voice takes. Their `receipt.json` files point back to the BOOM shot,
-record `no_new_render: true` and `no_gpu: true`, and identify the same compact
-element by SHA-256:
-`270bc3742f3ce36a08a145ea2b8546500a0fdb9019a7cc23911abd72f933fdb1`.
-This is a CPU temporal/radiance derivative of the original B-turbulent-v2 LTX
-render, SHA-256
-`073a3e69cbfd65041d6f43942a441298efe47d0e022ba692721c30c6b72f454c`.
-The three performances share that derivative; neither the derivation nor a
-new performance invokes the model or uses a GPU.
+record `no_new_render: true` and `no_gpu: true`, and name the same stored
+LTX-2.5 + ainvfx-fluid element. A new performance re-composites that element on
+the CPU; it never invokes the model or uses a GPU.
 The audio notes in [samples.json](samples.json) record the edits too.
 
 The other presets in `voices/` are synthetic. `tools/make_hand_noises.py` makes
@@ -55,41 +50,18 @@ separate synthetic voice made with Kokoro-82M; it is not the author's cue voice.
 soundtrack. The element library in `library/` contains stored LTX renders;
 generated outputs have the model terms described in [NOTICE.md](../NOTICE.md).
 
-## Selected fire sources and CPU derivatives
+## Fire elements
 
-[source_assets/b-turbulent-v2](source_assets/b-turbulent-v2/README.md) preserves
-the original LTX-2.5 22B distilled int8 + ainvfx-fluid generation, seed
-`2026102222`, with its unmodified original element, receipt, request, ComfyUI
-history, guide and measurements. The historical generation time belongs to
-that earlier model call, not to the gallery rebuild.
-
-Walk uses the unchanged original B-turbulent-v2 element. The palm, its two
-replays and fist restore their signed-off source elements and finished shots
-from `e056e9f` after comparison with the CPU rebuilds. The `compact/` and
-`crown/` derivatives remain preserved experiments, rather than the selected
-gallery sources. Their replacement `source-adapter.json` and
-`source-provenance.json` record the restored sources separately from the
-unchanged historical performance receipts. Punch, pointing fire, open palm
-and cupped hands also restore their signed-off finished shots. Playback scale,
-exposure and authored motion are not generation settings. The source package
-includes exact hashes and derivative recipes; no new model call was made for
-these comparisons or restorations.
-
-The default `library/bending/flame_plume` also uses the unchanged original
-B-turbulent-v2 element, with current playback scale `1.0` and exposure `1.5`.
-Its earlier instant-mode render on the walking sample matched the corresponding
-gallery composite byte for byte before the gallery's contact-light update.
-The library receipt is a playback adapter;
-`preserved-source-receipt.json` is an earlier adapter, while the original model
-generation evidence remains in `source_assets/b-turbulent-v2/original/`.
-`source-provenance.json` records their separate hashes. The default burst
-library retains its previous source.
-
-The public [CPU derivative helper](../tools/derive_fire_element.py) reproduces
-the two supplied derivatives from the preserved original. No model or network
-access is required. Hand fire uses a 2.5D approximation with tracked placement,
-hand segmentation and local lighting; these samples do not establish a full
-3D fluid or scene-lighting simulation.
+The gallery's hand-fire shots and `library/bending` play stored LTX-2.5 22B (int8)
++ ainvfx-fluid renders; each shot's `receipt.json` names its element.
+[source_assets/b-turbulent-v2](source_assets/b-turbulent-v2/README.md) preserves a
+later generation (seed `2026102222`) with its request, ComfyUI history and guide,
+and [derive_fire_element.py](../tools/derive_fire_element.py) reproduces its two
+CPU derivatives from it. They were compared with the shipped elements and are kept
+as preserved experiments; the gallery and the library do not use them. Hand fire
+is a 2.5D approximation with tracked placement, hand segmentation and local
+lighting; these samples do not establish a full 3D fluid or scene-lighting
+simulation.
 
 ## Stock footage and photos
 
@@ -137,9 +109,8 @@ credited above.
 | ["Ka-Boom!" (a vocal; unfa's own recording)](https://freesound.org/people/unfa/sounds/245604/) | unfa | CC0 1.0 | `made_ahead/scene/real_voice_pumpkins_kaboom`, `made_ahead/scene/real_voice_jack_unfa`, `made_ahead/bending/hand_cupped__kaboom__fire_burst` |
 
 The cupped-hand shot's original cue recording also ships as
-`made_ahead/bending/hand_cupped__kaboom__fire_burst/source_voice.wav` so its CPU
-rebuild can reproduce the original two hits. The receipt records its SHA-256
-and placement offset; it is the credited unfa recording, not a synthetic preset.
+`made_ahead/bending/hand_cupped__kaboom__fire_burst/source_voice.wav`; it is the
+credited unfa recording, not a synthetic preset.
 
 
 ## Curated lightning shots
