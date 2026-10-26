@@ -4,6 +4,9 @@
 
 **Film your hand. Make the noise. Perform fire, air, explosions and lightning.**
 
+![One LTX-2.5 fire render on the author's palm, performed five ways at once: the author's BOOM, pf, pf, BOOM and pf pf pf PF, huw2k8's soft Powf (a small fireball) and unfa's Ka-Boom! (two hits), all from recorded voices with no new generation](media/one_render_five_performances.gif)
+<sub>One stored LTX render, five recorded voices, five different performances: when it fires and how big it plays come from the voice.</sub>
+
 Choose **Fire**, **Air**, **Explosion** or **Lightning**, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
 
 Below the creation flow, **One render. Seven performances.** shows the author's palm and one LTX-2.5 fire render with three of the author's voice-driven performances, **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Below them, four strangers' recorded voices (CC0, Freesound) perform the same render again. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
