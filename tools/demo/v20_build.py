@@ -61,7 +61,12 @@ OPEN_HEADLINE = "Live at the webcam"
 VO20 = ROOT / "runs/demo_v20/vo20"   # the two new narration lines (make_v11_voice.py: Kokoro-82M am_michael, 1.0)
 COMFY_SHOT = ROOT / "media/comfyui-retime-demo.png"  # the node pack running in ComfyUI v0.41.0 on a CPU
 COMFY_STAMP = "ComfyUI v0.41.0 on a CPU · our CueSync nodes · the LTX-2.5 render the repository ships"
-CONTRAST_IMAGE = ROOT / "media/one_render_seven_voices.jpg"
+COMFY_WORKFLOW = "workflows/cue_the_boom_retime_demo.json"   # the graph the screenshot carries
+NODE_EVIDENCE = ROOT / "runs/demo_v20/comfy_nodes_evidence.json"
+FIVE = (("hand_palm__boom__fire_burst", "BOOM"), ("hand_palm__pfpfboom__again", "pf, pf, BOOM"),
+        ("hand_palm__pfx4__again", "pf pf pf PF"), ("hand_palm__huw2k8__again", "Powf"), ("hand_palm__unfa__again", "Ka-Boom!"))
+PROTECTED = {"performance_turns", "small_and_big", "strangers", "innovation_hits"}  # the proof plays at its own level
+LIFT_DB, PEAK_DB, RAMP_S = 4.0, -1.5, 0.03  # the narrated stretches come up by at most this, every peak under that
 run = Path(os.environ.get("CUE_DEMO20_RUN", ROOT / "runs/demo_v20"))
 
 
@@ -356,19 +361,36 @@ def inserted() -> dict[str, list[dict]]:
     return {
         "comfy_sampler": [
             dict(id="comfy_nodes", type="image", src=str(COMFY_SHOT), dur=4.0, zoom=1.03, stamp=COMFY_STAMP,
-                 reason="The node pack running in a fresh ComfyUI, not a drawing of it"),
-            dict(id="comfy_nodes_report", type="image", src=str(COMFY_SHOT), crop=[0.44, 0.095, 0.92, 0.69], dur=5.25,
-                 zoom=1.06, stamp=COMFY_STAMP,
+                 node_evidence=str(NODE_EVIDENCE), reason="The node pack running in a fresh ComfyUI, not a drawing of it"),
+            dict(id="comfy_nodes_report", type="image", src=str(COMFY_SHOT), crop=[0.44, 0.095, 0.92, 0.585], dur=5.25,
+                 zoom=1.06, stamp=COMFY_STAMP, node_evidence=str(NODE_EVIDENCE),
                  reason="Scene Shot's own report: the render was 5 frames early, moved onto the cue",
                  **narration("nodes20", 1.1)),
         ],
         "dino": [
-            dict(id="contrast", type="image", src=str(CONTRAST_IMAGE), dur=5.0, zoom=1.04,
-                 stamp="One LTX-2.5 render · seven performances by five people · no new generation",
+            dict(id="contrast", type="compare", dur=5.0, loop=2.5, audio=0, audio_gain=0.6,
+                 panels=[dict(src=str(v19_build.BENDING / name / "final.mp4"), start=1.0, crop=v19_build.FINAL_CROP,
+                              label=label) for name, label in FIVE],
+                 headline="One LTX-2.5 render · five performances · no new generation",
+                 subline="The author's BOOM and two rhythms, then two strangers' voices",
+                 stamp="The stored LTX-2.5 fire on the author's palm · recorded voices (CC0: huw2k8, unfa)",
                  reason="Why it is new: the contrast with audio-reactive workflows, before the contribution",
                  **narration("contrast20", 0.05)),
         ],
     }
+
+
+def write_node_evidence() -> None:
+    """What the ComfyUI screenshot shows, bound to the files it was made from; the demo check reads it back."""
+    sources = {rel: sha256(ROOT / rel) for rel in ("comfyui-cuesync/nodes.py", COMFY_WORKFLOW,
+                                                   COMFY_SHOT.relative_to(ROOT).as_posix())}
+    NODE_EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
+    NODE_EVIDENCE.write_text(json.dumps(dict(
+        kind="native_comfyui_run", image=COMFY_SHOT.relative_to(ROOT).as_posix(), workflow=COMFY_WORKFLOW,
+        comfyui="ComfyUI v0.41.0 (98cc0bf8), frontend 1.55.17, CPU (torch 2.14.1+cpu), a fresh install, 27 Oct 2026",
+        report="LTX-2.5 put it 5 frames early; moved by 5 frames onto the cue.",
+        compared="117 frames; the fire starts on frame 24, as in the shipped final.mp4 (mean difference 1.28/255)",
+        sources=sources), indent=2) + "\n", encoding="utf-8")
 
 
 def edited(beats: list[dict]) -> list[dict]:
@@ -404,6 +426,7 @@ def expected_ids(baseline: dict, live: dict) -> list[str]:
 
 
 def prepare() -> dict:
+    write_node_evidence()
     baseline, live = read_json(BASELINE), read_json(live_json())
     if baseline.get("version") != 19:
         raise ValueError("The v20 baseline must be the v19 storyboard")
@@ -540,14 +563,84 @@ def source_provenance_check(board: dict) -> tuple[dict, list[str]]:
     return report, errors
 
 
+def runs_of(beats: list[dict]) -> list[list[int]]:
+    """Beats joined where a narration line runs on across the cut, so a sentence never changes level halfway."""
+    from build_demo import read_audio as audio_of
+
+    schedule, groups = timeline(beats), []
+    for k, entry in enumerate(schedule):
+        if groups and k in groups[-1]:
+            continue
+        group, end = [k], entry["end"]
+        b = entry["beat"]
+        if b.get("vo"):
+            end = max(end, entry["start"] + float(b.get("vo_at", .15)) + audio_of(b["vo"], SR).size / SR)
+        while group[-1] + 1 < len(schedule) and schedule[group[-1] + 1]["start"] < end - 1e-6:
+            group.append(group[-1] + 1)
+            nxt = schedule[group[-1]]
+            if nxt["beat"].get("vo"):
+                end = max(end, nxt["start"] + float(nxt["beat"].get("vo_at", .15)) + audio_of(nxt["beat"]["vo"], SR).size / SR)
+        groups.append(group)
+    return groups
+
+
+def lifts(beats: list[dict], audio: np.ndarray) -> list[dict]:
+    """Each stretch's lift: none for the proof or a live take; else as much as its own peak allows, up to LIFT_DB."""
+    schedule, out = timeline(beats), []
+    for group in runs_of(beats):
+        ids = [schedule[k]["id"] for k in group]
+        a, b = schedule[group[0]]["start"], schedule[group[-1]]["end"]
+        peak = float(np.abs(audio[int(a * SR):int(b * SR)]).max(initial=0.0))
+        peak_db = 20 * np.log10(peak + 1e-9)
+        locked = any(i in PROTECTED or i.startswith("live_") for i in ids)
+        gain = 0.0 if locked else round(float(max(0.0, min(LIFT_DB, PEAK_DB - peak_db))), 2)
+        out.append(dict(beats=ids, start=round(a, 3), end=round(b, 3), peak_dbfs=round(peak_db, 2), gain_db=gain))
+    return out
+
+
+def master(video: Path, beats: list[dict]) -> dict:
+    """The final mix's level, stretch by stretch (see lifts), with short ramps at the cuts; the picture is copied."""
+    from build_demo import read_audio as audio_of
+
+    audio = audio_of(video, SR)
+    plan = lifts(beats, audio)
+    gain = np.ones(audio.size, np.float32)
+    for row in plan:
+        gain[int(row["start"] * SR):int(row["end"] * SR)] = 10 ** (row["gain_db"] / 20)
+    k = int(RAMP_S * SR)
+    gain = np.convolve(np.pad(gain, (k // 2, k - k // 2 - 1), mode="edge"), np.ones(k, np.float32) / k, mode="valid")
+    out = (audio * gain[:audio.size]).astype(np.float32)
+    peak = 20 * np.log10(float(np.abs(out).max()) + 1e-9)
+    if peak > PEAK_DB + .05:
+        raise RuntimeError(f"The level pass would peak at {peak:.2f} dBFS")
+    wav, mixed = SCRATCH / "tmp" / "master.wav", video.with_name(video.stem + ".mastered.mp4")
+    import wave
+    with wave.open(str(wav), "wb") as w:
+        w.setparams((1, 2, SR, 0, "NONE", "not compressed"))
+        w.writeframes((np.clip(out, -1, 1) * 32767).astype("<i2").tobytes())
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(video), "-i", str(wav), "-map", "0:v", "-map", "1:a",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(mixed)], check=True)
+    os.replace(mixed, video)
+    return dict(method="per-stretch gain after encoding (proof and live takes unchanged), 30 ms ramps, AAC 192 kb/s",
+                peak_dbfs=round(peak, 2), stretches=plan)
+
+
 def build() -> float:
-    """Encode the storyboard; frame buffers go to D: (the system drive is nearly full)."""
+    """Encode the storyboard (frame buffers go to D:, the system drive is nearly full), then set the mix's level
+    stretch by stretch; the build record gets the new file's hash and the level of every stretch."""
     temp = SCRATCH / "tmp"
     temp.mkdir(parents=True, exist_ok=True)
     os.environ.update(TEMP=str(temp), TMP=str(temp))
     tempfile.tempdir = str(temp)
     from build_demo import build as encode
-    return encode(run / "storyboard.json", run / "demo_v20.mp4")
+    video = run / "demo_v20.mp4"
+    seconds = encode(run / "storyboard.json", video)
+    record_path = video.with_suffix(".build.json")
+    record = read_json(record_path)
+    record["mastering"] = master(video, read_json(run / "storyboard.json")["beats"])
+    record["video_sha256"] = sha256(video)
+    record_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return seconds
 
 
 def post() -> int:

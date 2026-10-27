@@ -570,6 +570,31 @@ def node_evidence_check(beats: list[dict]) -> tuple[dict, list[str]]:
         rows.append(dict(id=beat["id"], evidence=str(evidence_path), image_matches_definitions=matches,
                          display_names=[s["display_name"] for s in specs.values()],
                          caption=evidence.get("caption"), checked_edges=edges))
+    for beat in beats:  # v20: the node pack itself, running in a native ComfyUI (a screenshot that carries its graph)
+        if beat["id"] == "comfy_cuesync" or not beat.get("node_evidence"):
+            continue
+        evidence = read_json(Path(beat["node_evidence"]))
+        if evidence.get("kind") != "native_comfyui_run":
+            errors.append(f"Unknown own-node evidence: {beat['node_evidence']}")
+            continue
+        image, workflow = Path(beat["src"]), CHECKOUT / evidence.get("workflow", "")
+        embedded = Image.open(image).info.get("workflow") if image.is_file() else None
+        graph = json.loads(embedded) if embedded else {}
+        same_graph = bool(graph) and workflow.is_file() and graph == read_json(workflow)
+        specs = definitions(CHECKOUT / "comfyui-cuesync/nodes.py")
+        used = sorted({n.get("type", "") for n in graph.get("nodes", []) if str(n.get("type", "")).startswith("CueSync")})
+        if not same_graph:
+            errors.append(f"The ComfyUI screenshot does not carry the repository's workflow: {beat['id']}")
+        if len(used) < 3 or any(u not in specs for u in used):
+            errors.append(f"The ComfyUI screenshot shows CueSync nodes the node pack does not define: {beat['id']}")
+        for relative, expected in evidence.get("sources", {}).items():
+            path = CHECKOUT / relative
+            if not path.is_file() or sha256(path) != expected:
+                errors.append(f"Own node evidence refers to different source: {path}")
+        if Path(CHECKOUT / evidence.get("image", "")).resolve() != image.resolve() or len(evidence.get("sources", {})) < 3:
+            errors.append(f"Own node evidence does not bind the screenshot, the workflow and the node pack: {beat['id']}")
+        rows.append(dict(id=beat["id"], evidence=beat["node_evidence"], image_carries_workflow=same_graph,
+                         cuesync_nodes=used, comfyui=evidence.get("comfyui"), report=evidence.get("report")))
     if not rows:
         errors.append("No verified own node close-up found")
     return dict(cards=rows), errors
