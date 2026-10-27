@@ -266,6 +266,11 @@ To install it, clone this repository and [ComfyUI-LTXVideo](https://github.com/L
 
 To try it on a sample, copy `samples/voices/fwoooom.wav` to `ComfyUI/input/voice.wav` and `samples/plates/toy_desk.mp4` to `ComfyUI/input/plate.mp4`, then queue the workflow as it is. The nodes are documented in [comfyui-cuesync/README.md](comfyui-cuesync/README.md).
 
+**No GPU?** [`workflows/cue_the_boom_retime_demo.json`](workflows/cue_the_boom_retime_demo.json) runs the CueSync nodes on the LTX-2.5 render the repository ships, with no model download. With this repository in `ComfyUI/custom_nodes/`, copy `samples/voices/fwoooom.wav`, `samples/plates/toy_desk.mp4` and `samples/made_ahead/scene/toy_desk__fwoooom__fire_breath/render.mp4` into `ComfyUI/input/`, drag the workflow (or the picture below) onto the canvas and press Run. In about 20 seconds on a CPU, Scene Shot reports that LTX-2.5 put the fire 5 frames early, moves it onto the "fwoooOOOM" and saves the 117-frame shot, with the fire starting on the same frame as in the shipped `final.mp4`. Checked in a fresh ComfyUI v0.41.0, where all seven nodes register without ComfyUI-LTXVideo.
+
+![The CueSync nodes in ComfyUI v0.41.0 on a CPU: the cue, Paint Scene, the shipped LTX-2.5 render, and Scene Shot reporting that the render was 5 frames early and moving it onto the cue](media/comfyui-retime-demo.png)
+<sub>The picture carries the workflow: drag it onto the canvas.</sub>
+
 ## A try-it link of your own
 
 `deploy/space/` builds the no-GPU studio into a Hugging Face Docker Space on CPU basic hardware (Hugging Face asks for a PRO subscription or billing to run Docker Spaces). Run `python deploy/space/make_space.py`, push the folder it writes, and set the Space secret `CUE_PASSWORD` to keep it behind a password.

@@ -1,0 +1,147 @@
+{
+ "1": {
+  "inputs": {
+   "audio": "fwoooom.wav"
+  },
+  "class_type": "LoadAudio",
+  "_meta": {
+   "title": "Your performance"
+  }
+ },
+ "2": {
+  "inputs": {
+   "offset_s": 0,
+   "audio": [
+    "1",
+    0
+   ]
+  },
+  "class_type": "CueSyncAnalyzeVoice",
+  "_meta": {
+   "title": "CueSync Analyze Sound (voice or clip)"
+  }
+ },
+ "3": {
+  "inputs": {
+   "images": [
+    "2",
+    1
+   ]
+  },
+  "class_type": "PreviewImage",
+  "_meta": {
+   "title": "The cue, frame by frame"
+  }
+ },
+ "4": {
+  "inputs": {
+   "file": "toy_desk.mp4",
+   "video-preview": ""
+  },
+  "class_type": "LoadVideo",
+  "_meta": {
+   "title": "Your plate"
+  }
+ },
+ "5": {
+  "inputs": {
+   "effect": "fire_breath",
+   "x": 0.375,
+   "y": 0.485,
+   "aim": false,
+   "direction": 0,
+   "subject": "the small plastic toy dinosaur on the bedside table",
+   "max_seconds": 10,
+   "strokes": "",
+   "describe": "",
+   "sources": "",
+   "cue": [
+    "2",
+    0
+   ],
+   "plate": [
+    "4",
+    0
+   ]
+  },
+  "class_type": "CueSyncPaintScene",
+  "_meta": {
+   "title": "CueSync Paint Scene"
+  }
+ },
+ "6": {
+  "inputs": {
+   "source": [
+    "5",
+    2
+   ]
+  },
+  "class_type": "PreviewAny",
+  "_meta": {
+   "title": "The prompt it writes for LTX-2.5"
+  }
+ },
+ "7": {
+  "inputs": {
+   "file": "render.mp4",
+   "video-preview": ""
+  },
+  "class_type": "LoadVideo",
+  "_meta": {
+   "title": "LTX-2.5 render (the shipped one)"
+  }
+ },
+ "9": {
+  "inputs": {
+   "max_seconds": 10,
+   "plate": [
+    "4",
+    0
+   ],
+   "render": [
+    "7",
+    0
+   ],
+   "plan": [
+    "5",
+    3
+   ],
+   "voice": [
+    "1",
+    0
+   ]
+  },
+  "class_type": "CueSyncSceneShot",
+  "_meta": {
+   "title": "CueSync Scene Shot"
+  }
+ },
+ "10": {
+  "inputs": {
+   "source": [
+    "9",
+    1
+   ]
+  },
+  "class_type": "PreviewAny",
+  "_meta": {
+   "title": "What Scene Shot measured"
+  }
+ },
+ "11": {
+  "inputs": {
+   "filename_prefix": "cue-the-boom/retime_demo",
+   "format": "auto",
+   "format.codec": "auto",
+   "codec": "auto",
+   "video": [
+    "9",
+    0
+   ]
+  },
+  "class_type": "SaveVideo",
+  "_meta": {
+   "title": "The shot, on the cue"
+  }
+ }
+}
