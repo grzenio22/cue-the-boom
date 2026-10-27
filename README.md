@@ -2,64 +2,73 @@
 
 **Generate the effect once. Perform it again with your voice.**
 
-**Film your hand. Make the noise. Perform fire, air, explosions and lightning.**
+![One LTX-2.5 fire render on the author's palm, performed five ways at once: the author's BOOM, pf, pf, BOOM and pf pf pf PF, huw2k8's breathy Powf (a small fireball) and unfa's Ka-Boom! (two hits), all from recorded voices with no new generation](media/one_render_five_performances.gif)
+<sub>One stored LTX render, five recorded performances by three people: when it fires and how big it plays come from the voice.</sub>
 
-![One LTX-2.5 fire render on the author's palm, performed five ways at once: the author's BOOM, pf, pf, BOOM and pf pf pf PF, huw2k8's soft Powf (a small fireball) and unfa's Ka-Boom! (two hits), all from recorded voices with no new generation](media/one_render_five_performances.gif)
-<sub>One stored LTX render, five recorded voices, five different performances: when it fires and how big it plays come from the voice.</sub>
+Higgsfield's Effects presets, such as Fire Element, Air Bending, Explosion and Thunder God, generate a new clip every time. Cue the Boom rebuilds effects like these on open weights in ComfyUI and makes them performable: LTX-2.5 renders the fire once, then your voice plays it on your own hand, on a filmed clip or live through your webcam, as often as you like, with no new generation.
 
-Choose **Fire**, **Air**, **Explosion** or **Lightning**, then **Perform this … with your voice**: record over a prepared hand clip and download your newly composed shot. No camera, tracker setup or GPU is needed for these prepared samples.
-
-Below the creation flow, **One render. Seven performances.** shows the author's palm and one LTX-2.5 fire render with three of the author's voice-driven performances, **BOOM**, **pf, pf, BOOM**, and **pf pf pf PF**. The first uses the original recorded BOOM; the two rhythms are edited from the author's recorded pf and BOOM sounds with room tone from the hand take. Play them together or hear them one by one. A quiet "pf" makes a small hit; a loud "BOOM" makes a big one. Below them, four strangers' recorded voices (CC0, Freesound) perform the same render again. Each performance changes the timing and size of the same generated element, without another generation or a GPU. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
-
-For hand effects, the fire, the air vortex and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning is a procedural CPU effect.** The CPU also handles the explosion's blast, compositing, light and smoke handling, using the stored LTX fireball.
+[Try it, no GPU](#try-it-on-your-computer-no-gpu) · [Try it live](#try-it-live-with-your-webcam) · [Why it's new](#why-its-new) · [How it works](#how-it-works) · [In ComfyUI](#comfyui-and-the-comfy-developer-platform) · [In detail](TECHNICAL.md)
 
 ![The author's own hand: BOOM throws a fireball off the fist, a held fffff keeps a flame in the palm through a walk from a hallway into a kitchen in one take, and a render performed again as pf pf pf PF](media/hand_hero.jpg)
 <sub>The author's own hand and voice, filmed on a phone. The third is a render performed again in a new rhythm, with no new render.</sub>
 
-An entry for Comfy's **[Open Source Higgsfield](https://comfy.org/open-source-higgsfield)** contest, on open weights only.
-
-[Try it](#try-it-in-two-minutes-no-gpu) · [How it works](#how-it-works) · [The entry at a glance](#the-entry-at-a-glance) · [With a GPU](#with-a-gpu) · [In detail](TECHNICAL.md)
+The fire, the air vortex and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning is a procedural CPU effect**, and the CPU makes the explosion's blast and does the compositing and light. An entry for Comfy's **[Open Source Higgsfield](https://comfy.org/open-source-higgsfield)** contest, on open weights only.
 
 ## Why it's new
 
-The contribution is separating generation from performance: one generated effect becomes a reusable instrument.
-Your voice controls when it hits, how big it plays and how long it burns.
-A new take reuses the same element while the CPU tracks, masks, lights and composites it on your hand.
-The three performances below the creation flow let you hear and see that separation, and four strangers' recorded voices
-(CC0, from Freesound) perform the same render again under them.
+The contribution is separating generation from performance. Sound-driven generation makes a new video for every sound; here one LTX-2.5 render becomes an instrument. Your voice decides when it hits, how big it plays and how long it burns, while the CPU tracks, masks, lights and composites the same element on your hand.
 
-![One LTX render, seven performances by five people: the author's BOOM, pf, pf, BOOM and pf pf pf PF, then Sadiquecat's Boom, unfa's Ka-Boom!, huw2k8's soft Powf (a small fireball) and Jedimichael's Boom](media/one_render_seven_voices.jpg)
-<sub>One generation, seven performances, each at its loudest hit: a soft voice throws a small fireball, a loud one a big one. Each also has its own timing and rhythm, which a still can't show.</sub>
+In the studio, **One render. Seven performances.** plays the proof: one LTX-2.5 fire render on the author's palm, performed three times by the author's recorded voice (the original BOOM, and two rhythms edited from the author's recorded pf and BOOM) and four more times by strangers' CC0 voices from Freesound. [Audio provenance](samples/CREDITS.md#the-authors-voice-and-the-three-performances).
 
-## Try it in two minutes, no GPU
+For renders into a scene, the [CueSync node pack](comfyui-cuesync/README.md) takes the same idea into ComfyUI: it paints the sound into the guide video the ainvfx-fluid IC-LoRA follows, then measures where the render's effect starts and moves it onto the cue.
 
-You need Python 3.10+ and git. No GPU and no model download: the studio ships built, and the sample hands come with their fire rendered ahead of time. `--depth 1` fetches about 300 MB; the full history is about 1.4 GB.
+![One LTX render, seven performances by five people: the author's BOOM, pf, pf, BOOM and pf pf pf PF, then Sadiquecat's Boom, unfa's Ka-Boom!, huw2k8's breathy Powf (a small fireball) and Jedimichael's Boom](media/one_render_seven_voices.jpg)
+<sub>One generation, seven performances, each at its loudest hit: a breathy puff throws a small fireball, a boom a big one. Each also has its own timing and rhythm, which a still can't show.</sub>
+
+## Try it on your computer, no GPU
+
+You need git and Python 3.10 or newer (3.12 recommended; on a Mac, macOS 14 or newer). No GPU and no model download: the studio ships built, and the sample hands come with their fire rendered ahead of time. `--depth 1` downloads about 300 MB (about 560 MB on disk); the full history is about 1.4 GB.
+
+macOS and Linux:
 
 ```bash
 git clone --depth 1 https://github.com/grzenio22/cue-the-boom
 cd cue-the-boom
+python3 -m venv .venv
+.venv/bin/pip install "./cuesync[server]"
+.venv/bin/cuesync studio
+```
+
+Windows:
+
+```powershell
+git clone --depth 1 https://github.com/grzenio22/cue-the-boom
+cd cue-the-boom
 python -m venv .venv
+.venv\Scripts\pip install "./cuesync[server]"
+.venv\Scripts\cuesync studio
 ```
 
-Activate the environment (Windows: `.venv\Scripts\activate`; macOS and Linux: `source .venv/bin/activate`), then:
-
-```bash
-pip install "./cuesync[server]"
-cuesync studio
-```
+The `python3` built into macOS is 3.9, too old: install a newer one from python.org or Homebrew first. Debian and Ubuntu also need `sudo apt install python3-venv`.
 
 The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that port is taken). In it:
 
 1. Choose **Fire**, **Air**, **Explosion** or **Lightning**, then a form where offered. Click **Perform this … with your voice** to select its prepared hand clip.
 2. Click **Use my microphone**, then **Record & make …**. Make the suggested sound as the clip plays. Microphone access starts only when you request it.
 3. When recording ends, the app automatically makes your performance. Fire, air and explosion reuse stored generated elements; lightning is composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
-4. **Perform again** gives the same element a new performance. **Try a sample voice instead** works without microphone access and is explicitly labelled as a recorded example.
+4. **Perform again** gives the same element a new performance. No microphone? **Try a sample voice instead** performs it with a recorded example, labelled as one.
 
-The prepared fire path always reuses the stored element, even when a GPU is connected. On a Ryzen 9 7900X, the bundled three-hit author rhythm took 40.3–40.8 seconds from HTTP submission through MP4 download (three runs; 84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
+The prepared fire path always reuses the stored element, even when a GPU is connected. On a Ryzen 9 7900X, the bundled three-hit author rhythm took 40.3–40.8 seconds from HTTP submission through MP4 download (three runs; 84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` (it also needs `pip install httpx` and FFmpeg on your PATH) to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
+
+### Try it live, with your webcam
+
+On the start page, click **Try it live with your webcam** and allow the camera and the microphone. Hold an open palm up to the webcam and say BOOM: the stored LTX-2.5 fire bursts from your palm as you make the sound. A held fffff keeps a flame in it, and a buzzing zzzzz throws lightning. The preview loads its hand model and runtime from a CDN, so it needs internet access.
+
+**Record this** keeps up to 8 seconds and turns the take into a finished shot on the CPU: your hand followed, matted and lit, with a hit for each of your four loudest sounds. The first time, the studio offers **Set up the hand tracker** (it needs Python 3.12 to 3.14, or [`uv`](https://docs.astral.sh/uv/)). On the same Ryzen 9 7900X, with a sample hand clip played as the webcam, an 8-second take was followed in 21 seconds and made into its fireball shot in 85 seconds; a 5-second take took 15–23 and 67–70 seconds. No GPU render runs.
+
+**Your own clip:** open **Use your own clip or explore effects**, then **Film it here** or **Use your own clip**. Tap your palm or fingertips, drag to aim, confirm **That's my hand**, then record your noise and **Make the shot**. [Tracking and live-preview details](TECHNICAL.md#the-hand-element-bending).
 
 Under **Made with it**, play **fffff · a flame in the palm, one take**: the camera walks from a hallway into a kitchen, and the flame stays in the palm. To perform it yourself, pick **Your hand: a flame through the house**, then **Use my microphone** and hold an "fffff".
-
-**Your own hand:** open **Use your own clip or explore effects**, then use **Film it here** or **Use your own clip** and **Set up the hand tracker** once (needs Python 3.12 or `uv`). Tap your palm or fingertips, drag to aim, and confirm **That's my hand**. Record your noise and **Make the shot**. **Try it live** previews stored fire and procedural lightning through your webcam. It needs internet access to load its hand model and runtime from a CDN. **Record this** turns the take into a finished shot. On the same Ryzen 9 7900X, with a sample hand clip played as the webcam, a 5-second take was followed in 15–23 seconds (three runs) and made into its fireball shot in 67–70 seconds (two runs); an 8-second take, the longest **Record this** keeps, took 21 and 85 seconds (the stored LTX-2.5 fireball; no GPU render). [Tracking and live-preview details](TECHNICAL.md#the-hand-element-bending).
 
 The same from the command line (the shot lands in `runs/bend/final.mp4`):
 
@@ -76,12 +85,12 @@ cuesync bend --plate samples/plates/hand_palm.mp4 --voice samples/voices/pf-pf-k
 1. **Your sound** sets when each hit fires, how big it is and how long it lasts. With your hand's gesture, it also picks the effect.
 2. **Your hand** is followed by MediaPipe and RTMPose. SAM 2.1 supplies the matte with a GPU; the CPU route uses MediaPipe's skin segmenter and hand landmarks.
 3. **The fire** is rendered once, over black, by LTX-2.5 with the ainvfx-fluid IC-LoRA in a ComfyUI workflow, from a guide your sound paints.
-4. **Carried, lit, timed:** the fire follows your hand, lights your skin, passes behind your fingers and fires on every hit. A thrown fireball keeps moving after your hand pulls back.
+4. **Carried, lit, timed:** the fire follows your hand, lights your skin, passes behind your fingers and fires on each hit it hears (up to four in a take, at least a quarter of a second apart). A thrown fireball keeps moving after your hand pulls back.
 5. **Perform it again:** a new take re-composites the same render on the CPU. A held flame burns as long as your new voice holds it; longer holds and overlapping hits take more time to process.
 
 **Or tap anything in your shot.** "KA-BOOM" at a jack-o'-lantern, "fwoooOOOM" at a toy dinosaur: LTX-2.5 renders the effect into the scene, so it lights the room and leaves its mark.
 
-For scene renders, Cue the Boom measures where the effect starts and moves it onto your sound. On 42 single hits, 37 land within one frame (1/24 s) of the cue; straight from the model, none do. [Evaluation and limits](TECHNICAL.md#how-well-it-lands).
+For scene renders, Cue the Boom measures where the effect starts and moves it onto your sound. On 42 single hits, 37 start within one frame (1/24 s) of the frame they aim for, which for a burst is one frame before the sound; straight from the model, none do. [Evaluation and limits](TECHNICAL.md#how-well-it-lands).
 
 ![The scene reacts: six real clips and photos, each with the sound that cued it](media/hero.jpg)
 <sub>Real stock clips and photos ([credits](samples/CREDITS.md)), each with the sound that cued it. These play in the studio's gallery with no GPU.</sub>
@@ -102,17 +111,13 @@ Choose an effect, then perform its cue. Voice controls timing and strength; it d
 - **Open weights only, self-hosted.** No partner nodes and no closed APIs. [Models and licences](TECHNICAL.md#models-and-licences); [versions and revisions](build/model-files.md).
 - **The app:** a browser studio and its render API (`cuesync studio`), a CLI (`cuesync`), and ComfyUI nodes.
 
-## Comfy Developer Platform
+## ComfyUI and the Comfy Developer Platform
 
-The app is written to the Comfy Python SDK and Comfy API v2 exposed by the Comfy Developer Platform. The [runner](cuesync/src/cuesync/runner.py) submits workflow JSON through the SDK.
+- **The workflow:** [`workflows/fluid_element.api.json`](workflows/fluid_element.api.json) renders an element over black with LTX-2.5 and ainvfx-fluid; [`workflows/cue_the_boom_scene.json`](workflows/cue_the_boom_scene.json) is a whole scene shot on the canvas. The [ComfyUI screenshot](TECHNICAL.md#in-comfyui) carries its workflow: drag the picture onto the canvas to open the graph.
+- **The node pack:** [CueSync](comfyui-cuesync/README.md) adds seven nodes: Analyze Sound and Hold Cue turn a performance into a cue, Paint Scene and Paint Guide paint it into the guide the IC-LoRA follows, Scene Shot moves the render's measured start onto the cue, and Object Matte and Composite finish element shots.
+- **The SDK:** the app builds the workflow and runs it with the Comfy Python SDK ([runner](cuesync/src/cuesync/runner.py)), against Comfy Cloud (`COMFY_API_KEY`, `COMFY_BASE_URL=https://cloud.comfy.org`) or against self-hosted ComfyUI behind comfy-api-proxy (`COMFY_BASE_URL`, for example `http://127.0.0.1:8189`). The studio checks the target's nodes and models before it offers GPU modes. [Connection and preflight details](TECHNICAL.md#with-a-gpu).
 
-- **Comfy Cloud:** set `COMFY_API_KEY`. With `COMFY_BASE_URL` unset, the SDK defaults to `https://cloud.comfy.org`. For `cuesync studio`, also set `COMFY_BASE_URL=https://cloud.comfy.org`. GPU options appear only after the API and Cloud's documented node/model inventory confirm the configured workflow's required resources.
-- **Self-hosted ComfyUI:** run comfy-api-proxy in front of ComfyUI and set `COMFY_BASE_URL` to the proxy URL, for example `http://127.0.0.1:8189`. The standard local setup checks native ComfyUI at `http://127.0.0.1:8188`; for a different upstream, also set `COMFYUI_BASE_URL` to its native URL. `COMFY_API_KEY` authenticates the proxy; a separately protected native endpoint uses `COMFYUI_API_KEY`. Leave keys unset when their endpoints need none.
-- **Managed Comfy API deployments:** v2 alone has no documented node/model inventory route. The app reports an accessible endpoint as **unverified**, without submitting a paid probe. Set `COMFYUI_BASE_URL` only if the deployment exposes its native ComfyUI inventory; otherwise use the SDK/CLI generation route and the app's CPU reuse flow. The app does not advertise unverified GPU modes as ready.
-
-Preflight results are cached for 15 seconds and refresh immediately when the workflow or connection settings change. `/api/health` includes the missing node/model names and setup guidance. This verifies availability, not model loading or sufficient GPU memory.
-
-The renders here ran on self-hosted ComfyUI to load the ainvfx-fluid IC-LoRA and install the [CueSync node pack](comfyui-cuesync). A target server needs the models and nodes used by the workflow.
+The renders here ran on self-hosted ComfyUI, which loads the ainvfx-fluid IC-LoRA and the node pack.
 
 ## With a GPU
 

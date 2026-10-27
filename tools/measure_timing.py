@@ -183,7 +183,7 @@ def chart(raw: list, fin: list, path: Path, lo: int = -10, hi: int = 16) -> None
                anchor="ma")
     d.line([left, bottom, right, bottom], fill=MUTED, width=2)
     d.line([xf(0), top, xf(0), bottom], fill=(244, 241, 234, 90), width=2)
-    d.text((xf(0), bottom + 56), "frames from the cue (24 fps)", font=_font(24), fill=MUTED, anchor="ma")
+    d.text((xf(0), bottom + 56), "frames from the frame it aims for (24 fps)", font=_font(24), fill=MUTED, anchor="ma")
     d.text((left, bottom + 56), "early", font=_font(24), fill=MUTED, anchor="la")
     d.text((right, bottom + 56), "late", font=_font(24), fill=MUTED, anchor="ra")
     # dots stack out from each row's line; size them so the tallest stack stays inside its own row
@@ -249,7 +249,7 @@ def main() -> int:
     single = [r for r in rows if r["of"] == 1]
     real = [r for r in rows if "/real_" in r["shot"] or r["shot"].startswith("real/")]  # shots on real stock footage
     voices = [r for r in rows if "/real_voice_" in r["shot"]]  # ... cued by real people's recorded voices
-    summary = [f"Every hit within one frame (42 ms) of its cue: raw render {rate(raw)}, finished shot {rate(fin)}.",
+    summary = [f"Every hit within one frame (42 ms) of the frame it aims for: raw render {rate(raw)}, finished shot {rate(fin)}.",
               f"Mean absolute error: raw {mae(raw):.1f} frames, finished {mae(fin):.1f} frames.",
               f"Single hits: raw {rate([r['raw_error'] for r in single])}, finished {rate([r['final_error'] for r in single])} "
               f"(mean {mae([r['raw_error'] for r in single]):.1f} -> {mae([r['final_error'] for r in single]):.1f} frames)."

@@ -160,7 +160,7 @@ With the GPU, leave out `--instant` and the element is rendered for your hand's 
 
 Marked by eye, frame by frame, on the raw renders of 57 scene shots ([`tools/timing_annotations.json`](tools/timing_annotations.json), [`tools/measure_timing.py`](tools/measure_timing.py)):
 
-| Hits within 1 frame (42 ms) of the cue: raw LTX-2.5 render → finished shot | | mean error |
+| Hits within 1 frame (42 ms) of the frame they aim for: raw LTX-2.5 render → finished shot | | mean error |
 |---|---|---|
 | all 66 scorable hits | 7 → 53 | 5.2 → 1.1 frames |
 | single hits (42) | 0 → 37 | 6.0 → 0.7 frames |
@@ -179,7 +179,7 @@ Marked by eye, frame by frame, on the raw renders of 57 scene shots ([`tools/tim
 - **Real people's voices:** 7 shots are cued by CC0 recordings from Freesound, marked blind by two annotators (a third deciding): 6 of their 12 hits land within a frame. The misses are the model's spacing: in two rhythms LTX-2.5 put the hits further apart than the voice did, beyond the third the re-time allows.
 - **Limits:** in a rhythm LTX-2.5 often merges close hits into one (6 of 30 here); those are reported, not faked. A flame dies down about 0.6 s after the voice stops (0.2 to 1.4 s).
 
-Every render the marks refer to ships with the repository (`samples/made_ahead/scene`, `samples/timing_set/`). Rechecking all 57 scene shots found zero receipt retiming drift. That confirms the recorded timing transformations, not perfect cue accuracy: 53 of 66 scorable hits, including 37 of 42 single hits, land within one frame; the 10 unscorable hits remain disclosed above. The tool re-runs the pipeline's own onset and re-time code on every render rather than trusting the receipts, so the table re-measures from a clone (about five minutes, one line per shot):
+Every render the marks refer to ships with the repository (`samples/made_ahead/scene`, `samples/timing_set/`). Rechecking all 57 scene shots found zero receipt retiming drift. That confirms the recorded timing transformations, not perfect cue accuracy: 53 of 66 scorable hits, including 37 of 42 single hits, land within one frame; the 10 unscorable hits remain disclosed above. A hit aims for its cue, except a burst, which aims one frame before its sound so its flash is seen as its bang is heard. Measured against the sound itself, 43 of 66 hits (30 of 42 single hits) are within a frame. The tool re-runs the pipeline's own onset and re-time code on every render rather than trusting the receipts, so the table re-measures from a clone (about five minutes, one line per shot):
 
 ```bash
 python tools/measure_timing.py samples/made_ahead/scene samples/timing_set/before_fixes samples/timing_set/other_seeds samples/timing_set/dropped samples/timing_set/real
@@ -226,6 +226,14 @@ Your own renders, for your hand's pose or into the scene, need ComfyUI with LTX-
 
 - **Your own GPU:** run ComfyUI with this repository and ComfyUI-LTXVideo in `custom_nodes/` ([installation below](#in-comfyui)), run comfy-api-proxy in front of it, and point `COMFY_BASE_URL` at the proxy.
 - **A rented GPU:** [`infra/pod/`](infra/pod/README.md) creates, sets up and terminates a disposable Runpod pod (it needs `RUNPOD_API_KEY` and `HF_TOKEN`; the models live on a network volume, about 120 GB). A watchdog terminates the pod when it is idle.
+
+Connecting the app to ComfyUI:
+
+- **Comfy Cloud:** set `COMFY_API_KEY`. With `COMFY_BASE_URL` unset, the SDK defaults to `https://cloud.comfy.org`. For `cuesync studio`, also set `COMFY_BASE_URL=https://cloud.comfy.org`. GPU options appear only after the API and Cloud's documented node/model inventory confirm the configured workflow's required resources.
+- **Self-hosted ComfyUI:** run comfy-api-proxy in front of ComfyUI and set `COMFY_BASE_URL` to the proxy URL, for example `http://127.0.0.1:8189`. The standard local setup checks native ComfyUI at `http://127.0.0.1:8188`; for a different upstream, also set `COMFYUI_BASE_URL` to its native URL. `COMFY_API_KEY` authenticates the proxy; a separately protected native endpoint uses `COMFYUI_API_KEY`. Leave keys unset when their endpoints need none.
+- **Managed Comfy API deployments:** v2 alone has no documented node/model inventory route. The app reports an accessible endpoint as **unverified**, without submitting a paid probe. Set `COMFYUI_BASE_URL` only if the deployment exposes its native ComfyUI inventory; otherwise use the SDK/CLI generation route and the app's CPU reuse flow. The app does not advertise unverified GPU modes as ready.
+
+Preflight results are cached for 15 seconds and refresh immediately when the workflow or connection settings change. `/api/health` includes the missing node/model names and setup guidance. This verifies availability, not model loading or sufficient GPU memory.
 
 The studio's GPU preflight ([`readiness.py`](cuesync/src/cuesync/readiness.py)) checks API access and the configured graph's node classes/model filename choices, rather than the proxy-only health route. Native inventory comes from `COMFYUI_BASE_URL/object_info` (automatic for the standard local 8189→8188 setup), or Cloud's documented `/api/object_info`. Checks expire after 15 seconds; workflow/connection changes invalidate them immediately. Missing scene-only support disables scene generation without disabling an otherwise valid element workflow. Optional SAM matting nodes are not required. A managed v2-only deployment with no exposed native inventory is reported as **unverified** and retains the CPU reuse flow; no paid job is submitted by preflight. A passing check does not establish GPU memory capacity or model-load success.
 
