@@ -131,8 +131,11 @@ The hand tracker (MediaPipe + RTMPose, Apache-2.0; their models download on firs
 
 ```bash
 uv venv cuesync/.venv-track --python 3.12
-uv pip install --python cuesync/.venv-track/Scripts/python.exe mediapipe==1.1.1 onnxruntime==1.31.0 av==19.0.1
+uv pip install --python cuesync/.venv-track mediapipe==1.1.1 onnxruntime==1.31.0 av==19.0.1
+echo ok > cuesync/.venv-track/.cuesync-ready
 ```
+
+The last line is the mark the studio looks for; `cuesync hands --install` writes it only after checking that the packages import.
 
 The SAM 2.1 matte (SAM 2.1-small, Apache-2.0; an NVIDIA GPU, CUDA 12.8 wheels, about 3 GB), in PowerShell:
 
@@ -265,7 +268,7 @@ To try it on a sample, copy `samples/voices/fwoooom.wav` to `ComfyUI/input/voice
 
 ## A try-it link of your own
 
-`deploy/space/` builds the no-GPU studio into a Hugging Face Docker Space (CPU basic, free). Run `python deploy/space/make_space.py`, push the folder it writes, and set the Space secret `CUE_PASSWORD` to keep it behind a password.
+`deploy/space/` builds the no-GPU studio into a Hugging Face Docker Space on CPU basic hardware (Hugging Face asks for a PRO subscription or billing to run Docker Spaces). Run `python deploy/space/make_space.py`, push the folder it writes, and set the Space secret `CUE_PASSWORD` to keep it behind a password.
 
 ## Prior work
 
