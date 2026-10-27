@@ -15,8 +15,12 @@ time, draft beats to edit: a window of the first phone clip from its first loud 
 from its first hit.
 prepare: v19's beats with its five automated Studio beats (try_sample ... result) replaced, in place, by
 live.json's beats; a live beat with "slot": "open" (at most 3.5 s, from a phone clip) plays first, before the
-proof. Every other beat is v19's, unchanged. No model generation, GPU service or narration
-generation is used. --run-dir builds elsewhere (a stand-in test of the plumbing, never shipped).
+proof, and one with "slot": "replace:<id>" takes that v19 beat's place (the author's own hoooo for the air).
+Every other beat is v19's, except v20's own edits (EDITS, REMOVED and inserted() below, each with its reason and
+recorded in the storyboard): a still second cut from the BOOM turn, the dinosaur's level, the node pack shown
+running in ComfyUI in place of two stock cards, and the contrast with audio-reactive workflows before the
+contribution. Two new narration lines are spoken by the demo's Kokoro-82M voice (runs/demo_v20/vo20); no model
+generation or GPU service is used. --run-dir builds elsewhere (a stand-in test of the plumbing, never shipped).
 """
 
 from __future__ import annotations
@@ -53,6 +57,11 @@ OPEN_MAX_S = 3.5     # a live cold open: the hook, then v19's proof-first openin
 LIVE_RMS_DB = -22.0  # a live beat's sound is brought to about the level of the takes around it (v19: -25.6 to -19.3)
 LIVE_PEAK_DB = -3.0  # and never past this peak: a shouted BOOM into a phone reaches full scale
 RESULT_STAMP = "Hand followed, matted and lit on the CPU · the stored LTX-2.5 fire · no new render"
+OPEN_HEADLINE = "Live at the webcam"
+VO20 = ROOT / "runs/demo_v20/vo20"   # the two new narration lines (make_v11_voice.py: Kokoro-82M am_michael, 1.0)
+COMFY_SHOT = ROOT / "media/comfyui-retime-demo.png"  # the node pack running in ComfyUI v0.41.0 on a CPU
+COMFY_STAMP = "ComfyUI v0.41.0 on a CPU · our CueSync nodes · the LTX-2.5 render the repository ships"
+CONTRAST_IMAGE = ROOT / "media/one_render_seven_voices.jpg"
 run = Path(os.environ.get("CUE_DEMO20_RUN", ROOT / "runs/demo_v20"))
 
 
@@ -189,15 +198,18 @@ def copy_job(job: Path) -> dict:
 
 
 def draft_beats(phones: dict, jobs: dict) -> list[dict]:
-    """A first cut to edit: a cold open of the first phone clip around its first loud sound; the same clip from just
-    before that sound; then the newest job's shot from just before its first hit."""
+    """A first cut to edit: a cold open of the first phone clip around its BOOM (the loudest of its first three
+    sounds, so not the small pf before it), readable with the sound off; the same clip from just before its first
+    sound; then the newest job's shot from just before its first hit."""
     beats = []
     if phones:
         name, info = next(iter(phones.items()))
         first = info["onsets"][0]["at"] if info["onsets"] else 0.0
-        start = max(0.0, first - 1.0)
-        beats.append(dict(id="live_cold_open", slot="open", src=f"live/{name}", start=round(max(0.0, first - 0.8), 2),
-                          dur=round(min(2.75, info["duration"] - max(0.0, first - 0.8)), 2), stamp=PHONE_STAMP))
+        boom = max(info["onsets"][:3], key=lambda o: o["peak_dbfs"])["at"] if info["onsets"] else 0.0
+        start, cold = max(0.0, first - 1.0), max(0.0, boom - 0.8)
+        beats.append(dict(id="live_cold_open", slot="open", src=f"live/{name}", start=round(cold, 2),
+                          dur=round(min(2.75, info["duration"] - cold), 2), headline=OPEN_HEADLINE, wave=True,
+                          pops=[[round(boom - cold, 2), "BOOM"]], stamp=PHONE_STAMP))
         beats.append(dict(id="live_preview", src=f"live/{name}", start=round(start, 2),
                           dur=round(min(7.0, info["duration"] - start), 2),
                           headline=LIVE_HEADLINE, subline=LIVE_SUBLINE, stamp=PHONE_STAMP))
@@ -296,19 +308,98 @@ def opening(live: dict) -> list[dict]:
     return [b for b in live["beats"] if b.get("slot") == "open"]
 
 
+def replacements(live: dict) -> dict[str, dict]:
+    """v19 beats a live beat stands in for ("slot": "replace:air"), by the v19 id."""
+    return {b["slot"].split(":", 1)[1]: b for b in live["beats"] if str(b.get("slot", "")).startswith("replace:")}
+
+
 def studio_block(live: dict) -> list[dict]:
-    return [b for b in live["beats"] if b.get("slot") != "open"]
+    return [b for b in live["beats"] if b.get("slot") != "open" and not str(b.get("slot", "")).startswith("replace:")]
+
+
+def narration(name: str, at: float) -> dict:
+    """A new line's fields: its text and captions as the TTS run recorded them."""
+    lines = read_json(VO20 / "provenance.json")["lines"]
+    return dict(vo=str(VO20 / f"{name}.wav"), vo_at=at, vo_gain=1.3, vo_text=lines[name],
+                vo_captions=read_json(VO20 / "caption_phrases.json")[name])
+
+
+def _trim_boom(b: dict) -> None:
+    panel = b["panels"][0]  # the BOOM turn: 2.1 s of a still hand and no sound opened it, right after the title
+    assert panel["label"] == "BOOM" and panel["start"] == 0.5
+    panel.update(start=1.5, dur=2.0, audio_from=1.5, pops=[[round(panel["pops"][0][0] - 1.0, 2), "BOOM"]])
+    b["dur"] = round(b["dur"] - 1.0, 6)
+
+
+def _quieter_dino(b: dict) -> None:
+    b["source_gain"] = 0.33  # -12.8 LUFS against about -23.5 around it in v19: 9.6 dB down
+
+
+def _lantern_stamp(b: dict) -> None:
+    b["stamp"] = ("Pixabay footage, first frame held · CC0 voices (Freesound) · LTX-2.5 rendered into the clip, "
+                  "each hit moved onto its cue")
+
+
+EDITS = {  # v19's own beats, changed: what and why
+    "performance_turns": (_trim_boom, "A still second cut from the BOOM turn's lead-in; its whole sound kept"),
+    "dino": (_quieter_dino, "Its level brought to the beats around it (it was 11 LU louder)"),
+    "lanterns": (_lantern_stamp, "The stamp says the fire was rendered into the clip and moved onto the cue"),
+}
+REMOVED = {
+    "comfy_output": "A stock Save Video card, replaced by the node pack running in ComfyUI",
+    "comfy_cuesync": "A drawn node diagram, replaced by the nodes themselves running in ComfyUI",
+}
+
+
+def inserted() -> dict[str, list[dict]]:
+    """New beats, after the v19 beat named: the node pack running, then the contrast before the contribution."""
+    return {
+        "comfy_sampler": [
+            dict(id="comfy_nodes", type="image", src=str(COMFY_SHOT), dur=4.0, zoom=1.03, stamp=COMFY_STAMP,
+                 reason="The node pack running in a fresh ComfyUI, not a drawing of it"),
+            dict(id="comfy_nodes_report", type="image", src=str(COMFY_SHOT), crop=[0.44, 0.095, 0.92, 0.69], dur=5.25,
+                 zoom=1.06, stamp=COMFY_STAMP,
+                 reason="Scene Shot's own report: the render was 5 frames early, moved onto the cue",
+                 **narration("nodes20", 1.1)),
+        ],
+        "dino": [
+            dict(id="contrast", type="image", src=str(CONTRAST_IMAGE), dur=5.0, zoom=1.04,
+                 stamp="One LTX-2.5 render · seven performances by five people · no new generation",
+                 reason="Why it is new: the contrast with audio-reactive workflows, before the contribution",
+                 **narration("contrast20", 0.05)),
+        ],
+    }
+
+
+def edited(beats: list[dict]) -> list[dict]:
+    """v19's beats with v20's own edits, removals and insertions (the live takes go in separately)."""
+    out, more = [], inserted()
+    for beat in beats:
+        if beat["id"] in REMOVED:
+            continue
+        beat = deepcopy(beat)
+        if beat["id"] in EDITS:
+            EDITS[beat["id"]][0](beat)
+        out.append(beat)
+        out.extend(deepcopy(b) for b in more.get(beat["id"], []))
+    return out
+
+
+def edits_record() -> dict:
+    return dict(changed={k: why for k, (_, why) in EDITS.items()}, removed=REMOVED,
+                inserted={b["id"]: b["reason"] for bs in inserted().values() for b in bs},
+                narration=dict(record=str(VO20 / "provenance.json"), sha256=sha256(VO20 / "provenance.json")))
 
 
 def expected_ids(baseline: dict, live: dict) -> list[str]:
-    ids, placed = [b["id"] for b in opening(live)], False
-    for beat in baseline["beats"]:
+    ids, placed, swap = [b["id"] for b in opening(live)], False, replacements(live)
+    for beat in edited(baseline["beats"]):
         if beat["id"] in STUDIO_IDS:
             if not placed:
                 ids.extend(b["id"] for b in studio_block(live))
                 placed = True
         else:
-            ids.append(beat["id"])
+            ids.append(swap[beat["id"]]["id"] if beat["id"] in swap else beat["id"])
     return ids
 
 
@@ -316,12 +407,14 @@ def prepare() -> dict:
     baseline, live = read_json(BASELINE), read_json(live_json())
     if baseline.get("version") != 19:
         raise ValueError("The v20 baseline must be the v19 storyboard")
-    beats, placed = [live_beat(b, live) for b in opening(live)], False
-    for beat in baseline["beats"]:
+    beats, placed, swap = [live_beat(b, live) for b in opening(live)], False, replacements(live)
+    for beat in edited(baseline["beats"]):
         if beat["id"] in STUDIO_IDS:
             if not placed:
                 beats.extend(live_beat(b, live) for b in studio_block(live))
                 placed = True
+        elif beat["id"] in swap:
+            beats.append(live_beat(swap[beat["id"]], live))
         else:
             beats.append(deepcopy(beat))
     schedule = timeline(beats)
@@ -329,7 +422,7 @@ def prepare() -> dict:
     for key in ("browser_capture",):
         board.pop(key, None)
     board.update(
-        version=20, beats=beats, duration=schedule[-1]["end"],
+        version=20, beats=beats, duration=schedule[-1]["end"], v20_edits=edits_record(),
         schedule=[dict(id=e["id"], start=e["start"], end=e["end"]) for e in schedule],
         baseline=str(BASELINE), baseline_sha256=sha256(BASELINE),
         live=dict(record=str(live_json()), record_sha256=sha256(live_json()), draft=bool(live.get("draft")),
@@ -338,7 +431,8 @@ def prepare() -> dict:
                          "each phone clip upright at 24 fps, unedited within its window; each shot as the studio "
                          "exported it, without its footer."),
         source_policy=baseline["source_policy"] + " v20 replaces the automated Studio capture with the author's live "
-                                                  "takes filmed on a phone and the shots the studio made from them.")
+                                                  "takes filmed on a phone and the shots the studio made from them, "
+                                                  "and makes the edits listed in v20_edits.")
     run.mkdir(parents=True, exist_ok=True)
     (run / "storyboard.json").write_text(json.dumps(board, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return board
@@ -354,10 +448,16 @@ def structure_check(board: dict, baseline: dict) -> tuple[dict, list[str]]:
         errors.append("The v20 baseline must be the v19 storyboard")
     if ids != expected_ids(baseline, live):
         errors.append("v20 must be v19's beat order with the Studio beats replaced in place by live.json's beats")
-    old = {b["id"]: b for b in baseline["beats"]}
+    old = {b["id"]: b for b in edited(baseline["beats"])}
     for beat in beats:
         if beat["id"] in old and beat != old[beat["id"]]:
-            errors.append(f"A v19 beat changed: {beat['id']}")
+            errors.append(f"A v19 beat changed beyond v20's recorded edits: {beat['id']}")
+    if board.get("v20_edits") != edits_record():
+        errors.append("The storyboard's record of v20's edits differs from the edits made")
+    swap = set(replacements(live))
+    unknown = sorted((swap - {b["id"] for b in baseline["beats"]}) | (swap & set(STUDIO_IDS)))
+    if unknown:
+        errors.append(f"A live beat replaces no v19 beat it may: {', '.join(unknown)}")
     live_beats = [b for b in beats if b["id"] not in old]
     if [b for b in live_beats if not b["id"].startswith("live_")]:
         errors.append("Live beats are named live_*")

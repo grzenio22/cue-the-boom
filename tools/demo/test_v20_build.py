@@ -10,9 +10,10 @@ import numpy as np
 import v20_build
 
 
-def tone_clip(path: Path, seconds: float, bursts: list[float], size: str = "320x180", rotate: int = 0) -> None:
-    """A test picture with sound: silence with a loud 0.3 s tone at each of ``bursts`` (s)."""
-    expr = "+".join(f"between(t,{b},{b + .3})" for b in bursts) or "0"
+def tone_clip(path: Path, seconds: float, bursts: list[float], size: str = "320x180", rotate: int = 0,
+              gains: list[float] | None = None) -> None:
+    """A test picture with sound: silence with a 0.3 s tone at each of ``bursts`` (s), as loud as its gain."""
+    expr = "+".join(f"{g}*between(t,{b},{b + .3})" for b, g in zip(bursts, gains or [1.0] * len(bursts))) or "0"
     raw = path.with_suffix(".raw.mp4")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc2=s={size}:r=30:d={seconds}",
                     "-f", "lavfi", "-i", f"aevalsrc=exprs='0.5*sin(2*PI*440*t)*({expr})':s=48000:d={seconds}",
@@ -103,6 +104,50 @@ class LiveTakeTest(unittest.TestCase):
                          ["live_cold_open", "hero", "live_preview", "live_result", "credits"])
         self.assertNotIn("slot", v20_build.live_beat({"id": "live_cold_open", "slot": "open", "src": "x.mp4"},
                                                      {"phones": {}, "jobs": {}}))
+
+
+    def test_the_cold_open_lands_on_the_boom_not_the_pf_and_reads_with_the_sound_off(self):
+        phone = self.root / "IMG_0002.mov"
+        tone_clip(phone, 6, [1.0, 2.5], gains=[0.15, 1.0])  # a small pf, then a loud BOOM
+        cold = v20_build.ingest([phone], [str(self.job("def456"))])["beats"][0]
+        self.assertAlmostEqual(cold["start"], 2.5 - 0.8, delta=.06)
+        self.assertEqual(cold["pops"][0][1], "BOOM")
+        self.assertAlmostEqual(cold["pops"][0][0], 0.8, delta=.06)
+        self.assertTrue(cold["wave"])
+        self.assertEqual(cold["headline"], v20_build.OPEN_HEADLINE)
+
+    def test_a_live_beat_can_stand_in_for_one_v19_beat(self):
+        baseline = {"beats": [{"id": "hero"}, *[{"id": i} for i in v20_build.STUDIO_IDS], {"id": "air"}, {"id": "credits"}]}
+        live = {"beats": [{"id": "live_preview"}, {"id": "live_air", "slot": "replace:air"}]}
+        self.assertEqual(v20_build.expected_ids(baseline, live), ["hero", "live_preview", "live_air", "credits"])
+
+    def test_v19_changes_only_by_v20s_recorded_edits(self):
+        vo = self.root / "vo20"
+        vo.mkdir()
+        (vo / "provenance.json").write_text(json.dumps({"lines": {"nodes20": "My nodes.", "contrast20": "Others."}}))
+        (vo / "caption_phrases.json").write_text(json.dumps({"nodes20": [[0, 1, "My nodes."]],
+                                                             "contrast20": [[0, 1, "Others."]]}))
+        self.addCleanup(setattr, v20_build, "VO20", v20_build.VO20)
+        v20_build.VO20 = vo
+        turns = {"id": "performance_turns", "type": "turns", "dur": 10.0, "panels": [
+            {"label": "BOOM", "start": 0.5, "dur": 3, "audio_from": 0.5, "pops": [[2.17, "BOOM"]]},
+            {"label": "pf · pf · BOOM", "start": 0, "dur": 3.5}, {"label": "pf pf pf PF", "start": 0, "dur": 3.5}]}
+        names = ("comfy_model", "comfy_sampler", "comfy_output", "comfy_cuesync", "dino", "lanterns", "credits")
+        baseline = {"version": 19, "duration": 27.5, "beats": [turns, *[{"id": i, "type": "image", "dur": 2.5} for i in names]]}
+        beats = v20_build.edited(baseline["beats"])
+        self.assertEqual([b["id"] for b in beats], ["performance_turns", "comfy_model", "comfy_sampler", "comfy_nodes",
+                                                    "comfy_nodes_report", "dino", "contrast", "lanterns", "credits"])
+        boom = beats[0]["panels"][0]
+        self.assertEqual((beats[0]["dur"], boom["start"], boom["dur"], boom["audio_from"]), (9.0, 1.5, 2.0, 1.5))
+        self.assertAlmostEqual(boom["pops"][0][0], 1.17)
+        self.assertEqual(beats[5]["source_gain"], 0.33)
+        self.assertEqual(beats[4]["vo_text"], "My nodes.")
+        board = {"version": 20, "beats": beats, "v20_edits": v20_build.edits_record()}
+        _, errors = v20_build.structure_check(board, baseline)
+        self.assertFalse([e for e in errors if "v20's" in e or "v19 beat" in e], errors)
+        beats[5]["source_gain"] = 1.0  # a change nobody recorded
+        _, errors = v20_build.structure_check(board, baseline)
+        self.assertIn("A v19 beat changed beyond v20's recorded edits: dino", errors)
 
 
 if __name__ == "__main__":
