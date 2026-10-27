@@ -249,6 +249,7 @@ cuesync studio
 [`workflows/cue_the_boom_scene.json`](workflows/cue_the_boom_scene.json) (drag it onto the canvas) is the whole scene shot as one workflow: your cue and your plate go in, the finished shot comes out. [`cue_the_boom_scene.api.json`](workflows/cue_the_boom_scene.api.json) is the same graph for the API, and [`fluid_element.api.json`](workflows/fluid_element.api.json) renders a hand's element over black.
 
 ![The scene shot in ComfyUI: your cue, CueSync Paint Scene, LTX-2.5 with ainvfx-fluid from your plate, CueSync Scene Shot](media/comfyui-scene-workflow.png)
+<sub>The picture carries the workflow: drag it onto the ComfyUI canvas to open the same graph.</sub>
 
 To install it, clone this repository and [ComfyUI-LTXVideo](https://github.com/Lightricks/ComfyUI-LTXVideo) into `ComfyUI/custom_nodes/` (or paste their URLs into ComfyUI-Manager's "Install via Git URL"). Install each one's `requirements.txt` into ComfyUI's Python, and get the models in [build/model-files.md](build/model-files.md).
 
