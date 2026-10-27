@@ -1245,6 +1245,24 @@ def test_the_studio_is_served_beside_the_api_and_sets_up_the_hand_tracker_only_l
     assert calls and calls[0][-2:] == ["hands", "--install"]
 
 
+def test_a_failed_tracker_install_says_pips_reason_not_a_traceback_line(tmp_path, monkeypatch):
+    import subprocess
+
+    said = ("Collecting onnxruntime==1.31.0\n"
+            "ERROR: Could not find a version that satisfies the requirement onnxruntime==1.31.0\n"
+            "Traceback (most recent call last):\n"
+            "subprocess.CalledProcessError: Command '[...]' returned non-zero exit status 1.\n")
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, "", said))
+    local = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), local=True))
+    local.post("/api/hands/install")
+    for _ in range(40):
+        hand = local.get("/api/health").json()["hand"]
+        if not hand["installing"]:
+            break
+        time.sleep(0.05)
+    assert hand["install_error"] == "ERROR: Could not find a version that satisfies the requirement onnxruntime==1.31.0"
+
+
 def test_a_finished_shot_becomes_a_vertical_reel_to_share(tmp_path, make_video, make_wav, monkeypatch):
     import cuesync.bending as bending
     from cuesync.media import read_video

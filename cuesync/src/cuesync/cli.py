@@ -216,6 +216,9 @@ def cmd_bend(args) -> int:
     return 0
 
 
+TRACKER_PYTHONS = ((3, 12), (3, 14))  # the Pythons the tracker's pinned wheels (MediaPipe, ONNX Runtime, PyAV) are built for
+
+
 def cmd_hands(args) -> int:
     """Set up the hand tracker's environment (cuesync/.venv-track: MediaPipe + RTMPose, CPU, about 250 MB), or with
     --mask the hand matte's too (cuesync/.venv-mask: SAM 2.1, an NVIDIA GPU, about 3 GB). With uv when it is there
@@ -250,6 +253,12 @@ def cmd_hands(args) -> int:
         from .bending import READY_MARK
 
         d = root / "cuesync" / ".venv-track"
+        if d.exists() and not (d / READY_MARK).exists():  # an earlier attempt never finished: start afresh, not on top
+            shutil.rmtree(d)
+        if not uv and not TRACKER_PYTHONS[0] <= sys.version_info[:2] <= TRACKER_PYTHONS[1]:
+            lo, hi = (".".join(map(str, v)) for v in TRACKER_PYTHONS)
+            raise SystemExit(f"The hand tracker needs Python {lo} to {hi} (this is {sys.version.split()[0]}), or uv to "
+                             "fetch one: pip install uv, then set the tracker up again.")
         (d / READY_MARK).unlink(missing_ok=True)
         venv(".venv-track", ["mediapipe==1.1.1", "onnxruntime==1.31.0", "av==19.0.1"])
         py = d / ("Scripts/python.exe" if os.name == "nt" else "bin/python")

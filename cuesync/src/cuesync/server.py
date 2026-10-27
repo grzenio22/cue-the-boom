@@ -356,8 +356,10 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
             try:
                 r = subprocess.run([sys.executable, "-m", "cuesync.cli", "hands", "--install"], capture_output=True,
                                    text=True, timeout=1800)
-                if r.returncode != 0:
-                    setup["error"] = (r.stderr.strip().splitlines() or ["the install failed"])[-1][:300]
+                if r.returncode != 0:  # pip's own ERROR line says why, where there is one; else the last word
+                    lines = r.stderr.strip().splitlines()
+                    said = [x.strip() for x in lines if x.strip().lower().startswith("error")] or lines
+                    setup["error"] = (said or ["the install failed"])[-1][:300]
             except Exception as exc:  # report it in health
                 setup["error"] = f"{type(exc).__name__}: {exc}"[:300]
             finally:
