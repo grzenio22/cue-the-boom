@@ -1263,6 +1263,23 @@ def test_a_failed_tracker_install_says_pips_reason_not_a_traceback_line(tmp_path
     assert hand["install_error"] == "ERROR: Could not find a version that satisfies the requirement onnxruntime==1.31.0"
 
 
+def test_a_failed_tracker_install_with_uv_says_uvs_reason(tmp_path, monkeypatch):
+    import subprocess
+
+    said = ("  × No solution found when resolving dependencies:\n"
+            "  ╰─▶ Because onnxruntime==1.31.0 has no wheels with a matching platform tag, we can conclude that\n"
+            "subprocess.CalledProcessError: Command '[...]' returned non-zero exit status 1.\n")
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, "", said))
+    local = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), local=True))
+    local.post("/api/hands/install")
+    for _ in range(40):
+        hand = local.get("/api/health").json()["hand"]
+        if not hand["installing"]:
+            break
+        time.sleep(0.05)
+    assert hand["install_error"].startswith("╰─▶ Because onnxruntime==1.31.0 has no wheels")
+
+
 def test_a_finished_shot_becomes_a_vertical_reel_to_share(tmp_path, make_video, make_wav, monkeypatch):
     import cuesync.bending as bending
     from cuesync.media import read_video

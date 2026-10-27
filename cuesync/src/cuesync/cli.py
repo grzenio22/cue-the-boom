@@ -236,7 +236,7 @@ def cmd_hands(args) -> int:
         return 0
     if root is None:
         raise SystemExit("run this from the cue-the-boom checkout (the folder with cuesync/ in it)")
-    uv = shutil.which("uv")
+    uv = shutil.which("uv") or shutil.which("uv", path=str(Path(sys.executable).parent))  # this venv's own, too
 
     def venv(name: str, packages: list[str], index: str | None = None, more: list[list[str]] = ()) -> None:
         d = root / "cuesync" / name
@@ -253,12 +253,16 @@ def cmd_hands(args) -> int:
         from .bending import READY_MARK
 
         d = root / "cuesync" / ".venv-track"
-        if d.exists() and not (d / READY_MARK).exists():  # an earlier attempt never finished: start afresh, not on top
-            shutil.rmtree(d)
         if not uv and not TRACKER_PYTHONS[0] <= sys.version_info[:2] <= TRACKER_PYTHONS[1]:
             lo, hi = (".".join(map(str, v)) for v in TRACKER_PYTHONS)
             raise SystemExit(f"The hand tracker needs Python {lo} to {hi} (this is {sys.version.split()[0]}), or uv to "
-                             "fetch one: pip install uv, then set the tracker up again.")
+                             f'fetch one: "{sys.executable}" -m pip install uv, then set the tracker up again.')
+        if d.exists() and not (d / READY_MARK).exists():  # an earlier attempt never finished: start afresh, not on top
+            try:
+                shutil.rmtree(d)
+            except OSError as e:
+                raise SystemExit(f"Couldn't clear an unfinished tracker install ({e.strerror}): another install may "
+                                 f"still be running. Close it, or delete {d}, then set the tracker up again.") from e
         (d / READY_MARK).unlink(missing_ok=True)
         venv(".venv-track", ["mediapipe==1.1.1", "onnxruntime==1.31.0", "av==19.0.1"])
         py = d / ("Scripts/python.exe" if os.name == "nt" else "bin/python")

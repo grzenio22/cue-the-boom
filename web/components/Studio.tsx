@@ -91,6 +91,7 @@ export default function Studio() {
   }, []);
 
   const pick = (p: PickedPlate, quickStart = false) => {
+    setLiveNow(0); // a shot is chosen: coming back to the picker must not start the camera again
     setQuick(quickStart);
     setPlate(p);
     setPoint(p.point);

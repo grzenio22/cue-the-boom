@@ -332,7 +332,7 @@ export default function Live({ onTake, autoStart = 0 }: { onTake: (file: File, u
   };
   // opened from the start page: start straight away
   useEffect(() => {
-    if (!autoStart) return;
+    if (!autoStart || session.current) return; // already open: keep it (and any take being recorded)
     const t = setTimeout(() => void start(), 0); // after this render: start() sets state
     return () => clearTimeout(t);
   }, [autoStart]); // eslint-disable-line react-hooks/exhaustive-deps

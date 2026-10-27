@@ -118,6 +118,11 @@ describe("Studio prepared palm shortcut", () => {
       expect(getUserMedia).toHaveBeenCalledTimes(1);
       expect(host.querySelector('canvas[aria-label="your camera, with the fire on your hand"]')).not.toBeNull();
       expect(host.textContent).toContain("Starting the camera");
+      await click("Candle"); // a shot chosen instead, then back to the picker: the camera stays off
+      await click("Different shot");
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+      expect(button("Candle")).toBeDefined();
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
     } finally {
       if (original) Object.defineProperty(navigator, "mediaDevices", original);
       else Reflect.deleteProperty(navigator, "mediaDevices");

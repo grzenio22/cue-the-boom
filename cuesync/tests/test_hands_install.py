@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -30,7 +31,7 @@ def install(monkeypatch, tmp_path, uv):
         return SimpleNamespace(returncode=0)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(shutil, "which", lambda name: uv)
+    monkeypatch.setattr(shutil, "which", lambda name, path=None: uv)
     monkeypatch.setattr(subprocess, "run", run)
     return calls, lambda: cli.cmd_hands(SimpleNamespace(check=False, install=True, mask=False))
 
@@ -57,13 +58,38 @@ def test_a_ready_tracker_is_reinstalled_in_place(tmp_path, monkeypatch):
     assert py.exists() and not any("venv" in c for c in calls)  # its environment kept: only the packages again
 
 
-def test_without_uv_an_unsuitable_python_is_refused_before_anything_is_made(tmp_path, monkeypatch):
+def test_without_uv_an_unsuitable_python_is_refused_before_anything_is_made_or_removed(tmp_path, monkeypatch):
     venv = checkout(tmp_path)
+    (venv / "lib").mkdir(parents=True)  # an earlier, unfinished attempt: kept, since nothing can replace it yet
     calls, run = install(monkeypatch, tmp_path, uv=None)
     monkeypatch.setattr(cli, "TRACKER_PYTHONS", ((3, 99), (3, 99)))  # as if this Python were too new for the wheels
-    with pytest.raises(SystemExit, match=r"needs Python 3\.99 to 3\.99 .* or uv"):
+    with pytest.raises(SystemExit, match=r"needs Python 3\.99 to 3\.99 .* -m pip install uv"):
         run()
-    assert calls == [] and not venv.exists()
+    assert calls == [] and (venv / "lib").exists()
+
+
+def test_uv_installed_into_the_studios_own_environment_is_found(tmp_path, monkeypatch):
+    checkout(tmp_path)
+    calls, run = install(monkeypatch, tmp_path, uv=None)
+    here = str(Path(sys.executable).parent)
+    monkeypatch.setattr(shutil, "which", lambda name, path=None: "venv-uv" if path == here else None)
+    monkeypatch.setattr(cli, "TRACKER_PYTHONS", ((3, 99), (3, 99)))  # only uv could make it
+    assert run() == 0
+    assert calls[0][:2] == ["venv-uv", "venv"]
+
+
+def test_a_locked_unfinished_install_says_what_to_do(tmp_path, monkeypatch):
+    venv = checkout(tmp_path)
+    (venv / "lib").mkdir(parents=True)
+    calls, run = install(monkeypatch, tmp_path, uv="uv")
+
+    def locked(path, *a, **k):
+        raise PermissionError(32, "The process cannot access the file because it is being used by another process")
+
+    monkeypatch.setattr(shutil, "rmtree", locked)
+    with pytest.raises(SystemExit, match="another install may still be running"):
+        run()
+    assert calls == []
 
 
 def test_without_uv_a_suitable_python_makes_the_environment_itself(tmp_path, monkeypatch):

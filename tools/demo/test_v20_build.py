@@ -148,6 +148,14 @@ class LiveTakeTest(unittest.TestCase):
         beats[5]["source_gain"] = 1.0  # a change nobody recorded
         _, errors = v20_build.structure_check(board, baseline)
         self.assertIn("A v19 beat changed beyond v20's recorded edits: dino", errors)
+        record = self.root / "live.json"
+        record.write_text(json.dumps({"beats": [{"id": "live_a", "slot": "replace:comfy_output"},
+                                                {"id": "live_b", "slot": "replace:dino"},
+                                                {"id": "live_c", "slot": "replace:dino"}], "phones": {}, "jobs": {}}))
+        board["live"] = {"record": str(record)}
+        _, errors = v20_build.structure_check(board, baseline)
+        self.assertIn("A live beat replaces no v19 beat it may: comfy_output", errors)  # v20 removed it
+        self.assertIn("Two live beats replace the same v19 beat", errors)
 
 
 if __name__ == "__main__":

@@ -17,11 +17,14 @@ PIN = re.compile(r"(github\.com/grzenio22/cue-the-boom@)[0-9a-f]{40}(#subdirecto
 
 
 def main():
+    shallow = subprocess.check_output(["git", "rev-parse", "--is-shallow-repository"], cwd=ROOT, text=True).strip()
+    if shallow == "true":
+        sys.exit("this is a shallow clone: its oldest commit isn't the core's; run this in the full repository")
     sha = subprocess.check_output(
         ["git", "log", "-1", "--format=%H", "--", "cuesync/src", "cuesync/pyproject.toml", "cuesync/README.md"],
         cwd=ROOT, text=True).strip()
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
-        sys.exit("no commit found for the core (a shallow clone?)")
+        sys.exit("no commit found for the core")
     for path in PINNED:
         with open(path, encoding="utf-8", newline="") as f:
             text = f.read()

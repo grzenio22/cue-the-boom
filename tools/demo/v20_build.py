@@ -477,10 +477,14 @@ def structure_check(board: dict, baseline: dict) -> tuple[dict, list[str]]:
             errors.append(f"A v19 beat changed beyond v20's recorded edits: {beat['id']}")
     if board.get("v20_edits") != edits_record():
         errors.append("The storyboard's record of v20's edits differs from the edits made")
-    swap = set(replacements(live))
-    unknown = sorted((swap - {b["id"] for b in baseline["beats"]}) | (swap & set(STUDIO_IDS)))
+    slots = [str(b.get("slot", "")).split(":", 1)[1] for b in live["beats"] if str(b.get("slot", "")).startswith("replace:")]
+    added = {b["id"] for bs in inserted().values() for b in bs}
+    playable = {b["id"] for b in edited(baseline["beats"])} - added - set(STUDIO_IDS)
+    unknown = sorted(set(slots) - playable)
     if unknown:
         errors.append(f"A live beat replaces no v19 beat it may: {', '.join(unknown)}")
+    if len(slots) != len(set(slots)):
+        errors.append("Two live beats replace the same v19 beat")
     live_beats = [b for b in beats if b["id"] not in old]
     if [b for b in live_beats if not b["id"].startswith("live_")]:
         errors.append("Live beats are named live_*")
