@@ -44,7 +44,7 @@ function teardown(s: Session) {
 /** Try it live: your hand on the camera, your noise on the microphone, the fire rendered ahead of time (LTX-2.5)
  * thrown from your palm as you make it, as big as it is loud; a held "fffff" holds a flame (pointing: a jet). A
  * rough preview: Record this, and the shot is made from your take with the hand followed, matted and lit. */
-export default function Live({ onTake }: { onTake: (file: File, url: string) => void }) {
+export default function Live({ onTake, autoStart = 0 }: { onTake: (file: File, url: string) => void; autoStart?: number }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -330,6 +330,15 @@ export default function Live({ onTake }: { onTake: (file: File, url: string) => 
       }
     }
   };
+  // opened from the start page: start straight away
+  useEffect(() => {
+    if (!autoStart) return;
+    const t = setTimeout(() => void start(), 0); // after this render: start() sets state
+    return () => clearTimeout(t);
+  }, [autoStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { // and bring the camera into view
+    if (open && autoStart) canvas.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, [open, autoStart]);
   const close = () => {
     if (session.current) teardown(session.current);
     session.current = null;

@@ -58,7 +58,8 @@ function probeDuration(url: string): Promise<number> {
 }
 
 /** Step 1: a sample plate (no camera needed) or your own clip. */
-export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[]; onPick: (p: PickedPlate) => void }) {
+export default function PlatePicker({ samples, onPick, live = 0 }: { samples: SamplePlate[]; onPick: (p: PickedPlate) => void;
+  live?: number }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const sequence = useRef(0);
@@ -133,7 +134,7 @@ export default function PlatePicker({ samples, onPick }: { samples: SamplePlate[
           Use your own clip
           <input type="file" accept="video/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
         </label>
-        <Live onTake={(file, url) => void onFile(file, true, url)} />
+        <Live onTake={(file, url) => void onFile(file, true, url)} autoStart={live} />
         <FilmIt onTake={(file, url) => void onFile(file, true, url)} />
         <span className="muted">Your hand, or a thing (a pumpkin, a mug, a toy), filmed with the phone held still, 1-15 s (the
           shot uses the first 10 s).</span>

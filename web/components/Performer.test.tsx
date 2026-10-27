@@ -2,6 +2,7 @@ import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Performer, { type Performance } from "./Performer";
+import { quickPerformance } from "@/lib/shot";
 import { type PcmRecorder, startPcmRecorder } from "@/lib/audio/pcmRecorder";
 
 vi.mock("@/lib/audio/pcmRecorder", () => ({ startPcmRecorder: vi.fn() }));
@@ -303,6 +304,18 @@ describe("Performer microphone lifecycle", () => {
     click(button("Say it"));
     expect(button("Use my microphone")).toBeDefined();
     expect(host.querySelector('[aria-label="microphone level"]')).toBeNull();
+  });
+
+  it("opens the sample voices when the shortcut's microphone is refused", async () => {
+    getUserMedia.mockRejectedValueOnce(new DOMException("Denied", "NotAllowedError"));
+    const sampleVoice = { ...voice, name: quickPerformance().voices[0] };
+    show({ quick: true, takes: 0, voices: [sampleVoice] });
+    const fallback = () => [...host.querySelectorAll("summary")].find((s) => s.textContent === "Try a sample voice instead")!
+      .closest("details")!;
+    expect(fallback().open).toBe(false);
+    await arm();
+    expect(host.querySelector(".bad")?.textContent).toContain("permission was denied");
+    expect(fallback().open).toBe(true);
   });
 
   it("ignores a rejected permission request after another microphone is armed", async () => {

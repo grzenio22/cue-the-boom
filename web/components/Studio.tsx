@@ -51,6 +51,7 @@ export default function Studio() {
   const [plate, setPlate] = useState<PickedPlate | null>(null);
   const [quick, setQuick] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [liveNow, setLiveNow] = useState(0); // each press of Try it live on the start page starts it
   const [point, setPoint] = useState<[number, number] | null>(null);
   const [pointSet, setPointSet] = useState(false);
   const [direction, setDirection] = useState<number | null>(null);
@@ -275,10 +276,13 @@ export default function Studio() {
           </div>
           {!health && <p className="muted" role="status">Getting the studio ready…</p>}
           {health && !palm && <p className="chip warn">The prepared palm is unavailable on this server. Choose another clip below.</p>}
-          <button className="secondary" aria-expanded={advanced} aria-controls="studio-options"
-            onClick={() => setAdvanced(!advanced)}>{advanced ? "Hide other options" : "Use your own clip or explore effects"}</button>
+          <div className="row">
+            <button className="secondary" onClick={() => { setAdvanced(true); setLiveNow((n) => n + 1); }}>Try it live with your webcam</button>
+            <button className="secondary" aria-expanded={advanced} aria-controls="studio-options"
+              onClick={() => { setAdvanced(!advanced); setLiveNow(0); }}>{advanced ? "Hide other options" : "Use your own clip or explore effects"}</button>
+          </div>
         </section>
-        {advanced && <div id="studio-options"><PlatePicker samples={samples.plates} onPick={pick} /></div>}
+        {advanced && <div id="studio-options"><PlatePicker samples={samples.plates} onPick={pick} live={liveNow} /></div>}
       </>}
 
       {plate && quick && <section ref={stepTwo} className="quick-selected">

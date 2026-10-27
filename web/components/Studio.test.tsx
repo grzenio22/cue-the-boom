@@ -106,6 +106,24 @@ describe("Studio prepared palm shortcut", () => {
     }
   });
 
+  it("starts Try it live from the start page in one click", async () => {
+    const getUserMedia = vi.fn(() => new Promise<MediaStream>(() => undefined)); // the camera prompt stays open
+    const original = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia } });
+    try {
+      await act(async () => { root.render(<Studio />); });
+      expect(getUserMedia).not.toHaveBeenCalled();
+      await click("Try it live with your webcam");
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); // it starts after rendering
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+      expect(host.querySelector('canvas[aria-label="your camera, with the fire on your hand"]')).not.toBeNull();
+      expect(host.textContent).toContain("Starting the camera");
+    } finally {
+      if (original) Object.defineProperty(navigator, "mediaDevices", original);
+      else Reflect.deleteProperty(navigator, "mediaDevices");
+    }
+  });
+
   it("composes the selected sample explicitly and performs again through the existing replay route", async () => {
     vi.useFakeTimers();
     const apiFetch = fetch;

@@ -108,7 +108,7 @@ export default function Again() {
           </p>
           {strangers.length > 0 && <>
             <h3 id="strangers-heading">The same render, in {strangers.length} strangers&apos; voices</h3>
-            <p>Each is one sound cut from another person&apos;s own recording (CC0, on Freesound), placed on the hand&apos;s strike. A soft <em>powf</em> throws a small fireball, a loud <em>boom</em> a big one, a <em>ka-boom</em> two. Still one generation.</p>
+            <p>Each is one sound cut from another person&apos;s own recording (CC0, on Freesound), placed on the hand&apos;s strike. A breathy <em>powf</em> throws a small fireball, a <em>boom</em> a big one, a <em>ka-boom</em> two. Still one generation.</p>
             <div className="again-row again-strangers" aria-labelledby="strangers-heading">
               {strangers.map((shot) => (
                 <figure key={shot.id}>

@@ -490,7 +490,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             </details>}
           </>
         );
-        return quick ? <details className="quick-fallback"><summary>Try a sample voice instead</summary>
+        return quick ? <details className="quick-fallback" open={!!error}><summary>Try a sample voice instead</summary>
           <p className="muted">These are recorded examples, not your microphone. Choose one to try its performance.</p>{samples}</details> : samples;
       })()}
     </section>
