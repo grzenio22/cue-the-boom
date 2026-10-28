@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { peekHandlers } from "@/lib/motion";
 import { handMade, type JobStatus } from "@/lib/shot";
 
 type Shot = JobStatus & { title: string };
@@ -30,7 +31,7 @@ export default function Gallery() {
       <h2>Made with it</h2>
       <div className="grid">
         {shots.map((s) => (
-          <button key={s.id} className="tile" onClick={() => setOpen({ shot: s, file: "final.mp4" })}>
+          <button key={s.id} className="tile" onClick={() => setOpen({ shot: s, file: "final.mp4" })} {...peekHandlers}>
             <video src={s.files["final.mp4"]} poster={s.files["poster.jpg"]} muted playsInline preload="none" />
             <span>{s.title}</span>
             <span className="muted note">{s.mode === "scene"
@@ -41,7 +42,7 @@ export default function Gallery() {
         ))}
       </div>
       {open && (
-        <div ref={player}>
+        <div ref={player} className="gallery-player">
           <div className="row" role="tablist">
             {(["final.mp4", "breakdown.mp4"] as const).filter((f) => open.shot.files[f]).map((f) => (
               <button key={f} role="tab" aria-selected={open.file === f} className={open.file === f ? "" : "secondary"}

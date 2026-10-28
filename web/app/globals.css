@@ -7,7 +7,19 @@
   --warn: #f5b942;
   --bad: #ff5d5d;
   --chip: #1d1c22;
+  --chip-hover: #29272f;
+  --ember-gold: #ffb020;
+  --ember-hot: #ff4d1a;
+  /* motion: strong custom curves (the built-in ones are too weak to read as deliberate) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --rise: 12px; /* how far entering content travels, and the blur it sharpens from: 0 when the viewer asks for less motion */
+  --soften: 4px;
 }
+
+/* the element's own light (the halo behind the preview): a registered colour, so picking another element fades it */
+@property --glow { syntax: "<color>"; inherits: true; initial-value: #ff8c00; }
 
 * { box-sizing: border-box; }
 
@@ -18,6 +30,8 @@ html, body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+/* a faint warmth over the top of the page, as if lit by what is performed below (static) */
+body { background: radial-gradient(1100px 520px at 50% -200px, rgba(255, 110, 0, 0.12), transparent 70%) no-repeat, var(--bg); }
 
 main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
 h1 { font-size: clamp(2rem, 7vw, 3.2rem); margin: 0.2em 0; letter-spacing: -0.02em; }
@@ -26,9 +40,18 @@ a { color: var(--accent); }
 button, .btn {
   font: inherit; font-weight: 600; padding: 12px 18px; border-radius: 999px; border: 0;
   background: var(--accent); color: #1a0d00; cursor: pointer; text-decoration: none; display: inline-block;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms var(--ease-out), background-color 200ms ease, color 200ms ease, opacity 200ms ease,
+    box-shadow 240ms ease, filter 200ms ease;
 }
 button:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 button.secondary, .btn.secondary { background: var(--chip); color: var(--fg); }
+/* every press is felt */
+button:active:not(:disabled), .btn:active:not([aria-disabled="true"]) { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  button:not(.secondary):not(.tile):not(:disabled):hover, .btn:not(.secondary):hover { filter: brightness(1.08); }
+  button.secondary:not(:disabled):hover, .btn.secondary:hover { background-color: var(--chip-hover); }
+}
 
 .chip { display: inline-block; padding: 4px 10px; margin: 4px 6px 4px 0; border-radius: 999px; background: var(--chip); font-size: 0.85rem; }
 .chip.warn { color: var(--warn); }
@@ -52,8 +75,14 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .perform .plate.wide { width: min(100%, 560px); aspect-ratio: 16 / 9; }
 .perform .face { width: 120px; aspect-ratio: 3 / 4; background: #000; object-fit: cover; transform: scaleX(-1); border-radius: 12px; }
 
-.meter { height: 10px; border-radius: 999px; background: var(--chip); overflow: hidden; margin: 12px 0 4px; max-width: 360px; }
-.meter span { display: block; height: 100%; background: linear-gradient(90deg, #ffb020, var(--accent), #ff4d1a); transition: width 60ms linear; }
+/* the live microphone level (--level, 0..1, set every frame): the bar is uncovered from the left over a fixed gradient,
+ * so a louder noise reaches hotter colour, and the track glows with it */
+.meter { --level: 0; height: 10px; border-radius: 999px; background: var(--chip); overflow: hidden; margin: 12px 0 4px; max-width: 360px;
+  box-shadow: 0 0 calc(2px + var(--level) * 22px) calc(var(--level) * 2px) rgba(255, 110, 0, calc(var(--level) * 0.6));
+  transition: box-shadow 90ms linear; }
+.meter span { display: block; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--ember-gold), var(--accent) 55%, var(--ember-hot));
+  clip-path: inset(0 calc(100% - var(--level) * 100%) 0 0 round 999px); transition: clip-path 70ms linear; }
 
 .result { width: 100%; max-width: 420px; background: #000; border-radius: 12px; display: block; }
 .result.wide { max-width: 720px; }
@@ -83,10 +112,16 @@ section { border-top: 1px solid var(--chip); padding-top: 4px; }
 .again-strangers { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .again h3 { margin: 28px 0 4px; font-size: 1.05rem; }
 .again figure { margin: 0; min-width: 0; }
-.again video { display: block; width: 100%; aspect-ratio: 1080 / 1984; object-fit: contain; border-radius: 12px; background: #000; }
-.again figcaption { margin-top: 8px; font-size: 0.85rem; font-weight: 600; }
-.again-current video { outline: 2px solid var(--accent); outline-offset: 2px; }
+.again video { display: block; width: 100%; aspect-ratio: 1080 / 1984; object-fit: contain; border-radius: 12px; background: #000;
+  outline: 2px solid transparent; outline-offset: 2px;
+  transition: opacity 300ms ease, outline-color 240ms ease, box-shadow 320ms ease, transform 320ms var(--ease-out); }
+.again figcaption { margin-top: 8px; font-size: 0.85rem; font-weight: 600; transition: color 240ms ease, opacity 300ms ease; }
+/* the performance being heard is lit and lifted; the other two step back */
+.again-current video { outline-color: var(--accent); transform: translateY(-4px);
+  box-shadow: 0 18px 44px -16px rgba(255, 110, 0, 0.75); }
 .again-current figcaption { color: var(--accent); }
+.again-row:has(.again-current) figure:not(.again-current) video { opacity: 0.45; }
+.again-row:has(.again-current) figure:not(.again-current) figcaption { opacity: 0.6; }
 .again-status { font-size: 0.85rem; min-height: 1.5em; }
 .again button:focus-visible, .again a:focus-visible { outline: 2px solid var(--fg); outline-offset: 4px; }
 .studio-anchor { scroll-margin-top: 24px; }
@@ -132,3 +167,221 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .film video.mirror { transform: scaleX(-1); }
 .film.live { max-width: 960px; }
 .film canvas { width: 100%; background: #000; border-radius: 12px; display: block; }
+
+/* ─────────────────────────────── motion ───────────────────────────────
+ * Entrances animate the individual transform properties (translate, scale), opacity and a short blur, and fill only
+ * backwards: once they end, an element's own transform (a press, a hover lift) is free again. The loops run only while
+ * something is live (the making, the recording, the camera warming up), plus one slow glow behind the start page's
+ * preview. Hovers are for fine pointers only. Reduced motion: the block at the end. */
+
+@keyframes rise-in { from { opacity: 0; translate: 0 var(--rise); filter: blur(var(--soften)); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes pop-in { from { opacity: 0; scale: 0.96; filter: blur(var(--soften)); } }
+@keyframes drop-in { from { opacity: 0; translate: 0 calc(var(--rise) * -0.4); } }
+@keyframes scroll-rise { from { opacity: 0; translate: 0 calc(var(--rise) * 2.5); } }
+@keyframes ember-pulse { from { opacity: 0.4; scale: 0.75; } to { opacity: 1; scale: 1.15; } }
+@keyframes rec-blink { from { opacity: 1; } to { opacity: 0.25; } }
+
+/* the page arrives: the line, the name, the promise; then the name catches fire */
+main > p.muted:first-child, main > h1, main > .lede { animation: rise-in 700ms var(--ease-out) backwards; }
+main > h1 { animation-delay: 70ms; }
+main > .lede { animation-delay: 140ms; }
+/* (what is further down settles in after the top, so the eye starts at the name and the studio) */
+main > section, main > p.muted:last-child { animation: fade-in 700ms ease-out 450ms backwards; }
+h1 .boom {
+  display: inline-block; color: var(--accent); text-shadow: 0 0 28px rgba(255, 110, 0, 0.35);
+  animation: ignite 1200ms var(--ease-out) 420ms backwards;
+}
+@keyframes ignite {
+  0% { opacity: 0.15; scale: 0.9; filter: blur(6px); color: #fff1d0; text-shadow: 0 0 0 rgba(255, 140, 0, 0); }
+  35% { opacity: 1; scale: 1.05; filter: blur(0); color: #ffc46a; text-shadow: 0 0 34px rgba(255, 140, 0, 0.95); }
+}
+
+/* the start: the elements, the copy and the call to action arrive in a quick cascade */
+.quick-start { position: relative; --glow: #ff8c00; transition: --glow 700ms ease; }
+.quick-start[data-element="air"] { --glow: #9fd6ff; }
+.quick-start[data-element="explosion"] { --glow: #ff5a1f; }
+.quick-start[data-element="lightning"] { --glow: #8fb0ff; }
+.quick-start[data-element="water"] { --glow: #4aa8ff; }
+.quick-start[data-element="earth"] { --glow: #c99358; }
+.quick-intro > div > * { animation: rise-in 600ms var(--ease-out) 480ms backwards; }
+.quick-intro > div > :nth-child(2) { animation-delay: 300ms; }
+.quick-intro > div > :nth-child(3) { animation-delay: 350ms; }
+.quick-intro > div > :nth-child(4) { animation-delay: 400ms; }
+.quick-intro > div > :nth-child(5) { animation-delay: 450ms; }
+.quick-intro > div > .element-picker { animation: none; }
+.element-picker > button { animation: rise-in 520ms var(--ease-out) backwards; }
+.element-picker > button:nth-child(1) { animation-delay: 180ms; }
+.element-picker > button:nth-child(2) { animation-delay: 225ms; }
+.element-picker > button:nth-child(3) { animation-delay: 270ms; }
+.element-picker > button:nth-child(4) { animation-delay: 315ms; }
+.quick-start > .row { animation: rise-in 600ms var(--ease-out) 540ms backwards; }
+.quick-start > p { animation: fade-in 300ms ease-out backwards; }
+
+/* the elements: the chosen one is lit, and choosing one sends a ring off it once */
+.element-choice { position: relative; }
+.element-choice.selected { box-shadow: 0 6px 22px -8px rgba(255, 120, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.28); }
+.element-choice.selected::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(255, 140, 0, 0.6); opacity: 0; animation: ring-out 560ms var(--ease-out); }
+@keyframes ring-out { from { opacity: 0.9; scale: 1; } to { opacity: 0; scale: 1.22 1.45; } }
+@media (hover: hover) and (pointer: fine) {
+  .element-choice.secondary:not(:disabled):hover { transform: translateY(-1px); }
+  .element-choice.secondary:not(:disabled):active { transform: scale(0.97); }
+}
+/* the noise to make: it pops when it changes with the element */
+.cue-word { display: inline-block; animation: cue-in 480ms var(--ease-out) backwards; }
+@keyframes cue-in {
+  from { opacity: 0; scale: 0.85; filter: blur(3px); color: var(--accent); }
+  55% { opacity: 1; scale: 1.06; filter: blur(0); color: var(--accent); }
+}
+
+/* the preview: it arrives out of a blur, and the element's own light breathes behind it */
+.quick-preview { position: relative; isolation: isolate; animation: pop-in 700ms var(--ease-out) backwards; }
+.quick-preview::before { content: ""; position: absolute; z-index: -1; inset: -10% -38% 6%; pointer-events: none;
+  background: radial-gradient(closest-side, var(--glow), transparent); opacity: 0.3;
+  animation: breathe 4.5s ease-in-out infinite alternate; }
+@keyframes breathe { from { opacity: 0.18; scale: 0.94; } to { opacity: 0.38; scale: 1.06; } }
+.quick-preview video { box-shadow: 0 18px 50px -20px #000; }
+
+/* the call to action: hot, and it catches the light once as the page settles, and again under the pointer */
+.quick-cta { position: relative; overflow: hidden; isolation: isolate;
+  background: linear-gradient(100deg, #ffa424, var(--accent) 45%, #ff6614);
+  box-shadow: 0 10px 30px -12px rgba(255, 110, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.quick-cta::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.5) 50%, transparent 65%);
+  translate: -110% 0; animation: sheen 1100ms var(--ease-in-out) 1300ms; }
+@keyframes sheen { from { translate: -110% 0; } to { translate: 110% 0; } }
+@keyframes sheen-again { from { translate: -110% 0; } to { translate: 110% 0; } }
+.quick-cta:disabled { box-shadow: none; }
+.quick-cta:disabled::after { animation: none; }
+@media (hover: hover) and (pointer: fine) {
+  .quick-cta:not(:disabled):hover { box-shadow: 0 14px 38px -10px rgba(255, 110, 0, 1), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+  .quick-cta:not(:disabled):hover::after { animation: sheen-again 900ms var(--ease-in-out); }
+}
+
+/* each step arrives instead of appearing: its parts rise in, in reading order (:where keeps this easy to override) */
+:where(.studio-anchor section:not(.quick-start)) { animation: fade-in 320ms ease-out backwards; }
+:where(.studio-anchor section:not(.quick-start)) > * { animation: rise-in 520ms var(--ease-out) backwards; }
+:where(.studio-anchor section:not(.quick-start)) > :nth-child(2) { animation-delay: 60ms; }
+:where(.studio-anchor section:not(.quick-start)) > :nth-child(3) { animation-delay: 120ms; }
+:where(.studio-anchor section:not(.quick-start)) > :nth-child(n+4) { animation-delay: 180ms; }
+.studio-anchor .grid > .tile { animation: rise-in 520ms var(--ease-out) 120ms backwards; }
+.studio-anchor .grid > .tile:nth-child(2) { animation-delay: 160ms; }
+.studio-anchor .grid > .tile:nth-child(3) { animation-delay: 200ms; }
+.studio-anchor .grid > .tile:nth-child(4) { animation-delay: 240ms; }
+.studio-anchor .grid > .tile:nth-child(5) { animation-delay: 280ms; }
+.studio-anchor .grid > .tile:nth-child(n+6) { animation-delay: 320ms; }
+details[open] > :not(summary) { animation: drop-in 300ms var(--ease-out) backwards; }
+summary { transition: color 200ms ease; }
+.chip.bad, .chip.warn { animation: pop-in 280ms var(--ease-out) backwards; }
+@media (hover: hover) and (pointer: fine) { summary:hover { color: var(--fg); } }
+
+/* tiles: a lift and the picture brightening under the pointer (their clips play while pointed at) */
+.tile { transition: transform 260ms var(--ease-out), background-color 220ms ease, box-shadow 280ms ease, opacity 200ms ease; }
+.tile video { transition: filter 280ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover { transform: translateY(-3px); background-color: #23212a; box-shadow: 0 14px 34px -16px rgba(255, 110, 0, 0.6); }
+  .tile:hover video { filter: brightness(1.12) saturate(1.1); }
+  .tile:active { transform: scale(0.98); }
+}
+
+/* the recording: the record button answers your voice before you press it (its glow swells with the level), and while
+ * it records the clip is ringed in red and a light blinks by the words */
+.record-cta { position: relative; isolation: isolate; }
+.record-cta::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 24px 2px rgba(255, 120, 0, 0.9);
+  opacity: calc(0.15 + var(--level, 0) * 1.3); scale: calc(1 + var(--level, 0) * 0.06);
+  transition: opacity 90ms linear, scale 90ms linear; }
+.record-cta:disabled::before { opacity: 0; }
+.perform .plate { outline: 2px solid transparent; outline-offset: 3px; transition: outline-color 240ms ease, box-shadow 320ms ease; }
+section[data-step="performing"] .perform .plate { outline-color: #ff3b30; box-shadow: 0 0 34px -6px rgba(255, 59, 48, 0.55); }
+.rec-status { transition: color 200ms ease; }
+section[data-step="performing"] .rec-status { color: var(--fg); }
+section[data-step="performing"] .rec-status::before, .chip.rec::before { content: ""; display: inline-block; width: 9px; height: 9px;
+  margin-right: 8px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 10px rgba(255, 59, 48, 0.8); vertical-align: 0;
+  animation: rec-blink 900ms ease-in-out infinite alternate; }
+
+/* the making: the server's own progress, gliding between its reports, with heat running through it while it works;
+ * each new stage's words come in as they change */
+.making { margin: 16px 0 10px; }
+.making-bar { --p: 0; position: relative; height: 8px; border-radius: 999px; overflow: hidden; background: var(--chip);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04); }
+.making-bar progress { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; }
+.making-fill { position: absolute; inset: 0; border-radius: inherit; overflow: hidden;
+  background: linear-gradient(90deg, #6b2400, var(--accent) 55%, var(--ember-gold) 88%, #fff1d0);
+  translate: calc((var(--p) - 1) * 100%) 0; transition: translate 900ms var(--ease-out); }
+.making-fill::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: heat 1.6s linear infinite; }
+@keyframes heat { from { translate: -100% 0; } to { translate: 230% 0; } }
+.making-message { margin: 12px 0; animation: drop-in 360ms var(--ease-out) backwards; }
+.making-message::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 10px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 12px rgba(255, 140, 0, 0.9); vertical-align: 1px;
+  animation: ember-pulse 1.1s ease-in-out infinite alternate; }
+.making .row { animation: rise-in 520ms var(--ease-out) backwards; }
+
+/* the reveal: the shot comes out of a flash of its own light and settles with a warm glow, its title catching the
+ * same light; then what you can do with it */
+.ready-title { animation: ready-in 900ms var(--ease-out) backwards; }
+@keyframes ready-in {
+  0% { opacity: 0; translate: 0 6px; filter: blur(4px); color: #ffe0a3; text-shadow: 0 0 0 rgba(255, 140, 0, 0); }
+  35% { opacity: 1; translate: 0 0; filter: blur(0); color: var(--ember-gold); text-shadow: 0 0 24px rgba(255, 140, 0, 0.85); }
+  100% { text-shadow: 0 0 0 rgba(255, 140, 0, 0); }
+}
+.shot-result { animation: fade-in 200ms ease-out backwards; }
+.shot-result > video.result { animation: pop-in 360ms var(--ease-out) backwards; } /* (another view of it) */
+.quick-shot .shot-result > video.result { box-shadow: 0 24px 60px -24px rgba(255, 110, 0, 0.55);
+  animation: shot-reveal 1100ms var(--ease-out) backwards; }
+@keyframes shot-reveal {
+  0% { opacity: 0; scale: 0.94; filter: blur(14px) brightness(2.6) saturate(1.5); box-shadow: 0 0 0 0 rgba(255, 140, 0, 0); }
+  30% { opacity: 1; filter: blur(0) brightness(1.5) saturate(1.25); box-shadow: 0 0 80px 2px rgba(255, 130, 0, 0.5); }
+  100% { opacity: 1; scale: 1; filter: blur(0) brightness(1) saturate(1); box-shadow: 0 24px 60px -24px rgba(255, 110, 0, 0.55); }
+}
+.shot-result > :not(video) { animation: rise-in 520ms var(--ease-out) 380ms backwards; }
+.shot-result > :not(video) ~ :not(video) { animation-delay: 460ms; }
+.gallery-player { animation: rise-in 420ms var(--ease-out) backwards; }
+.gallery-player video { animation: pop-in 420ms var(--ease-out) backwards; }
+
+/* a camera panel opens like an aperture; while the camera and the hand tracker warm up, an ember gathers where the
+ * picture will be */
+.film { animation: aperture 640ms var(--ease-drawer) backwards; }
+@keyframes aperture {
+  from { opacity: 0; clip-path: inset(10% 16% 30% 16% round 28px); }
+  to { opacity: 1; clip-path: inset(0 0 0 0 round 12px); }
+}
+.film > :not(canvas):not(video) { animation: rise-in 480ms var(--ease-out) 240ms backwards; }
+.film.live { position: relative; container-type: inline-size; }
+.film.live[data-loading] canvas { background: radial-gradient(50% 60% at 50% 55%, rgba(255, 110, 0, 0.16), transparent 70%), #000; }
+.film.live[data-loading]::before, .film.live[data-loading]::after { content: ""; position: absolute; left: 50%; top: 27cqw;
+  width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; pointer-events: none; }
+.film.live[data-loading]::before { background: radial-gradient(closest-side, #fff4dc, var(--ember-gold) 30%, rgba(255, 90, 0, 0.5) 62%, transparent);
+  animation: ember-pulse 1.2s ease-in-out infinite alternate; }
+.film.live[data-loading]::after { box-shadow: 0 0 0 2px rgba(255, 150, 40, 0.7); animation: ripple 1.6s var(--ease-out) infinite; }
+@keyframes ripple { from { opacity: 0.8; scale: 0.6; } to { opacity: 0; scale: 2; } }
+
+/* the showcase: the shots rise as they scroll into view (where the browser ties animation to scrolling); the heard
+ * performance is lit and lifted (above); the cued shots lift under the pointer */
+.again-fact strong { text-shadow: 0 0 22px rgba(255, 120, 0, 0.35); }
+.hook video { transition: transform 300ms var(--ease-out), box-shadow 300ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .hook video:hover { transform: translateY(-3px); box-shadow: 0 16px 40px -18px rgba(255, 110, 0, 0.7); }
+}
+@supports (animation-timeline: view()) {
+  #again-heading, .again-fact, .again-row > figure, .hook figure, main > section > .grid > .tile {
+    animation: scroll-rise var(--ease-out) both; animation-timeline: view(); animation-range: entry 0% entry 45%;
+  }
+  .again-row > figure:nth-child(3n+2), .hook figure:nth-child(3n+2), main > section > .grid > .tile:nth-child(3n+2) {
+    animation-range: entry 6% entry 55%; }
+  .again-row > figure:nth-child(3n), .hook figure:nth-child(3n), main > section > .grid > .tile:nth-child(3n) {
+    animation-range: entry 12% entry 65%; }
+}
+
+/* fewer and gentler: entrances become plain fades, loops and flares settle at once, nothing moves under the pointer,
+ * and the level and progress still show (they are information, not decoration) */
+@media (prefers-reduced-motion: reduce) {
+  :root { --rise: 0px; --soften: 0px; }
+  *, *::before, *::after { animation-name: fade-in !important; animation-iteration-count: 1 !important; animation-timeline: auto !important; }
+  button:active:not(:disabled), .btn:active, .element-choice.secondary:hover, .tile:hover, .tile:active, .hook video:hover,
+  .again-current video { transform: none !important; }
+  .record-cta::before { scale: 1 !important; }
+}

@@ -93,7 +93,7 @@ export default function FilmIt({ onTake }: { onTake: (file: File, url: string) =
         ) : (
           <>
             <button onClick={() => rec.current?.stop()}>Stop</button>
-            <span className="chip">recording {recording.toFixed(1)} s</span>
+            <span className="chip rec">recording {recording.toFixed(1)} s</span>
           </>
         )}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { detectOnsetPCM } from "@/lib/audio/onset";
 import { type PcmRecorder, startPcmRecorder } from "@/lib/audio/pcmRecorder";
 import { encodeWav } from "@/lib/audio/wav";
@@ -389,7 +389,7 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
   };
 
   return (
-    <section className={quick ? "quick-performer" : undefined}>
+    <section className={quick ? "quick-performer" : undefined} data-step={step}>
       <h2>{quick ? "Record your rhythm" : "3. Cue it"}</h2>
       {quick && <p className="muted">Allow your microphone, then press Record &amp; make {elementName}. Say <strong>{choice.cue}</strong> as the clip plays. We make your shot when it ends.</p>}
       {!quick && <div className="row" role="radiogroup" aria-label="How to cue it">
@@ -438,11 +438,13 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
       )}
       {kind === "voice" && step !== "idle" && (
         <>
-          <div className="meter" aria-label="microphone level"><span style={{ width: `${Math.round(level * 100)}%` }} /></div>
+          {/* the level drives the bar and the record button's glow (globals.css: .meter, .record-cta) */}
+          <div className="meter" aria-label="microphone level" style={{ "--level": Math.round(level * 100) / 100 } as CSSProperties}><span /></div>
           {notes.map((n) => <span key={n} className="chip warn">{n}</span>)}
           <div className="row">
-            <button disabled={busy} onClick={() => void perform()}>{quick ? `Record & make ${elementName}` : takes > 0 ? "Perform again" : "Perform"}</button>
-            <span className="muted">{step === "starting" ? "Starting the microphone…" : step === "finishing" ? "Saving your recording…" : step === "performing" ? "Recording: make the noise when it should hit!" : "The clip plays muted. Make your noise at the moment it should happen."}</span>
+            <button className="record-cta" style={{ "--level": Math.round(level * 100) / 100 } as CSSProperties} disabled={busy}
+              onClick={() => void perform()}>{quick ? `Record & make ${elementName}` : takes > 0 ? "Perform again" : "Perform"}</button>
+            <span className="muted rec-status">{step === "starting" ? "Starting the microphone…" : step === "finishing" ? "Saving your recording…" : step === "performing" ? "Recording: make the noise when it should hit!" : "The clip plays muted. Make your noise at the moment it should happen."}</span>
           </div>
         </>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { Performance } from "@/components/Performer";
 import EffectBadge from "@/components/EffectBadge";
 import Retime from "@/components/Retime";
@@ -315,7 +315,9 @@ export default function ShotPanel({ plate, point, direction, performance, effect
 
   return (
     <section className={quick ? "quick-shot" : undefined}>
-      <h2>{quick ? job?.status === "done" ? `Your ${quickName} is ready` : `Make your ${quickName}` : "4. Make the shot"}</h2>
+      {/* (a new heading when the quick shot is ready, so it is revealed with the shot: globals.css .ready-title) */}
+      <h2 key={quick && job?.status === "done" ? "ready" : "make"} className={quick && job?.status === "done" ? "ready-title" : undefined}>
+        {quick ? job?.status === "done" ? `Your ${quickName} is ready` : `Make your ${quickName}` : "4. Make the shot"}</h2>
       {quick && job?.status !== "done" && <p className="muted">{ALL_MADE_EFFECTS.includes(quickEffect) ? `Shaping ${quickName} from the hand and your voice.` : "Composing the prepared fire on your voice."} Your recording sets the timing and strength.</p>}
       {performance.warnings.map((w) => <p key={w} className="chip warn">{w}</p>)}
       {!replayOf && !quick && <div className="row" role="radiogroup" aria-label="Effect">
@@ -433,9 +435,13 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       {pending && !busy && <p className="muted">Last known status: {job.status}. Checking this shot continues the existing job.</p>}
 
       {busy && event && (
-        <div aria-live="polite">
-          <progress value={event.progress} max={1} style={{ width: "100%" }} />
-          <p className="muted">{event.message}…</p>
+        <div aria-live="polite" className="making">
+          {/* the server's progress, drawn as a glowing bar over the (transparent) progress element (globals.css .making) */}
+          <div className="making-bar" style={{ "--p": Number.isFinite(event.progress) ? Math.min(1, Math.max(0, event.progress)) : 0 } as CSSProperties}>
+            <span className="making-fill" aria-hidden="true" />
+            <progress value={event.progress} max={1} />
+          </div>
+          <p key={event.message} className="muted making-message">{event.message}…</p>
           {guideUrl && (
             <div className="row">
               <video src={guideUrl} autoPlay loop muted playsInline className="guide" />

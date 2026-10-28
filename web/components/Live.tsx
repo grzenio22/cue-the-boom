@@ -357,7 +357,7 @@ export default function Live({ onTake, autoStart = 0 }: { onTake: (file: File, u
     );
   }
   return (
-    <div className="film live">
+    <div className="film live" data-loading={status ? "" : undefined}>
       <canvas ref={canvas} aria-label="your camera, with the fire on your hand" />
       <p className="muted">{status ?? "Raise your hand and make the noise: BOOM throws a fireball, a long fffff holds a flame (point to make it a jet), a buzzing zzzzz is lightning. A rough live preview of fire rendered ahead with LTX-2.5; Record this and the shot is made from your take."}</p>
       <div className="row">
@@ -369,7 +369,7 @@ export default function Live({ onTake, autoStart = 0 }: { onTake: (file: File, u
         ) : (
           <>
             <button onClick={() => run.current?.stopRecording()}>Stop</button>
-            <span className="chip">recording {recording.toFixed(1)} s</span>
+            <span className="chip rec">recording {recording.toFixed(1)} s</span>
           </>
         )}
       </div>

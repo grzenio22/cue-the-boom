@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import FilmIt from "@/components/FilmIt";
 import Live from "@/components/Live";
+import { peekHandlers } from "@/lib/motion";
 import type { DrawnSample, SamplePlate, SceneMap, Source } from "@/lib/shot";
 
 export interface PickedPlate {
@@ -119,7 +120,7 @@ export default function PlatePicker({ samples, onPick, live = 0 }: { samples: Sa
       {samples.length > 0 && (
         <div className="grid">
           {samples.map((s) => (
-            <button key={s.name} className="tile" onClick={() => pick({ source: { sample: s.name }, url: s.url,
+            <button key={s.name} className="tile" {...peekHandlers} onClick={() => pick({ source: { sample: s.name }, url: s.url,
               title: s.title ?? s.name, point: s.point ?? null, direction: s.direction ?? null, subject: s.subject ?? null,
               scene: s.scene, sample: true, sound: !!s.sound, drawn: s.drawn, hand: s.hand ?? null })}>
               <video src={s.url} muted playsInline preload="metadata" />

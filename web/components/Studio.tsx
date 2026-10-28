@@ -242,7 +242,7 @@ export default function Studio() {
   return (
     <>
       {!plate && <>
-        <section className="quick-start" aria-label="Try it with your voice">
+        <section className="quick-start" aria-label="Try it with your voice" data-element={elementName}>
           <div className="quick-intro">
             <div>
               <div className="element-picker" role="group" aria-label="Element">
@@ -263,13 +263,13 @@ export default function Studio() {
                 {isExperimentalEffect(choice.effect) && formPicker}
               </details>
               {!isExperimentalEffect(choice.effect) && formPicker}
-              <p>Start with our hand clip. Say <strong>{choice.cue}</strong> as it plays, and shape your own {elementName} performance.</p>
+              <p>Start with our hand clip. Say <strong key={choice.cue} className="cue-word">{choice.cue}</strong> as it plays, and shape your own {elementName} performance.</p>
               {choice.effect === "earth_rock" && <p className="muted">On your own hand clip: hold a rumble to gather stone. Lift to separate the layers, sweep to cast shards, or drop your hand to crumble it.</p>}
               {choice.element === "Water" && <p className="muted" aria-label="Water movement guide">{WATER_PLAY[choice.effect]} Hand movements use your uploaded clip. Try a steady camera and keep your open hand in view.</p>}
               <button type="button" className="quick-cta" disabled={!palm} onClick={startQuick}>Perform this {elementName} with your voice</button>
               <p className="muted quick-note">{choice.element === "Fire" ? "Your voice controls a new composition of an existing LTX-2.5 fire effect." : "Your voice controls the timing, movement and strength of the element."} No camera or GPU needed.</p>
             </div>
-            {hero && <figure className="quick-preview">
+            {hero && <figure key={hero.id} className="quick-preview">
               <video src={hero.files["final.mp4"]} poster={hero.files["poster.jpg"]} controls playsInline preload="none"
                 aria-label={`${choice.form} example on a real hand`} />
               <figcaption className="muted">{choice.form}. Your rhythm.</figcaption>
