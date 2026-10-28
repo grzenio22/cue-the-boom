@@ -1038,6 +1038,99 @@ def motion_blur(E: np.ndarray, step: np.ndarray) -> np.ndarray:
     return out
 
 
+FLOW = os.environ.get("CUESYNC_FIRE_FLOW", "1") != "0"  # fire that streams like fire in moving air (FireFlow)
+FLOW_LICK = float(os.environ.get("CUESYNC_FIRE_LICK", "20"))  # px (at 1080) its tongues wave at its top
+FLOW_EDDY = (0.075, 0.035)  # of the frame's short side: its eddies, large and small
+FLOW_SCROLL = float(os.environ.get("CUESYNC_FIRE_SCROLL", "12"))  # px a frame (at 1080) they rise through the flame
+FLOW_SWAY = float(os.environ.get("CUESYNC_FIRE_SWAY", "9"))  # px (at 1080) a breeze sways its top
+FLOW_SWAY_HZ = 0.55  # how often it sways
+FLOW_SWAY_LAG = 0.9  # of a sway's turn the top lags its root by: the sway travels up the flame
+FLOW_DRAG = float(os.environ.get("CUESYNC_FIRE_DRAG", "2.0"))  # frames of the hand's motion its top trails by
+FLOW_EASE = 0.7    # how slowly that drag follows the hand (the flame's inertia)
+FLOW_BREAK = 0.45  # how much its top breaks into separate tongues as they rise
+FLOW_KEEP = (0.74, 0.62, 0.48)  # what a moving hand's trail keeps of its red, green and blue each frame (it cools)
+FLOW_FEED = 0.55   # how much of each frame's fire feeds that trail
+
+
+class FireFlow:
+    """The carried fire made to stream as fire does in moving air. Each frame the fire as rendered is warped afresh
+    (never from the last warp: it stays as crisp as rendered), not at all at its root and more and more towards its
+    top: by turbulence that rises through it (its tongues travel up as they wave, rather than the whole flame bending
+    one way and back), by a breeze whose sway reaches the top after the root, and by the drag of the hand's own motion
+    (the top trails behind a moving hand and catches up when it stops). Its top breaks into separate tongues as they
+    rise, and a short, cooling trail stays where a moving hand left it. Frames must come in order; a jump starts afresh."""
+
+    def __init__(self, h: int, w: int, seed: int, fps: float = 24.0):
+        self.h, self.w, self.seed, self.fps = h, w, seed, fps
+        self.k = min(h, w) / 1080.0
+        self.trail: np.ndarray | None = None
+        self.last: int | None = None
+        self.drag = np.zeros(2, np.float32)
+        ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+        self.grid = xs, ys
+        q = 4  # the noise is made at a quarter of the frame and tiled three frames tall, to rise through
+        self.q, self.th = q, 3 * h // q
+        rng = np.random.default_rng((seed, 7))
+        self.tex = []
+        for _ in range(3):  # sideways, upwards, and where it breaks
+            n = np.zeros((self.th, w // q), np.float32)
+            for eddy, weight in zip(FLOW_EDDY, (1.0, 0.5)):
+                cell = max(2, int(eddy * min(h, w) / q))
+                g = rng.standard_normal((self.th // cell + 3, (w // q) // cell + 3)).astype(np.float32)
+                n += weight * cv2.resize(g, (w // q, self.th), interpolation=cv2.INTER_CUBIC)
+            self.tex.append(n / max(float(np.abs(n).max()), 1e-6))
+
+    def noise(self, t: int, which: int) -> np.ndarray:
+        """Frame t's window on a noise texture, risen by FLOW_SCROLL a frame (full size)."""
+        rows = self.h // self.q
+        off = int(t * FLOW_SCROLL * self.k / self.q) % (self.th - rows)
+        win = self.tex[which][self.th - rows - off:self.th - off]
+        return cv2.resize(win, (self.w, self.h), interpolation=cv2.INTER_LINEAR)
+
+    def stream(self, t: int, E: np.ndarray, step) -> np.ndarray:
+        look = E[::4, ::4].max(-1) > 1e-3
+        ys, xs = np.nonzero(look)
+        if ys.size == 0:
+            return E
+        top, bottom = 4 * int(ys.min()), 4 * int(ys.max())
+        reach = (FLOW_LICK + FLOW_SWAY) * self.k + float(np.abs(self.drag).max()) * FLOW_DRAG
+        pad = int(reach) + 8
+        y0, y1 = max(0, top - pad), min(self.h, bottom + pad)
+        x0, x1 = max(0, 4 * int(xs.min()) - pad), min(self.w, 4 * int(xs.max()) + pad)
+        rows = np.arange(y0, y1, dtype=np.float32)[:, None]
+        up = np.clip((bottom - rows) / max(bottom - top, 1.0), 0.0, 1.0)  # 0 at its root, 1 at its top
+        nx, ny, nb = (self.noise(t, i)[y0:y1, x0:x1] for i in range(3))
+        sway = np.sin(2 * np.pi * (FLOW_SWAY_HZ * t / self.fps - FLOW_SWAY_LAG * up)).astype(np.float32)
+        dx = (FLOW_LICK * self.k * up ** 1.3) * nx + (FLOW_SWAY * self.k * up ** 1.6) * sway \
+            + FLOW_DRAG * float(self.drag[0]) * up ** 1.5
+        dy = -0.3 * FLOW_LICK * self.k * up ** 1.3 * np.abs(ny) + FLOW_DRAG * float(self.drag[1]) * up ** 1.5
+        mx = (self.grid[0][y0:y1, x0:x1] + dx).astype(np.float32)
+        my = (self.grid[1][y0:y1, x0:x1] + dy).astype(np.float32)
+        out = np.zeros_like(E)
+        out[y0:y1, x0:x1] = cv2.remap(E, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+        broken = np.clip(1.0 + FLOW_BREAK * up ** 2 * (2.0 * nb - 0.6), 0.0, 1.0)  # gaps open between its top tongues
+        out[y0:y1, x0:x1] *= broken[..., None]
+        return out
+
+    def __call__(self, t: int, E: np.ndarray | None, step=(0.0, 0.0)) -> np.ndarray | None:
+        if self.last is None or t != self.last + 1:
+            self.trail, self.drag = None, np.zeros(2, np.float32)
+        self.last = t
+        self.drag = FLOW_EASE * self.drag + (1.0 - FLOW_EASE) * np.asarray(step, np.float32)
+        if E is not None:
+            E = self.stream(t, E, step)
+        if self.trail is not None:
+            self.trail *= np.asarray(FLOW_KEEP, np.float32)
+        if E is not None:
+            feed = E * np.float32(FLOW_FEED)
+            self.trail = feed if self.trail is None else np.maximum(self.trail, feed)
+        if self.trail is not None and float(self.trail[::8, ::8].max()) < 2e-3:
+            self.trail = None
+        if E is None:
+            return None if self.trail is None else self.trail.copy()
+        return E if self.trail is None else np.maximum(E, self.trail)
+
+
 def room_behind(E: np.ndarray, P: np.ndarray) -> float:
     """How bright the room is behind a flame (linear luminance): the plate's mean under it, weighted by the flame."""
     from . import fx_light as fx
@@ -1490,12 +1583,14 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     made: dict[int, np.ndarray | None] = {}  # each frame's element, carried once (it was carried twice: small, then full)
     behind: dict[int, float] = {}  # each frame's room behind its fire (room_behind), and its fire brightened by it once
     fires: dict[int, np.ndarray] = {}  # each frame's fire as composited, for the camera's overexposure (bleed)
+    flow = FireFlow(h, w, spec.seed, FPS) if FLOW and eff.fluid == "fire" else None
     for a in range(0, n, CHUNK):
         b = min(n, a + CHUNK)
         a0, b1 = max(0, a - 1), min(n, b + 1)
         for i in range(a0, b1):
             if i not in made:
-                made[i] = element_at(i)
+                made[i] = element_at(i) if flow is None else flow(
+                    i, element_at(i), emitter_at(track, i)[0] - emitter_at(track, max(0, i - 1))[0])
         P = np.stack([lin(plate[i]) for i in range(a0, b1)])
         if eff.fluid == "fire":  # over a bright room the flame is brighter than rendered (its light on the skin is not:
             # boosted, it blew the skin out in a sunlit room)
@@ -1617,7 +1712,9 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                     "instant": None if not instant else {"library": str(element_from), "no_gpu": True},
                     "camera": "locked" if cam is None else "handheld: thrown fire moves with the room",
                     "charge": None if not charge else {"from": int(charge[0]), "release": int(charge[1]),
-                                                       "seconds": round((charge[1] - charge[0]) / FPS, 2)}},
+                                                       "seconds": round((charge[1] - charge[0]) / FPS, 2)},
+                    "flow": None if flow is None else {"lick": FLOW_LICK, "scroll": FLOW_SCROLL, "sway": FLOW_SWAY,
+                                                       "drag": FLOW_DRAG}},  # (FireFlow: the fire streamed as in air)
         "auto": auto or picked, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
