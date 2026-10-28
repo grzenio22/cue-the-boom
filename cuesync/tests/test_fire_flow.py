@@ -29,6 +29,13 @@ def test_a_moving_hand_leaves_a_cooling_trail_and_a_jump_starts_afresh():
     assert g(9, none.copy()).max() == 0.0
 
 
+def test_a_thrown_fireball_leaves_no_ghost_of_itself_behind():
+    E, none = flame(), np.zeros_like(flame())
+    f = FireFlow(*E.shape[:2], seed=1, trail=False)
+    f(0, E.copy()), f(1, E.copy())
+    assert f(2, none.copy()).max() == 0.0
+
+
 def test_the_same_seed_streams_the_same_fire():
     E = flame()
     a, b = FireFlow(*E.shape[:2], seed=4), FireFlow(*E.shape[:2], seed=4)

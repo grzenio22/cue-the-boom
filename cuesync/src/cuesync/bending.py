@@ -1058,10 +1058,12 @@ class FireFlow:
     top: by turbulence that rises through it (its tongues travel up as they wave, rather than the whole flame bending
     one way and back), by a breeze whose sway reaches the top after the root, and by the drag of the hand's own motion
     (the top trails behind a moving hand and catches up when it stops). Its top breaks into separate tongues as they
-    rise, and a short, cooling trail stays where a moving hand left it. Frames must come in order; a jump starts afresh."""
+    rise, and a short, cooling trail stays where a moving hand left it (``trail``: not behind a fireball thrown off the
+    hand, which flies smeared along its own path: a trail there is a ghost of it). Frames must come in order; a jump
+    starts afresh."""
 
-    def __init__(self, h: int, w: int, seed: int, fps: float = 24.0):
-        self.h, self.w, self.seed, self.fps = h, w, seed, fps
+    def __init__(self, h: int, w: int, seed: int, fps: float = 24.0, trail: bool = True):
+        self.h, self.w, self.seed, self.fps, self.trails = h, w, seed, fps, trail
         self.k = min(h, w) / 1080.0
         self.trail: np.ndarray | None = None
         self.last: int | None = None
@@ -1119,6 +1121,8 @@ class FireFlow:
         self.drag = FLOW_EASE * self.drag + (1.0 - FLOW_EASE) * np.asarray(step, np.float32)
         if E is not None:
             E = self.stream(t, E, step)
+        if not self.trails:
+            return E
         if self.trail is not None:
             self.trail *= np.asarray(FLOW_KEEP, np.float32)
         if E is not None:
@@ -1587,7 +1591,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
     made: dict[int, np.ndarray | None] = {}  # each frame's element, carried once (it was carried twice: small, then full)
     behind: dict[int, float] = {}  # each frame's room behind its fire (room_behind), and its fire brightened by it once
     fires: dict[int, np.ndarray] = {}  # each frame's fire as composited, for the camera's overexposure (bleed)
-    flow = FireFlow(h, w, spec.seed, FPS) if FLOW and eff.fluid == "fire" else None
+    flow = FireFlow(h, w, spec.seed, FPS, trail=not thrown) if FLOW and eff.fluid == "fire" else None
     for a in range(0, n, CHUNK):
         b = min(n, a + CHUNK)
         a0, b1 = max(0, a - 1), min(n, b + 1)
@@ -1718,7 +1722,7 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
                     "charge": None if not charge else {"from": int(charge[0]), "release": int(charge[1]),
                                                        "seconds": round((charge[1] - charge[0]) / FPS, 2)},
                     "flow": None if flow is None else {"lick": FLOW_LICK, "scroll": FLOW_SCROLL, "sway": FLOW_SWAY,
-                                                       "drag": FLOW_DRAG}},  # (FireFlow: the fire streamed as in air)
+                                                       "drag": FLOW_DRAG, "trail": flow.trails}},  # (FireFlow: the fire streamed as in air)
         "auto": auto or picked, "sound": SOUND, "seconds_total": round(time.perf_counter() - t0, 1),
     }
     (out_dir / "receipt.json").write_text(json.dumps(receipt, indent=1))
