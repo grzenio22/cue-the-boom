@@ -165,7 +165,8 @@
       "lick": 20.0,
       "scroll": 12.0,
       "sway": 9.0,
-      "drag": 2.0
+      "drag": 2.0,
+      "trail": false
     }
   },
   "auto": null,
@@ -174,14 +175,14 @@
     "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
     "foley_gain": 0.65
   },
-  "seconds_total": 70.7,
+  "seconds_total": 67.4,
   "element_sha256": "5f47a759776273ba58f7cf3b5fbdf85df7d02ac72b0e45535d4f9d4af141fa87",
   "recomposite": {
     "method": "CPU compositing from the existing LTX element, track and matte",
     "no_new_render": true,
     "no_gpu": true,
     "element_sha256": "5f47a759776273ba58f7cf3b5fbdf85df7d02ac72b0e45535d4f9d4af141fa87",
-    "source_receipt_sha256": "43320cea52bd42603c97a93a00e4366dfb76ecb9e128e5d90409bfc657a1ce53",
+    "source_receipt_sha256": "5ae96d2d57928da9600e1662999c3f8497b7e516159e57f7318400fb3b2c332e",
     "raw_audio_hit_frames": [
       38
     ],
@@ -190,11 +191,11 @@
     ],
     "charge_window": null,
     "cue_voice_end_frame": 118,
-    "utc": "2026-10-28T19:49:59.499844+00:00",
-    "seconds": 70.798,
+    "utc": "2026-10-28T21:04:46.948603+00:00",
+    "seconds": 67.428,
     "renderer_sources": {
       "cuesync/src/cuesync/audio.py": "ebee363eb6ee02050dee9bf24134039b25d45da9f6a2bdd67402ea7278442c4e",
-      "cuesync/src/cuesync/bending.py": "824baf912f808efe3a5f1fdfb57bd82b5a3b3c5086f74b68b14964da2b94435f",
+      "cuesync/src/cuesync/bending.py": "03ea89b8fffd0da45cfaa0b5536a99c35fc10c3a31d73e6d2e2e3f7ed166a50e",
       "cuesync/src/cuesync/composite.py": "41b9b4ae9e200697c9e8e4f3e781efa7b158e5188a9c4a11aad41520683927be",
       "cuesync/src/cuesync/conform.py": "e1ec3595b2f6053c7c43634ba08ab0d792c29db62d3b463c30e088002f913c01",
       "cuesync/src/cuesync/cues.py": "a5e68e16e64a017dcb72411fa12b611487101c106941d47c25daf885a59ca295",
