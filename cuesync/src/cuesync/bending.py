@@ -1494,6 +1494,10 @@ def make_bending_shot(spec, renderer, out_dir: Path, track_path: str | Path, mas
         drawn = drawn_extent((source(e) for e in range(ign, len(element), 2)), ref)
         play, fit = fit_play(eff.behaviour, drawn, track, k_launch, w, h, least=0.3 if instant else 1.0)
     thrown = eff.behaviour == "burst"  # a fireball leaves the fist at the strike (thrown_pose)
+    if thrown and old is not None and not instant and "thrown" in old["bending"]:
+        # performed again: as its source was (a fireball held in a cupped palm stays there); a library's source pose
+        # does not decide a new hand's release, and a legacy receipt without the field is not an anchored choice
+        thrown = old["bending"]["thrown"] is not None
 
     faded: dict[int, float] = {}  # plate frame -> its element's strength as played (a held flame dying down: under 1)
 
