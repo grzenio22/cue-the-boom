@@ -9,6 +9,8 @@ Higgsfield's Effects presets, such as Fire Element, Air Bending, Explosion and T
 
 [Try it, no GPU](#try-it-on-your-computer-no-gpu) · [Try it live](#try-it-live-with-your-webcam) · [Why it's new](#why-its-new) · [How it works](#how-it-works) · [In ComfyUI](#comfyui-and-the-comfy-developer-platform) · [In detail](TECHNICAL.md)
 
+**Judging it?** No GPU, a few minutes: [install and start the studio](#try-it-on-your-computer-no-gpu), choose **Fire**, click **Perform this fire with your voice**, then **Try a sample voice instead** (or use your microphone). **Perform again** plays the same LTX-2.5 render in a new rhythm, with no new generation.
+
 ![The author's own hand: BOOM throws a fireball off the fist, a held fffff keeps a flame in the palm through a walk from a hallway into a kitchen in one take, and a render performed again as pf pf pf PF](media/hand_hero.jpg)
 <sub>The author's own hand and voice, filmed on a phone. The third is a render performed again in a new rhythm, with no new render.</sub>
 

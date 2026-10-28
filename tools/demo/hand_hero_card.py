@@ -2,8 +2,9 @@
 
     python tools/demo/hand_hero_card.py [--output path/to/hand_hero.jpg]
 
-To reproduce the README card with the complete flame and hand in each panel:
-    python tools/demo/hand_hero_card.py --frames 70 120 41 --contain-crop 1 0 700 1080 1600 --contain-crop 2 0 400 1080 1500 --contain-crop 3 0 100 1080 1550
+With no options it makes the README card: a 16:9 band of each shot at its default frame. --contain-crop fits a
+chosen crop inside a panel with dark bars instead, for example the whole flame and hand:
+    python tools/demo/hand_hero_card.py --contain-crop 2 0 400 1080 1500
 
 Paths default to this checkout, regardless of the working directory. Frame
 numbers are zero-based. Only crop, resize and optional dark bars affect pixels.
@@ -19,12 +20,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
 SHOTS = [
-    ("hand_palm__boom__fire_burst", "BOOM  (fire in your palm)"),
+    ("hand_punch__boom__fire_burst", "BOOM  (a fireball off your fist)"),
     ("hand_walk__fffff__flame_plume", "fffff  (a flame in your palm, one take)"),
-    ("hand_fist__boom__fire_burst", "BOOM  (a fireball as your hand closes)"),
+    ("hand_palm__pfx4__again", "pf pf pf PF  (one render, performed again)"),
 ]
 W, LABEL, GAP = 645, 40, 2
-DEFAULT_CONTAIN = [(1, 0, 700, 1080, 1600), (2, 0, 400, 1080, 1500), (3, 0, 100, 1080, 1550)]
+DEFAULT_CONTAIN: list[tuple[int, int, int, int, int]] = []
 
 
 def font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -50,10 +51,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gallery", type=Path, default=ROOT / "samples/made_ahead/bending")
     parser.add_argument("--output", type=Path, default=ROOT / "media/hand_hero.jpg")
-    parser.add_argument("--frames", type=int, nargs=3, default=(70, 120, 41),
-                        metavar=("PALM", "WALK", "FIST"))
+    parser.add_argument("--frames", type=int, nargs=3, default=(66, 120, 64),
+                        metavar=("FIST", "WALK", "AGAIN"))
     parser.add_argument("--tops", type=float, nargs=3, default=(0.27, 0.38, 0.36),
-                        metavar=("PALM", "WALK", "FIST"),
+                        metavar=("FIST", "WALK", "AGAIN"),
                         help="Top of each 16:9 crop, as a fraction of source height")
     parser.add_argument("--contain-crop", type=int, nargs=5, action="append",
                         metavar=("PANEL", "LEFT", "TOP", "RIGHT", "BOTTOM"),
