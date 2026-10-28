@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dragDirection, failure, followJob, hitAnchor, isExperimentalEffect, madeAhead, pollUntilDone, quickPerformance, type JobStatus, type Receipt, replayable, sameStrokes, sceneEffect, submitShot, suggestEffect } from "./shot";
+import { dragDirection, failure, followJob, hitAnchor, isExperimentalEffect, madeAhead, pollUntilDone, QUICK_PERFORMANCES, quickPerformance, type JobStatus, type Receipt, replayable, sameStrokes, sceneEffect, submitShot, suggestEffect } from "./shot";
 
 const SR = 48000;
 
@@ -11,6 +11,17 @@ describe("curated performances", () => {
     expect(choice.voices).toContain("pf-pf-boom-author.wav");
   });
 
+  it("puts every water form on the prepared palm with the core elements", () => {
+    for (const effect of ["water_whip", "water_jet", "water_orb", "water_ribbon", "water_surge", "water_shield"]) {
+      const choice = quickPerformance(effect);
+      expect(choice.element).toBe("Water");
+      expect(choice.plate).toBe("hand_palm.mp4");
+      expect(choice.voices).toEqual(["shhhhh-sploosh.wav"]);
+      expect(QUICK_PERFORMANCES).toContain(choice);
+    }
+    expect(QUICK_PERFORMANCES.find((p) => p.element === "Water")!.effect).toBe("water_whip");
+  });
+
   it("preserves explicit experimental forms without making them the fallback", () => {
     expect(quickPerformance("water_whip").effect).toBe("water_whip");
     expect(quickPerformance("air_vortex").effect).toBe("air_vortex");
@@ -19,7 +30,7 @@ describe("curated performances", () => {
   });
 
   it.each([
-    ["water_orb", true], ["air_ball", true], ["earth_shatter", true],
+    ["air_ball", true], ["earth_shatter", true], ["water_orb", false], ["water_whip", false],
     ["fire_burst", false], ["explosion", false], ["lightning_ball", false], ["steam_jet", false],
   ])("classifies %s for the experimental disclosure", (effect, experimental) => {
     expect(isExperimentalEffect(effect)).toBe(experimental);

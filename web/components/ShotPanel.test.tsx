@@ -175,7 +175,7 @@ describe("ShotPanel stone material finish", () => {
 
 describe("ShotPanel offline sample hand", () => {
   it("does not preselect experimental suggestions without an explicit choice", async () => {
-    await show({ performance: { ...performance, experimental: false } });
+    await show({ performance: { ...performance, suggested: "air_ball", experimental: false } });
     expect(radio("Your cue decides").getAttribute("aria-checked")).toBe("true");
     await tap(button("Make the shot"));
     expect(sent[0].get("effect")).toBe("auto");
@@ -191,27 +191,29 @@ describe("ShotPanel offline sample hand", () => {
     }
     expect(radios()).toHaveLength(8);
     expect(radios().some((b) => /^(Flamethrower|Fireball|Flame in the palm|Steam|Smoke puff|Flare-up)/.test(b.textContent ?? ""))).toBe(false);
-    const experimental = radio("Water orb").closest("details")!;
+    const experimental = radio("Air ball").closest("details")!;
     expect(experimental.querySelector("summary")?.textContent).toBe("Experimental");
     expect(experimental.open).toBe(false);
-    for (const label of ["Water orb", "Water whip", "Air ball", "Air blast"]) {
+    for (const label of ["Air ball", "Air blast"]) {
       expect(radio(label).closest("details")).toBe(experimental);
       expect(radio(label).textContent).toContain("Experimental");
     }
-    for (const label of ["Explosion", "Lightning", "Ball lightning"]) {
+    for (const label of ["Explosion", "Lightning", "Ball lightning", "Water orb", "Water whip"]) {
+      expect(radio(label).textContent).not.toContain("Experimental");
       expect(radio(label).closest("details")).toBeNull();
     }
   });
 
-  it("keeps the live hand picker focused on fire, explosion and lightning", async () => {
+  it("keeps the live hand picker focused on fire, water, explosion and lightning", async () => {
     await show({ performance: autoPerformance, modes: ["bending", "instant"] });
     await tap(button("Choose it yourself"));
     const offered = radios().filter((b) => !b.closest("details"));
-    expect(offered).toHaveLength(7); // the automatic choice and six core forms
+    expect(offered).toHaveLength(9); // the automatic choice and eight core forms
     expect(radios().find((b) => b.textContent?.startsWith("Steam"))).toBeUndefined();
     expect(radio("Fireball").closest("details")).toBeNull();
     expect(radio("Lightning").closest("details")).toBeNull();
-    expect(radio("Water orb").closest("details")?.open).toBe(false);
+    expect(radio("Water orb").closest("details")).toBeNull();
+    expect(radio("Air ball").closest("details")?.open).toBe(false);
   });
 
   it("keeps detected-effect badge overrides within the core hand effects", async () => {
@@ -221,7 +223,8 @@ describe("ShotPanel offline sample hand", () => {
     await tap(host.querySelector<HTMLButtonElement>('[aria-label="All effects"]')!);
     const badgeGroup = [...host.querySelectorAll('[role="radiogroup"][aria-label="Effect"]')].at(-1)!;
     expect([...badgeGroup.querySelectorAll('[role="radio"]')].map((b) => b.textContent)).toEqual([
-      "Flamethrower", "Fireball", "Flame in the palm", "Air vortex", "Explosion", "Lightning", "Ball lightning",
+      "Flamethrower", "Fireball", "Flame in the palm", "Water whip", "Water jet", "Water orb", "Water ribbon", "Water surge",
+      "Tidal shield", "Air vortex", "Explosion", "Lightning", "Ball lightning",
     ]);
   });
 

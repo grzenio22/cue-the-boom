@@ -200,6 +200,7 @@ def test_gallery_jobs_preserve_again_from_the_index(tmp_path, again):
     gallery = client.get("/api/gallery").json()
     assert len(gallery) == 1
     assert gallery[0].get("again") == again
+    assert gallery[0]["plate"] == "sample.mp4"  # the start page previews a form on its own sample plate
     if again is not None:
         assert type(gallery[0]["again"]) is int
     assert client.get(f"/api/jobs/{gallery[0]['id']}").json().get("again") == again

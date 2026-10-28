@@ -209,5 +209,77 @@
   "tap_frame": 54,
   "real": true,
   "rank": -193
+ },
+ "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_whip@made|0.51,0.65|1": {
+  "dir": "hand_palm__shhhhh__water_whip",
+  "title": "shhhhh · a water whip off the palm (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_whip",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -194.9
+ },
+ "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_jet@made|0.51,0.65|1": {
+  "dir": "hand_palm__shhhhh__water_jet",
+  "title": "shhhhh · sploosh · a water jet from the palm (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_jet",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -194.8
+ },
+ "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_orb@made|0.51,0.65|1": {
+  "dir": "hand_palm__shhhhh__water_orb",
+  "title": "shhhhh · sploosh · a water orb over the palm (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_orb",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -194.7
+ },
+ "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_ribbon@made|0.51,0.65|1": {
+  "dir": "hand_palm__shhhhh__water_ribbon",
+  "title": "shhhhh · sploosh · a water ribbon round the palm (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_ribbon",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -194.65
+ },
+ "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_surge@made|0.51,0.65|1": {
+  "dir": "hand_palm__shhhhh__water_surge",
+  "title": "shhhhh · sploosh · a water surge from the palm (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_surge",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -194.6
+ },
+ "bending|hand_palm.mp4|shhhhh-sploosh.wav|water_shield@made|0.51,0.65|1": {
+  "dir": "hand_palm__shhhhh__water_shield",
+  "title": "shhhhh · sploosh · a tidal shield over the palm (dark room)",
+  "plate": "hand_palm.mp4",
+  "voice": "shhhhh-sploosh.wav",
+  "effect": "water_shield",
+  "mode": "bending",
+  "seed": 1,
+  "tap_frame": 54,
+  "real": true,
+  "rank": -194.55
  }
 }

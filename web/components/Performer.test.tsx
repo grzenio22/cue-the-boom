@@ -40,7 +40,6 @@ function show(props: Partial<ComponentProps<typeof Performer>> = {}) {
 
 describe("Performer experimental sample voices", () => {
   it.each([
-    ["water_orb", "Water cue"],
     ["air_ball", "Air cue"],
     ["earth_rock", "Earth cue"],
   ])("requires opening Experimental before explicitly choosing %s", (effect, title) => {
@@ -62,6 +61,18 @@ describe("Performer experimental sample voices", () => {
     expect(onDone).toHaveBeenCalledWith(expect.objectContaining({
       cue: "voice", voice: { sample: "experimental.wav" }, suggested: effect, experimental: true,
     }));
+  });
+
+  it("offers a water sample voice with the core ones", () => {
+    const onDone = show({ hand: true, voices: [voice,
+      { name: "water.wav", url: "/water.wav", title: "Water cue", effect: "water_orb", hand: true }],
+    });
+    const sample = [...host.querySelectorAll("button")].find((b) => b.textContent?.startsWith("Water cue"))!;
+    expect(sample.closest("details")).toBeNull();
+    expect(sample.textContent).not.toContain("Experimental");
+    click(sample);
+    expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ voice: { sample: "water.wav" }, suggested: "water_orb" }));
+    expect(onDone.mock.calls[0][0].experimental).not.toBe(true);
   });
 
   it("keeps a core sample voice outside the experimental selection flow", () => {

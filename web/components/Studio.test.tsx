@@ -167,10 +167,10 @@ describe("Studio prepared palm shortcut", () => {
 });
 
 describe("Curated element quick flow", () => {
-  it("offers fire, air, explosion and lightning while keeping experimental elements collapsed", async () => {
+  it("offers fire, water, air, explosion and lightning while keeping earth collapsed", async () => {
     await act(async () => { root.render(<Studio />); });
 
-    for (const element of ["Fire", "Air", "Explosion", "Lightning"]) {
+    for (const element of ["Fire", "Water", "Air", "Explosion", "Lightning"]) {
       expect(button(element)).toBeDefined();
       expect(button(element).closest("details")).toBeNull();
     }
@@ -178,9 +178,7 @@ describe("Curated element quick flow", () => {
       details.querySelector("summary")?.textContent === "Experimental");
     expect(experimental).toBeDefined();
     expect(experimental!.open).toBe(false);
-    for (const element of ["Water", "Earth"]) {
-      expect(button(element).closest("details")).toBe(experimental);
-    }
+    expect(button("Earth").closest("details")).toBe(experimental);
     expect(button("Fire").getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -214,14 +212,32 @@ describe("Curated element quick flow", () => {
     expect(host.querySelector(".quick-preview video")?.getAttribute("src")).toBe("/new-palm.mp4");
   });
 
+  it("previews water on its own prepared palm, wherever on the hand it was made", async () => {
+    const apiFetch = fetch;
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/gallery") return Response.json([
+        { ...job, effect: "water_whip", plate: "hand_open.mp4", files: { "final.mp4": "/bright-whip.mp4" } },
+        { ...job, effect: "water_whip", plate: "hand_palm.mp4", files: { "final.mp4": "/palm-whip.mp4" },
+          receipt: { ...job.receipt, inputs: { point: [0.498, 0.687] } } },
+        { ...job, effect: "water_jet", plate: "hand_palm.mp4", files: { "final.mp4": "/palm-jet.mp4" } },
+      ]);
+      return apiFetch(url, init);
+    });
+    await act(async () => { root.render(<Studio />); });
+    await click("Water");
+    expect(host.querySelector(".quick-preview video")?.getAttribute("src")).toBe("/palm-whip.mp4");
+    await click("Jet");
+    expect(host.querySelector(".quick-preview video")?.getAttribute("src")).toBe("/palm-jet.mp4");
+  });
+
   it.each([
     ["Air", "Vortex", "air_vortex", "hoooo.wav", "hand_palm.mp4"],
-    ["Water", "Orb", "water_orb", "shhhhh-sploosh.wav", "hand_open.mp4"],
-    ["Water", "Whip", "water_whip", "shhhhh-sploosh.wav", "hand_open.mp4"],
-    ["Water", "Surge", "water_surge", "shhhhh-sploosh.wav", "hand_open.mp4"],
-    ["Water", "Ribbon", "water_ribbon", "shhhhh-sploosh.wav", "hand_open.mp4"],
-    ["Water", "Tidal shield", "water_shield", "shhhhh-sploosh.wav", "hand_open.mp4"],
-    ["Water", "Jet", "water_jet", "shhhhh-sploosh.wav", "hand_open.mp4"],
+    ["Water", "Orb", "water_orb", "shhhhh-sploosh.wav", "hand_palm.mp4"],
+    ["Water", "Whip", "water_whip", "shhhhh-sploosh.wav", "hand_palm.mp4"],
+    ["Water", "Surge", "water_surge", "shhhhh-sploosh.wav", "hand_palm.mp4"],
+    ["Water", "Ribbon", "water_ribbon", "shhhhh-sploosh.wav", "hand_palm.mp4"],
+    ["Water", "Tidal shield", "water_shield", "shhhhh-sploosh.wav", "hand_palm.mp4"],
+    ["Water", "Jet", "water_jet", "shhhhh-sploosh.wav", "hand_palm.mp4"],
     ["Lightning", "Arcs", "lightning_arc", "zzzzz-tsst.wav", "hand_palm.mp4"],
     ["Lightning", "Ball", "lightning_ball", "zzzzz-tsst.wav", "hand_palm.mp4"],
     ["Earth", "Living stone", "earth_rock", "hoooo.wav", "hand_open.mp4"],
@@ -239,7 +255,7 @@ describe("Curated element quick flow", () => {
       return apiFetch(url, init);
     });
     await act(async () => { root.render(<Studio />); });
-    if (["Water", "Earth"].includes(element)) {
+    if (element === "Earth") {
       const disclosure = button(element).closest("details")!;
       expect(disclosure.open).toBe(false);
       await act(async () => { disclosure.querySelector("summary")!.click(); });
@@ -256,7 +272,8 @@ describe("Curated element quick flow", () => {
     await act(async () => { sampleFallback.click(); });
     const sample = [...host.querySelectorAll("button")].find((candidate) =>
       candidate.textContent?.startsWith("Element cue"))!;
-    if (["Water", "Earth"].includes(element)) expect(sample.textContent).toContain("Experimental");
+    if (element === "Earth") expect(sample.textContent).toContain("Experimental");
+    else expect(sample.textContent).not.toContain("Experimental");
     await act(async () => { sample.click(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(submitted).toHaveLength(1);

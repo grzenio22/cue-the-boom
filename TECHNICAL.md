@@ -9,7 +9,7 @@ Generation makes a stored element; performance gives it a new timeline. Near the
 
 The replay receipts name the base shot and record the same element SHA-256, `no_new_render: true` and `no_gpu: true`. The new voice determines the hit frames, size and held duration; tracking, masking, compositing and light run on the CPU. The generated effect becomes a reusable instrument.
 
-For hand effects, LTX-2.5 with ainvfx-fluid generates the fire, the air vortex and the explosion's fireball once over black. [`runner.py`](cuesync/src/cuesync/runner.py) loads the API workflow JSON, constructs the Comfy Python SDK workflow and sends it to the self-hosted Comfy API with `client.run`. Lightning is a procedural CPU effect. The explosion reuses an LTX fireball; its blast, light, smoke compositing and dissipation are handled on the CPU.
+For hand effects, LTX-2.5 with ainvfx-fluid generates the fire, the air vortex and the explosion's fireball once over black. [`runner.py`](cuesync/src/cuesync/runner.py) loads the API workflow JSON, constructs the Comfy Python SDK workflow and sends it to the self-hosted Comfy API with `client.run`. Lightning and water are procedural CPU effects. The explosion reuses an LTX fireball; its blast, light, smoke compositing and dissipation are handled on the CPU.
 
 ## The pipeline
 
@@ -73,16 +73,17 @@ it is then carried on the hand on the CPU: held while the voice holds (a hoooo),
 composited over the plate as white vapour, and let go when the voice stops. On a sample hand with no GPU and no tracker,
 the stored element is carried on the sample's own track and matte.
 
-### Lightning and explosion
+### Lightning, water and explosion
 
 These effects are composited on the CPU from the plate, hand track and matte, and the voice's timeline. Each module follows the contract in [`elements.py`](cuesync/src/cuesync/elements.py): `render(plate, track, mask, timeline, form, seed)`. A shot is deterministic per seed.
 
 - **Lightning** ([`lightning.py`](cuesync/src/cuesync/lightning.py)) uses branching channels from a tracked fingertip or a plasma ball over the palm, with hand occlusion and cool light on the skin and room. The voice sets timing and strength; no model generation is needed.
+- **Water** ([`water.py`](cuesync/src/cuesync/water.py)) is a lens and a mirror over the plate: each frame's water is a set of metaballs read as a thickness map, and each pixel's ray is refracted through it (Snell at both surfaces) to the hand or the room behind, with Fresnel reflection of the room, the key light's glints, caustics on the palm inside its shadow, motion blur and wet skin where it has been. Its colour comes from the room's own light, with a floor on that light and a faint blue-green absorption so it stays readable in a dim room. Six forms (whip, jet, orb, ribbon, surge, tidal shield) follow a held shhh and its sploosh accents.
 - **Explosion** ([`explosion.py`](cuesync/src/cuesync/explosion.py)) uses a stored LTX-2.5 + ainvfx-fluid fireball. Its blast is measured on the source render, placed ahead of the fist on the strike and carried with the room after release. The CPU adds the blast, light, sparks, smoke compositing and dissipation without a new generation.
 
-Water, earth and the procedural air ball and blast are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
+Earth and the procedural air ball and blast are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
-The curated gallery leads with the fist explosion, palm fire and its re-performances in the author's and four strangers' voices, followed by the walking flame, pointing fire, the air vortex and lightning from a fingertip and a dim-room palm. Each finished shot keeps its source and performance receipts. The live preview draws fire and lightning in the browser.
+The curated gallery leads with the fist explosion, palm fire and its re-performances in the author's and four strangers' voices, followed by the walking flame, pointing fire, water's six forms on the dim-room palm, the air vortex and lightning from a fingertip and a dim-room palm. Each finished shot keeps its source and performance receipts. The live preview draws fire and lightning in the browser.
 
 **CPU-route evaluation, on nineteen phone takes.** Nineteen of the author's own takes went through the studio's no-GPU route: no SAM, the hand followed and matted on the CPU, each take's own sound as the cue, the effect picked by the sound and the gesture, and an element from the library. The timings below are from a desktop CPU, not a laptop performance guarantee.
 - Every one of the nineteen made a shot, in 32 to 100 s each on a desktop CPU.

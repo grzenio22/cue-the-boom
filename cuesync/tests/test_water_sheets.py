@@ -16,13 +16,14 @@ def timeline(n=72,holds=((4,65),),hits=()):
     return Timeline(n,np.full(n,.6),list(hits),[.8]*len(hits),list(holds))
 
 
-def test_dark_room_ignores_the_bright_skin_and_has_no_emissive_floor():
+def test_dark_room_ignores_the_bright_skin_and_is_lit_only_to_the_readable_floor():
     plate=np.full((2,240,160,3),24,np.uint8);mask=np.zeros(plate.shape[:3],np.uint8)
     plate[:,100:230,40:145]=[210,104,61];mask[:,100:230,40:145]=255
     room=water.Room(plate,mask)
-    assert room.lit(0).max()<.04
-    assert room.lit(0).min()/room.lit(0).max()>.9
-    assert water.Room(np.zeros_like(plate)).lit(0).max()==0
+    assert water.KEY_FLOOR*.8<=room.lit(0).max()<=water.KEY_FLOOR+1e-6  # the floor, not the bright skin
+    assert room.lit(0).min()/room.lit(0).max()>.9  # neutral: no pink from the skin
+    black=water.Room(np.zeros_like(plate)).lit(0)
+    assert black.max()<=water.KEY_FLOOR+1e-6 and black.min()/black.max()>.9
 
 
 @pytest.mark.parametrize('form',('orb','surge',*sheets.NEW_FORMS))

@@ -68,6 +68,7 @@ skin instead follows the palm's depth and silhouette.
 from __future__ import annotations
 
 import math
+import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from typing import NamedTuple
@@ -93,7 +94,8 @@ SIG_K = 1.0 / math.sqrt(2.0 * LN_TAU)  # a blob's sigma per unit radius: a lone 
 REACH = 3.0  # sigmas: a blob's field is laid this far out, tapering to nothing over its last fifth (cut off without the
 # taper, a neighbour's surface stepped where it crossed the edge; tapering from 1.9 sigmas, the blobs of a stream summed
 # unevenly at its outline, rippled at their spacing: ribs across it)
-ABSORB = np.array([0.06, 0.025, 0.015], np.float32)  # per hand size of path: a palm-sized volume is almost colourless
+ABSORB = np.array([float(v) for v in os.environ.get("CUESYNC_WATER_ABSORB", "0.22,0.08,0.03").split(",")],
+                  np.float32)  # per hand size of path: a palm-sized body takes a faint blue-green
 LENS = 0.5  # how far a ray turns per unit of the surface's slope, through both faces (a ball lens: 2 (n - 1) / n);
 # it says how much of the plate one pixel of water sees
 ROOM_DEPTH = 0.55  # shares of the frame's long side: the room behind the water (a ray turned by an angle sees about
@@ -192,6 +194,8 @@ KEY_ELEV = 0.25  # the key light's direction out of the picture, towards the cam
 KEY_UP = 0.35  # the key light is taken this much from above (a room's lights are mostly over the camera) and the rest
 # from where the plate is brightest (read alone, a window behind the hand lit the orb from below)
 KEY_SHARE = 0.015  # the brightest share of the room read as its key light...
+KEY_FLOOR = float(os.environ.get("CUESYNC_WATER_KEY_FLOOR", "0.35"))  # ... taken at least this bright (linear): in a
+# dim room the water's glints, rim and froth were lit by a lamp too faint to see them by
 KEY_SMOOTH = 6.0  # ... held steady over this many frames (sigma): read on each frame alone, a glint jumped when a lamp
 # came into view on a walk
 ENV_TOP, ENV_Q, ENV_BLUR = 0.4, 4, 1.5  # the room the water reflects: the plate's top share, this many times
@@ -1293,7 +1297,7 @@ class Room:
             white.append(broad+(strength-broad)*(1.-float(_ss(.05,.25,strength))))
         self.at = _tsmooth(at, KEY_SMOOTH)
         self.colour = _tsmooth(colour, KEY_SMOOTH).astype(np.float32)
-        self.white = _tsmooth(white, KEY_SMOOTH)
+        self.white = np.maximum(_tsmooth(white, KEY_SMOOTH), KEY_FLOOR)
 
     def reflect(self, k: int, rx: np.ndarray, ry: np.ndarray) -> np.ndarray:
         """(m, 3) linear: the room on frame ``k`` in the directions (rx, ry) a ray leaves the water in (unit vectors'
@@ -1321,8 +1325,9 @@ class Room:
 
     def lit(self, k: int) -> np.ndarray:
         """The key light's colour and strength (linear)."""
-        # A bright hand is a reflecting surface, not the lamp. The old .3 linear
-        # floor overlit dim footage by an order of magnitude and tinted foam pink.
+        # A bright hand is a reflecting surface, not the lamp: the colour comes from the room alone (taking it from
+        # the skin tinted the foam pink). Its strength never falls under KEY_FLOOR, a deliberate stylisation: by a
+        # dim room's own lamp the water's glints, rim and froth could not be seen.
         colour = .82 + .18 * self.colour[k]
         gain = 1. + .8 * (1. - float(_ss(.04, .25, self.white[k])))
         return colour * np.float32(min(self.white[k] * gain, 1.0))

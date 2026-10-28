@@ -53,9 +53,9 @@ The `python3` built into macOS is 3.9, too old: install a newer one from python.
 
 The studio opens at http://127.0.0.1:8765 (`cuesync studio --port 8766` if that port is taken). In it:
 
-1. Choose **Fire**, **Air**, **Explosion** or **Lightning**, then a form where offered. Click **Perform this … with your voice** to select its prepared hand clip.
+1. Choose **Fire**, **Water**, **Air**, **Explosion** or **Lightning**, then a form where offered. Click **Perform this … with your voice** to select its prepared hand clip.
 2. Click **Use my microphone**, then **Record & make …**. Make the suggested sound as the clip plays. Microphone access starts only when you request it.
-3. When recording ends, the app automatically makes your performance. Fire, air and explosion reuse stored generated elements; lightning is composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
+3. When recording ends, the app automatically makes your performance. Fire, air and explosion reuse stored generated elements; water and lightning are composed procedurally from your recording and the tracked hand. **Download** saves the finished shot.
 4. **Perform again** gives the same element a new performance. No microphone? **Try a sample voice instead** performs it with a recorded example, labelled as one.
 
 The prepared fire path always reuses the stored element, even when a GPU is connected. On a Ryzen 9 7900X, the bundled three-hit author rhythm took 40.3–40.8 seconds from HTTP submission through MP4 download (three runs; 84 frames at 24 fps; no new model generation). Those measurements exclude microphone permission and recording time and do not predict hosted or arbitrary-clip performance. Run `python tools/benchmark_prepared_palm.py --out runs/palm-benchmark` (it also needs `pip install httpx` and FFmpeg on your PATH) to measure the bundled author rhythm on your computer; it uses a separate local CPU-only server and writes its inputs, timings and decode checks.
@@ -99,9 +99,9 @@ The details (the pipeline step by step, the timing evaluation, the matte, the li
 
 ## The curated gallery
 
-**Made with it** leads with the fist explosion, the palm fire and its two new voice rhythms, the same render in four strangers' recorded voices, then the walking flame, pointing fire, the air vortex and lightning, whose procedural light falls on the author's hand. The grid shows each render once; its further performances play together under **One render. Seven performances.** These are finished shots you can play without a GPU.
+**Made with it** leads with the fist explosion, the palm fire and its two new voice rhythms, the same render in four strangers' recorded voices, then the walking flame, pointing fire, water in its six forms on the dim-room palm, the air vortex and lightning, whose procedural light falls on the author's hand. The grid shows each render once; its further performances play together under **One render. Seven performances.** These are finished shots you can play without a GPU.
 
-Water and earth, and the procedural air ball and blast, are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
+Water is made on the CPU from the plate itself, with no model generation: each frame's water refracts and mirrors the room behind it and focuses light onto the hand, in six forms (whip, jet, orb, ribbon, surge and tidal shield) performed with a held shhh and sploosh accents. It is a stylised single-view composite, not a liquid simulation. Earth and the procedural air ball and blast are experimental CPU effects under the collapsed **Experimental** disclosure; their materials and motion can still look synthetic.
 
 Choose an effect, then perform its cue. Voice controls timing and strength; it does not generate arbitrary new effects from spoken instructions. The live webcam preview supports fire and lightning. [Footage and audio credits](samples/CREDITS.md).
 

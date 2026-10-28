@@ -333,7 +333,7 @@ export default function ShotPanel({ plate, point, direction, performance, effect
           {standardChoices.map(choiceButton)}
           {experimentalChoices.length > 0 && <details>
             <summary>Experimental</summary>
-            <p className="muted">Water, air and earth effects are experimental. Choose one explicitly to try it.</p>
+            <p className="muted">These air and earth effects are experimental. Choose one explicitly to try it.</p>
             <div className="row">{experimentalChoices.map(choiceButton)}</div>
           </details>}
         </>}
@@ -354,8 +354,8 @@ export default function ShotPanel({ plate, point, direction, performance, effect
       {!quick && hand && !handOffline && effect !== "explosion" && !replayOf && (
         <p className="muted">Your cue decides with your hand: a short BOOM from a palm or a fist is a fireball, a long rolling
           BOOOOM an explosion, a pf a pop of fire, a held fffff over a palm a flame in it, a long fffff from two fingers a
-          flamethrower, a zzzzz lightning. Lightning and the explosion&apos;s blast are made on this computer from your hand
-          and your voice; to pick one regardless of the noise, choose it yourself. {sceneLive
+          flamethrower, a zzzzz lightning. Water, lightning and the explosion&apos;s blast are made on this computer from your
+          hand and your voice; to pick one regardless of the noise (water among them), choose it yourself. {sceneLive
             ? "Rendered once over black on the GPU (1-3 min; the first after the GPU starts takes a few more), then carried on your hand."
             : "No GPU right now: an instant shot, an element rendered ahead of time with LTX-2.5, carried on your hand. Processing time varies with your clip and computer."}</p>
       )}

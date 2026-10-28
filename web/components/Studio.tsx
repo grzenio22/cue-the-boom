@@ -46,7 +46,10 @@ export default function Studio() {
   const choice = quickPerformance(quickEffect);
   const elementName = choice.element.toLowerCase();
   const previewPoint = samples.plates.find((p) => p.name === choice.plate)?.point;
-  const hero = gallery.find((s) => (s.effect ?? (typeof s.receipt?.effect === "object" ? s.receipt.effect.id : s.receipt?.effect)) === choice.effect && (choice.element === "Fire" ? s.again === 0 : atSampleSpot(previewPoint, s.receipt?.inputs?.point ?? null)) && s.files?.["final.mp4"]);
+  // the chosen form on its own prepared hand (an element made here comes off its own point of the hand, not the sample's)
+  const hero = gallery.find((s) => (s.effect ?? (typeof s.receipt?.effect === "object" ? s.receipt.effect.id : s.receipt?.effect)) === choice.effect
+    && (choice.element === "Fire" ? s.again === 0 : s.plate ? s.plate === choice.plate : atSampleSpot(previewPoint, s.receipt?.inputs?.point ?? null))
+    && s.files?.["final.mp4"]);
   const [apiError, setApiError] = useState<string | null>(null);
   const [plate, setPlate] = useState<PickedPlate | null>(null);
   const [quick, setQuick] = useState(false);
@@ -246,16 +249,16 @@ export default function Studio() {
           <div className="quick-intro">
             <div>
               <div className="element-picker" role="group" aria-label="Element">
-                {["Fire", "Air", "Explosion", "Lightning"].map((element) => <button key={element} type="button"
+                {["Fire", "Water", "Air", "Explosion", "Lightning"].map((element) => <button key={element} type="button"
                   className={choice.element === element ? "element-choice selected" : "element-choice secondary"}
                   aria-pressed={choice.element === element}
                   onClick={() => setQuickEffect(QUICK_PERFORMANCES.find((p) => p.element === element)!.effect)}>{element}</button>)}
               </div>
               <details>
                 <summary>Experimental</summary>
-                <p className="muted">Water and earth are experimental CPU effects. Choose one to try its forms.</p>
+                <p className="muted">Earth is an experimental CPU effect. Choose it to try its forms.</p>
                 <div className="element-picker" role="group" aria-label="Experimental element">
-                  {["Water", "Earth"].map((element) => <button key={element} type="button"
+                  {["Earth"].map((element) => <button key={element} type="button"
                     className={choice.element === element ? "element-choice selected" : "element-choice secondary"}
                     aria-pressed={choice.element === element}
                     onClick={() => setQuickEffect(EXPERIMENTAL_QUICK_PERFORMANCES.find((p) => p.element === element)!.effect)}>{element}</button>)}

@@ -34,7 +34,7 @@ short_description: Generate the effect once. Perform it again with your voice.
 Air Bending and Explosion, make a new clip every time. Here LTX-2.5 rendered the fire once, and your voice plays it on
 a real hand, as often as you like, with no new generation.
 
-- **Perform it:** choose fire, air, explosion or lightning (water and earth are experimental), then record your noise
+- **Perform it:** choose fire, water, air, explosion or lightning, then record your noise
   over a prepared hand clip. **Perform again** gives the same element a new performance.
 - **Try it live with your webcam** (on the start page): the stored LTX-2.5 fire bursts from your palm as you say BOOM.
   **Record this** turns the take into a finished shot: your hand followed, matted and lit on this CPU.
@@ -42,7 +42,7 @@ a real hand, as often as you like, with no new generation.
   three times by the author's recorded voice and four times by strangers' recorded voices (CC0, Freesound).
 
 The fire, the air vortex and the explosion's fireball were rendered ahead of time with LTX-2.5 and the ainvfx-fluid
-IC-LoRA in ComfyUI; lightning, the explosion's blast and the experimental water and earth are made on this CPU from
+IC-LoRA in ComfyUI; water, lightning and the explosion's blast are made on this CPU from
 the hand and the voice. This Space runs on a shared CPU: a shot takes a minute or two.
 
 The full app, with renders of its own on a GPU: https://github.com/grzenio22/cue-the-boom

@@ -131,9 +131,13 @@ credited unfa recording, not a synthetic preset.
 author's pointing and dim-room palm footage, the synthetic `zzzzz-tsst.wav` cue and procedural
 Foley. They are procedural CPU composites, without a new model generation or outside stock element.
 
-## Experimental elements
+## Water, earth and procedural air
 
-The experimental water, earth and procedural air effects in the studio use the author's bright
+`made_ahead/bending/hand_palm__shhhhh__water_*` are the six water forms on the author's dim-room palm footage,
+with the synthetic `shhhhh-sploosh.wav` cue and procedural Foley. They are procedural CPU composites, without a
+new model generation or outside stock element.
+
+The water, experimental earth and procedural air effects in the studio use the author's bright
 `hand_open.mp4`, dim `hand_palm.mp4` and original phone recordings, with the synthetic cues `hoooo.wav`,
 `hoo-hoo-HOO.wav`, `shhhhh-sploosh.wav` and `zzzzz-tsst.wav`; earth shatter and projectiles use the credited
 `pf-pf-boom-author.wav` edit. Procedural Foley is mixed with the cues.
