@@ -30,17 +30,20 @@ short_description: Generate the effect once. Perform it again with your voice.
 
 # Cue the Boom, with no GPU
 
-**Generate the effect once. Perform it again with your voice.** Choose fire, air, explosion or lightning (water and
-earth are experimental), then record a cue over a prepared hand clip. Below that recording flow, **One render. Seven
-performances.** plays one LTX-2.5 fire render on the author's palm, performed by three of the author's takes and by
-four strangers' recorded voices (CC0, Freesound): one generation, no new render.
+**Generate the effect once. Perform it again with your voice.** Higgsfield's Effects presets, such as Fire Element,
+Air Bending and Explosion, make a new clip every time. Here LTX-2.5 rendered the fire once, and your voice plays it on
+a real hand, as often as you like, with no new generation.
 
-Pick one of the author's sample hands and a noise (or make your own), then **Perform it again** with another one. The
-fire, the air vortex and the explosion's fireball were rendered ahead of time with LTX-2.5 and the ainvfx-fluid IC-LoRA;
-lightning, the explosion's blast and the experimental water and earth are made on this CPU from the hand and the voice.
-**Try it live** throws the stored fire from your palm through your webcam as you make the noise; **Record this** or
-**Use your own clip** films or uploads your hand: tap your palm or fingertips, drag to aim, make the noise. Processing
-time depends on your clip, effect and the available CPU.
+- **Perform it:** choose fire, air, explosion or lightning (water and earth are experimental), then record your noise
+  over a prepared hand clip. **Perform again** gives the same element a new performance.
+- **Try it live with your webcam** (on the start page): the stored LTX-2.5 fire bursts from your palm as you say BOOM.
+  **Record this** turns the take into a finished shot: your hand followed, matted and lit on this CPU.
+- **The proof:** **One render. Seven performances.** plays one LTX-2.5 fire render on the author's palm, performed
+  three times by the author's recorded voice and four times by strangers' recorded voices (CC0, Freesound).
+
+The fire, the air vortex and the explosion's fireball were rendered ahead of time with LTX-2.5 and the ainvfx-fluid
+IC-LoRA in ComfyUI; lightning, the explosion's blast and the experimental water and earth are made on this CPU from
+the hand and the voice. This Space runs on a shared CPU: a shot takes a minute or two.
 
 The full app, with renders of its own on a GPU: https://github.com/grzenio22/cue-the-boom
 
