@@ -1,141 +1,195 @@
 {
- "cuesync": "0.1.0",
- "mode": "bending",
- "effect": {
-  "id": "flame_plume",
-  "anchor": "first",
-  "behaviour": "plume",
-  "fluid": "fire",
-  "secondary": null,
-  "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire, isolated on a pure black background",
-  "r_min": 0.03,
-  "r_max": 0.3,
-  "rise": 0.55,
-  "keyframe_stride": 8,
-  "composite": "screen",
-  "align": "guide",
-  "lead_frames": 0,
-  "voice_gate": "both",
-  "release_fire": 9,
-  "release_smoke": 10,
-  "holdout_below": 0.02,
-  "tail_frames": 24,
-  "smoke_albedo": 0.4,
-  "scene": {
-   "prompt": "ainvfxfluid, a tall roaring flame bursts up out of {subject}, the fire lights up the surroundings with flickering warm orange light, then it dies down into a wisp of smoke, static camera, realistic phone video",
-   "r_min": 0.12,
-   "r_max": 0.6,
-   "direction": 0.0,
-   "resting": 0.0,
-   "bend": 0.0,
-   "shake": 0.0,
-   "flash": 0.0,
-   "rhythm": "",
-   "single": "",
-   "small": "",
-   "clean": false,
-   "variants": []
-  }
- },
- "inputs": {
-  "point": [
-   0.41203703703703703,
-   0.6453125
-  ],
-  "seed": 2,
-  "offset_s": 0.0,
-  "cue": "clip"
- },
- "render": {
-  "seconds": 0.0,
-  "prompt": "ainvfxfluid, a tall clean flame rising from a point, a bright core and licking edges, isolated on a pure black background",
-  "guide_scale": 0.746
- },
- "bending": {
-  "track": "hand_track.json",
-  "mask": "hand_mask.npz",
-  "k_hit": 57,
-  "tap_frame": 40,
-  "aim": null,
-  "k_launch": 57,
-  "ignition": 53,
-  "offset": 4,
-  "lag_frames": 5,
-  "snap": {
-   "cue": 57,
-   "motion": 39,
-   "frame": 57,
-   "used": "cue",
-   "mismatch": false
-  },
-  "hits": [
-   {
-    "frame": 57,
-    "gain": 1.0,
-    "size": 1.0,
-    "snap": {
-     "cue": 57,
-     "motion": 39,
-     "frame": 57,
-     "used": "cue",
-     "mismatch": false
+  "cuesync": "0.1.0",
+  "mode": "bending",
+  "effect": {
+    "id": "flame_plume",
+    "anchor": "first",
+    "behaviour": "plume",
+    "fluid": "fire",
+    "secondary": null,
+    "prompt": "ainvfxfluid, tall roaring flames rising, bright orange fire, isolated on a pure black background",
+    "r_min": 0.03,
+    "r_max": 0.3,
+    "rise": 0.55,
+    "keyframe_stride": 8,
+    "composite": "screen",
+    "align": "guide",
+    "lead_frames": 0,
+    "voice_gate": "both",
+    "release_fire": 9,
+    "release_smoke": 10,
+    "holdout_below": 0.02,
+    "tail_frames": 24,
+    "smoke_albedo": 0.4,
+    "scene": {
+      "prompt": "ainvfxfluid, a tall roaring flame bursts up out of {subject}, the fire lights up the surroundings with flickering warm orange light, then it dies down into a wisp of smoke, static camera, realistic phone video",
+      "r_min": 0.12,
+      "r_max": 0.6,
+      "direction": 0.0,
+      "resting": 0.0,
+      "bend": 0.0,
+      "shake": 0.0,
+      "flash": 0.0,
+      "rhythm": "",
+      "single": "",
+      "small": "",
+      "clean": false,
+      "variants": []
     }
-   },
-   {
-    "frame": 60,
-    "gain": 1.0,
-    "size": 1.0,
+  },
+  "inputs": {
+    "point": [
+      0.41203703703703703,
+      0.6453125
+    ],
+    "seed": 2,
+    "offset_s": 0.0,
+    "cue": "clip"
+  },
+  "render": {
+    "seconds": 0.0,
+    "prompt": "ainvfxfluid, a tall clean flame rising from a point, a bright core and licking edges, isolated on a pure black background",
+    "guide_scale": 0.746
+  },
+  "bending": {
+    "track": "hand_track.json",
+    "mask": "hand_mask.npz",
+    "k_hit": 57,
+    "tap_frame": 40,
+    "aim": null,
+    "k_launch": 57,
+    "ignition": 53,
+    "offset": 4,
+    "lag_frames": 5,
     "snap": {
-     "cue": 60,
-     "motion": 39,
-     "frame": 60,
-     "used": "cue",
-     "mismatch": false
+      "cue": 57,
+      "motion": 39,
+      "frame": 57,
+      "used": "cue",
+      "mismatch": false
+    },
+    "hits": [
+      {
+        "frame": 57,
+        "gain": 1.0,
+        "size": 1.0,
+        "snap": {
+          "cue": 57,
+          "motion": 39,
+          "frame": 57,
+          "used": "cue",
+          "mismatch": false
+        }
+      },
+      {
+        "frame": 60,
+        "gain": 1.0,
+        "size": 1.0,
+        "snap": {
+          "cue": 60,
+          "motion": 39,
+          "frame": 60,
+          "used": "cue",
+          "mismatch": false
+        }
+      }
+    ],
+    "ref": {
+      "xy": [
+        960.0,
+        781.59
+      ],
+      "dir": [
+        0.0,
+        -1.0
+      ],
+      "scale": 268.43
+    },
+    "fit": {
+      "as": "plume",
+      "drawn": 1.28,
+      "target": 2.8,
+      "room": 3.26,
+      "play": 2.19
+    },
+    "thrown": null,
+    "loud_ref": 0.5513,
+    "held": {
+      "release": 121,
+      "end": 121,
+      "holds": [
+        92,
+        89
+      ]
+    },
+    "performed_again": null,
+    "instant": null,
+    "camera": "handheld: thrown fire moves with the room",
+    "charge": {
+      "from": 35,
+      "release": 57,
+      "seconds": 0.92
+    },
+    "flow": {
+      "lick": 20.0,
+      "scroll": 12.0,
+      "sway": 9.0,
+      "drag": 2.0
     }
-   }
-  ],
-  "ref": {
-   "xy": [
-    960.0,
-    781.59
-   ],
-   "dir": [
-    0.0,
-    -1.0
-   ],
-   "scale": 268.43
   },
-  "fit": {
-   "as": "plume",
-   "drawn": 1.28,
-   "target": 2.8,
-   "room": 3.26,
-   "play": 2.19
+  "auto": null,
+  "sound": {
+    "cue": "as performed",
+    "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
+    "foley_gain": 0.65
   },
-  "thrown": null,
-  "loud_ref": 0.5513,
-  "held": {
-   "release": 121,
-   "end": 121,
-   "holds": [
-    92,
-    89
-   ]
-  },
-  "performed_again": null,
-  "instant": null,
-  "camera": "handheld: thrown fire moves with the room",
-  "charge": {
-   "from": 35,
-   "release": 57,
-   "seconds": 0.92
+  "seconds_total": 119.8,
+  "element_sha256": "df0378a608d328706d288a36e2231153699d33012df204b15f999638f0c5bd06",
+  "recomposite": {
+    "method": "CPU compositing from the existing LTX element, track and matte",
+    "no_new_render": true,
+    "no_gpu": true,
+    "element_sha256": "df0378a608d328706d288a36e2231153699d33012df204b15f999638f0c5bd06",
+    "source_receipt_sha256": "cd35940c0fc37ea5b6254ff9576712952ce8c6591175efbbf55e768c267442b4",
+    "raw_audio_hit_frames": [
+      60
+    ],
+    "render_cue_hit_frames": [
+      57,
+      60
+    ],
+    "charge_window": [
+      35,
+      57
+    ],
+    "cue_voice_end_frame": 149,
+    "utc": "2026-10-28T19:48:47.306140+00:00",
+    "seconds": 119.838,
+    "renderer_sources": {
+      "cuesync/src/cuesync/audio.py": "ebee363eb6ee02050dee9bf24134039b25d45da9f6a2bdd67402ea7278442c4e",
+      "cuesync/src/cuesync/bending.py": "824baf912f808efe3a5f1fdfb57bd82b5a3b3c5086f74b68b14964da2b94435f",
+      "cuesync/src/cuesync/composite.py": "41b9b4ae9e200697c9e8e4f3e781efa7b158e5188a9c4a11aad41520683927be",
+      "cuesync/src/cuesync/conform.py": "e1ec3595b2f6053c7c43634ba08ab0d792c29db62d3b463c30e088002f913c01",
+      "cuesync/src/cuesync/cues.py": "a5e68e16e64a017dcb72411fa12b611487101c106941d47c25daf885a59ca295",
+      "cuesync/src/cuesync/effects.py": "5a4f0db620c51d6eb12fef1eadd38b660fbea2b44170003a982cef2b8b446e43",
+      "cuesync/src/cuesync/fx_light.py": "efcd00ea9bc716173498ea3a6f495590ae261c55bb3c3b9a671de33351c92f9d",
+      "cuesync/src/cuesync/gestures.py": "32f16444bf05758c689e2a112768260279f319fbfdb99b039aede05fff01c620",
+      "cuesync/src/cuesync/hand_track.py": "9b321930626d98523e7d5631a1ed256b9a9548c812a5b24b3cf98f4ebd345fd6",
+      "cuesync/src/cuesync/media.py": "6ff8f857a1718f36d716ef5160e492d14a753ff8b0ff0f936cf433f2a443a3ba",
+      "cuesync/src/cuesync/pipeline.py": "7ea93042cb238016e7656abacef505e26eb128659bf5f16f4cb8afee732e3206",
+      "cuesync/src/cuesync/scene.py": "e9a6bff3c28e603cc260d04dde232afc350a0aad908f8dc954053cd38b0baf14",
+      "cuesync/src/cuesync/sfx_synth.py": "ea10ee9594df63a85cf147265861eccdcf64fcfc0de519af5ecdeababd9010bd",
+      "cuesync/src/cuesync/transfer.py": "67aea3dacb519d922ffa15ccb436598b7bd45f7b94b310d5385e4d9b7140e707",
+      "effects/air_vortex.json": "a2cdbca12df2686ac39166f0441a9f890255b49f91e4840da9e213dd12b7e778",
+      "effects/blow_out.json": "2f30219d00241740aae1058922ebda37e226a18145b4517f3a02ddb6e58ed564",
+      "effects/fire_breath.json": "5d7d569796fc34a897b47c03dc8448d9083893a85f8b8d0153dce767ca7efbed",
+      "effects/fire_burst.json": "a6a2f5e1cd38e4d33cec663b2910e49583ff896d0a3907eb650630d0cfda64c0",
+      "effects/fireball.json": "308caac50e0949abea6a85da17d4cc839f1509552d33d6414f0dab3266c7aa0f",
+      "effects/flame_plume.json": "625f50c425d64249d8eb33a99295589dc380b7256f1deb4650e7e3b5abb522d8",
+      "effects/smoke_puff.json": "0235e2ef39457d3786d49e9f7a5b5c0685e5087a955b189cf2d5ab2396e11def",
+      "effects/steam_jet.json": "2bf8aff189dc089d6da8b8ac14c8c41862a4eb2c34c9c5b39cb6029f8af2e706",
+      "effects/wick_flare.json": "8c04ae37ec06d149f3fdabd6391ba16ae602091bec61486a04d478ebcda6ae13"
+    },
+    "rebuild_recipe_sha256": "e3c6285f75ffe32ff42d5b654e4b5d743fcdd00c2e3f3aea27786b90d5f94bbc"
   }
- },
- "auto": null,
- "sound": {
-  "cue": "as performed",
-  "foley": "procedural, synthesised for this shot (cuesync.sfx_synth)",
-  "foley_gain": 0.65
- },
- "seconds_total": 127.1
 }

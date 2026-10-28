@@ -38,7 +38,9 @@ BASE = "hand_palm__boom__fire_burst"
 NAMES = (BASE, "hand_palm__pfpfboom__again", "hand_palm__pfx4__again",
          "hand_walk__fffff__flame_plume", "hand_fist__boom__fire_burst",
          "hand_punch__boom__fire_burst", "hand_open__fff__flame_plume",
-         "hand_point__fwoooom__fire_breath", "hand_cupped__kaboom__fire_burst")
+         "hand_point__fwoooom__fire_breath", "hand_cupped__kaboom__fire_burst",
+         "hand_palm__sadiquecat__again", "hand_palm__unfa__again", "hand_palm__huw2k8__again",
+         "hand_palm__jedimichael__again")
 OUTPUT_FILES = ("composite.mp4", "final.mp4", "poster.jpg", "receipt.json", "element.mp4")
 SOURCE_FILES = ("source-adapter.json", "source-provenance.json")
 
