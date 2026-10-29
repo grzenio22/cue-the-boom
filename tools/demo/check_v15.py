@@ -61,6 +61,9 @@ def beats_of(board: dict | list) -> list[dict]:
 
 def structure_check(board: dict | list, baseline: dict | list) -> tuple[dict, list[str]]:
     """Compare unchanged beat fields, with explicit exceptions for this edit."""
+    if isinstance(board, dict) and board.get("version") == 21:
+        from v21_build import structure_check as v21_structure_check
+        return v21_structure_check(board, baseline)
     if isinstance(board, dict) and board.get("version") == 20:
         from v20_build import structure_check as v20_structure_check
         return v20_structure_check(board, baseline)
@@ -329,6 +332,9 @@ def proof_provenance_check(jobs: dict, version: int, digest=sha256) -> tuple[lis
 
 def source_provenance_check(board: dict | list) -> tuple[dict, list[str]]:
     """Verify current renderer fingerprints and every recorded output digest."""
+    if isinstance(board, dict) and board.get("version") == 21:
+        from v21_build import source_provenance_check as v21_source_check
+        return v21_source_check(board)
     if isinstance(board, dict) and board.get("version") == 20:
         from v20_build import source_provenance_check as v20_source_check
         return v20_source_check(board)

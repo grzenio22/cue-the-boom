@@ -50,7 +50,7 @@ STANDIN_CROP = (0.3734, 0.1444, 0.6273, 0.9458)  # the Studio's camera panel in 
 CLIPS = ROOT / "runs/demo_v11/clips"
 MADE = ROOT / "samples/made_ahead/bending"
 V19 = ROOT / "runs/demo_v19/storyboard.json"
-PROOF = CLIPS / "proof_pf_pf_boom/composite.mp4"
+PROOF = MADE / "hand_palm__pfpfboom__again/composite.mp4"  # the fire as the gallery plays it
 PROOF_VOICE = CLIPS / "proof_pf_pf_boom.wav"  # the author's recorded voice, as v19's proof beats play it
 PROOF_TOP = 420                                # the 4:5 window's top row in the 1080x1920 proof: fire and hand
 CRACKLE = ROOT / "runs/demo_v10/credits_crackle.wav"
@@ -530,6 +530,7 @@ def seg_poster(dur: float) -> Segment:
 
 
 LIVE_CAPTION = "LIVE WEBCAM\nNO RENDER RUNNING"
+LIVE_POP = "BOOM"  # the word popped on the live take's loudest sound
 
 
 def frame_live(frames: np.ndarray, region, stamp: str) -> tuple[tuple[float, float, float, float], str, dict]:
@@ -578,7 +579,7 @@ def seg_live(path: Path, start: float, dur: float, region, stamp: str) -> Segmen
     del frames
     at = loudest_at(audio)
     seg = Segment("live", n, lambda i: Image.fromarray(pictures[i]), audio, LIVE_CAPTION, stamp, caption_at=where,
-                  pops=[[at, "BOOM"]], source=f"{path} {start:.3f}-{start + dur:.3f} s, window "
+                  pops=[[at, LIVE_POP]], source=f"{path} {start:.3f}-{start + dur:.3f} s, window "
                                               f"{tuple(round(v, 4) for v in window)} of region {region or 'whole'}")
     seg.report.update(loudest_sound_at=round(at, 3), live_window=[round(v, 4) for v in window],
                       live_fire_shares=shares)
@@ -796,10 +797,10 @@ def build(args) -> int:
         seg_proof,
         lambda: seg_strangers(1.4, 2.1, stamp("strangers")),  # the fires land 2.2 s in; the 16:9 demo uses 1.4-3.5 s too
         # the walk's flame stands on the palm (rows 1200-1250) and reaches rows 350-750; near 6 s it leaves the top
-        lambda: seg_portrait("walk", CLIPS / "flame_walk/composite.mp4", 3.0, 3.0, 290,
+        lambda: seg_portrait("walk", MADE / "hand_walk__fffff__flame_plume/composite.mp4", 3.0, 3.0, 290,
                              "Hold the sound,\nhold the flame.", stamp("walk"), "bottom"),
         # the stream crosses the middle (rows 420-1420): the caption above it
-        lambda: seg_portrait("flamethrower", CLIPS / "flamethrower/composite.mp4", 1.3, 2.0, 230, "fwoooom",
+        lambda: seg_portrait("flamethrower", MADE / "hand_point__fwoooom__fire_breath/composite.mp4", 1.3, 2.0, 230, "fwoooom",
                              stamp("flamethrower"), "top"),
         lambda: seg_scene("dino", CLIPS / "scene_dino/composite.mp4", 0.25, 3.5, "Or render it\ninto the scene.",
                           stamp("dino")),
@@ -920,6 +921,9 @@ def main() -> int:
     ap.add_argument("--live-crop", default=None,
                     help="x0,y0,x1,y1: the part of the upright live picture the 4:5 window may use (fractions)")
     ap.add_argument("--live-stamp", default=None, help="the live segment's stamp (default: the phone or stand-in one)")
+    ap.add_argument("--live-caption", default=None, help="the live segment's caption, its lines split by | "
+                                                         "(default: LIVE WEBCAM | NO RENDER RUNNING)")
+    ap.add_argument("--live-pop", default=None, help="the word popped on its loudest sound (default: BOOM)")
     ap.add_argument("--poster", choices=("auto", "always", "never"), default="auto",
                     help="open on the proof's BOOM first: auto = when the live take's first frame shows no fire")
     ap.add_argument("--poster-dur", type=float, default=0.5)
@@ -927,6 +931,9 @@ def main() -> int:
     ap.add_argument("-o", "--output", default=str(OUT_DIR / "social_cut.mp4"))
     ap.add_argument("--tmp", default=str(OUT_DIR / "tmp"))
     a = ap.parse_args()
+    global LIVE_CAPTION, LIVE_POP
+    LIVE_CAPTION = a.live_caption.replace("|", "\n") if a.live_caption else LIVE_CAPTION
+    LIVE_POP = a.live_pop or LIVE_POP
     sys.stdout.reconfigure(encoding="utf-8")
     if a.live_crop:
         parse_crop(a.live_crop)
