@@ -9,7 +9,7 @@ Writes D:/openHiggsfield_tmp/social/social_cut.mp4, social_cut_sheet.jpg (one fr
 (segments, loudness, where each caption and noise word sits), and prints each segment's loudness (FFmpeg ebur128).
 
 Segments: the live take (cover-cropped, "LIVE WEBCAM · NO RENDER RUNNING", its loudest sound popped as BOOM) - the
-pf · pf · BOOM proof - four strangers' voices on the same render, in a 2x2 grid - the walk - the flamethrower -
+pf · pf · BOOM proof - four strangers' voices on the same render, in a 2x2 grid - water - lightning on the author's own zzzzz -
 the dinosaur and the lanterns (letterboxed over a blurred copy) - an end card. X shows frame 0 as the poster, so it
 must already show fire: when the live take's first frame has none (--poster auto), the cut opens on half a second of
 the proof's BOOM first. The live window starts at --live-start (default: picked from the clip's loudest sound,
@@ -68,13 +68,14 @@ FIRE_MIN = 0.002        # share of the frame that must be fire for frame 0 to co
 
 # The 16:9 demo's own wording (runs/demo_v19/storyboard.json, by beat id), used when that file is not present.
 STAMPS = {
-    "walk": "Author's phone footage + own voice · fire rendered with LTX-2.5 + ainvfx-fluid",
-    "flamethrower": "Author's phone footage + own voice · fire rendered with LTX-2.5 + ainvfx-fluid",
+    "water": "The author's hand · sample noise (synthetic) · water made on the CPU",
+    "lightning": "The author's hand, filmed 28 Oct, and the author's own zzzzz · lightning made on the CPU",
     "dino": "Real stock footage (Pexels) · sample noise (synthetic) · LTX-2.5 render",
     "lanterns": "Pixabay footage, first frame held · real CC0 voices (Freesound) · LTX-2.5 fire",
     "strangers": "One LTX-2.5 render · voices: Sadiquecat, unfa, huw2k8, Jedimichael (CC0, Freesound)",
 }
-PROOF_STAMP = "The author's hand + recorded voice · one stored LTX-2.5 fire · no new render"
+LIGHTNING_28 = ROOT / "runs/demo_v21/shots/18766d702104/composite.mp4"  # the author's own zzzzz, as the studio made it
+PROOF_STAMP ="The author's hand + recorded voice · one stored LTX-2.5 fire · no new render"
 PHONE_STAMP = "Filmed on a phone · the author, live · the stored LTX-2.5 fire, no render running"  # as v20_build
 STANDIN_STAMP = "STAND-IN, not the live take · a Studio screen capture · the stored LTX-2.5 fire"
 LANTERN_MARKS = [[1.0, 0.42, 0.72, "1"], [1.67, 0.64, 0.58, "2"], [2.38, 0.43, 0.3, "3"]]
@@ -796,12 +797,10 @@ def build(args) -> int:
         lambda: seg1,
         seg_proof,
         lambda: seg_strangers(1.4, 2.1, stamp("strangers")),  # the fires land 2.2 s in; the 16:9 demo uses 1.4-3.5 s too
-        # the walk's flame stands on the palm (rows 1200-1250) and reaches rows 350-750; near 6 s it leaves the top
-        lambda: seg_portrait("walk", MADE / "hand_walk__fffff__flame_plume/composite.mp4", 3.0, 3.0, 290,
-                             "Hold the sound,\nhold the flame.", stamp("walk"), "bottom"),
-        # the stream crosses the middle (rows 420-1420): the caption above it
-        lambda: seg_portrait("flamethrower", MADE / "hand_point__fwoooom__fire_breath/composite.mp4", 1.3, 2.0, 230, "fwoooom",
-                             stamp("flamethrower"), "top"),
+        # water on the dim palm, then lightning on the author's own zzzzz (filmed 28 Oct): the element changes with the sound
+        lambda: seg_portrait("water", MADE / "hand_palm__shhhhh__water_whip/composite.mp4", 0.6, 2.6, 420,
+                             "shhhh, sploosh:\nwater.", STAMPS["water"], "bottom"),
+        lambda: seg_portrait("lightning", LIGHTNING_28, 2.25, 2.4, 160, "zzzzz:\nlightning.", STAMPS["lightning"], "bottom"),
         lambda: seg_scene("dino", CLIPS / "scene_dino/composite.mp4", 0.25, 3.5, "Or render it\ninto the scene.",
                           stamp("dino")),
         lambda: seg_scene("lanterns", CLIPS / "scene_lanterns/composite.mp4", 0.0, 4.5,

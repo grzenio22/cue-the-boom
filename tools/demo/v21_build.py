@@ -50,7 +50,7 @@ OPENING = [
     ("open_explosion", JOBS / "8bf6ba31033b", 0.95, "EXPLOSION · BOOOOM",
      f"{CLIPS_28} · sample noise (synthetic) · the stored LTX-2.5 fireball, its blast made on the CPU"),
     ("open_lightning", JOBS / "18766d702104", 2.2, "LIGHTNING · zzzzz",
-     f"{CLIPS_28}, and his own zzzzz · lightning made on the CPU"),
+     f"{CLIPS_28}, and the author's own zzzzz · lightning made on the CPU"),
 ]
 OPEN_HEADLINE, OPEN_SUBLINE = "One voice. Five elements.", "Real hands, filmed on a phone"
 SWAPS = {  # v11's clips of the stored fire on a gallery hand -> that shot as the gallery now plays it
