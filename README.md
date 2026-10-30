@@ -2,7 +2,9 @@
 
 **Generate the effect once. Perform it again with your voice.**
 
-<!-- DEMO_VIDEO_LINK: the demo video thumbnail link goes here, [![Watch the demo (1:54)](media/demo_thumb.jpg)](<video link>) -->
+[![Watch the demo (1:54)](media/demo_thumb.jpg)](https://github.com/grzenio22/cue-the-boom/releases/tag/contest-2026-10-30)
+
+**[Watch the demo](https://github.com/grzenio22/cue-the-boom/releases/tag/contest-2026-10-30) · [Try it in your browser, no GPU](https://gshcloud-cue-the-boom.hf.space)**
 
 ![One LTX-2.5 fire render on the author's palm, performed five ways at once: the author's BOOM, pf, pf, BOOM and pf pf pf PF, huw2k8's breathy Powf (a small fireball) and unfa's Ka-Boom! (two hits), all from recorded voices with no new generation](media/one_render_five_performances.gif)
 <sub>One stored LTX render, five recorded performances by three people: when it fires and how big it plays come from the voice.</sub>
@@ -33,7 +35,7 @@ For renders into a scene, the [CueSync node pack](comfyui-cuesync/README.md) tak
 
 ## Try it on your computer, no GPU
 
-<!-- SPACE_LINK: the try-it-in-the-browser Space link goes here (https://gshcloud-cue-the-boom.hf.space) once it is live -->
+**[Try the hosted studio in your browser](https://gshcloud-cue-the-boom.hf.space)** — no installation or GPU needed. Or run the same studio locally:
 
 You need git and Python 3.10 or newer (3.12 recommended; on a Mac, macOS 14 or newer). No GPU and no model download: the studio ships built, and the sample hands come with their fire rendered ahead of time. `--depth 1` downloads about 300 MB (about 560 MB on disk); the full history is about 1.4 GB.
 
@@ -157,7 +159,7 @@ To generate a new hand element or render into a scene, use ComfyUI with LTX-2.5 
 - **Code:** [MIT](LICENSE), with [`cuesync/` under Apache-2.0](cuesync/LICENSE). The workflows are under the [LTX-2.x Community License](workflows/LICENSE-LTX-2.x), and LTX-rendered shots carry its terms. See [NOTICE.md](NOTICE.md) for exceptions and third-party notices.
 - **Models:** LTX-2.5 and ainvfx-fluid are open weights under the LTX-2.x Community License; the LTX-2.5 download is gated by a click-through on Hugging Face. [Files, versions and revisions](build/model-files.md).
 - **Software:** ComfyUI (GPL-3.0); the Comfy Python SDK and comfy-api-proxy (Comfy Org); ComfyUI-LTXVideo (Lightricks); Next.js; PyAV/FFmpeg; OpenCV.
-- **Demo narration:** Kokoro-82M (Apache-2.0), a synthetic narration voice used in the demo video; it is not part of the app. The performed fire cues use the author's recorded voice, including the two edited rhythms described above.
+- **Demo audio:** Narration synthesized with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M). Background music generated locally with Meta's [MusicGen-small](https://huggingface.co/facebook/musicgen-small), then crossfade-looped for the film. These models were used only to produce the demo's narration and music; they are not part of the app's effect pipeline. The author's fire cues use their recorded voice, including the two edited rhythms described above; the four CC0 voices are credited below.
 - **Footage and sounds:**
   - `hand_palm`, `hand_point`, `hand_walk`, `hand_punch`, `hand_fist` and `hand_open` are the author's own hand and voice.
   - `hand_cupped` is a Pexels clip (Kindel Media).

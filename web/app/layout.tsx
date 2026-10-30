@@ -8,7 +8,7 @@ const brush = localFont({ src: "./fonts/Shojumaru.ttf", weight: "400", variable:
 
 export const metadata: Metadata = {
   title: "Cue the Boom",
-  description: "Make the noise. Get the shot. Your voice picks and shapes the effect, rendered on open weights with LTX-2.5.",
+  description: "Make the noise. Get the shot. Perform stored LTX-2.5 fire and air, plus procedural water and lightning, on your real footage. No new generation.",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#15110e" };

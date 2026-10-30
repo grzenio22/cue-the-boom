@@ -36,8 +36,9 @@ export default function Hero() {
           <p className="kicker">Open Source Higgsfield · open weights · LTX-2.5 + ComfyUI</p>
           <h1 className="hero-title">Cue the <span className="boom">Boom</span></h1>
           <p className="hero-line">Render it once. <span>Perform it forever.</span></p>
-          <p className="lede"><strong>No regeneration:</strong> your voice plays a stored LTX-2.5 render on your own real footage.
-            Fire, water, air, explosion and lightning.</p>
+          <p className="lede"><strong>No regeneration:</strong> your voice performs effects on your real footage.
+            Fire and air reuse stored LTX-2.5 renders; water and lightning are procedural.
+            Explosion combines a stored fireball with a procedural blast.</p>
           <ul className="seal-row" aria-label="The elements">
             {ELEMENTS.map((e) => (
               <li key={e.element} style={{ "--c": ELEMENT_COLOR[e.element] } as CSSProperties}>

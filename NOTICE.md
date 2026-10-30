@@ -37,6 +37,16 @@ applicable source or model licences.
 Model weights are not part of this repository and carry their own licences;
 see [build/model-files.md](build/model-files.md).
 
+The submission demo's narration was synthesized with
+[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M). Its background music was
+generated locally with Meta's
+[MusicGen-small](https://huggingface.co/facebook/musicgen-small), then
+crossfade-looped for the film. These models were used only to produce the demo's
+narration and music; they are not part of the app's effect pipeline. Fire
+performance cues use the author's recorded voice and the four credited CC0
+voices, distinct from the synthetic narration. The model cards describe the
+respective model-weight licences.
+
 Earth's bundled rock material uses **Rock Boulder Dry** by Dimitrios Savva
 (photography) and Rico Cilliers (processing), from
 [Poly Haven](https://polyhaven.com/a/rock_boulder_dry), under
