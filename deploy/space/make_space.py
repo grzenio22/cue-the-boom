@@ -25,7 +25,8 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Generate the effect once. Perform it again with your voice.
+short_description: Render it once. Perform it forever, with your voice.
+thumbnail: https://huggingface.co/spaces/gshcloud/cue-the-boom/resolve/main/thumbnail.jpg
 ---
 
 # Cue the Boom, with no GPU
@@ -79,7 +80,7 @@ def main() -> int:
     for name in ("LICENSE", "NOTICE.md", "build/model-files.md", "tools/derive_fire_element.py"):
         (out / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, out / name)
-    for name in ("Dockerfile", "start.sh"):
+    for name in ("Dockerfile", "start.sh", "thumbnail.jpg"):  # (thumbnail.jpg: the card in the README's frontmatter)
         shutil.copyfile(HERE / name, out / name)
     (out / "README.md").write_text(README, encoding="utf-8")
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file()) / 1e6
