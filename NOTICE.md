@@ -56,3 +56,10 @@ The original and adapted asset hashes are recorded in
 `cuesync/src/cuesync/assets/stone/rock_scan.json`; the offline adaptation tool is
 `tools/bake_stone_scan.py`. Fracturing, movement, lighting and compositing are
 implemented in CueSync. The runtime reads the bundled asset without network access.
+
+The studio's display faces are self-hosted in `web/app/fonts/`: **Cinzel** (The
+Cinzel Project Authors) and **Shojumaru** (Astigmatic), both under the SIL Open
+Font License 1.1, whose texts sit beside them (`OFL-Cinzel.txt`,
+`OFL-Shojumaru.txt`). The element seals on the start page are original drawings.
+`web/public/hero/reel.mp4` is cut from three of the sample shots in
+`samples/made_ahead/bending/`.

@@ -5,7 +5,7 @@ import Studio from "@/components/Studio";
 export default function DubPage() {
   return (
     <main>
-      <p className="muted"><Link href="/">Cue the Boom</Link> · perform over a clip</p>
+      <p className="kicker"><Link href="/">Cue the Boom</Link> · perform over a clip</p>
       <Studio />
     </main>
   );
