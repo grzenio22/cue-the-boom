@@ -297,4 +297,4 @@ pip install "./cuesync[server,dev]"
 pytest cuesync/tests
 ```
 
-The final Python integration run passed **1,066 tests**, with **20 skipped**. The skips require optional MediaPipe, SAM 2.1 or development plates. The suite runs on the CPU; duration depends on the machine and concurrent rendering. The studio's **295 tests**, TypeScript, ESLint, production build and static export passed. Its tests need Node 24: `npm install`, then `npm test`, in `web/`.
+The final Python integration run passed **1,078 tests**, with **20 skipped**. The skips require optional MediaPipe, SAM 2.1 or development plates. The suite runs on the CPU; duration depends on the machine and concurrent rendering. The studio's **295 tests**, TypeScript, ESLint, production build and static export passed. Its tests need Node 24: `npm install`, then `npm test`, in `web/`.

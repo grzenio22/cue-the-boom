@@ -2,12 +2,16 @@
 
 **Generate the effect once. Perform it again with your voice.**
 
+<!-- DEMO_VIDEO_LINK: the demo video thumbnail link goes here, [![Watch the demo (1:54)](media/demo_thumb.jpg)](<video link>) -->
+
 ![One LTX-2.5 fire render on the author's palm, performed five ways at once: the author's BOOM, pf, pf, BOOM and pf pf pf PF, huw2k8's breathy Powf (a small fireball) and unfa's Ka-Boom! (two hits), all from recorded voices with no new generation](media/one_render_five_performances.gif)
 <sub>One stored LTX render, five recorded performances by three people: when it fires and how big it plays come from the voice.</sub>
 
 Higgsfield's Effects presets, such as Fire Element, Air Bending, Explosion and Thunder God, generate a new clip every time. Cue the Boom rebuilds effects like these on open weights in ComfyUI and makes them performable: LTX-2.5 renders the fire once, then your voice plays it on your own hand, on a filmed clip or live through your webcam, as often as you like, with no new generation.
 
 [Try it, no GPU](#try-it-on-your-computer-no-gpu) · [Try it live](#try-it-live-with-your-webcam) · [Why it's new](#why-its-new) · [How it works](#how-it-works) · [In ComfyUI](#comfyui-and-the-comfy-developer-platform) · [In detail](TECHNICAL.md)
+
+**Licence:** code under [MIT](LICENSE), with [`cuesync/` under Apache-2.0](cuesync/LICENSE). [Credits and licences](#credits-and-licences).
 
 **Judging it?** No GPU, a few minutes: [install and start the studio](#try-it-on-your-computer-no-gpu), choose **Fire**, click **Perform this fire with your voice**, then **Try a sample voice instead** (or use your microphone). **Perform again** plays the same LTX-2.5 render in a new rhythm, with no new generation.
 
@@ -28,6 +32,8 @@ For renders into a scene, the [CueSync node pack](comfyui-cuesync/README.md) tak
 <sub>One generation, seven performances, each at its loudest hit: a breathy puff throws a small fireball, a boom a big one. Each also has its own timing and rhythm, which a still can't show.</sub>
 
 ## Try it on your computer, no GPU
+
+<!-- SPACE_LINK: the try-it-in-the-browser Space link goes here (https://gshcloud-cue-the-boom.hf.space) once it is live -->
 
 You need git and Python 3.10 or newer (3.12 recommended; on a Mac, macOS 14 or newer). No GPU and no model download: the studio ships built, and the sample hands come with their fire rendered ahead of time. `--depth 1` downloads about 300 MB (about 560 MB on disk); the full history is about 1.4 GB.
 
@@ -119,6 +125,14 @@ Choose an effect, then perform its cue. Voice controls timing and strength; it d
 - **The node pack:** [CueSync](comfyui-cuesync/README.md) adds seven nodes: Analyze Sound and Hold Cue turn a performance into a cue, Paint Scene and Paint Guide paint it into the guide the IC-LoRA follows, Scene Shot moves the render's measured start onto the cue, and Object Matte and Composite finish element shots.
 - **No GPU in ComfyUI:** [`workflows/cue_the_boom_retime_demo.json`](workflows/cue_the_boom_retime_demo.json) runs the node pack on the LTX-2.5 render the repository ships, in about 20 seconds on a CPU: Scene Shot finds the fire 5 frames early and moves it onto the cue. [How to run it](TECHNICAL.md#in-comfyui).
 - **The SDK:** the app builds the workflow and runs it with the Comfy Python SDK ([runner](cuesync/src/cuesync/runner.py)), against Comfy Cloud (`COMFY_API_KEY`, `COMFY_BASE_URL=https://cloud.comfy.org`) or against self-hosted ComfyUI behind comfy-api-proxy (`COMFY_BASE_URL`, for example `http://127.0.0.1:8189`). The studio checks the target's nodes and models before it offers GPU modes. [Connection and preflight details](TECHNICAL.md#with-a-gpu).
+
+**Install the node pack:** clone the whole repository into `ComfyUI/custom_nodes/` (or paste its URL into ComfyUI-Manager's "Install via Git URL"), next to [ComfyUI-LTXVideo](https://github.com/Lightricks/ComfyUI-LTXVideo). [Node pack details](comfyui-cuesync/README.md).
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/grzenio22/cue-the-boom
+pip install -r cue-the-boom/requirements.txt
+```
 
 The renders here ran on self-hosted ComfyUI, which loads the ainvfx-fluid IC-LoRA and the node pack.
 
