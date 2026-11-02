@@ -186,6 +186,40 @@ def test_a_sample_made_ahead_of_time_is_answered_at_once_and_shown_in_the_galler
     assert other["cached"] is False  # a different spot is made fresh
 
 
+def test_a_quick_performance_with_a_sample_noise_is_answered_by_the_shot_made_ahead_for_it(tmp_path, make_video, make_wav):
+    """The quick flow reuses the fire (performance_mode=reuse) or makes an element with its own seed, so it never hits
+    the exact cache key; with a sample noise on the sample hand at its own spot it gets the shot made for that noise."""
+    from cuesync.precompute import cache_key
+    samples = tmp_path / "samples"
+    (samples / "plates").mkdir(parents=True)
+    (samples / "voices").mkdir()
+    make_video(tmp_path, n=24, fps=24, w=90, h=160, color_fn=lambda i: (60, 60, 60)).rename(samples / "plates" / "palm.mp4")
+    make_voice(tmp_path, make_wav).rename(samples / "voices" / "pf.wav")
+    make_voice(tmp_path, make_wav).rename(samples / "voices" / "other.wav")
+    (samples / "samples.json").write_text(json.dumps({"plates": {"palm.mp4": {"point": [0.5, 0.6], "hand": {"frame": 3}}},
+                                                      "voices": {"pf.wav": {}, "other.wav": {}}}))
+    shot = tmp_path / "pre" / "bending" / "palm__pf__fire_burst"
+    shot.mkdir(parents=True)
+    for name in ("final.mp4", "composite.mp4", "element.mp4"):
+        (shot / name).write_bytes(b"\x00" * 64)
+    (shot / "receipt.json").write_text(json.dumps({"mode": "bending", "effect": {"id": "fire_burst"},
+                                                   "inputs": {"point": [0.5, 0.6], "offset_s": 0.0},
+                                                   "bending": {"tap_frame": 3, "mask": None}}))
+    (shot / "hand_track.json").write_text(json.dumps({"W": 90, "H": 160, "xy": [[45, 90]] * 24}))
+    key = cache_key("bending", "palm.mp4", "pf.wav", "fire_burst", (0.5, 0.6), 1)
+    (shot.parent / "index.json").write_text(json.dumps(
+        {key: {"dir": shot.name, "title": "pf · palm", "plate": "palm.mp4", "voice": "pf.wav", "effect": "fire_burst",
+               "mode": "bending", "seed": 1, "tap_frame": 3}}))
+    client = TestClient(create_app(None, tmp_path / "jobs", instant=FakeRenderer(), samples_dir=samples,
+                                   precomputed=tmp_path / "pre"))
+    quick = {"mode": "bending", "plate_sample": "palm.mp4", "effect": "fire_burst", "x": "0.5", "y": "0.6",
+             "seed": "17", "frame": "3", "performance_mode": "reuse"}
+    r = client.post("/api/jobs", data=quick | {"voice_sample": "pf.wav"}).json()
+    assert r["status"] == "done" and r["cached"] is True and r["message"] == "Made earlier" and "final.mp4" in r["files"]
+    other = client.post("/api/jobs", data=quick | {"voice_sample": "other.wav"}).json()
+    assert other.get("cached") is not True  # a noise with no shot made for it is performed, not answered from the cache
+
+
 @pytest.mark.parametrize("again", [None, 0, 1, 2])
 def test_gallery_jobs_preserve_again_from_the_index(tmp_path, again):
     shot = tmp_path / "pre" / "scene" / "sample"
@@ -958,14 +992,17 @@ def test_a_library_element_asked_for_on_a_sample_hand_is_carried_on_its_track_wi
     assert Path(done["receipt"]["bending"]["instant"]["library"]).name == "air_vortex"  # the library's air, not the fire
 
 
-def test_explicit_reuse_composes_even_an_exact_cached_sample_voice(sample_hand, tmp_path):
+def test_explicit_reuse_answers_the_sample_spot_from_its_made_ahead_shot_and_composes_anywhere_else(sample_hand, tmp_path):
     client = hand_client(sample_hand, tmp_path / "jobs")
-    first = client.post("/api/jobs", data={"mode": "bending", "performance_mode": "reuse",
-                         "plate_sample": "hand.mp4", "effect": "fire_burst", "voice_sample": "pf.wav",
-                         "x": "0.4", "y": "0.6"})
+    reuse = {"mode": "bending", "performance_mode": "reuse", "plate_sample": "hand.mp4", "effect": "fire_burst",
+             "voice_sample": "pf.wav"}
+    first = client.post("/api/jobs", data=reuse | {"x": "0.4", "y": "0.6"})  # the sample's own spot: made ahead
     assert first.status_code == 200, first.text
-    assert not first.json()["cached"] and first.json()["mode"] == "replay"
-    assert wait(client, first.json()["id"])["status"] == "done"
+    assert first.json()["cached"] and first.json()["status"] == "done" and first.json()["message"] == "Made earlier"
+    elsewhere = client.post("/api/jobs", data=reuse | {"x": "0.45", "y": "0.6"})  # another spot: composed on the CPU
+    assert elsewhere.status_code == 200, elsewhere.text
+    assert not elsewhere.json()["cached"] and elsewhere.json()["mode"] == "replay"
+    assert wait(client, elsewhere.json()["id"])["status"] == "done"
 
 
 @pytest.mark.parametrize("changes", [

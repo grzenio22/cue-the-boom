@@ -4,7 +4,8 @@
     cuesync serve --instant-only                                # no GPU: the pre-rendered library only
 
 POST /api/jobs (multipart): plate (or plate_sample), voice (or voice_sample) (+ optional face, timing.json from
-     Dub Mode), effect, x, y, seed, mode; performance_mode="reuse" explicitly performs a prepared hand on the CPU.
+     Dub Mode), effect, x, y, seed, mode; performance_mode="reuse" explicitly performs a prepared hand on the CPU
+     (a sample noise at the sample's own spot is answered by the shot made ahead for it).
 GET  /api/jobs/{id}         status, stage, progress, result URLs
 GET  /api/jobs/{id}/events  the same as server-sent events
 POST /api/hands/prepare     your tapped hand followed through your clip before a shot (its path, where it was lost)
@@ -650,11 +651,18 @@ def create_app(renderer, jobs_dir: Path, allow_origins: list[str] | None = None,
                                  and describe in (None, e.get("describe"))), None)
             if drawn_sample:
                 describe = drawn_sample.get("describe")  # rendered live, it says what the sample said
-        if (not reuse_performance and plate_sample and sample_voice and face is None and timing is None and offset_s is None and scale is None
+        if ((not reuse_performance or mode == "bending") and plate_sample and sample_voice and face is None and timing is None and offset_s is None and scale is None
                 and element is None and x is not None and y is not None and not auto and not source_list
                 and (not stroke_data or drawn_sample) and (not describe or drawn_sample)):
-            hit = cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
-                                      direction if mode == "scene" else None, subject))
+            hit = None if reuse_performance else cache.get(cache_key(mode, plate_sample, sample_voice, effect, (x, y), seed,
+                                                                     direction if mode == "scene" else None, subject))
+            spot = pm.get("point")
+            if (hit is None and mode == "bending" and spot
+                    and max(abs(float(x) - spot[0]), abs(float(y) - spot[1])) < 0.006):
+                # a quick performance with a sample noise (its fire reused, or an element made here with a seed of its
+                # own) on this hand at its own spot: the shot made ahead for that noise answers it at once
+                hit = next((e for e in cache.values() if e.get("mode") == "bending" and e.get("plate") == plate_sample
+                            and e.get("voice") == sample_voice and e.get("effect") == effect), None)
             hit_rc = json.loads((Path(hit["path"]) / "receipt.json").read_text()) if hit else {}
             if hit and mode == "bending" and (
                     (frame is not None and frame != int(hit.get("tap_frame", pm.get("hand", {}).get("frame", 0))))
