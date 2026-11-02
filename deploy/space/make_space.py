@@ -33,7 +33,8 @@ thumbnail: https://huggingface.co/spaces/gshcloud/cue-the-boom/resolve/main/thum
 
 **Generate the effect once. Perform it again with your voice.** Higgsfield's Effects presets, such as Fire Element,
 Air Bending and Explosion, make a new clip every time. Here LTX-2.5 rendered the fire once, and your voice plays it on
-a real hand, as often as you like, with no new generation.
+a real hand, as often as you like, with no new generation. Other AI VFX tools generate an effect for a shot; Cue the
+Boom turns one LTX-2.5 render into an instrument: your voice decides when it fires, how big it plays and how long it burns.
 
 - **Perform it:** choose fire, water, air, explosion or lightning, then record your noise
   over a prepared hand clip. **Perform again** gives the same element a new performance.
@@ -44,7 +45,8 @@ a real hand, as often as you like, with no new generation.
 
 The fire, the air vortex and the explosion's fireball were rendered ahead of time with LTX-2.5 and the ainvfx-fluid
 IC-LoRA in ComfyUI; water, lightning and the explosion's blast are made on this CPU from
-the hand and the voice. This Space runs on a shared CPU: a shot takes a minute or two.
+the hand and the voice. This Space runs on a CPU, no GPU: a new shot takes about 20 to 50 s (fire 45 s, water 18 s,
+measured on 2 Nov).
 
 The full app, with renders of its own on a GPU: https://github.com/grzenio22/cue-the-boom
 

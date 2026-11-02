@@ -2,6 +2,8 @@
 
 **Generate the effect once. Perform it again with your voice.**
 
+Other AI VFX tools generate an effect for a shot. Cue the Boom turns one LTX-2.5 render into an instrument: your voice decides when it fires, how big it plays and how long it burns, on a CPU.
+
 [![Watch the demo (1:54)](media/demo_thumb.jpg)](https://github.com/grzenio22/cue-the-boom/releases/tag/contest-2026-10-30)
 
 **[Watch the demo](https://github.com/grzenio22/cue-the-boom/releases/tag/contest-2026-10-30) · [Try it in your browser, no GPU](https://gshcloud-cue-the-boom.hf.space)**
@@ -13,12 +15,22 @@ Higgsfield's Effects presets, such as Fire Element, Air Bending, Explosion and T
 
 [Try it, no GPU](#try-it-on-your-computer-no-gpu) · [Try it live](#try-it-live-with-your-webcam) · [Why it's new](#why-its-new) · [How it works](#how-it-works) · [In ComfyUI](#comfyui-and-the-comfy-developer-platform) · [In detail](TECHNICAL.md)
 
-**Licence:** code under [MIT](LICENSE), with [`cuesync/` under Apache-2.0](cuesync/LICENSE). [Credits and licences](#credits-and-licences).
+**Licence:** code under [MIT](LICENSE), with [`cuesync/` under Apache-2.0](cuesync/LICENSE); exceptions and third-party notices in [NOTICE.md](NOTICE.md). [Credits and licences](#credits-and-licences).
 
-**Judging it?** No GPU, a few minutes: [install and start the studio](#try-it-on-your-computer-no-gpu), choose **Fire**, click **Perform this fire with your voice**, then **Try a sample voice instead** (or use your microphone). **Perform again** plays the same LTX-2.5 render in a new rhythm, with no new generation.
+**Judging it?** Fastest: [the Space](https://gshcloud-cue-the-boom.hf.space) in your browser, nothing to install. Or on your computer, no GPU, a few minutes: [install and start the studio](#try-it-on-your-computer-no-gpu). Either way, choose **Fire**, click **Perform this fire with your voice**, then **Try a sample voice instead** (or use your microphone). **Perform again** plays the same LTX-2.5 render in a new rhythm, with no new generation.
 
-![The author's own hand: BOOM throws a fireball off the fist, a held fffff keeps a flame in the palm through a walk from a hallway into a kitchen in one take, and a render performed again as pf pf pf PF](media/hand_hero.jpg)
-<sub>The author's own hand and voice, filmed on a phone. The third is a render performed again in a new rhythm, with no new render.</sub>
+| In numbers | |
+| --- | --- |
+| LTX-2.5 renders behind the palm fire in the gallery | **1** |
+| Recorded performances of that one render in the gallery | **7** (the author and four strangers' CC0 recordings) |
+| New model generations for those 7 performances | **0** |
+| Rendered into a scene with the CueSync nodes: single hits within 1 frame of their cue | **37 of 42** (0 of 42 straight from the model) |
+| A new performance on the Space's CPU (Hugging Face CPU Upgrade, 2 Nov) | fire **45 s**, water **18 s** |
+| On a desktop CPU from a fresh clone (Ryzen 9 7900X, Windows and Linux, 28 Oct) | fire performed again **21-53 s**, water **30-42 s** |
+| GPU needed to try it | **none** |
+
+![The author's own hand: BOOM throws a fireball off the fist, shhhh lashes a water whip off the palm, and a render performed again as pf pf pf PF](media/hand_hero.jpg)
+<sub>The author's own hand, filmed on a phone. The fire is a stored LTX-2.5 render played by the author's voice; the water is made on the CPU from the hand and a sample shhhh. The third is the same render performed again in a new rhythm, with no new render.</sub>
 
 The fire, the air vortex and the explosion's fireball are rendered once over black by **LTX-2.5** with the **[ainvfx-fluid](https://huggingface.co/AInVFX/ainvfx-fluid)** IC-LoRA, in a ComfyUI workflow sent through the Comfy Python SDK. **Lightning is a procedural CPU effect**, and the CPU makes the explosion's blast and does the compositing and light. An entry for Comfy's **[Open Source Higgsfield](https://comfy.org/open-source-higgsfield)** contest, on open weights only.
 
