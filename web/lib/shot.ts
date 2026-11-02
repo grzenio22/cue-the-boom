@@ -101,7 +101,7 @@ export const ALL_MADE_EFFECTS = [...MADE_EFFECTS, ...EXPERIMENTAL_HAND_EFFECTS];
 
 /** The default short routes. Fire reuses generated pixels; water, an explosion and lightning are made here. */
 export const QUICK_PERFORMANCES = [
-  { effect: "fire_burst", element: "Fire", form: "Fireball", plate: "hand_palm.mp4", cue: "BOOM", voices: ["ka-boom.wav", "pf-pf-boom-author.wav", "pf-x4-author.wav"] },
+  { effect: "fire_burst", element: "Fire", form: "Fireball", plate: "hand_palm.mp4", cue: "BOOM", voices: ["pf-pf-boom-author.wav", "pf-x4-author.wav", "ka-boom.wav"] },
   { effect: "water_whip", element: "Water", form: "Whip", plate: "hand_palm.mp4", cue: "shhhhh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "water_jet", element: "Water", form: "Jet", plate: "hand_palm.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },
   { effect: "water_orb", element: "Water", form: "Orb", plate: "hand_palm.mp4", cue: "shhhhh · sploosh", voices: ["shhhhh-sploosh.wav"] },

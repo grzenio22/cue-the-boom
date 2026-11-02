@@ -317,6 +317,16 @@ describe("Performer microphone lifecycle", () => {
     expect(host.querySelector('[aria-label="microphone level"]')).toBeNull();
   });
 
+  it("offers the quick flow's sample voices in its own order, the instant ones first", () => {
+    const names = quickPerformance("fire_burst").voices;
+    const served = [...names].reverse().map((name, i) => ({ ...voice, name, title: `Voice ${name}`, url: `/v${i}.wav` }));
+    show({ quick: true, quickEffect: "fire_burst", takes: 0, voices: served });
+    const order = [...host.querySelectorAll("button")].map((b) => b.textContent ?? "")
+      .filter((t) => t.startsWith("Voice ")).map((t) => names.find((n) => t.includes(n)));
+    expect(order).toEqual(names);
+    expect(names[0]).toBe("pf-pf-boom-author.wav");
+  });
+
   it("opens the sample voices when the shortcut's microphone is refused", async () => {
     getUserMedia.mockRejectedValueOnce(new DOMException("Denied", "NotAllowedError"));
     const sampleVoice = { ...voice, name: quickPerformance().voices[0] };

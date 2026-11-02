@@ -469,7 +469,10 @@ export default function Performer({ plateUrl, point, voices, takes, clipSound, s
             </button>
           );
         };
-        const offered = voices.filter((v) => quick ? choice.voices.includes(v.name) : hand || !v.hand);
+        // the quick flow offers its own voices in its own order (those with a shot made ahead first: they answer at once)
+        const offered = quick
+          ? voices.filter((v) => choice.voices.includes(v.name)).sort((a, b) => choice.voices.indexOf(a.name) - choice.voices.indexOf(b.name))
+          : voices.filter((v) => hand || !v.hand);
         const experimental = offered.filter((v) => isExperimentalEffect(v.effect ?? "") || isExperimentalEffect(sceneEffect(scene, v) ?? ""));
         const standard = quick ? offered : offered.filter((v) => !experimental.includes(v));
         const real = live ? [] : standard.filter(isReady);
